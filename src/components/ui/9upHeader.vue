@@ -83,7 +83,7 @@ const navigate = (item: { path: string; disabled?: boolean }) => {
 <template>
   <div class="relative min-h-screen bg-gray-100 dark:bg-neutral-900 text-gray-900 dark:text-neutral-100 overflow-hidden">
     <!-- 헤더 -->
-    <header class="fixed top-0 left-0 right-0 h-14 bg-white dark:bg-neutral-800 shadow z-10 px-4 flex items-center justify-between">
+    <header class="fixed top-0 left-0 right-0 h-14 bg-white dark:bg-neutral-800 shadow z-50 px-4 flex items-center justify-between">
       <button @click="isSidebarOpen = !isSidebarOpen" class="text-gray-700 dark:text-neutral-100">
         <component :is="isSidebarOpen ? X : Menu" class="w-6 h-6 transition-transform duration-300 cursor-pointer" />
       </button>
@@ -109,7 +109,7 @@ const navigate = (item: { path: string; disabled?: boolean }) => {
       <aside
           v-if="isSidebarOpen"
           ref="sidebarRef"
-          class="fixed top-0 left-0 w-72 max-w-[90%] h-full bg-white dark:bg-neutral-800 shadow-2xl z-50 p-5 flex flex-col"
+          class="fixed top-0 left-0 w-72 max-w-[90%] h-full bg-white dark:bg-neutral-800 shadow-2xl z-[99999] p-5 flex flex-col"
       >
         <div class="flex items-center justify-between mb-6">
           <div class="flex items-center gap-3">
