@@ -161,15 +161,16 @@ const excludedAbilities = computed(() => {
 
   if (isPitcher) {
     return [
-      { label: '투구 수', value: props.player.pitchLimit },
-      { label: '주자 견제', value: props.player.runnerControl },
-      { label: '수비력', value: props.player.defense }
+      { label: '수비', value: props.player.defense },
+      { label: '한계투구', value: props.player.pitchLimit },
+      { label: '주자견제', value: props.player.runnerControl }
+
     ]
   } else {
     return [
-      { label: '주루', value: props.player.baseRunning },
       { label: '도루', value: props.player.stealing },
-      { label: '수비력', value: props.player.defense }
+      { label: '주루', value: props.player.baseRunning },
+      { label: '수비', value: props.player.defense }
     ]
   }
 })
