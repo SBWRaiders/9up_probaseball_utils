@@ -43,8 +43,8 @@ interface TeamSetting { id: number|string; key: string; name: string; history: T
 ========================= */
 const STAT_LABELS: Record<string, string> = {
   power: '파워', contact: '컨택', defense: '수비', running: '주루',
-  control: '제구', movement: '무브먼트', stuff: '구위',
-  longHitSuppression: '장타 억제', homeRunSuppression: '홈런 억제', runnerControl: '주자 억제'
+  control: '컨트', movement: '무브먼트', stuff: '스터프',
+  longHitSuppression: '장타 억제', homeRunSuppression: '홈런 억제', runnerControl: '주자 견제'
 }
 const POSITION_ALIASES: Record<string, string> = {
   'b1': '1B', '1b': '1B', '1': '1B', '1루': '1B',
