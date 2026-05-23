@@ -43,7 +43,7 @@ interface GithubCommit {
   html_url: string
 }
 
-const owner = '2rangs'
+const owner = 'SBWRaiders'
 const repo = '9up_probaseball_utils'
 const perPage = 10
 
