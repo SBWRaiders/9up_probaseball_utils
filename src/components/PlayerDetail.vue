@@ -103,7 +103,7 @@ const translatePitchingType = (input: string): string => {
   return input === 'O' ? '오버 핸드' : input === 'U' ? '언더 핸드' : input === 'S' ? '사이드 암' : input
 }
 
-// ✅ [핵심 추가] 선수의 연도를 안전하게 뽑아내는 변수 (SSG 연도별 스킬 구분을 위해 필수)
+// ✅ [오류 해결 1] 대괄호가 있든 없든 에러 없이 연도를 깔끔하게 뽑아내는 마법의 변수
 const parsedPlayerYear = computed(() => {
   if (!props.player?.year) return '';
   try {
@@ -128,19 +128,17 @@ const abilities = computed(() => {
 
   if (isPitcher) {
     return [
-      // 투수: 제외 → pitchLimit, runnerControl, defense
       { label: '무브먼트', value: props.player.movement },
       { label: '홈런 억제', value: props.player.homeRunSuppression },
       { label: '스터프', value: props.player.stuff },
       { label: '컨트롤', value: props.player.control },
-      { label: '장타 억제', value: props.player.longHitSuppression }
+      { label: '장타 억제', value: props.player.longHitSuppression },
     ]
   } else {
-    // 타자: 제외 → stealing, baseRunning, defense
     return [
       { label: '컨택', value: props.player.contact },
       { label: '홈런파워', value: props.player.homeRunPower },
-      { label: '삼진회피', value: props.player.strikeoutAvoidance }
+      { label: '삼진회피', value: props.player.strikeoutAvoidance },
       { label: '선구안', value: props.player.plateDiscipline },
       { label: '갭파워', value: props.player.gapPower }
     ]
@@ -223,13 +221,10 @@ const radarOptions = {
   }
 }
 
-// ✅ [핵심 수정] 스킬 검색 시 연도(year) 정보도 함께 비교하도록 업그레이드
+// ✅ [오류 해결 2] 스킬 검색 시 연도(year) 정보도 함께 비교하는 기능 추가
 const matchSkillInfo = (skill: string, type: string, year?: string) => {
-  // 스킬 이름과 연도를 동시에 매칭하는 헬퍼 함수
   const findEnhanced = (skillName: string, targetYear?: string) => {
-    // 1. 이름과 연도가 완벽히 일치하는 데이터 검색 (SSG 22, 23, 24 구분용)
     let match = enhancedSkillData.value.find(s => s.enhanced_skill === skillName && String(s.year) === targetYear);
-    // 2. 만약 연도 매칭이 안 되면 이름만으로 검색 (다른 연도 구분 없는 스킬들용)
     if (!match) {
       match = enhancedSkillData.value.find(s => s.enhanced_skill === skillName);
     }
