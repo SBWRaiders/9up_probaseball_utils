@@ -58,7 +58,7 @@ const aborter = ref<AbortController | null>(null)
 const q = ref('')
 const includePrereleases = ref(false)
 const includeDrafts = ref(false)
-const showCommits = ref(true)
+const showCommits = ref(false)
 const commitSidebarCollapsed = ref(false)
 const expandedId = ref<number | null>(null)
 
