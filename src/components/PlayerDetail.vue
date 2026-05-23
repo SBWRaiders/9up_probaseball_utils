@@ -129,18 +129,18 @@ const abilities = computed(() => {
   if (isPitcher) {
     return [
       { label: '무브먼트', value: props.player.movement },
-      { label: '장타 억제', value: props.player.longHitSuppression },
       { label: '홈런 억제', value: props.player.homeRunSuppression },
-      { label: '제구력', value: props.player.control },
-      { label: '구질', value: props.player.stuff }
+      { label: '스터프', value: props.player.stuff },
+      { label: '컨트롤', value: props.player.control },
+      { label: '장타 억제', value: props.player.longHitSuppression }
     ]
   } else {
     return [
       { label: '컨택', value: props.player.contact },
-      { label: '갭파워', value: props.player.gapPower },
       { label: '홈런파워', value: props.player.homeRunPower },
-      { label: '선구안', value: props.player.plateDiscipline },
       { label: '삼진회피', value: props.player.strikeoutAvoidance }
+      { label: '선구안', value: props.player.plateDiscipline },
+      { label: '갭파워', value: props.player.gapPower }
     ]
   }
 })
