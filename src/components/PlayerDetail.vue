@@ -128,6 +128,7 @@ const abilities = computed(() => {
 
   if (isPitcher) {
     return [
+      // 투수: 제외 → pitchLimit, runnerControl, defense
       { label: '무브먼트', value: props.player.movement },
       { label: '홈런 억제', value: props.player.homeRunSuppression },
       { label: '스터프', value: props.player.stuff },
@@ -135,6 +136,7 @@ const abilities = computed(() => {
       { label: '장타 억제', value: props.player.longHitSuppression }
     ]
   } else {
+    // 타자: 제외 → stealing, baseRunning, defense
     return [
       { label: '컨택', value: props.player.contact },
       { label: '홈런파워', value: props.player.homeRunPower },
