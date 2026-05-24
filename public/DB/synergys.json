@@ -10515,3 +10515,47 @@
     ]
   }
 ]
+    "id": 415,
+    "synergy": "2025",
+    "synergy_effect": "- 라인업에 5~9명 기용 시 파워 +2% \n- 라인업에 10~19명 기용 시 파워 +5% \n- 라인업에 20명 이상 기용 시 파워 +7% ",
+    "description": "2025년에 활약한 선수 카드입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "between",
+          "min": 5,
+          "max": 9
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 2.0
+        }
+      },
+      {
+        "count": {
+          "op": "between",
+          "min": 10,
+          "max": 19
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      },
+      {
+        "count": {
+          "op": ">=",
+          "value": 20
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 7.0
+        }
+      }
+    ]
+  },
+  {
