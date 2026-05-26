@@ -1,10 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, defineComponent, h, nextTick, watch, reactive } from 'vue'
 import Papa from 'papaparse'
-// 아이콘 추가: Save, FolderOpen, RotateCcw
-import { Star, Search, Filter, ChevronLeft, ChevronRight, Users, ChevronRight as ChevronRightIcon, Moon, Sun, ChevronDown, ChevronUp, Menu, X, Save, FolderOpen, RotateCcw } from 'lucide-vue-next'
-import SideModal from "@/components/SideModal.vue";
-import PlayerDetail from "@/components/PlayerDetail.vue";
+import { Star, Search, Filter, ChevronRight as ChevronRightIcon, ChevronDown, X, Save, FolderOpen, RotateCcw, Trash2 } from 'lucide-vue-next'
 
 /* =========================
    타입 정의
@@ -60,17 +57,13 @@ const POSITION_ALIASES: Record<string, string> = {
   'rp': 'RP', '불펜': 'RP',
   'dh': 'DH', '지타': 'DH',
 }
-const CSV_SPLIT = /[,\u3001;、]+/
+const CSV_SPLIT = /[,、;、]+/
 const lineupViewMode = ref('batter')
-
-// 로컬 스토리지 키
-const LINEUP_STORAGE_KEY = '9up_lineup_save_data'
 
 /* =========================
    다크모드 & UI 상태
 ========================= */
 const expandedSynergies = ref<Set<string>>(new Set())
-const showModal = ref(false)
 
 const toggleSynergy = (synergyName: string) => {
   const newExpanded = new Set(expandedSynergies.value)
@@ -97,7 +90,7 @@ const collapseAllSynergies = () => {
 const normalizeText = (text: unknown): string =>
     String(text ?? '')
         .normalize('NFKC')
-        .replace(/\u200B|\u200C|\u200D|\u2060/g, '')
+        .replace(/​|‌|‍|⁠/g, '')
         .replace(/\s+/g, ' ')
         .trim()
         .toLowerCase()
@@ -114,7 +107,7 @@ const toArray = (value: any, { allowComma = true }: { allowComma?: boolean } = {
       return Array.isArray(parsed) ? parsed.map(x => String(x).trim()).filter(Boolean) : []
     } catch {}
   }
-  const splitter = allowComma ? CSV_SPLIT : /[\u3001;、;]+/
+  const splitter = allowComma ? CSV_SPLIT : /[、;、;]+/
   return str.split(splitter).map(x => x.replace(/^["']|["']$/g,'').trim()).filter(Boolean)
 }
 
@@ -159,36 +152,73 @@ const lineup = ref({
 const synergyViewMode = ref('by-synergy')
 
 /* =========================
-   저장 / 불러오기 / 초기화 기능
+   다중 저장 / 불러오기 기능
 ========================= */
+const LINEUP_SAVES_KEY = '9up_lineup_multiple_saves'
+const LINEUP_AUTOSAVE_KEY = '9up_lineup_autosave'
 
-// 💾 라인업 저장
-const saveLineup = () => {
-  try {
-    localStorage.setItem(LINEUP_STORAGE_KEY, JSON.stringify(lineup.value))
-    alert('현재 라인업이 성공적으로 저장되었습니다! 💾')
-  } catch (e) {
-    console.error('저장 실패:', e)
-    alert('저장에 실패했습니다.')
+const savedLineups = ref<Record<string, any>>({})
+const lineupModalMode = ref<'save' | 'load' | null>(null)
+const newLineupName = ref('')
+
+// 로컬 스토리지 데이터 로드
+const fetchSavedLineups = () => {
+  const data = localStorage.getItem(LINEUP_SAVES_KEY)
+  if (data) {
+    try { savedLineups.value = JSON.parse(data) } catch (e) {}
   }
 }
 
-// 📂 라인업 불러오기
-const loadLineup = (isAuto = false) => {
-  const savedData = localStorage.getItem(LINEUP_STORAGE_KEY)
-  if (savedData) {
-    try {
-      lineup.value = JSON.parse(savedData)
-      if (!isAuto) alert('저장된 라인업을 불러왔습니다! 📂')
-    } catch (e) {
-      console.error('불러오기 실패:', e)
+// 오토 세이브 (작업 중 새로고침 날아감 방지)
+watch(lineup, () => {
+  localStorage.setItem(LINEUP_AUTOSAVE_KEY, JSON.stringify(lineup.value))
+}, { deep: true })
+
+const openSaveModal = () => {
+  newLineupName.value = ''
+  lineupModalMode.value = 'save'
+}
+
+const confirmSaveLineup = () => {
+  const name = newLineupName.value.trim()
+  if (!name) return alert('라인업 이름을 입력해주세요.')
+  
+  fetchSavedLineups()
+  if (savedLineups.value[name] && !confirm(`'${name}' 라인업이 이미 존재합니다. 덮어쓰시겠습니까?`)) {
+    return
+  }
+  
+  savedLineups.value[name] = JSON.parse(JSON.stringify(lineup.value)) // 깊은 복사
+  localStorage.setItem(LINEUP_SAVES_KEY, JSON.stringify(savedLineups.value))
+  lineupModalMode.value = null
+  alert(`'${name}' 라인업이 성공적으로 저장되었습니다! 💾`)
+}
+
+const openLoadModal = () => {
+  fetchSavedLineups()
+  if (Object.keys(savedLineups.value).length === 0) {
+    return alert('저장된 라인업이 없습니다.')
+  }
+  lineupModalMode.value = 'load'
+}
+
+const selectAndLoadLineup = (name: string) => {
+  if (confirm(`'${name}' 라인업을 불러오시겠습니까? 현재 화면의 라인업은 덮어씌워집니다.`)) {
+    lineup.value = JSON.parse(JSON.stringify(savedLineups.value[name])) // 깊은 복사
+    lineupModalMode.value = null
+  }
+}
+
+const deleteSavedLineup = (name: string) => {
+  if (confirm(`'${name}' 라인업을 삭제하시겠습니까?`)) {
+    delete savedLineups.value[name]
+    localStorage.setItem(LINEUP_SAVES_KEY, JSON.stringify(savedLineups.value))
+    if (Object.keys(savedLineups.value).length === 0) {
+      lineupModalMode.value = null
     }
-  } else if (!isAuto) {
-    alert('저장된 라인업 내역이 없습니다.')
   }
 }
 
-// 🗑️ 라인업 초기화
 const resetLineup = () => {
   if (confirm('현재 라인업의 모든 선수를 슬롯에서 제거하시겠습니까? (저장된 라인업은 삭제되지 않습니다)')) {
     Object.keys(lineup.value).forEach(slot => {
@@ -466,7 +496,7 @@ const checkSynergyInclusion = (target: string, playerSynergies: string[]) => {
     }
   }
   // 텍스트 휴리스틱
-  const clean = (x:string)=>String(x??'').normalize('NFKC').replace(/\u200B|\u200C|\u200D|\u2060/g,'').replace(/[,\s]/g,'').trim()
+  const clean = (x:string)=>String(x??'').normalize('NFKC').replace(/​|‌|‍|⁠/g,'').replace(/[,\s]/g,'').trim()
   if (playerSynergies.some(s => clean(s)===clean(key))) return true
   const tm = clean(key).match(/(\D*)(\d+)(\D*)/); if (!tm) return false
   const [,tp,tn,ts] = tm
@@ -756,8 +786,11 @@ onMounted(async () => {
   isLoading.value = true
   try {
     await Promise.all([loadPlayerData(), loadSynergyData(), loadTeamData()])
-    // 마운트 시 저장된 라인업 자동 불러오기
-    loadLineup(true)
+    // 오토 세이브된 작업중인 라인업이 있다면 불러오기
+    const autoSaved = localStorage.getItem(LINEUP_AUTOSAVE_KEY)
+    if (autoSaved) {
+      try { lineup.value = JSON.parse(autoSaved) } catch (e) {}
+    }
   } catch (e) {
     console.error(e)
   } finally {
@@ -1123,14 +1156,14 @@ const LineupSlot = defineComponent({
               
               <div class="flex items-center gap-2">
                 <button 
-                  @click="saveLineup" 
+                  @click="openSaveModal" 
                   title="현재 라인업 저장"
                   class="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-800/40 transition-colors border border-blue-100 dark:border-blue-800/50"
                 >
                   <Save class="w-4 h-4" />
                 </button>
                 <button 
-                  @click="loadLineup(false)" 
+                  @click="openLoadModal" 
                   title="저장된 라인업 불러오기"
                   class="p-2 rounded-lg bg-neutral-50 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-600 transition-colors border border-neutral-200 dark:border-neutral-600"
                 >
@@ -1405,6 +1438,54 @@ const LineupSlot = defineComponent({
             </div>
           </div>
         </section>
+      </div>
+    </div>
+    
+    <!-- 라인업 저장/불러오기 모달 -->
+    <div v-if="lineupModalMode" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div class="bg-white dark:bg-neutral-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+        <!-- 헤더 -->
+        <div class="flex items-center justify-between px-5 py-4 border-b border-neutral-100 dark:border-neutral-700">
+          <h3 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+            {{ lineupModalMode === 'save' ? '라인업 저장' : '라인업 불러오기' }}
+          </h3>
+          <button @click="lineupModalMode = null" class="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300">
+            <X class="w-5 h-5" />
+          </button>
+        </div>
+        
+        <!-- 저장 모드 -->
+        <div v-if="lineupModalMode === 'save'" class="p-5 space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">라인업 이름</label>
+            <input 
+              v-model="newLineupName" 
+              @keyup.enter="confirmSaveLineup"
+              type="text" 
+              placeholder="예: 22 SSG 우승 라인업" 
+              class="w-full px-4 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+            >
+          </div>
+          <div class="flex justify-end gap-2 pt-2">
+            <button @click="lineupModalMode = null" class="px-4 py-2 rounded-lg text-sm font-medium text-neutral-600 bg-neutral-100 hover:bg-neutral-200 dark:text-neutral-300 dark:bg-neutral-700 dark:hover:bg-neutral-600 transition-colors">취소</button>
+            <button @click="confirmSaveLineup" class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors">저장하기</button>
+          </div>
+        </div>
+        
+        <!-- 불러오기 모드 -->
+        <div v-else-if="lineupModalMode === 'load'" class="p-5">
+          <div class="space-y-2 max-h-64 overflow-y-auto pr-1">
+            <div v-for="(savedData, name) in savedLineups" :key="name" class="flex items-center justify-between p-3 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900/50 hover:border-blue-300 dark:hover:border-blue-600 transition-colors">
+              <span class="font-medium text-neutral-800 dark:text-neutral-200 truncate pr-4">{{ name }}</span>
+              <div class="flex items-center gap-2 flex-shrink-0">
+                <button @click="selectAndLoadLineup(String(name))" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:hover:bg-blue-800/60 transition-colors">불러오기</button>
+                <button @click="deleteSavedLineup(String(name))" class="p-1.5 text-xs font-semibold rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors" title="삭제">
+                  <Trash2 class="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
