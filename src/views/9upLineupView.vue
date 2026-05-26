@@ -1462,7 +1462,7 @@ const LineupSlot = defineComponent({
               v-model="newLineupName" 
               @keyup.enter="confirmSaveLineup"
               type="text" 
-              placeholder="예: 22 SSG 우승 라인업" 
+              placeholder="예: 83 해태 우승 라인업" 
               class="w-full px-4 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
             >
           </div>
