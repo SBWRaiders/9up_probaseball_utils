@@ -12,23 +12,26 @@ const selectedPlayer = ref<Raw | null>(null)
 
 // 엑셀 계산기 스타일의 스탯 상태 (타자용, 투수용)
 const batterStats = reactive({
-  power: { base: 0, enhance: 0, skill: 0, synergy: 0 },
-  contact: { base: 0, enhance: 0, skill: 0, synergy: 0 },
-  defense: { base: 0, enhance: 0, skill: 0, synergy: 0 },
-  running: { base: 0, enhance: 0, skill: 0, synergy: 0 },
+  contact: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '컨택' },
+  gapPower: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '갭파워' },
+  homeRunPower: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '홈런파워' },
+  plateDiscipline: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '선구' },
+  strikeoutAvoidance: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '삼진회피' },
+  stealing: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '도루' },
+  baseRunning: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '주루' },
+  defense: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '수비' },
 })
 
 const pitcherStats = reactive({
-  control: { base: 0, enhance: 0, skill: 0, synergy: 0 },
-  movement: { base: 0, enhance: 0, skill: 0, synergy: 0 },
-  stuff: { base: 0, enhance: 0, skill: 0, synergy: 0 },
-  longHitSup: { base: 0, enhance: 0, skill: 0, synergy: 0 },
-  hrSup: { base: 0, enhance: 0, skill: 0, synergy: 0 },
-  runnerCtrl: { base: 0, enhance: 0, skill: 0, synergy: 0 },
+  movement: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '무브먼트' },
+  longHitSup: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '장타억제' },
+  hrSup: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '홈런억제' },
+  control: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '컨트롤' },
+  stuff: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '스터프(구위)' },
+  defense: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '수비' },
+  pitchLimit: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '한계투구' },
+  runnerCtrl: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '주자견제' },
 })
-
-// 공통 강화 레벨 (1~10강 등 일괄 적용용도)
-const globalEnhance = ref<number>(0)
 
 const isPitcher = computed(() => {
   if (!selectedPlayer.value) return false
@@ -61,44 +64,60 @@ const filteredPlayers = computed(() => {
   return players.value.filter(p => 
     String(p.name || '').toLowerCase().includes(query) ||
     String(p.team || '').toLowerCase().includes(query)
-  ).slice(0, 50) // 최대 50명만 표시
+  ).slice(0, 50)
 })
 
 // 선수 선택 시 기본 스탯 연동
 const selectPlayer = (p: Raw) => {
   selectedPlayer.value = p
   searchQuery.value = ''
-  globalEnhance.value = 0
   
   // 모든 스탯 초기화
   Object.values(batterStats).forEach(stat => { stat.base=0; stat.enhance=0; stat.skill=0; stat.synergy=0 })
   Object.values(pitcherStats).forEach(stat => { stat.base=0; stat.enhance=0; stat.skill=0; stat.synergy=0 })
   
   if (isPitcher.value) {
-    pitcherStats.control.base = Number(p.control || 0)
     pitcherStats.movement.base = Number(p.movement || 0)
-    pitcherStats.stuff.base = Number(p.stuff || 0)
     pitcherStats.longHitSup.base = Number(p.longHitSuppression || 0)
     pitcherStats.hrSup.base = Number(p.homeRunSuppression || 0)
+    pitcherStats.control.base = Number(p.control || 0)
+    pitcherStats.stuff.base = Number(p.stuff || 0)
+    pitcherStats.defense.base = Number(p.defense || 0)
+    pitcherStats.pitchLimit.base = Number(p.pitchLimit || 0)
     pitcherStats.runnerCtrl.base = Number(p.runnerControl || 0)
   } else {
-    batterStats.power.base = Number(p.power || 0)
     batterStats.contact.base = Number(p.contact || 0)
+    batterStats.gapPower.base = Number(p.gapPower || 0)
+    batterStats.homeRunPower.base = Number(p.homeRunPower || 0)
+    batterStats.plateDiscipline.base = Number(p.plateDiscipline || 0)
+    batterStats.strikeoutAvoidance.base = Number(p.strikeoutAvoidance || 0)
+    batterStats.stealing.base = Number(p.stealing || 0)
+    batterStats.baseRunning.base = Number(p.baseRunning || 0)
     batterStats.defense.base = Number(p.defense || 0)
-    batterStats.running.base = Number(p.running || 0)
   }
 }
 
-// 스탯 총합 계산기
-const getBatterTotal = (key: keyof typeof batterStats) => {
-  const s = batterStats[key]
-  return s.base + s.enhance + s.skill + s.synergy
+// 스탯 총합 계산기 (각 행의 최종합)
+const getStatTotal = (stat: { base: number, enhance: number, skill: number, synergy: number }) => {
+  return stat.base + (stat.enhance || 0) + (stat.skill || 0) + (stat.synergy || 0)
 }
 
-const getPitcherTotal = (key: keyof typeof pitcherStats) => {
-  const s = pitcherStats[key]
-  return s.base + s.enhance + s.skill + s.synergy
-}
+// 파워(종합 OVR) 계산기
+const totalPower = computed(() => {
+  let baseSum = 0, enhanceSum = 0, skillSum = 0, synergySum = 0, finalSum = 0
+  
+  const stats = isPitcher.value ? Object.values(pitcherStats) : Object.values(batterStats)
+  
+  stats.forEach(s => {
+    baseSum += s.base
+    enhanceSum += (s.enhance || 0)
+    skillSum += (s.skill || 0)
+    synergySum += (s.synergy || 0)
+    finalSum += getStatTotal(s)
+  })
+  
+  return { baseSum, enhanceSum, skillSum, synergySum, finalSum }
+})
 
 // 유틸: 텍스트 배열화
 const getArray = (str: any) => {
@@ -117,7 +136,7 @@ const getArray = (str: any) => {
         </div>
         <div>
           <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 tracking-tight">스탯 계산기</h1>
-          <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">엑셀 없이 웹에서 편하게 선수의 최종 스탯을 계산해보세요.</p>
+          <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">엑셀 없이 웹에서 편하게 선수의 최종 스탯과 종합 파워를 계산해보세요.</p>
         </div>
       </header>
 
@@ -218,87 +237,111 @@ const getArray = (str: any) => {
                   </div>
                 </h2>
               </div>
+              <div class="text-right flex flex-col items-end">
+                <span class="text-blue-200 text-xs font-semibold uppercase tracking-wider mb-1">종합 파워 (총합)</span>
+                <span class="text-4xl font-black tabular-nums">{{ totalPower.finalSum }}</span>
+              </div>
             </div>
 
             <!-- 계산기 테이블 -->
             <div class="p-6">
               <div class="mb-4 flex items-center justify-between">
                 <h3 class="text-lg font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-                  <TrendingUp class="w-5 h-5 text-blue-500" /> 스탯 수동 계산기
+                  <TrendingUp class="w-5 h-5 text-blue-500" /> 세부 스탯 수동 계산기
                 </h3>
               </div>
 
-              <div class="overflow-x-auto">
+              <div class="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-700">
                 <table class="w-full text-sm text-center border-collapse">
                   <thead>
-                    <tr class="bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300">
-                      <th class="p-3 border border-neutral-200 dark:border-neutral-600 font-semibold rounded-tl-xl">스탯 항목</th>
-                      <th class="p-3 border border-neutral-200 dark:border-neutral-600 font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20">DB 기본 스탯</th>
-                      <th class="p-3 border border-neutral-200 dark:border-neutral-600 font-semibold">강화/훈련 (+입력)</th>
-                      <th class="p-3 border border-neutral-200 dark:border-neutral-600 font-semibold">스킬 보너스 (+입력)</th>
-                      <th class="p-3 border border-neutral-200 dark:border-neutral-600 font-semibold">시너지 보너스 (+입력)</th>
-                      <th class="p-3 border border-neutral-200 dark:border-neutral-600 font-bold bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 rounded-tr-xl">최종 스탯</th>
+                    <tr class="bg-neutral-100 dark:bg-neutral-700/80 text-neutral-600 dark:text-neutral-300">
+                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-1/6">스탯 항목</th>
+                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/10 w-1/6">DB 기본 스탯</th>
+                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-1/6">강화/훈련 (+)</th>
+                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-1/6">스킬 (+)</th>
+                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-1/6">시너지 (+)</th>
+                      <th class="p-3 border-b border-neutral-200 dark:border-neutral-700 font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/10 w-1/6">최종 스탯</th>
                     </tr>
                   </thead>
                   
-                  <!-- 타자 테이블 -->
-                  <tbody v-if="!isPitcher">
-                    <tr v-for="(statObj, key) in batterStats" :key="key" class="hover:bg-neutral-50 dark:hover:bg-neutral-700/50 transition-colors">
-                      <td class="p-3 border border-neutral-200 dark:border-neutral-600 font-bold text-neutral-800 dark:text-neutral-200 bg-neutral-50 dark:bg-neutral-700/30">
-                        {{ key === 'power' ? '파워' : key === 'contact' ? '컨택' : key === 'defense' ? '수비' : '주루' }}
-                      </td>
-                      <td class="p-3 border border-neutral-200 dark:border-neutral-600 font-bold text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/10">
-                        {{ statObj.base }}
-                      </td>
-                      <td class="p-2 border border-neutral-200 dark:border-neutral-600">
-                        <input type="number" v-model.number="statObj.enhance" class="w-20 px-2 py-1 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded outline-none focus:border-blue-500" />
-                      </td>
-                      <td class="p-2 border border-neutral-200 dark:border-neutral-600">
-                        <input type="number" v-model.number="statObj.skill" class="w-20 px-2 py-1 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded outline-none focus:border-blue-500" />
-                      </td>
-                      <td class="p-2 border border-neutral-200 dark:border-neutral-600">
-                        <input type="number" v-model.number="statObj.synergy" class="w-20 px-2 py-1 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded outline-none focus:border-blue-500" />
-                      </td>
-                      <td class="p-3 border border-neutral-200 dark:border-neutral-600 font-extrabold text-lg text-indigo-700 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/10">
-                        {{ getBatterTotal(key) }}
-                      </td>
-                    </tr>
+                  <tbody>
+                    <!-- 반복 렌더링 영역 (타자/투수에 따라 다름) -->
+                    <template v-if="!isPitcher">
+                      <tr v-for="(statObj, key) in batterStats" :key="key" class="border-b border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700/30 transition-colors">
+                        <td class="p-3 border-r border-neutral-200 dark:border-neutral-700 font-semibold text-neutral-800 dark:text-neutral-200 bg-neutral-50/50 dark:bg-neutral-700/20">
+                          {{ statObj.label }}
+                        </td>
+                        <td class="p-3 border-r border-neutral-200 dark:border-neutral-700 font-semibold text-blue-600 dark:text-blue-400 bg-blue-50/30 dark:bg-blue-900/5">
+                          {{ statObj.base }}
+                        </td>
+                        <td class="p-2 border-r border-neutral-200 dark:border-neutral-700">
+                          <input type="number" v-model.number="statObj.enhance" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-shadow" />
+                        </td>
+                        <td class="p-2 border-r border-neutral-200 dark:border-neutral-700">
+                          <input type="number" v-model.number="statObj.skill" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-shadow" />
+                        </td>
+                        <td class="p-2 border-r border-neutral-200 dark:border-neutral-700">
+                          <input type="number" v-model.number="statObj.synergy" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-shadow" />
+                        </td>
+                        <td class="p-3 font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50/30 dark:bg-indigo-900/5">
+                          {{ getStatTotal(statObj) }}
+                        </td>
+                      </tr>
+                    </template>
+
+                    <template v-else>
+                      <tr v-for="(statObj, key) in pitcherStats" :key="key" class="border-b border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700/30 transition-colors">
+                        <td class="p-3 border-r border-neutral-200 dark:border-neutral-700 font-semibold text-neutral-800 dark:text-neutral-200 bg-neutral-50/50 dark:bg-neutral-700/20">
+                          {{ statObj.label }}
+                        </td>
+                        <td class="p-3 border-r border-neutral-200 dark:border-neutral-700 font-semibold text-blue-600 dark:text-blue-400 bg-blue-50/30 dark:bg-blue-900/5">
+                          {{ statObj.base }}
+                        </td>
+                        <td class="p-2 border-r border-neutral-200 dark:border-neutral-700">
+                          <input type="number" v-model.number="statObj.enhance" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-shadow" />
+                        </td>
+                        <td class="p-2 border-r border-neutral-200 dark:border-neutral-700">
+                          <input type="number" v-model.number="statObj.skill" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-shadow" />
+                        </td>
+                        <td class="p-2 border-r border-neutral-200 dark:border-neutral-700">
+                          <input type="number" v-model.number="statObj.synergy" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-shadow" />
+                        </td>
+                        <td class="p-3 font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50/30 dark:bg-indigo-900/5">
+                          {{ getStatTotal(statObj) }}
+                        </td>
+                      </tr>
+                    </template>
                   </tbody>
 
-                  <!-- 투수 테이블 -->
-                  <tbody v-else>
-                    <tr v-for="(statObj, key) in pitcherStats" :key="key" class="hover:bg-neutral-50 dark:hover:bg-neutral-700/50 transition-colors">
-                      <td class="p-3 border border-neutral-200 dark:border-neutral-600 font-bold text-neutral-800 dark:text-neutral-200 bg-neutral-50 dark:bg-neutral-700/30">
-                        {{ 
-                          key === 'control' ? '컨트롤' : 
-                          key === 'movement' ? '무브먼트' : 
-                          key === 'stuff' ? '구위' : 
-                          key === 'longHitSup' ? '장타 억제' : 
-                          key === 'hrSup' ? '홈런 억제' : '주자 견제' 
-                        }}
+                  <!-- 파워 (총합) 요약 로우 -->
+                  <tfoot class="bg-neutral-100 dark:bg-neutral-700/50">
+                    <tr>
+                      <td class="p-4 border-r border-neutral-200 dark:border-neutral-700 font-extrabold text-neutral-900 dark:text-neutral-100 uppercase tracking-widest text-base bg-blue-100/50 dark:bg-blue-900/20">
+                        파워 (총합)
                       </td>
-                      <td class="p-3 border border-neutral-200 dark:border-neutral-600 font-bold text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/10">
-                        {{ statObj.base }}
+                      <td class="p-4 border-r border-neutral-200 dark:border-neutral-700 font-bold text-blue-700 dark:text-blue-300 bg-blue-100/30 dark:bg-blue-900/10 text-base tabular-nums">
+                        {{ totalPower.baseSum }}
                       </td>
-                      <td class="p-2 border border-neutral-200 dark:border-neutral-600">
-                        <input type="number" v-model.number="statObj.enhance" class="w-20 px-2 py-1 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded outline-none focus:border-blue-500" />
+                      <td class="p-4 border-r border-neutral-200 dark:border-neutral-700 font-bold text-neutral-700 dark:text-neutral-300 tabular-nums">
+                        +{{ totalPower.enhanceSum }}
                       </td>
-                      <td class="p-2 border border-neutral-200 dark:border-neutral-600">
-                        <input type="number" v-model.number="statObj.skill" class="w-20 px-2 py-1 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded outline-none focus:border-blue-500" />
+                      <td class="p-4 border-r border-neutral-200 dark:border-neutral-700 font-bold text-neutral-700 dark:text-neutral-300 tabular-nums">
+                        +{{ totalPower.skillSum }}
                       </td>
-                      <td class="p-2 border border-neutral-200 dark:border-neutral-600">
-                        <input type="number" v-model.number="statObj.synergy" class="w-20 px-2 py-1 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded outline-none focus:border-blue-500" />
+                      <td class="p-4 border-r border-neutral-200 dark:border-neutral-700 font-bold text-neutral-700 dark:text-neutral-300 tabular-nums">
+                        +{{ totalPower.synergySum }}
                       </td>
-                      <td class="p-3 border border-neutral-200 dark:border-neutral-600 font-extrabold text-lg text-indigo-700 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/10">
-                        {{ getPitcherTotal(key) }}
+                      <td class="p-4 font-black text-xl text-indigo-700 dark:text-indigo-400 bg-indigo-100/50 dark:bg-indigo-900/20 tabular-nums">
+                        {{ totalPower.finalSum }}
                       </td>
                     </tr>
-                  </tbody>
+                  </tfoot>
                 </table>
               </div>
+
               <div class="mt-4 p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-300 flex items-start gap-2">
                 <Shield class="w-5 h-5 flex-shrink-0 mt-0.5" />
-                <p>선수를 검색해서 클릭하면 DB에 있는 <strong>기본 스탯이 자동으로 채워집니다.</strong> 인게임에서 추가로 얻는 강화수치, 장착한 스킬 보너스, 활성화된 시너지 보너스 수치를 입력하면 <strong>최종 스탯이 실시간으로 우측에 계산</strong>됩니다.</p>
+                <p>선수를 검색해서 클릭하면 <strong>세부 기본 스탯 8종이 자동으로 채워집니다.</strong> 추가로 얻는 보너스(훈련/스킬/시너지)를 빈칸에 입력하면 각 항목의 최종 스탯과 가장 아래에 있는 <strong>종합 파워(OVR)</strong>가 실시간으로 완벽하게 합산되어 계산됩니다.</p>
               </div>
             </div>
           </section>
@@ -310,7 +353,7 @@ const getArray = (str: any) => {
             </div>
             <h2 class="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-2">선수를 선택해주세요</h2>
             <p class="text-neutral-500 dark:text-neutral-400 max-w-md">
-              왼쪽 검색창에서 스탯을 계산할 선수를 찾아 클릭하면, 해당 선수의 기본 스탯이 자동으로 채워진 엑셀 형식의 계산기가 나타납니다.
+              왼쪽 검색창에서 스탯을 계산할 선수를 찾아 클릭하면, 해당 선수의 모든 세부 스탯과 파워(총합)를 계산할 수 있는 테이블이 열립니다.
             </p>
           </section>
         </div>
