@@ -27,7 +27,7 @@ const pitcherStats = reactive({
   longHitSup: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '장타억제' },
   hrSup: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '홈런억제' },
   control: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '컨트롤' },
-  stuff: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '스터프(구위)' },
+  stuff: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '스터프' },
   defense: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '수비' },
   pitchLimit: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '한계투구' },
   runnerCtrl: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '주자견제' },
