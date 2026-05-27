@@ -65,10 +65,11 @@ onBeforeUnmount(() => {
 
 // 메뉴 목록 (disable 추가)
 const menuItems = [
-    { name: '공지 사항', path: '/notice', disabled: false },
+  { name: '공지 사항', path: '/notice', disabled: false },
   { name: '선수 검색', path: '/players', disabled: false },
   { name: '스킬 목록', path: '/skills', disabled: false },
-  { name: '라인업 생성', path: '/lineups', disabled: false }
+  { name: '라인업 생성', path: '/lineups', disabled: false },
+  { name: '스탯 계산기', path: '/calculator', disabled: false }
 ]
 
 const navigate = (item: { path: string; disabled?: boolean }) => {
