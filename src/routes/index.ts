@@ -36,4 +36,12 @@ export const router = createRouter({
     history: createWebHistory(),
     routes,
 })
+// 파일 위쪽 import 모여있는 곳에 추가
+import CalculatorView from '../views/9upCalculatorView.vue'
 
+// routes 배열 안에 추가
+{
+  path: '/calculator',
+  name: 'calculator',
+  component: CalculatorView
+}
