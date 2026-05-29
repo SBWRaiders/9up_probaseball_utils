@@ -1,12 +1,28 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, reactive, watch } from 'vue'
 import Papa from 'papaparse'
-import { Search, Calculator, Star, Shield, Zap, TrendingUp, X } from 'lucide-vue-next'
+import { Search, Calculator, Star, Shield, Zap, TrendingUp, X, Users } from 'lucide-vue-next'
 
 type Raw = Record<string, any>
 
+interface JsonBonus { unit: 'percent' | 'fixed'; value: number }
+interface JsonCond  {
+  count: (
+      | { op: string, value: number }
+      | { op: 'between', min: number, max: number }
+      ),
+  stat: string
+  bonus: JsonBonus
+}
+interface JsonSynergy {
+  id: number | string
+  synergy: string
+  conditions: JsonCond[]
+}
+
 const isLoading = ref(true)
 const players = ref<Raw[]>([])
+const synergys = ref<JsonSynergy[]>([])
 const searchQuery = ref('')
 const selectedPlayer = ref<Raw | null>(null)
 
@@ -48,13 +64,15 @@ const maxSkillSlots = computed(() => {
   return 3
 })
 
+// 유틸: 텍스트 배열화
+const getArray = (str: any) => {
+  if (!str) return []
+  return String(str).split(',').map(s => s.trim()).filter(Boolean)
+}
+
 // 선수가 보유한 전체 스킬 목록 (포수 전용 제외)
 const availableSkills = computed(() => {
   if (!selectedPlayer.value) return []
-  const getArray = (str: any) => {
-    if (!str) return []
-    return String(str).split(',').map(s => s.trim()).filter(Boolean)
-  }
   const baseSkills = getArray(selectedPlayer.value.skill)
   const enhancedSkills = getArray(selectedPlayer.value.enhancedSkill)
   
@@ -64,10 +82,9 @@ const availableSkills = computed(() => {
   return Array.from(new Set(filteredSkills))
 })
 
-// 통합된 스킬 선택 슬롯
 const selectedSkills = ref(['', '', ''])
 
-// AI 분석 스킬 효과 데이터베이스 (조건부 스탯은 OVR 반영에서 제외됨)
+// AI 분석 스킬 효과 데이터베이스
 const SKILL_EFFECTS: Record<string, any> = {
   "1번": {"powerPercent": 10.0, "stats": {}}, 
   "2번": {"powerPercent": 10.0, "stats": {}}, 
@@ -125,12 +142,66 @@ const SKILL_EFFECTS: Record<string, any> = {
   "하이볼 히터": {"powerPercent": 0, "stats": {"contact": 10.0, "strikeoutAvoidance": 5.0, "homeRunPower": -5.0}}
 }
 
-// 자동 계산되는 총합 % 상태
+// 자동 계산 상태 관리
 const autoPowerPercent = ref(0)
-
-// 파워 전체 수동 보너스 입력
 const manualPowerFixed = ref(0)
 const manualPowerPercent = ref(0)
+
+// ---- 시너지 로직 추가 부분 ----
+const activeSynergyConditions = ref<Record<string, number>>({})
+
+const playerSynergiesData = computed(() => {
+  if (!selectedPlayer.value) return []
+  const synNames = getArray(selectedPlayer.value.synergy)
+  return synergys.value.filter(s => synNames.includes(s.synergy))
+})
+
+const toggleSynergyCondition = (synName: string, idx: number) => {
+  if (activeSynergyConditions.value[synName] === idx) {
+    const newObj = { ...activeSynergyConditions.value }
+    delete newObj[synName]
+    activeSynergyConditions.value = newObj
+  } else {
+    activeSynergyConditions.value = { ...activeSynergyConditions.value, [synName]: idx }
+  }
+}
+
+const formatConditionText = (cond: any) => {
+  if (!cond.count) return ''
+  if (cond.count.op === 'between') {
+    return `${cond.count.min}~${cond.count.max}명`
+  }
+  return `${cond.count.value}명 이상`
+}
+
+// 시너지를 통해 자동 획득되는 파워 보너스 (고정치 & %치)
+const autoSynergyFixed = computed(() => {
+  let total = 0
+  for (const [synName, condIdx] of Object.entries(activeSynergyConditions.value)) {
+    const syn = synergys.value.find(s => s.synergy === synName)
+    if (syn && syn.conditions[condIdx]) {
+      const cond = syn.conditions[condIdx]
+      if (cond.stat === 'power' && cond.bonus.unit === 'fixed') {
+        total += cond.bonus.value
+      }
+    }
+  }
+  return total
+})
+
+const autoSynergyPercent = computed(() => {
+  let total = 0
+  for (const [synName, condIdx] of Object.entries(activeSynergyConditions.value)) {
+    const syn = synergys.value.find(s => s.synergy === synName)
+    if (syn && syn.conditions[condIdx]) {
+      const cond = syn.conditions[condIdx]
+      if (cond.stat === 'power' && cond.bonus.unit === 'percent') {
+        total += cond.bonus.value
+      }
+    }
+  }
+  return total
+})
 
 // 데이터 불러오기
 onMounted(async () => {
@@ -143,6 +214,14 @@ onMounted(async () => {
       complete: ({ data }) => (data as Raw[]).forEach(row => result.push(row))
     })
     players.value = result
+    
+    // 시너지 JSON 가져오기
+    const synRes = await fetch('/DB/synergys.json', { cache: 'no-store' })
+    if (synRes.ok) {
+      const synJson = await synRes.json()
+      synergys.value = (Array.isArray(synJson) ? synJson : [])
+        .filter((it: any) => Array.isArray(it?.conditions) && it.conditions.length > 0)
+    }
   } catch (e) {
     console.error(e)
   } finally {
@@ -159,11 +238,12 @@ const filteredPlayers = computed(() => {
   ).slice(0, 50)
 })
 
-// 선수 선택 시 스탯 연동
+// 선수 선택 시 스탯 초기화
 const selectPlayer = (p: Raw) => {
   selectedPlayer.value = p
   searchQuery.value = ''
   selectedSkills.value = ['', '', '']
+  activeSynergyConditions.value = {}
   manualPowerFixed.value = 0
   manualPowerPercent.value = 0
   autoPowerPercent.value = 0
@@ -192,7 +272,7 @@ const selectPlayer = (p: Raw) => {
   }
 }
 
-// 스킬 선택 시 자동으로 표의 [스킬 (+)] 칸에 수치를 채워넣는 로직
+// 스킬 변경 감지하여 스탯 자동 분배
 watch(selectedSkills, () => {
   let totalPowerP = 0
   let statPercents: Record<string, number> = {
@@ -226,20 +306,17 @@ watch(selectedSkills, () => {
   }
 }, { deep: true })
 
-// 개별 스탯 1개의 최종합 계산기 (핵심 스탯은 파워 보너스의 영향을 받음!)
+// 개별 스탯 가로 총합 계산기
 const getStatTotal = (stat: { base: number, enhance: number, skill: number, synergy: number, isCore: boolean }) => {
   let raw = stat.base + (stat.enhance || 0) + (stat.skill || 0) + (stat.synergy || 0)
   
-  // 파워 분배 로직 적용 (핵심 5스탯만!)
+  // 파워 분배 로직 적용 (핵심 5스탯만 1/5 씩 받고, % 곱셈 적용)
   if (stat.isCore) {
-    // 1. 고정 파워 보너스 수동입력값을 5개로 나눠서 분배
-    raw += (manualPowerFixed.value / 5)
+    raw += ((manualPowerFixed.value + autoSynergyFixed.value) / 5)
     
-    // 2. 전체 파워 % 보너스 곱연산
-    const totalPercentBonus = autoPowerPercent.value + manualPowerPercent.value
+    const totalPercentBonus = autoPowerPercent.value + manualPowerPercent.value + autoSynergyPercent.value
     raw = Math.floor(raw * (1 + totalPercentBonus / 100))
   }
-  
   return raw
 }
 
@@ -253,17 +330,15 @@ const totalPower = computed(() => {
     baseSum += s.base
     enhanceSum += (s.enhance || 0)
     skillSum += (s.skill || 0)
+    synergySum += (s.synergy || 0)
     
-    // 표출용 synergySum 계산
-    let syn = (s.synergy || 0)
-    if (s.isCore) { syn += (manualPowerFixed.value / 5) }
-    synergySum += syn
-    
-    // 각 스탯의 진짜 최종 합을 더해서 총 파워 산출
     finalSum += getStatTotal(s)
   })
   
-  return { baseSum, enhanceSum, skillSum, synergySum, finalSum }
+  const totalPercentBonus = autoPowerPercent.value + manualPowerPercent.value + autoSynergyPercent.value
+  const globalFixed = manualPowerFixed.value + autoSynergyFixed.value
+  
+  return { baseSum, enhanceSum, skillSum, synergySum, finalSum, totalPercentBonus, globalFixed }
 })
 </script>
 
@@ -277,7 +352,7 @@ const totalPower = computed(() => {
         </div>
         <div>
           <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 tracking-tight">스탯 계산기</h1>
-          <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">인게임 로직 완벽 반영! 추가 파워는 핵심 5스탯(⚡)에 동일하게 1/5씩 나뉘어 합산됩니다.</p>
+          <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">버튼 원클릭만으로 시너지가 계산되고, 추가 파워는 핵심 5스탯(⚡)에 동일하게 1/5씩 나뉘어 합산됩니다.</p>
         </div>
       </header>
 
@@ -287,7 +362,7 @@ const totalPower = computed(() => {
 
       <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        <!-- 왼쪽: 선수 검색 및 스킬 힌트 -->
+        <!-- 왼쪽: 선수 검색 -->
         <div class="lg:col-span-3 flex flex-col gap-6">
           <section class="bg-white dark:bg-neutral-800 rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-700 p-5">
             <h2 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
@@ -381,6 +456,29 @@ const totalPower = computed(() => {
               </div>
             </div>
 
+            <!-- 시너지 선택 슬롯 영역 -->
+            <div class="p-6 bg-indigo-50/30 dark:bg-indigo-900/10 border-b border-neutral-100 dark:border-neutral-700">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
+                  <Users class="w-4 h-4 text-indigo-500" /> 보유 시너지 적용
+                </h3>
+              </div>
+              <div class="flex flex-col gap-3">
+                <div v-for="syn in playerSynergiesData" :key="syn.synergy" class="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <span class="text-xs font-bold text-neutral-700 dark:text-neutral-300 w-36 shrink-0">{{ syn.synergy }}</span>
+                  <div class="flex flex-wrap gap-2">
+                    <button v-for="(cond, idx) in syn.conditions" :key="idx"
+                      @click="toggleSynergyCondition(syn.synergy, idx)"
+                      class="px-3 py-1.5 text-[11px] font-medium rounded-lg border transition-colors shadow-sm"
+                      :class="activeSynergyConditions[syn.synergy] === idx ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-300 dark:border-neutral-600 hover:border-indigo-400 dark:hover:border-indigo-500'">
+                      {{ formatConditionText(cond) }} (파워 +{{ cond.bonus.value }}{{ cond.bonus.unit === 'percent' ? '%' : '' }})
+                    </button>
+                  </div>
+                </div>
+                <div v-if="!playerSynergiesData.length" class="text-xs text-neutral-400">보유한 시너지가 없습니다.</div>
+              </div>
+            </div>
+
             <!-- 계산기 테이블 -->
             <div class="p-6 pt-5">
               <div class="mb-4 flex items-center justify-between">
@@ -403,6 +501,7 @@ const totalPower = computed(() => {
                   </thead>
                   
                   <tbody>
+                    <!-- 타자 렌더링 -->
                     <template v-if="!isPitcher">
                       <tr v-for="(statObj, key) in batterStats" :key="key" class="border-b border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700/30 transition-colors">
                         <td class="p-3 border-r border-neutral-200 dark:border-neutral-700 font-semibold text-neutral-800 dark:text-neutral-200 bg-neutral-50/50 dark:bg-neutral-700/20 text-left pl-6">
@@ -428,6 +527,7 @@ const totalPower = computed(() => {
                       </tr>
                     </template>
 
+                    <!-- 투수 렌더링 -->
                     <template v-else>
                       <tr v-for="(statObj, key) in pitcherStats" :key="key" class="border-b border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700/30 transition-colors">
                         <td class="p-3 border-r border-neutral-200 dark:border-neutral-700 font-semibold text-neutral-800 dark:text-neutral-200 bg-neutral-50/50 dark:bg-neutral-700/20 text-left pl-6">
@@ -455,10 +555,10 @@ const totalPower = computed(() => {
                   </tbody>
 
                   <tfoot class="bg-neutral-100 dark:bg-neutral-700/50">
-                    <!-- 추가 파워 수동 입력 줄 -->
+                    <!-- 수동 파워 보너스 입력 줄 -->
                     <tr>
                       <td colspan="4" class="p-3 text-right text-xs font-semibold text-neutral-500 dark:text-neutral-400 border-r border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800">
-                        ⚡ 기타 전체 파워 보너스 일괄 추가 (100타점 클럽 등) ➔
+                        ⚡ 기타 전체 파워 보너스 일괄 추가 수동입력 ➔
                       </td>
                       <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800">
                         <div class="flex items-center gap-1" title="핵심 5스탯에 각각 1/5씩 분배됩니다">
@@ -474,6 +574,31 @@ const totalPower = computed(() => {
                         </div>
                       </td>
                     </tr>
+                    <!-- 파워 총합 -->
+                    <tr>
+                      <td class="p-4 border-r border-neutral-200 dark:border-neutral-700 font-extrabold text-neutral-900 dark:text-neutral-100 uppercase tracking-widest text-base bg-blue-100/50 dark:bg-blue-900/20">
+                        파워 (총합)
+                      </td>
+                      <td class="p-4 border-r border-neutral-200 dark:border-neutral-700 font-bold text-blue-700 dark:text-blue-300 bg-blue-100/30 dark:bg-blue-900/10 text-base tabular-nums">
+                        {{ totalPower.baseSum }}
+                      </td>
+                      <td class="p-4 border-r border-neutral-200 dark:border-neutral-700 font-bold text-neutral-700 dark:text-neutral-300 tabular-nums">
+                        +{{ totalPower.enhanceSum }}
+                      </td>
+                      <td class="p-4 border-r border-neutral-200 dark:border-neutral-700 font-bold text-amber-700 dark:text-amber-500 tabular-nums">
+                        +{{ totalPower.skillSum }}
+                      </td>
+                      <td class="p-4 border-r border-neutral-200 dark:border-neutral-700 font-bold text-neutral-700 dark:text-neutral-300 tabular-nums">
+                        +{{ totalPower.synergySum }}
+                        <div v-if="totalPower.globalFixed > 0" class="text-xs text-blue-500 mt-1">일괄추가 포함됨</div>
+                      </td>
+                      <td class="p-4 font-black text-xl text-indigo-700 dark:text-indigo-400 bg-indigo-100/50 dark:bg-indigo-900/20 tabular-nums relative">
+                        <span class="absolute top-1 left-0 w-full text-[10px] text-center text-indigo-400 dark:text-indigo-500 font-normal">
+                          <span v-if="totalPower.totalPercentBonus > 0">합계 × {{ 100 + totalPower.totalPercentBonus }}%</span>
+                        </span>
+                        <div class="mt-2">{{ totalPower.finalSum }}</div>
+                      </td>
+                    </tr>
                   </tfoot>
                 </table>
               </div>
@@ -481,8 +606,8 @@ const totalPower = computed(() => {
               <div class="mt-4 p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-300 flex items-start gap-2">
                 <Shield class="w-5 h-5 flex-shrink-0 mt-0.5" />
                 <div class="space-y-1">
-                  <p><strong>[자동 스킬 계산 탑재]</strong> 스킬 슬롯에 스킬을 장착하면 <strong>자동으로 엑셀 표의 [스킬 (+)] 칸과 파워 보너스가 계산되어 기입됩니다.</strong> (원하시면 숫자를 지우고 직접 수동으로 변경하셔도 됩니다.)</p>
-                  <p><strong>[⚡ 핵심 5스탯 자동 분배 시스템]</strong> 하단의 [파워 고정증가] 칸에 '50'을 입력하면, ⚡ 마크가 붙은 5개 스탯의 시너지 칸에 <strong>자동으로 '10'씩 나뉘어 더해지며</strong> 최종 스탯과 종합 파워에 반영됩니다.</p>
+                  <p><strong>[스킬 및 시너지 자동 계산]</strong> 스킬을 고르거나 보유 시너지 버튼을 클릭하면, <strong>엑셀 표에 자동으로 계산되어 기입됩니다.</strong> (원하시면 숫자를 지우고 직접 수동으로 변경하셔도 됩니다.)</p>
+                  <p><strong>[⚡ 핵심 5스탯 자동 분배 시스템]</strong> 스킬/시너지로 얻은 <strong>파워 증가 옵션</strong>은 ⚡ 마크가 붙은 5개 스탯에 <strong>1/5씩 나뉘어 더해지며</strong> 최종 종합 파워에 반영됩니다.</p>
                 </div>
               </div>
             </div>
