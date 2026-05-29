@@ -63,22 +63,21 @@ const isPitcher = computed(() => {
 
 // === 기본 육성 및 버프 로직 ===
 
-// 1. 퍼센트(%) 뻥튀기 적용 대상 (엑셀 완벽 일치: 레벨, 도감, 팀레벨, 커리어레벨, 강화)
+// 1. 퍼센트(%) 뻥튀기 적용 대상 (엑셀 역산 결과 확정본)
 const playerLevel = ref(100)          
 const collectionBuff = ref(0)         
 const teamLevelBuff = ref(750)        
 const careerLevelBuff = ref(149)      
+const ultimateImprintPercent = ref(0) 
 
-// 2. 퍼센트(%) 뻥튀기 미적용 깡파워 대상 (엑셀 완벽 일치: 바인더, 자팀, 힛에, 팀플디그, 클랜)
+// 2. 퍼센트(%) 뻥튀기 미적용 대상 (순수 깡파워) (엑셀 역산 결과 확정본)
 const binderBuff = ref(527)           
 const clanBuff = ref(15)              
 const careerTeamCount = ref(0) 
 const hitAceBuff = ref(0)             
 const teamPlayerDignityBuff = ref(0)  
 
-const ultimateImprintPercent = ref(0) 
-
-// 1. 퍼센트(%) 영향을 받는 성장 파워 (강화 제외)
+// 1. 퍼센트(%) 영향을 받는 성장 파워 합산 (강화 제외)
 const percentableGrowthBuffSum = computed(() => {
   return Number(Math.max(0, Number(playerLevel.value) - 1) * 10) + 
          Number(collectionBuff.value || 0) + 
@@ -86,7 +85,7 @@ const percentableGrowthBuffSum = computed(() => {
          Number(careerLevelBuff.value || 0)
 })
 
-// 2. 퍼센트(%) 영향을 받지 않는 깡파워 버프
+// 2. 퍼센트(%) 영향을 받지 않는 깡파워 버프 합산
 const unpercentableGrowthBuffSum = computed(() => {
   return Number(binderBuff.value || 0) + 
          Number(clanBuff.value || 0) +
@@ -398,7 +397,7 @@ watch(selectedSkills, () => {
   }
 }, { deep: true })
 
-// 🌟 [중요] 모든 8개 스탯의 총합 (엑셀에서 퍼센트 연산의 기준이 되는 '기본 파워')
+// 🌟 [핵심 비밀] 모든 8개 스탯의 총합 (엑셀에서 퍼센트 연산의 기준이 되는 '기본 파워')
 const baseTotalPower = computed(() => {
   let sum = 0;
   if (isPitcher.value) {
@@ -409,21 +408,19 @@ const baseTotalPower = computed(() => {
   return sum;
 })
 
-// ✨ 핵심 연산 엔진: 엑셀 파일 산출값과 100% 동일한 정석 로직
+// ✨ 엔진 엑셀 완벽 일치본 (8스탯 풀 연산)
 const getStatTotal = (stat: { base: number, skill: number, career: number, imprint: number, isCore: boolean }) => {
   let finalVal = Number(stat.base || 0);
   
   if (stat.isCore) {
-    // 1. 퍼센트 영향을 받는 '성장 버프' (1/5 분배)
+    // 1. 퍼센트 영향을 받는 '성장 버프' 
     let percentableGrowth = Number(percentableGrowthBuffSum.value) + Number(autoEnhanceFixed.value);
     
-    // 2. 전체 파워 % 보너스 풀 계산 (모든 8개 베이스 스탯 총합 + 성장버프)
-    let generalPercent = Number(autoPowerPercent.value) + Number(manualPowerPercent.value) + Number(autoSynergyPercent.value) + Number(ultimateImprintPercent.value);
-    let generalBonusPool = (baseTotalPower.value + percentableGrowth) * (generalPercent / 100);
+    // 2. 전체 적용 퍼센트 (타순, 시너지 등) + 개별 스탯 퍼센트 (파워 등)
+    let totalPercentForThisStat = Number(stat.skill || 0) + Number(autoPowerPercent.value) + Number(manualPowerPercent.value) + Number(autoSynergyPercent.value) + Number(ultimateImprintPercent.value);
     
-    // 3. 개별 스탯 스킬 % 보너스 (타격 전략 등)
-    let specificPercent = Number(stat.skill || 0);
-    let specificBonus = (Number(stat.base || 0) + (percentableGrowth / 5)) * (specificPercent / 100);
+    // 3. 엑셀의 진짜 뻥튀기 로직: (8개 기본스탯 총합 + 성장버프 총합) * 퍼센트
+    let percentBonusPool = (baseTotalPower.value + percentableGrowth) * (totalPercentForThisStat / 100);
     
     // 4. 퍼센트 영향을 받지 않는 '깡파워 버프'
     let imprintGlobal = Number(imprintMainPower.value || 0) + Number(imprintSubPower.value || 0);
@@ -437,8 +434,8 @@ const getStatTotal = (stat: { base: number, skill: number, career: number, impri
                                  + Number(managerBuff.value)
                                  + imprintGlobal;
     
-    // 5. 기본 스탯 + (성장버프/5) + (전체보너스풀/5) + (개별보너스) + (깡파워버프/5)
-    let totalAdded = (percentableGrowth / 5) + (generalBonusPool / 5) + specificBonus + (unpercentableGrowth / 5);
+    // 5. 기본 스탯 + (성장버프/5) + (깡파워/5) + (퍼센트보너스/5)
+    let totalAdded = (percentableGrowth / 5) + (unpercentableGrowth / 5) + (percentBonusPool / 5);
     
     finalVal += totalAdded;
     finalVal = Math.round(finalVal); // 엑셀과 동일한 반올림 처리
@@ -451,7 +448,7 @@ const getStatTotal = (stat: { base: number, skill: number, career: number, impri
     }
   }
   
-  // 6. 코어 여부 상관없이 더해지는 개별 깡스탯 합산
+  // 6. 코어 여부 상관없이 더해지는 개별 깡스탯
   finalVal += Number(stat.career || 0) + Number(stat.imprint || 0);
   
   return finalVal;
@@ -492,7 +489,7 @@ const totalPower = computed(() => {
         </div>
         <div>
           <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 tracking-tight">스탯 계산기</h1>
-          <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">엑셀 역산 완벽 적용: <strong>전체 8개 스탯까지 모두 끌어모아 뻥튀기하는 인게임 로직</strong>을 그대로 구현했습니다.</p>
+          <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">엑셀 역산 완벽 적용: <strong>개별 스킬 적용 시 전체 8개 스탯 풀(Pool)을 끌어와 보너스를 계산하는 로직</strong>을 적용했습니다.</p>
         </div>
       </header>
 
@@ -605,7 +602,7 @@ const totalPower = computed(() => {
                   <Sparkles class="w-4 h-4 text-fuchsia-500" /> 기본 육성 깡파워 <span class="text-[10px] text-fuchsia-600 font-normal ml-1">(퍼센트 뻥튀기 무시, 원본 수치 그대로 합산)</span>
                 </h3>
               </div>
-              <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-4">
+              <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
                 <div class="flex flex-col gap-1">
                   <label class="text-[11px] font-bold text-fuchsia-600 dark:text-fuchsia-400 uppercase">바인더 파워</label>
                   <input type="number" v-model.number="binderBuff" class="w-full px-2 py-1.5 text-center bg-fuchsia-50 dark:bg-fuchsia-900/30 border border-fuchsia-300 dark:border-fuchsia-600 rounded-lg text-sm font-bold focus:border-fuchsia-500 outline-none transition-colors" />
@@ -865,7 +862,7 @@ const totalPower = computed(() => {
                         파워 (총합)
                       </td>
                       <td colspan="3" class="p-4 border-r border-neutral-200 dark:border-neutral-700 font-bold text-neutral-500 dark:text-neutral-400 text-sm text-left">
-                        <div><span class="text-sky-600 font-bold">[% 적용 (성장파워 합산)]</span> 강화 +{{ totalPower.autoEnhanceFixed }} / 레벨,도감,팀,바인더 등 +{{ totalPower.percentableGrowthBuffSum - totalPower.autoEnhanceFixed }} <span v-if="totalPower.totalPercentBonus > 0" class="text-indigo-500">➔ ( × {{ 100 + totalPower.totalPercentBonus }}% 뻥튀기 )</span></div>
+                        <div><span class="text-sky-600 font-bold">[% 적용 (성장파워 합산)]</span> 강화 +{{ totalPower.autoEnhanceFixed }} / 레벨,팀,커리어,도감 등 +{{ totalPower.percentableGrowthBuffSum - totalPower.autoEnhanceFixed }} <span v-if="totalPower.totalPercentBonus > 0" class="text-indigo-500">➔ ( × {{ 100 + totalPower.totalPercentBonus }}% 뻥튀기 )</span></div>
                         <div class="mt-1 text-fuchsia-600 font-bold">[% 미적용 (깡파워 합산)] 돌파 +{{ totalPower.autoBreakthroughFixed }} / 시너지 +{{ totalPower.autoSynergyFixed }} / 클랜,자팀,힛에 등 +{{ totalPower.unpercentableGrowthBuffSum }}</div>
                       </td>
                       <td class="p-4 font-black text-3xl text-indigo-700 dark:text-indigo-400 bg-indigo-100/50 dark:bg-indigo-900/20 tabular-nums">
