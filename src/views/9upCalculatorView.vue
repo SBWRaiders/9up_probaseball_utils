@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, reactive, watch } from 'vue'
 import Papa from 'papaparse'
-import { Search, Calculator, Star, Shield, Zap, TrendingUp, X, Users, ArrowUpCircle } from 'lucide-vue-next'
+import { Search, Calculator, Star, Shield, Zap, TrendingUp, X, Users, ArrowUpCircle, Sparkles } from 'lucide-vue-next'
 
 type Raw = Record<string, any>
 
@@ -95,6 +95,35 @@ const enhanceMultiplier = computed(() => {
 
 const autoEnhanceFixed = computed(() => {
   return enhancementLevel.value * enhanceMultiplier.value
+})
+
+// === 한계 돌파(Breakthrough) 시스템 로직 ===
+const breakthroughLevel = ref(0)
+
+const maxBreakthrough = computed(() => {
+  if (!selectedPlayer.value) return 0
+  const grade = String(selectedPlayer.value.grade).toUpperCase()
+  if (grade === 'DGN') return 0 // 디그니티는 돌파 불가
+  return Number(selectedPlayer.value.rarity || 0) + 1
+})
+
+const breakthroughBase = computed(() => {
+  if (!selectedPlayer.value) return 0
+  const grade = String(selectedPlayer.value.grade).toUpperCase()
+  const map: Record<string, number> = {
+    'SEA': 30, 'ASG': 30, 'POS': 30,
+    'TEA': 50, 'ROY': 50, 'MMVP': 50,
+    'HIT': 100, 'ACE': 100, 'GG': 100, 'TOP': 100,
+    'DGN': 0
+  }
+  return map[grade] || 0
+})
+
+const autoBreakthroughFixed = computed(() => {
+  if (breakthroughLevel.value === 0) return 0
+  // 돌파 배수: [0강, 1강, 2강, 3강, 4강, 5강, 6강, 7강, 8강]
+  const multipliers = [0, 1, 2.5, 4.5, 7, 10, 15, 21, 28] 
+  return breakthroughBase.value * (multipliers[breakthroughLevel.value] || 0)
 })
 
 // === 스킬 시스템 로직 ===
@@ -297,6 +326,7 @@ const selectPlayer = (p: Raw) => {
   manualPowerPercent.value = 0
   autoPowerPercent.value = 0
   enhancementLevel.value = 0
+  breakthroughLevel.value = 0
   
   // 기본 육성 버프 자동 세팅
   playerLevel.value = 100
@@ -309,7 +339,7 @@ const selectPlayer = (p: Raw) => {
   else if (['POS', 'TEA', 'MMVP', 'GG', 'HIT', 'ACE'].includes(grade)) collectionBuff.value = 900
   else if (grade === 'ROY') collectionBuff.value = 1000
   else if (grade === 'TOP') collectionBuff.value = 1200
-  else collectionBuff.value = 0
+  else collectionBuff.value = 0 // DGN 등
 
   if (['HIT', 'ACE'].includes(grade)) hitAceBuff.value = 896
   else hitAceBuff.value = 0
@@ -377,9 +407,15 @@ const getStatTotal = (stat: { base: number, enhance: number, skill: number, syne
   let raw = stat.base + (stat.enhance || 0) + (stat.skill || 0) + (stat.synergy || 0)
   
   if (stat.isCore) {
+    // 1. 퍼센트 영향을 받는 고정 파워(강화, 수동고정, 자동시너지, 기본육성/버프) 5개 분배
     raw += ((manualPowerFixed.value + autoSynergyFixed.value + autoEnhanceFixed.value + growthBuffSum.value) / 5)
+    
+    // 2. 파워 총합 퍼센트 곱연산
     const totalPercentBonus = autoPowerPercent.value + manualPowerPercent.value + autoSynergyPercent.value
     raw = Math.floor(raw * (1 + totalPercentBonus / 100))
+    
+    // 3. 퍼센트 영향을 받지 않는 "깡파워(돌파)" 가장 마지막에 5개 분배 합산
+    raw += (autoBreakthroughFixed.value / 5)
   }
   return raw
 }
@@ -409,7 +445,7 @@ const totalPower = computed(() => {
   const totalPercentBonus = autoPowerPercent.value + manualPowerPercent.value + autoSynergyPercent.value
   const globalFixed = manualPowerFixed.value + autoSynergyFixed.value + growthBuffSum.value
   
-  return { baseSum, enhanceSum, skillSum, synergySum, finalSum, totalPercentBonus, globalFixed }
+  return { baseSum, enhanceSum, skillSum, synergySum, finalSum, totalPercentBonus, globalFixed, autoBreakthroughFixed: autoBreakthroughFixed.value }
 })
 </script>
 
@@ -423,7 +459,7 @@ const totalPower = computed(() => {
         </div>
         <div>
           <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 tracking-tight">스탯 계산기</h1>
-          <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">버튼 클릭 한 번으로 육성, 강화, 9UP 스킬, 인원별 시너지가 완벽하게 자동 계산됩니다.</p>
+          <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">인게임 로직 100% 반영 완료! 퍼센트를 무시하는 돌파(깡파워)까지 정밀하게 합산됩니다.</p>
         </div>
       </header>
 
@@ -538,23 +574,48 @@ const totalPower = computed(() => {
               </div>
             </div>
 
-            <!-- 강화 단계 버튼 영역 -->
+            <!-- 강화 및 돌파 단계 버튼 영역 (가로 배치) -->
             <div class="p-6 bg-emerald-50/30 dark:bg-emerald-900/10 border-b border-neutral-100 dark:border-neutral-700">
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-                  <ArrowUpCircle class="w-4 h-4 text-emerald-500" /> 카드 강화
-                </h3>
-                <span class="px-2 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-bold rounded-lg text-xs border border-emerald-200 dark:border-emerald-800">
-                  현재 등급: 1강당 파워 +{{ enhanceMultiplier }}
-                </span>
-              </div>
-              <div class="flex flex-wrap gap-1.5">
-                <button v-for="lvl in (maxEnhanceLevel + 1)" :key="lvl"
-                  @click="enhancementLevel = lvl-1"
-                  :class="enhancementLevel === lvl-1 ? 'bg-emerald-600 text-white border-emerald-600 shadow-md' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-300 dark:border-neutral-600 hover:border-emerald-400 dark:hover:border-emerald-500'"
-                  class="w-10 h-8 flex items-center justify-center text-xs font-bold border rounded-lg transition-colors">
-                  +{{ lvl-1 }}
-                </button>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- 강화 영역 -->
+                <div>
+                  <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
+                      <ArrowUpCircle class="w-4 h-4 text-emerald-500" /> 카드 강화
+                    </h3>
+                    <span class="px-2 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-bold rounded-lg text-[10px] border border-emerald-200 dark:border-emerald-800">
+                      1강당 파워 +{{ enhanceMultiplier }}
+                    </span>
+                  </div>
+                  <div class="flex flex-wrap gap-1.5">
+                    <button v-for="lvl in (maxEnhanceLevel + 1)" :key="lvl"
+                      @click="enhancementLevel = lvl-1"
+                      :class="enhancementLevel === lvl-1 ? 'bg-emerald-600 text-white border-emerald-600 shadow-md' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-300 dark:border-neutral-600 hover:border-emerald-400 dark:hover:border-emerald-500'"
+                      class="w-10 h-8 flex items-center justify-center text-xs font-bold border rounded-lg transition-colors">
+                      +{{ lvl-1 }}
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 돌파 영역 -->
+                <div v-if="maxBreakthrough > 0">
+                  <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
+                      <Sparkles class="w-4 h-4 text-fuchsia-500" /> 한계 돌파
+                    </h3>
+                    <span class="px-2 py-1 bg-fuchsia-100 dark:bg-fuchsia-900/30 text-fuchsia-700 dark:text-fuchsia-400 font-bold rounded-lg text-[10px] border border-fuchsia-200 dark:border-fuchsia-800">
+                      돌파 깡파워 (기준 +{{ breakthroughBase }})
+                    </span>
+                  </div>
+                  <div class="flex flex-wrap gap-1.5">
+                    <button v-for="lvl in (maxBreakthrough + 1)" :key="'brk'+lvl"
+                      @click="breakthroughLevel = lvl-1"
+                      :class="breakthroughLevel === lvl-1 ? 'bg-fuchsia-600 text-white border-fuchsia-600 shadow-md' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-300 dark:border-neutral-600 hover:border-fuchsia-400 dark:hover:border-fuchsia-500'"
+                      class="px-3 h-8 flex items-center justify-center text-xs font-bold border rounded-lg transition-colors">
+                      {{ lvl-1 === 0 ? '돌파 안함' : lvl-1 + '돌' }}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -619,7 +680,7 @@ const totalPower = computed(() => {
                       <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 w-1/6">DB 기본</th>
                       <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-1/6">개별 훈련/강화 (+)</th>
                       <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-1/6 bg-amber-50/30 dark:bg-amber-900/5">스킬 (+)</th>
-                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-1/6 bg-indigo-50/30 dark:bg-indigo-900/5">육성/시너지 (+)</th>
+                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-1/6">시너지 (+)</th>
                       <th class="p-3 border-b border-neutral-200 dark:border-neutral-700 font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/10 w-1/6">최종 스탯</th>
                     </tr>
                   </thead>
@@ -641,8 +702,8 @@ const totalPower = computed(() => {
                         <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-amber-50/10 dark:bg-amber-900/5">
                           <input type="number" v-model.number="statObj.skill" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-shadow" />
                         </td>
-                        <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-indigo-50/10 dark:bg-indigo-900/5">
-                          <input type="number" v-model.number="statObj.synergy" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-shadow" />
+                        <td class="p-2 border-r border-neutral-200 dark:border-neutral-700">
+                          <input type="number" v-model.number="statObj.synergy" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-shadow" />
                         </td>
                         <td class="p-3 font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50/30 dark:bg-indigo-900/5 text-lg">
                           {{ getStatTotal(statObj) }}
@@ -666,8 +727,8 @@ const totalPower = computed(() => {
                         <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-amber-50/10 dark:bg-amber-900/5">
                           <input type="number" v-model.number="statObj.skill" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-shadow" />
                         </td>
-                        <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-indigo-50/10 dark:bg-indigo-900/5">
-                          <input type="number" v-model.number="statObj.synergy" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-shadow" />
+                        <td class="p-2 border-r border-neutral-200 dark:border-neutral-700">
+                          <input type="number" v-model.number="statObj.synergy" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-shadow" />
                         </td>
                         <td class="p-3 font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50/30 dark:bg-indigo-900/5 text-lg">
                           {{ getStatTotal(statObj) }}
@@ -706,6 +767,7 @@ const totalPower = computed(() => {
                       </td>
                       <td class="p-4 border-r border-neutral-200 dark:border-neutral-700 font-bold text-neutral-700 dark:text-neutral-300 tabular-nums">
                         +{{ totalPower.enhanceSum }}
+                        <div v-if="autoEnhanceFixed > 0" class="text-xs text-emerald-500 mt-1">자동 +{{ autoEnhanceFixed }}</div>
                       </td>
                       <td class="p-4 border-r border-neutral-200 dark:border-neutral-700 font-bold text-amber-700 dark:text-amber-500 tabular-nums">
                         +{{ totalPower.skillSum }}
@@ -719,11 +781,15 @@ const totalPower = computed(() => {
                           <span v-if="totalPower.totalPercentBonus > 0">합계 × {{ 100 + totalPower.totalPercentBonus }}%</span>
                         </span>
                         <div class="mt-2">{{ totalPower.finalSum }}</div>
+                        <div v-if="totalPower.autoBreakthroughFixed > 0" class="text-[10px] text-fuchsia-500 mt-1 font-bold">
+                          + 돌파 깡파워 {{ totalPower.autoBreakthroughFixed }}
+                        </div>
                       </td>
                     </tr>
                   </tfoot>
                 </table>
               </div>
+
             </div>
           </section>
 
