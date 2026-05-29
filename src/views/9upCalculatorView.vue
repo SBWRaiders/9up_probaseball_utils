@@ -26,8 +26,7 @@ const synergys = ref<JsonSynergy[]>([])
 const searchQuery = ref('')
 const selectedPlayer = ref<Raw | null>(null)
 
-// 엑셀 계산기 스타일의 스탯 상태 (타자용, 투수용) 
-// 개별 enhance, synergy 삭제 -> imprint (각인) 추가
+// 엑셀 계산기 스타일의 스탯 상태 (타자용, 투수용) - 5대 핵심 스탯(isCore) 분리
 const batterStats = reactive({
   contact: { base: 0, skill: 0, career: 0, imprint: 0, label: '컨택', isCore: true },
   gapPower: { base: 0, skill: 0, career: 0, imprint: 0, label: '갭파워', isCore: true },
@@ -100,7 +99,7 @@ const autoEnhanceFixed = computed(() => {
   return enhancementLevel.value * enhanceMultiplier.value
 })
 
-// === 한계 돌파 시스템 로직 ===
+// === 한계 돌파(Breakthrough) 시스템 로직 ===
 const breakthroughLevel = ref(0)
 
 const maxBreakthrough = computed(() => {
@@ -113,19 +112,34 @@ const maxBreakthrough = computed(() => {
 const breakthroughBase = computed(() => {
   if (!selectedPlayer.value) return 0
   const grade = String(selectedPlayer.value.grade).toUpperCase()
-  const map: Record<string, number> = {
-    'SEA': 30, 'ASG': 30, 'POS': 30,
-    'TEA': 50, 'ROY': 50, 'MMVP': 50,
-    'HIT': 100, 'ACE': 100, 'GG': 100, 'TOP': 100,
-    'DGN': 0
-  }
-  return map[grade] || 0
+  if (['SEA', 'ASG', 'POS'].includes(grade)) return 30
+  if (['TEA', 'ROY', 'MMVP'].includes(grade)) return 50
+  if (['HIT', 'ACE', 'GG', 'TOP'].includes(grade)) return 100
+  return 0
 })
 
 const autoBreakthroughFixed = computed(() => {
-  if (breakthroughLevel.value === 0) return 0
-  const multipliers = [0, 1, 2.5, 4.5, 7, 10, 15, 21, 28] 
-  return breakthroughBase.value * (multipliers[breakthroughLevel.value] || 0)
+  if (breakthroughLevel.value === 0 || !selectedPlayer.value) return 0
+  const grade = String(selectedPlayer.value.grade).toUpperCase()
+  const lvl = breakthroughLevel.value
+  
+  // 그룹 1: 30증가 기준 (1, 3, 6, 10, 15, 21 배수)
+  if (['SEA', 'ASG', 'POS'].includes(grade)) {
+    const mults = [0, 1, 3, 6, 10, 15, 21, 28, 36]
+    return 30 * (mults[lvl] || 0)
+  } 
+  // 그룹 2: 50증가 기준 (1, 3, 6, 10, 15, 21 배수)
+  else if (['TEA', 'ROY', 'MMVP'].includes(grade)) {
+    const mults = [0, 1, 3, 6, 10, 15, 21, 28, 36]
+    return 50 * (mults[lvl] || 0)
+  } 
+  // 그룹 3: 100증가 기준 (1, 2.5, 4.5, 7, 10, 15 배수)
+  else if (['HIT', 'ACE', 'GG', 'TOP'].includes(grade)) {
+    const mults = [0, 1, 2.5, 4.5, 7, 10, 15, 21, 28] 
+    return 100 * (mults[lvl] || 0)
+  }
+  
+  return 0
 })
 
 // === 스킬 시스템 로직 ===
@@ -199,12 +213,12 @@ const manualPowerFixed = ref(0)
 const manualPowerPercent = ref(0)
 const careerAllStatFlat = ref(0) 
 
-// === 신규: 각인(Imprint) 시스템 전역 파워 ===
+// === 각인(Imprint) 시스템 ===
 const imprintMainPower = ref(0)
 const imprintSubPower = ref(0)
 const imprintStarterPower = ref(0)
 
-// === 시너지 시스템 로직 ===
+// === 시너지 시스템 ===
 const activeSynergyConditions = ref<Record<string, number>>({})
 
 const playerSynergiesData = computed(() => {
@@ -383,21 +397,21 @@ const getStatTotal = (stat: { base: number, skill: number, career: number, impri
   let raw = stat.base + (stat.skill || 0)
   
   if (stat.isCore) {
-    // 1. 퍼센트 영향을 받는 항목들 (수동파워, 자동시너지, 강화, 성장버프+커리어자팀)
+    // 1. 퍼센트 영향을 받는 항목들
     raw += ((manualPowerFixed.value + autoSynergyFixed.value + autoEnhanceFixed.value + growthBuffSum.value) / 5)
     
     // 2. 퍼센트 곱연산 적용
     const totalPercentBonus = autoPowerPercent.value + manualPowerPercent.value + autoSynergyPercent.value
     raw = Math.floor(raw * (1 + totalPercentBonus / 100))
     
-    // 3. 퍼센트 영향을 받지 않는 깡스탯 합산 (돌파 + 커리어 전능 + 각인 주옵/부옵/선발)
+    // 3. 퍼센트 영향을 받지 않는 깡스탯 합산
     let imprintGlobal = (imprintMainPower.value || 0) + (imprintSubPower.value || 0)
     if (isPitcher.value) imprintGlobal += (imprintStarterPower.value || 0)
     
     raw += ((autoBreakthroughFixed.value + careerAllStatFlat.value + imprintGlobal) / 5)
   }
   
-  // 4. 개별 커리어 깡스탯 & 개별 각인 부옵션 깡스탯 (퍼센트 비적용)
+  // 4. 개별 깡스탯
   raw += (stat.career || 0)
   raw += (stat.imprint || 0)
   
@@ -439,13 +453,14 @@ const totalPower = computed(() => {
 <template>
   <div class="bg-neutral-50 dark:bg-neutral-900 min-h-screen transition-colors p-4 lg:p-8">
     <div class="max-w-[1600px] mx-auto">
+      <!-- 헤더 -->
       <header class="mb-6 flex items-center gap-3">
         <div class="p-3 bg-blue-600 rounded-xl text-white shadow-lg shadow-blue-600/20">
           <Calculator class="w-6 h-6" />
         </div>
         <div>
           <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 tracking-tight">스탯 계산기</h1>
-          <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">각인 시스템이 새롭게 추가되었습니다. 깡파워와 퍼센트의 복잡한 로직을 웹에서 간편하게 처리하세요!</p>
+          <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">돌파, 스킬, 각인, 시너지까지 모든 스탯을 웹에서 간편하게 처리하세요!</p>
         </div>
       </header>
 
@@ -455,6 +470,7 @@ const totalPower = computed(() => {
 
       <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
+        <!-- 왼쪽: 선수 검색 -->
         <div class="lg:col-span-3 flex flex-col gap-6">
           <section class="bg-white dark:bg-neutral-800 rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-700 p-5">
             <h2 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
@@ -494,8 +510,10 @@ const totalPower = computed(() => {
           </section>
         </div>
 
+        <!-- 오른쪽: 엑셀 형태 스탯 계산기 -->
         <div class="lg:col-span-9 flex flex-col gap-6">
           <section v-if="selectedPlayer" class="bg-white dark:bg-neutral-800 rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+            <!-- 선수 요약 헤더 -->
             <div class="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 text-white flex items-center gap-6">
               <img :src="`/assets/logos/grade/${selectedPlayer.grade || 'C'}.png`" class="w-16 h-16 object-contain bg-white/10 rounded-xl p-2" />
               <div class="flex-1">
@@ -519,6 +537,7 @@ const totalPower = computed(() => {
               </div>
             </div>
 
+            <!-- 기본 육성 및 팀 버프 패널 -->
             <div class="p-6 bg-sky-50/30 dark:bg-sky-900/10 border-b border-neutral-100 dark:border-neutral-700">
               <div class="flex items-center justify-between mb-3">
                 <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
@@ -560,8 +579,10 @@ const totalPower = computed(() => {
               </div>
             </div>
 
+            <!-- 강화 및 돌파 단계 버튼 영역 -->
             <div class="p-6 bg-emerald-50/30 dark:bg-emerald-900/10 border-b border-neutral-100 dark:border-neutral-700">
               <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- 강화 영역 -->
                 <div>
                   <div class="flex items-center justify-between mb-3">
                     <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
@@ -581,6 +602,7 @@ const totalPower = computed(() => {
                   </div>
                 </div>
 
+                <!-- 돌파 영역 -->
                 <div v-if="maxBreakthrough > 0">
                   <div class="flex items-center justify-between mb-3">
                     <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
@@ -602,6 +624,7 @@ const totalPower = computed(() => {
               </div>
             </div>
 
+            <!-- 통합 스킬 선택 버튼 영역 -->
             <div class="p-6 bg-neutral-50/50 dark:bg-neutral-800/50 border-b border-neutral-100 dark:border-neutral-700">
               <div class="flex items-center justify-between mb-3">
                 <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
@@ -623,6 +646,7 @@ const totalPower = computed(() => {
               <div v-else class="text-xs text-neutral-400">보유한 스킬이 없습니다.</div>
             </div>
 
+            <!-- 시너지 선택 버튼 영역 -->
             <div class="p-6 bg-indigo-50/30 dark:bg-indigo-900/10 border-b border-neutral-100 dark:border-neutral-700">
               <div class="flex items-center justify-between mb-3">
                 <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
@@ -645,6 +669,7 @@ const totalPower = computed(() => {
               </div>
             </div>
 
+            <!-- 계산기 테이블 -->
             <div class="p-6 pt-5">
               <div class="mb-4 flex items-center justify-between">
                 <h3 class="text-lg font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
@@ -718,17 +743,18 @@ const totalPower = computed(() => {
                   </tbody>
 
                   <tfoot class="bg-neutral-100 dark:bg-neutral-700/50">
+                    <!-- 수동 파워 보너스 입력 줄 -->
                     <tr>
                       <td colspan="4" class="p-3 text-right text-xs font-semibold text-neutral-500 dark:text-neutral-400 border-r border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800">
                         ⚡ 기타 전체 파워 보너스 수동입력 (% 적용 O) ➔
                       </td>
                       <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800">
-                        <div class="flex items-center gap-1" title="핵심 5스탯에 각각 1/5씩 분배됩니다">
+                        <div class="flex items-center gap-1">
                           <span class="text-xs text-neutral-400">+</span>
                           <input type="number" v-model.number="manualPowerFixed" placeholder="파워 고정" class="w-full px-1 py-1 text-center bg-neutral-50 dark:bg-neutral-900 border border-blue-200 dark:border-blue-800 rounded text-xs outline-none focus:border-blue-500" />
                         </div>
                       </td>
-                      <td class="p-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-left">
+                      <td colspan="2" class="p-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-left">
                         <div class="flex items-center gap-1 w-24">
                           <span class="text-xs text-neutral-400">+</span>
                           <input type="number" v-model.number="manualPowerPercent" placeholder="파워 %" class="w-full px-1 py-1 text-center bg-neutral-50 dark:bg-neutral-900 border border-blue-200 dark:border-blue-800 rounded text-xs outline-none focus:border-blue-500" />
@@ -737,19 +763,24 @@ const totalPower = computed(() => {
                       </td>
                     </tr>
                     
+                    <!-- 커리어 전능 파워 입력 줄 -->
                     <tr>
                       <td colspan="4" class="p-3 text-right text-xs font-semibold text-neutral-500 dark:text-neutral-400 border-r border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800">
                         ✨ 커리어 전능 깡파워 수동입력 (% 적용 X) ➔
                       </td>
                       <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800">
+                        <!-- 빈칸 -->
+                      </td>
+                      <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-fuchsia-50/10 dark:bg-fuchsia-900/10">
                         <div class="flex items-center gap-1">
                           <span class="text-xs text-fuchsia-400">+</span>
-                          <input type="number" v-model.number="careerAllStatFlat" placeholder="전능 파워" class="w-full px-1 py-1 text-center bg-neutral-50 dark:bg-neutral-900 border border-fuchsia-200 dark:border-fuchsia-800 rounded text-xs outline-none focus:border-fuchsia-500" />
+                          <input type="number" v-model.number="careerAllStatFlat" placeholder="전능 파워" class="w-full px-1 py-1 text-center bg-white dark:bg-neutral-900 border border-fuchsia-200 dark:border-fuchsia-800 rounded text-xs outline-none focus:border-fuchsia-500" />
                         </div>
                       </td>
                       <td class="p-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800"></td>
                     </tr>
 
+                    <!-- 각인 전능/선발 파워 입력 줄 -->
                     <tr>
                       <td colspan="3" class="p-3 text-right text-xs font-semibold text-neutral-500 dark:text-neutral-400 border-r border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800">
                         ✨ 각인 옵션 깡파워 수동입력 (% 적용 X) ➔
@@ -777,16 +808,18 @@ const totalPower = computed(() => {
                       </td>
                     </tr>
 
+                    <!-- 요약 로우 -->
                     <tr>
                       <td colspan="6" class="p-2 text-center text-xs font-semibold text-neutral-500 dark:text-neutral-400 border-b border-neutral-200 dark:border-neutral-700 bg-neutral-200 dark:bg-neutral-800">
                         <span class="text-indigo-600 dark:text-indigo-400">📊 [퍼센트(%) 적용 버프 총합]</span> 
-                        강화 +{{ autoEnhanceFixed }} / 
                         팀육성 +{{ growthBuffSum }} / 
+                        강화 +{{ autoEnhanceFixed }} / 
                         시너지 +{{ autoSynergyFixed }} / 
                         수동고정 +{{ manualPowerFixed }}
                       </td>
                     </tr>
 
+                    <!-- 파워 총합 -->
                     <tr>
                       <td class="p-4 border-r border-neutral-200 dark:border-neutral-700 font-extrabold text-neutral-900 dark:text-neutral-100 uppercase tracking-widest text-base bg-blue-100/50 dark:bg-blue-900/20">
                         파워 (총합)
@@ -819,6 +852,7 @@ const totalPower = computed(() => {
             </div>
           </section>
 
+          <!-- 초기 안내 화면 -->
           <section v-else class="h-full bg-white dark:bg-neutral-800 rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-700 flex flex-col items-center justify-center p-10 text-center min-h-[500px]">
             <div class="w-20 h-20 bg-blue-50 dark:bg-neutral-700 rounded-full flex items-center justify-center mb-6">
               <Calculator class="w-10 h-10 text-blue-500" />
