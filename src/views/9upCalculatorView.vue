@@ -55,8 +55,25 @@ const isPitcher = computed(() => {
   return pos.includes('SP') || pos.includes('RP') || !!selectedPlayer.value.movement
 })
 
+// === 기본 육성 및 버프 로직 ===
+const playerLevel = ref(100)
+const collectionBuff = ref(0)
+const teamLevelBuff = ref(750)
+const binderBuff = ref(527)
+const careerBuff = ref(149)
+const hitAceBuff = ref(0)
+
+const growthBuffSum = computed(() => {
+  return ((playerLevel.value || 0) * 10) + 
+         (collectionBuff.value || 0) + 
+         (teamLevelBuff.value || 0) + 
+         (binderBuff.value || 0) + 
+         (careerBuff.value || 0) + 
+         (hitAceBuff.value || 0)
+})
+
 // === 강화 시스템 로직 ===
-const enhancementLevel = ref(0) // 유저가 선택하는 강화 단계
+const enhancementLevel = ref(0) 
 
 const maxEnhanceLevel = computed(() => {
   if (!selectedPlayer.value) return 15
@@ -105,7 +122,7 @@ const availableSkills = computed(() => {
   return Array.from(new Set(filteredSkills))
 })
 
-const selectedSkills = ref<string[]>([]) // 유저가 클릭한 스킬 목록 배열
+const selectedSkills = ref<string[]>([])
 
 const toggleSkill = (skill: string) => {
   if (selectedSkills.value.includes(skill)) {
@@ -177,7 +194,6 @@ const SKILL_EFFECTS: Record<string, any> = {
   "하이볼 히터": {"powerPercent": 0, "stats": {"contact": 10.0, "strikeoutAvoidance": 5.0, "homeRunPower": -5.0}}
 }
 
-// 자동 파워 계산 상태 관리
 const autoPowerPercent = ref(0)
 const manualPowerFixed = ref(0)
 const manualPowerPercent = ref(0)
@@ -271,16 +287,32 @@ const filteredPlayers = computed(() => {
   ).slice(0, 50)
 })
 
-// 선수 선택 시 모든 상태 초기화 및 기본 스탯 연동
+// 선수 선택 시 모든 상태 초기화 및 기본값 연동
 const selectPlayer = (p: Raw) => {
   selectedPlayer.value = p
   searchQuery.value = ''
-  selectedSkills.value = [] // 스킬 선택 초기화
+  selectedSkills.value = [] 
   activeSynergyConditions.value = {}
   manualPowerFixed.value = 0
   manualPowerPercent.value = 0
   autoPowerPercent.value = 0
   enhancementLevel.value = 0
+  
+  // 기본 육성 버프 자동 세팅
+  playerLevel.value = 100
+  teamLevelBuff.value = 750
+  binderBuff.value = 527
+  careerBuff.value = 149
+  
+  const grade = String(p.grade || '').toUpperCase()
+  if (['SEA', 'ASG'].includes(grade)) collectionBuff.value = 800
+  else if (['POS', 'TEA', 'MMVP', 'GG', 'HIT', 'ACE'].includes(grade)) collectionBuff.value = 900
+  else if (grade === 'ROY') collectionBuff.value = 1000
+  else if (grade === 'TOP') collectionBuff.value = 1200
+  else collectionBuff.value = 0
+
+  if (['HIT', 'ACE'].includes(grade)) hitAceBuff.value = 896
+  else hitAceBuff.value = 0
   
   Object.values(batterStats).forEach(stat => { stat.base=0; stat.enhance=0; stat.skill=0; stat.synergy=0 })
   Object.values(pitcherStats).forEach(stat => { stat.base=0; stat.enhance=0; stat.skill=0; stat.synergy=0 })
@@ -345,7 +377,7 @@ const getStatTotal = (stat: { base: number, enhance: number, skill: number, syne
   let raw = stat.base + (stat.enhance || 0) + (stat.skill || 0) + (stat.synergy || 0)
   
   if (stat.isCore) {
-    raw += ((manualPowerFixed.value + autoSynergyFixed.value + autoEnhanceFixed.value) / 5)
+    raw += ((manualPowerFixed.value + autoSynergyFixed.value + autoEnhanceFixed.value + growthBuffSum.value) / 5)
     const totalPercentBonus = autoPowerPercent.value + manualPowerPercent.value + autoSynergyPercent.value
     raw = Math.floor(raw * (1 + totalPercentBonus / 100))
   }
@@ -361,23 +393,21 @@ const totalPower = computed(() => {
   stats.forEach(s => {
     baseSum += s.base
     
-    // 표출용 Enhance Sum 계산
     let enh = (s.enhance || 0)
     if (s.isCore) { enh += (autoEnhanceFixed.value / 5) }
     enhanceSum += enh
     
     skillSum += (s.skill || 0)
     
-    // 표출용 Synergy Sum 계산
     let syn = (s.synergy || 0)
-    if (s.isCore) { syn += ((manualPowerFixed.value + autoSynergyFixed.value) / 5) }
+    if (s.isCore) { syn += ((manualPowerFixed.value + autoSynergyFixed.value + growthBuffSum.value) / 5) }
     synergySum += syn
     
     finalSum += getStatTotal(s)
   })
   
   const totalPercentBonus = autoPowerPercent.value + manualPowerPercent.value + autoSynergyPercent.value
-  const globalFixed = manualPowerFixed.value + autoSynergyFixed.value
+  const globalFixed = manualPowerFixed.value + autoSynergyFixed.value + growthBuffSum.value
   
   return { baseSum, enhanceSum, skillSum, synergySum, finalSum, totalPercentBonus, globalFixed }
 })
@@ -393,7 +423,7 @@ const totalPower = computed(() => {
         </div>
         <div>
           <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 tracking-tight">스탯 계산기</h1>
-          <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">버튼 클릭 한 번으로 등급별 강화, 9UP 스킬, 인원별 시너지가 완벽하게 자동 계산됩니다.</p>
+          <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">버튼 클릭 한 번으로 육성, 강화, 9UP 스킬, 인원별 시너지가 완벽하게 자동 계산됩니다.</p>
         </div>
       </header>
 
@@ -470,7 +500,45 @@ const totalPower = computed(() => {
               </div>
             </div>
 
-            <!-- 강화 단계 버튼 영역 (버튼식) -->
+            <!-- 기본 육성 및 버프 패널 -->
+            <div class="p-6 bg-sky-50/30 dark:bg-sky-900/10 border-b border-neutral-100 dark:border-neutral-700">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
+                  <TrendingUp class="w-4 h-4 text-sky-500" /> 기본 육성 및 팀 버프
+                </h3>
+                <span class="px-2 py-1 bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 font-bold rounded-lg text-xs border border-sky-200 dark:border-sky-800">
+                  육성/버프 총합: 파워 +{{ growthBuffSum }} 적용 중
+                </span>
+              </div>
+              <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
+                <div class="flex flex-col gap-1">
+                  <label class="text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase">선수 레벨</label>
+                  <input type="number" v-model.number="playerLevel" min="0" max="100" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg text-sm font-medium focus:border-sky-500 outline-none transition-colors" />
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label class="text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase">도감</label>
+                  <input type="number" v-model.number="collectionBuff" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg text-sm font-medium focus:border-sky-500 outline-none transition-colors" />
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label class="text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase">팀 레벨</label>
+                  <input type="number" v-model.number="teamLevelBuff" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg text-sm font-medium focus:border-sky-500 outline-none transition-colors" />
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label class="text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase">바인더</label>
+                  <input type="number" v-model.number="binderBuff" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg text-sm font-medium focus:border-sky-500 outline-none transition-colors" />
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label class="text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase">커리어</label>
+                  <input type="number" v-model.number="careerBuff" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg text-sm font-medium focus:border-sky-500 outline-none transition-colors" />
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label class="text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase">히트/에이스 추가</label>
+                  <input type="number" v-model.number="hitAceBuff" :disabled="!['HIT', 'ACE'].includes(String(selectedPlayer.grade).toUpperCase())" class="w-full px-2 py-1.5 text-center border border-neutral-300 dark:border-neutral-600 rounded-lg text-sm font-medium focus:border-sky-500 outline-none transition-colors disabled:opacity-50 disabled:bg-neutral-100 dark:disabled:bg-neutral-900" :class="['HIT', 'ACE'].includes(String(selectedPlayer.grade).toUpperCase()) ? 'bg-sky-50 dark:bg-sky-900/30' : 'bg-white dark:bg-neutral-800'" />
+                </div>
+              </div>
+            </div>
+
+            <!-- 강화 단계 버튼 영역 -->
             <div class="p-6 bg-emerald-50/30 dark:bg-emerald-900/10 border-b border-neutral-100 dark:border-neutral-700">
               <div class="flex items-center justify-between mb-3">
                 <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
@@ -490,7 +558,7 @@ const totalPower = computed(() => {
               </div>
             </div>
 
-            <!-- 통합 스킬 선택 버튼 영역 (버튼식) -->
+            <!-- 통합 스킬 선택 버튼 영역 -->
             <div class="p-6 bg-neutral-50/50 dark:bg-neutral-800/50 border-b border-neutral-100 dark:border-neutral-700">
               <div class="flex items-center justify-between mb-3">
                 <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
@@ -551,7 +619,7 @@ const totalPower = computed(() => {
                       <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 w-1/6">DB 기본</th>
                       <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-1/6">개별 훈련/강화 (+)</th>
                       <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-1/6 bg-amber-50/30 dark:bg-amber-900/5">스킬 (+)</th>
-                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-1/6">시너지 (+)</th>
+                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-1/6 bg-indigo-50/30 dark:bg-indigo-900/5">육성/시너지 (+)</th>
                       <th class="p-3 border-b border-neutral-200 dark:border-neutral-700 font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/10 w-1/6">최종 스탯</th>
                     </tr>
                   </thead>
@@ -573,8 +641,8 @@ const totalPower = computed(() => {
                         <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-amber-50/10 dark:bg-amber-900/5">
                           <input type="number" v-model.number="statObj.skill" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-shadow" />
                         </td>
-                        <td class="p-2 border-r border-neutral-200 dark:border-neutral-700">
-                          <input type="number" v-model.number="statObj.synergy" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-shadow" />
+                        <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-indigo-50/10 dark:bg-indigo-900/5">
+                          <input type="number" v-model.number="statObj.synergy" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-shadow" />
                         </td>
                         <td class="p-3 font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50/30 dark:bg-indigo-900/5 text-lg">
                           {{ getStatTotal(statObj) }}
@@ -598,8 +666,8 @@ const totalPower = computed(() => {
                         <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-amber-50/10 dark:bg-amber-900/5">
                           <input type="number" v-model.number="statObj.skill" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-shadow" />
                         </td>
-                        <td class="p-2 border-r border-neutral-200 dark:border-neutral-700">
-                          <input type="number" v-model.number="statObj.synergy" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-shadow" />
+                        <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-indigo-50/10 dark:bg-indigo-900/5">
+                          <input type="number" v-model.number="statObj.synergy" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-shadow" />
                         </td>
                         <td class="p-3 font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50/30 dark:bg-indigo-900/5 text-lg">
                           {{ getStatTotal(statObj) }}
@@ -638,14 +706,13 @@ const totalPower = computed(() => {
                       </td>
                       <td class="p-4 border-r border-neutral-200 dark:border-neutral-700 font-bold text-neutral-700 dark:text-neutral-300 tabular-nums">
                         +{{ totalPower.enhanceSum }}
-                        <div v-if="autoEnhanceFixed > 0" class="text-xs text-emerald-500 mt-1">자동 +{{ autoEnhanceFixed }}</div>
                       </td>
                       <td class="p-4 border-r border-neutral-200 dark:border-neutral-700 font-bold text-amber-700 dark:text-amber-500 tabular-nums">
                         +{{ totalPower.skillSum }}
                       </td>
                       <td class="p-4 border-r border-neutral-200 dark:border-neutral-700 font-bold text-neutral-700 dark:text-neutral-300 tabular-nums">
                         +{{ totalPower.synergySum }}
-                        <div v-if="totalPower.globalFixed > 0" class="text-xs text-indigo-500 mt-1">자동/수동 일괄포함됨</div>
+                        <div v-if="totalPower.globalFixed > 0" class="text-[10px] text-blue-500 mt-1 leading-tight">자동/수동 육성분<br>일괄포함됨</div>
                       </td>
                       <td class="p-4 font-black text-xl text-indigo-700 dark:text-indigo-400 bg-indigo-100/50 dark:bg-indigo-900/20 tabular-nums relative">
                         <span class="absolute top-1 left-0 w-full text-[10px] text-center text-indigo-400 dark:text-indigo-500 font-normal">
@@ -657,7 +724,6 @@ const totalPower = computed(() => {
                   </tfoot>
                 </table>
               </div>
-
             </div>
           </section>
 
