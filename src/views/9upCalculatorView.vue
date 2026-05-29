@@ -26,7 +26,7 @@ const synergys = ref<JsonSynergy[]>([])
 const searchQuery = ref('')
 const selectedPlayer = ref<Raw | null>(null)
 
-// 엑셀 계산기 스타일의 스탯 상태 (타자용, 투수용) - 커리어(career) 변수 추가
+// 엑셀 계산기 스타일의 스탯 상태 (타자용, 투수용) - 5대 핵심 스탯(isCore) 분리
 const batterStats = reactive({
   contact: { base: 0, enhance: 0, skill: 0, synergy: 0, career: 0, label: '컨택', isCore: true },
   gapPower: { base: 0, enhance: 0, skill: 0, synergy: 0, career: 0, label: '갭파워', isCore: true },
@@ -61,7 +61,7 @@ const collectionBuff = ref(0)
 const teamLevelBuff = ref(750)
 const binderBuff = ref(527)
 const careerLevelBuff = ref(149) // 기존 커리어 레벨 파워
-const careerTeamBuff = ref(0) // NEW: 자팀 선수수 파워 (%적용됨)
+const careerTeamCount = ref(0) // NEW: 자팀 선수 슬롯 개수 (개당 112 파워)
 const hitAceBuff = ref(0)
 
 const growthBuffSum = computed(() => {
@@ -70,7 +70,7 @@ const growthBuffSum = computed(() => {
          (teamLevelBuff.value || 0) + 
          (binderBuff.value || 0) + 
          (careerLevelBuff.value || 0) + 
-         (careerTeamBuff.value || 0) + 
+         ((careerTeamCount.value || 0) * 112) + // 자팀수 * 112 자동계산
          (hitAceBuff.value || 0)
 })
 
@@ -226,7 +226,7 @@ const SKILL_EFFECTS: Record<string, any> = {
 const autoPowerPercent = ref(0)
 const manualPowerFixed = ref(0)
 const manualPowerPercent = ref(0)
-const careerAllStatFlat = ref(0) // NEW: 커리어 전능 깡파워 (% 미적용)
+const careerAllStatFlat = ref(0) // 커리어 전능 깡파워 (% 미적용)
 
 // === 시너지 시스템 로직 ===
 const activeSynergyConditions = ref<Record<string, number>>({})
@@ -335,7 +335,7 @@ const selectPlayer = (p: Raw) => {
   teamLevelBuff.value = 750
   binderBuff.value = 527
   careerLevelBuff.value = 149
-  careerTeamBuff.value = 0 // 자팀 버프 초기화
+  careerTeamCount.value = 0 // 자팀 슬롯 개수 초기화
   
   const grade = String(p.grade || '').toUpperCase()
   if (['SEA', 'ASG'].includes(grade)) collectionBuff.value = 800
@@ -573,8 +573,8 @@ const totalPower = computed(() => {
                   <input type="number" v-model.number="careerLevelBuff" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg text-sm font-medium focus:border-sky-500 outline-none transition-colors" />
                 </div>
                 <div class="flex flex-col gap-1">
-                  <label class="text-[11px] font-bold text-sky-600 dark:text-sky-400 uppercase" title="본인팀 선수들의 수 * 2 로 증가하는 옵션">커리어 (자팀)</label>
-                  <input type="number" v-model.number="careerTeamBuff" placeholder="ex: 174" class="w-full px-2 py-1.5 text-center bg-sky-50 dark:bg-sky-900/30 border border-sky-300 dark:border-sky-600 rounded-lg text-sm font-bold focus:border-sky-500 outline-none transition-colors" />
+                  <label class="text-[11px] font-bold text-sky-600 dark:text-sky-400 uppercase" title="본인팀 선수들의 수 * 112 로 증가하는 옵션">커리어 (자팀수)</label>
+                  <input type="number" v-model.number="careerTeamCount" min="0" max="6" placeholder="ex: 3~6" class="w-full px-2 py-1.5 text-center bg-sky-50 dark:bg-sky-900/30 border border-sky-300 dark:border-sky-600 rounded-lg text-sm font-bold focus:border-sky-500 outline-none transition-colors" />
                 </div>
                 <div class="flex flex-col gap-1">
                   <label class="text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase">HIT/ACE 전용</label>
@@ -679,13 +679,13 @@ const totalPower = computed(() => {
                 <table class="w-full text-sm text-center border-collapse">
                   <thead>
                     <tr class="bg-neutral-100 dark:bg-neutral-700/80 text-neutral-600 dark:text-neutral-300">
-                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-24">스탯 항목</th>
-                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 w-20">DB 기본</th>
-                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-20">개별 훈련(+)</th>
-                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-20 bg-amber-50/30 dark:bg-amber-900/5">스킬 (+)</th>
-                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-20">시너지 (+)</th>
-                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-24 bg-fuchsia-50/30 dark:bg-fuchsia-900/10 text-fuchsia-700 dark:text-fuchsia-400">커리어 깡스탯<br><span class="text-[10px] font-normal opacity-80">(% 미적용)</span></th>
-                      <th class="p-3 border-b border-neutral-200 dark:border-neutral-700 font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/10 w-28">최종 스탯</th>
+                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-1/6">스탯 항목</th>
+                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 w-1/6">DB 기본</th>
+                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-1/6">개별 훈련/강화 (+)</th>
+                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-1/6 bg-amber-50/30 dark:bg-amber-900/5">스킬 (+)</th>
+                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-1/6">시너지 (+)</th>
+                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-1/6 bg-fuchsia-50/30 dark:bg-fuchsia-900/10 text-fuchsia-700 dark:text-fuchsia-400">커리어 깡스탯<br><span class="text-[10px] font-normal opacity-80">(% 미적용)</span></th>
+                      <th class="p-3 border-b border-neutral-200 dark:border-neutral-700 font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/10 w-1/6">최종 스탯</th>
                     </tr>
                   </thead>
                   
