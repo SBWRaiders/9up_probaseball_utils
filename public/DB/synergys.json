@@ -3810,8 +3810,8 @@
   {
     "id": 122,
     "synergy": "에이스",
-    "synergy_effect": "- n- 라인업에 2명 이상 기용 시 파워 +6% ",
-    "description": "에이스 등급 선수들입니다.",
+    "synergy_effect": "라인업에 2명 이상 기용 시 파워 +6% ",
+    "description": "- 에이스 등급 선수들입니다.",
     "stackable": false,
     "conditions": [
       {
