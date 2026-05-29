@@ -55,7 +55,7 @@ const isPitcher = computed(() => {
   return pos.includes('SP') || pos.includes('RP') || !!selectedPlayer.value.movement
 })
 
-// === 기본 육성 및 버프 로직 ===
+// === 기본 육성 및 팀/클랜/얼티밋 버프 로직 ===
 const playerLevel = ref(100)
 const collectionBuff = ref(0)
 const teamLevelBuff = ref(750)
@@ -63,6 +63,9 @@ const binderBuff = ref(527)
 const careerLevelBuff = ref(149) 
 const careerTeamCount = ref(0) 
 const hitAceBuff = ref(0)
+const teamPlayerDignityBuff = ref(0) // NEW: 팀플+디그강화 (% 적용 O)
+const clanBuff = ref(15)             // NEW: 클랜 레벨 (깡파워, % 적용 X)
+const ultimateImprintPercent = ref(0)// NEW: 얼티밋 각인 (% 합산)
 
 const growthBuffSum = computed(() => {
   return ((playerLevel.value || 0) * 10) + 
@@ -112,10 +115,13 @@ const maxBreakthrough = computed(() => {
 const breakthroughBase = computed(() => {
   if (!selectedPlayer.value) return 0
   const grade = String(selectedPlayer.value.grade).toUpperCase()
-  if (['SEA', 'ASG', 'POS'].includes(grade)) return 30
-  if (['TEA', 'ROY', 'MMVP'].includes(grade)) return 50
-  if (['HIT', 'ACE', 'GG', 'TOP'].includes(grade)) return 100
-  return 0
+  const map: Record<string, number> = {
+    'SEA': 30, 'ASG': 30, 'POS': 30,
+    'TEA': 50, 'ROY': 50, 'MMVP': 50,
+    'HIT': 100, 'ACE': 100, 'GG': 100, 'TOP': 100,
+    'DGN': 0
+  }
+  return map[grade] || 0
 })
 
 const autoBreakthroughFixed = computed(() => {
@@ -123,22 +129,16 @@ const autoBreakthroughFixed = computed(() => {
   const grade = String(selectedPlayer.value.grade).toUpperCase()
   const lvl = breakthroughLevel.value
   
-  // 그룹 1: 30증가 기준 (1, 3, 6, 10, 15, 21 배수)
   if (['SEA', 'ASG', 'POS'].includes(grade)) {
     const mults = [0, 1, 3, 6, 10, 15, 21, 28, 36]
     return 30 * (mults[lvl] || 0)
-  } 
-  // 그룹 2: 50증가 기준 (1, 3, 6, 10, 15, 21 배수)
-  else if (['TEA', 'ROY', 'MMVP'].includes(grade)) {
+  } else if (['TEA', 'ROY', 'MMVP'].includes(grade)) {
     const mults = [0, 1, 3, 6, 10, 15, 21, 28, 36]
     return 50 * (mults[lvl] || 0)
-  } 
-  // 그룹 3: 100증가 기준 (1, 2.5, 4.5, 7, 10, 15 배수)
-  else if (['HIT', 'ACE', 'GG', 'TOP'].includes(grade)) {
+  } else if (['HIT', 'ACE', 'GG', 'TOP'].includes(grade)) {
     const mults = [0, 1, 2.5, 4.5, 7, 10, 15, 21, 28] 
     return 100 * (mults[lvl] || 0)
   }
-  
   return 0
 })
 
@@ -213,7 +213,6 @@ const manualPowerFixed = ref(0)
 const manualPowerPercent = ref(0)
 const careerAllStatFlat = ref(0) 
 
-// === 각인(Imprint) 시스템 ===
 const imprintMainPower = ref(0)
 const imprintSubPower = ref(0)
 const imprintStarterPower = ref(0)
@@ -314,7 +313,6 @@ const selectPlayer = (p: Raw) => {
   enhancementLevel.value = 0
   breakthroughLevel.value = 0
   
-  // 각인 초기화
   imprintMainPower.value = 0
   imprintSubPower.value = 0
   imprintStarterPower.value = 0
@@ -324,6 +322,9 @@ const selectPlayer = (p: Raw) => {
   binderBuff.value = 527
   careerLevelBuff.value = 149
   careerTeamCount.value = 0 
+  teamPlayerDignityBuff.value = 0 
+  clanBuff.value = 15
+  ultimateImprintPercent.value = 0
   
   const grade = String(p.grade || '').toUpperCase()
   if (['SEA', 'ASG'].includes(grade)) collectionBuff.value = 800
@@ -397,21 +398,21 @@ const getStatTotal = (stat: { base: number, skill: number, career: number, impri
   let raw = stat.base + (stat.skill || 0)
   
   if (stat.isCore) {
-    // 1. 퍼센트 영향을 받는 항목들
-    raw += ((manualPowerFixed.value + autoSynergyFixed.value + autoEnhanceFixed.value + growthBuffSum.value) / 5)
+    // 1. 퍼센트 영향을 받는 항목들 (수동파워, 자동시너지, 강화, 성장버프+팀플/디그강화)
+    raw += ((manualPowerFixed.value + autoSynergyFixed.value + autoEnhanceFixed.value + growthBuffSum.value + teamPlayerDignityBuff.value) / 5)
     
-    // 2. 퍼센트 곱연산 적용
-    const totalPercentBonus = autoPowerPercent.value + manualPowerPercent.value + autoSynergyPercent.value
+    // 2. 퍼센트 곱연산 적용 (얼티밋 각인 포함)
+    const totalPercentBonus = autoPowerPercent.value + manualPowerPercent.value + autoSynergyPercent.value + ultimateImprintPercent.value
     raw = Math.floor(raw * (1 + totalPercentBonus / 100))
     
-    // 3. 퍼센트 영향을 받지 않는 깡스탯 합산
+    // 3. 퍼센트 영향을 받지 않는 깡스탯 합산 (돌파 + 커리어 전능 + 각인 주옵/부옵/선발 + 클랜)
     let imprintGlobal = (imprintMainPower.value || 0) + (imprintSubPower.value || 0)
     if (isPitcher.value) imprintGlobal += (imprintStarterPower.value || 0)
     
-    raw += ((autoBreakthroughFixed.value + careerAllStatFlat.value + imprintGlobal) / 5)
+    raw += ((autoBreakthroughFixed.value + careerAllStatFlat.value + imprintGlobal + clanBuff.value) / 5)
   }
   
-  // 4. 개별 깡스탯
+  // 4. 개별 깡스탯 (퍼센트 비적용)
   raw += (stat.career || 0)
   raw += (stat.imprint || 0)
   
@@ -443,10 +444,10 @@ const totalPower = computed(() => {
     finalSum += getStatTotal(s)
   })
   
-  const totalPercentBonus = autoPowerPercent.value + manualPowerPercent.value + autoSynergyPercent.value
-  const globalFixed = manualPowerFixed.value + autoSynergyFixed.value + growthBuffSum.value + autoEnhanceFixed.value
+  const totalPercentBonus = autoPowerPercent.value + manualPowerPercent.value + autoSynergyPercent.value + ultimateImprintPercent.value
+  const globalFixed = manualPowerFixed.value + autoSynergyFixed.value + growthBuffSum.value + autoEnhanceFixed.value + teamPlayerDignityBuff.value
   
-  return { baseSum, skillSum, careerSum, imprintSum, finalSum, totalPercentBonus, globalFixed, autoBreakthroughFixed: autoBreakthroughFixed.value }
+  return { baseSum, skillSum, careerSum, imprintSum, finalSum, totalPercentBonus, globalFixed, autoBreakthroughFixed: autoBreakthroughFixed.value, clanBuff: clanBuff.value }
 })
 </script>
 
@@ -460,7 +461,7 @@ const totalPower = computed(() => {
         </div>
         <div>
           <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 tracking-tight">스탯 계산기</h1>
-          <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">돌파, 스킬, 각인, 시너지까지 모든 스탯을 웹에서 간편하게 처리하세요!</p>
+          <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">퍼센트 적용 여부(돌파, 커리어, 클랜, 각인 스탯 등)까지 게임의 연산 로직을 100% 완벽하게 반영했습니다.</p>
         </div>
       </header>
 
@@ -537,17 +538,14 @@ const totalPower = computed(() => {
               </div>
             </div>
 
-            <!-- 기본 육성 및 팀 버프 패널 -->
+            <!-- 기본 육성 및 버프 패널 -->
             <div class="p-6 bg-sky-50/30 dark:bg-sky-900/10 border-b border-neutral-100 dark:border-neutral-700">
               <div class="flex items-center justify-between mb-3">
                 <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-                  <TrendingUp class="w-4 h-4 text-sky-500" /> 기본 육성 및 팀 버프 <span class="text-[10px] text-sky-600 font-normal ml-1">(퍼센트 뻥튀기 적용 O)</span>
+                  <TrendingUp class="w-4 h-4 text-sky-500" /> 육성 및 시스템 버프
                 </h3>
-                <span class="px-2 py-1 bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 font-bold rounded-lg text-xs border border-sky-200 dark:border-sky-800">
-                  육성/버프 총합: 파워 +{{ growthBuffSum }} 적용 중
-                </span>
               </div>
-              <div class="grid grid-cols-2 md:grid-cols-7 gap-4">
+              <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
                 <div class="flex flex-col gap-1">
                   <label class="text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase">선수 레벨</label>
                   <input type="number" v-model.number="playerLevel" min="0" max="100" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg text-sm font-medium focus:border-sky-500 outline-none transition-colors" />
@@ -569,12 +567,24 @@ const totalPower = computed(() => {
                   <input type="number" v-model.number="careerLevelBuff" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg text-sm font-medium focus:border-sky-500 outline-none transition-colors" />
                 </div>
                 <div class="flex flex-col gap-1">
-                  <label class="text-[11px] font-bold text-sky-600 dark:text-sky-400 uppercase" title="본인팀 선수들의 수 * 112 로 증가하는 옵션">커리어 (자팀수)</label>
+                  <label class="text-[11px] font-bold text-sky-600 dark:text-sky-400 uppercase" title="개당 112 증가">커리어 (자팀수)</label>
                   <input type="number" v-model.number="careerTeamCount" min="0" max="6" placeholder="ex: 3~6" class="w-full px-2 py-1.5 text-center bg-sky-50 dark:bg-sky-900/30 border border-sky-300 dark:border-sky-600 rounded-lg text-sm font-bold focus:border-sky-500 outline-none transition-colors" />
                 </div>
                 <div class="flex flex-col gap-1">
                   <label class="text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase">HIT/ACE 전용</label>
                   <input type="number" v-model.number="hitAceBuff" :disabled="!['HIT', 'ACE'].includes(String(selectedPlayer.grade).toUpperCase())" class="w-full px-2 py-1.5 text-center border border-neutral-300 dark:border-neutral-600 rounded-lg text-sm font-medium focus:border-sky-500 outline-none transition-colors disabled:opacity-50 disabled:bg-neutral-100 dark:disabled:bg-neutral-900" :class="['HIT', 'ACE'].includes(String(selectedPlayer.grade).toUpperCase()) ? 'bg-sky-50 dark:bg-sky-900/30' : 'bg-white dark:bg-neutral-800'" />
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label class="text-[11px] font-bold text-sky-600 dark:text-sky-400 uppercase" title="팀플(최대 23) + 디그니티(100)">팀플+디그강화</label>
+                  <input type="number" v-model.number="teamPlayerDignityBuff" placeholder="파워 합" class="w-full px-2 py-1.5 text-center bg-sky-50 dark:bg-sky-900/30 border border-sky-300 dark:border-sky-600 rounded-lg text-sm font-bold focus:border-sky-500 outline-none transition-colors" />
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label class="text-[11px] font-bold text-fuchsia-600 dark:text-fuchsia-400 uppercase" title="최대 15 (퍼센트 미적용 깡파워)">클랜 레벨(깡파워)</label>
+                  <input type="number" v-model.number="clanBuff" min="0" max="15" class="w-full px-2 py-1.5 text-center bg-fuchsia-50 dark:bg-fuchsia-900/30 border border-fuchsia-300 dark:border-fuchsia-600 rounded-lg text-sm font-bold focus:border-fuchsia-500 outline-none transition-colors" />
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label class="text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase" title="0~3% 파워 증가">얼티밋 각인(%)</label>
+                  <input type="number" v-model.number="ultimateImprintPercent" min="0" max="3" class="w-full px-2 py-1.5 text-center bg-blue-50 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-600 rounded-lg text-sm font-bold focus:border-blue-500 outline-none transition-colors" />
                 </div>
               </div>
             </div>
@@ -749,12 +759,12 @@ const totalPower = computed(() => {
                         ⚡ 기타 전체 파워 보너스 수동입력 (% 적용 O) ➔
                       </td>
                       <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800">
-                        <div class="flex items-center gap-1">
+                        <div class="flex items-center gap-1" title="핵심 5스탯에 각각 1/5씩 분배됩니다">
                           <span class="text-xs text-neutral-400">+</span>
                           <input type="number" v-model.number="manualPowerFixed" placeholder="파워 고정" class="w-full px-1 py-1 text-center bg-neutral-50 dark:bg-neutral-900 border border-blue-200 dark:border-blue-800 rounded text-xs outline-none focus:border-blue-500" />
                         </div>
                       </td>
-                      <td colspan="2" class="p-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-left">
+                      <td class="p-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-left">
                         <div class="flex items-center gap-1 w-24">
                           <span class="text-xs text-neutral-400">+</span>
                           <input type="number" v-model.number="manualPowerPercent" placeholder="파워 %" class="w-full px-1 py-1 text-center bg-neutral-50 dark:bg-neutral-900 border border-blue-200 dark:border-blue-800 rounded text-xs outline-none focus:border-blue-500" />
@@ -767,9 +777,6 @@ const totalPower = computed(() => {
                     <tr>
                       <td colspan="4" class="p-3 text-right text-xs font-semibold text-neutral-500 dark:text-neutral-400 border-r border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800">
                         ✨ 커리어 전능 깡파워 수동입력 (% 적용 X) ➔
-                      </td>
-                      <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800">
-                        <!-- 빈칸 -->
                       </td>
                       <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-fuchsia-50/10 dark:bg-fuchsia-900/10">
                         <div class="flex items-center gap-1">
@@ -810,12 +817,13 @@ const totalPower = computed(() => {
 
                     <!-- 요약 로우 -->
                     <tr>
-                      <td colspan="6" class="p-2 text-center text-xs font-semibold text-neutral-500 dark:text-neutral-400 border-b border-neutral-200 dark:border-neutral-700 bg-neutral-200 dark:bg-neutral-800">
-                        <span class="text-indigo-600 dark:text-indigo-400">📊 [퍼센트(%) 적용 버프 총합]</span> 
-                        팀육성 +{{ growthBuffSum }} / 
-                        강화 +{{ autoEnhanceFixed }} / 
-                        시너지 +{{ autoSynergyFixed }} / 
-                        수동고정 +{{ manualPowerFixed }}
+                      <td colspan="6" class="p-2 text-center text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 border-b border-neutral-200 dark:border-neutral-700 bg-neutral-200 dark:bg-neutral-800">
+                        <span class="text-indigo-600 dark:text-indigo-400">📊 [퍼센트(%) 적용 대상 파워 합산 내역]</span> 
+                        <span class="mx-1">강화 +{{ autoEnhanceFixed }}</span>| 
+                        <span class="mx-1">시너지 +{{ autoSynergyFixed }}</span>| 
+                        <span class="mx-1">수동고정 +{{ manualPowerFixed }}</span>| 
+                        <span class="mx-1">팀육성/클럽 +{{ growthBuffSum }}</span>
+                        <span v-if="teamPlayerDignityBuff > 0" class="mx-1">| 팀플/디그 +{{ teamPlayerDignityBuff }}</span>
                       </td>
                     </tr>
 
@@ -841,8 +849,8 @@ const totalPower = computed(() => {
                           <span v-if="totalPower.totalPercentBonus > 0">합계 × {{ 100 + totalPower.totalPercentBonus }}%</span>
                         </span>
                         <div class="mt-2">{{ totalPower.finalSum }}</div>
-                        <div v-if="totalPower.autoBreakthroughFixed > 0" class="text-[10px] text-fuchsia-500 mt-1 font-bold leading-tight">
-                          + 돌파 깡파워 {{ totalPower.autoBreakthroughFixed }}
+                        <div v-if="totalPower.autoBreakthroughFixed > 0 || clanBuff > 0" class="text-[10px] text-fuchsia-500 mt-1 font-bold leading-tight">
+                          + 돌파 깡파워 {{ totalPower.autoBreakthroughFixed }} <span v-if="clanBuff > 0">/ 클랜 {{ clanBuff }}</span>
                         </div>
                       </td>
                     </tr>
