@@ -11,27 +11,26 @@ const searchQuery = ref('')
 const selectedPlayer = ref<Raw | null>(null)
 
 // 엑셀 계산기 스타일의 스탯 상태 (타자용, 투수용)
-// conditional: 조건부 스탯 (개별 스탯은 오르지만, 전체 파워 총합에는 반영되지 않음)
 const batterStats = reactive({
-  contact: { base: 0, enhance: 0, skill: 0, conditional: 0, synergy: 0, label: '컨택' },
-  gapPower: { base: 0, enhance: 0, skill: 0, conditional: 0, synergy: 0, label: '갭파워' },
-  homeRunPower: { base: 0, enhance: 0, skill: 0, conditional: 0, synergy: 0, label: '홈런파워' },
-  plateDiscipline: { base: 0, enhance: 0, skill: 0, conditional: 0, synergy: 0, label: '선구' },
-  strikeoutAvoidance: { base: 0, enhance: 0, skill: 0, conditional: 0, synergy: 0, label: '삼진회피' },
-  stealing: { base: 0, enhance: 0, skill: 0, conditional: 0, synergy: 0, label: '도루' },
-  baseRunning: { base: 0, enhance: 0, skill: 0, conditional: 0, synergy: 0, label: '주루' },
-  defense: { base: 0, enhance: 0, skill: 0, conditional: 0, synergy: 0, label: '수비' },
+  contact: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '컨택' },
+  gapPower: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '갭파워' },
+  homeRunPower: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '홈런파워' },
+  plateDiscipline: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '선구' },
+  strikeoutAvoidance: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '삼진회피' },
+  stealing: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '도루' },
+  baseRunning: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '주루' },
+  defense: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '수비' },
 })
 
 const pitcherStats = reactive({
-  movement: { base: 0, enhance: 0, skill: 0, conditional: 0, synergy: 0, label: '무브먼트' },
-  longHitSup: { base: 0, enhance: 0, skill: 0, conditional: 0, synergy: 0, label: '장타억제' },
-  hrSup: { base: 0, enhance: 0, skill: 0, conditional: 0, synergy: 0, label: '홈런억제' },
-  control: { base: 0, enhance: 0, skill: 0, conditional: 0, synergy: 0, label: '컨트롤' },
-  stuff: { base: 0, enhance: 0, skill: 0, conditional: 0, synergy: 0, label: '스터프(구위)' },
-  defense: { base: 0, enhance: 0, skill: 0, conditional: 0, synergy: 0, label: '수비' },
-  pitchLimit: { base: 0, enhance: 0, skill: 0, conditional: 0, synergy: 0, label: '한계투구' },
-  runnerCtrl: { base: 0, enhance: 0, skill: 0, conditional: 0, synergy: 0, label: '주자견제' },
+  movement: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '무브먼트' },
+  longHitSup: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '장타억제' },
+  hrSup: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '홈런억제' },
+  control: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '컨트롤' },
+  stuff: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '스터프(구위)' },
+  defense: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '수비' },
+  pitchLimit: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '한계투구' },
+  runnerCtrl: { base: 0, enhance: 0, skill: 0, synergy: 0, label: '주자견제' },
 })
 
 const isPitcher = computed(() => {
@@ -40,8 +39,8 @@ const isPitcher = computed(() => {
   return pos.includes('SP') || pos.includes('RP') || !!selectedPlayer.value.movement
 })
 
-// 카드 성수(rarity)에 따른 스킬 슬롯 개수 계산 (1~3성: 1개, 4성: 2개, 5~6성: 3개)
-const maxSkillSlots = computed(() => {
+// 카드 성수(rarity)에 따른 '일반 스킬' 슬롯 개수 계산 (1~3성: 1개, 4성: 2개, 5~6성: 3개)
+const maxGeneralSkillSlots = computed(() => {
   if (!selectedPlayer.value) return 0
   const r = Number(selectedPlayer.value.rarity || 0)
   if (r <= 3) return 1
@@ -52,23 +51,26 @@ const maxSkillSlots = computed(() => {
 // 선수가 보유한 전체 스킬 목록 (기본 + 강화)
 const availableSkills = computed(() => {
   if (!selectedPlayer.value) return []
+  const getArray = (str: any) => {
+    if (!str) return []
+    return String(str).split(',').map(s => s.trim()).filter(Boolean)
+  }
   const baseSkills = getArray(selectedPlayer.value.skill)
   const enhancedSkills = getArray(selectedPlayer.value.enhancedSkill)
   return Array.from(new Set([...baseSkills, ...enhancedSkills]))
 })
 
 // 사용자가 선택한 스킬들
-const selectedSkills = ref<string[]>(['', '', ''])
+const selectedRoleSkill = ref('') // 타순, 보직 스킬 1개
+const selectedGeneralSkills = ref(['', '', '']) // 일반 스킬 최대 3개
 
-// 타순 스킬(1번~9번) 자동 감지하여 파워 +10% 씩 더하기
+// 타순 스킬(1번~9번) 자동 감지하여 전체 파워 +10% 추가
 const autoPowerPercent = computed(() => {
   let percent = 0
   const battingOrders = ['1번', '2번', '3번', '4번', '5번', '6번', '7번', '8번', '9번']
-  selectedSkills.value.forEach(skill => {
-    if (battingOrders.includes(skill)) {
-      percent += 10
-    }
-  })
+  if (battingOrders.includes(selectedRoleSkill.value)) {
+    percent += 10
+  }
   return percent
 })
 
@@ -104,17 +106,18 @@ const filteredPlayers = computed(() => {
   ).slice(0, 50)
 })
 
-// 선수 선택 시 기본 스탯 연동
+// 선수 선택 시 스탯 연동
 const selectPlayer = (p: Raw) => {
   selectedPlayer.value = p
   searchQuery.value = ''
-  selectedSkills.value = ['', '', '']
+  selectedRoleSkill.value = ''
+  selectedGeneralSkills.value = ['', '', '']
   manualPowerFixed.value = 0
   manualPowerPercent.value = 0
   
   // 모든 스탯 초기화
-  Object.values(batterStats).forEach(stat => { stat.base=0; stat.enhance=0; stat.skill=0; stat.conditional=0; stat.synergy=0 })
-  Object.values(pitcherStats).forEach(stat => { stat.base=0; stat.enhance=0; stat.skill=0; stat.conditional=0; stat.synergy=0 })
+  Object.values(batterStats).forEach(stat => { stat.base=0; stat.enhance=0; stat.skill=0; stat.synergy=0 })
+  Object.values(pitcherStats).forEach(stat => { stat.base=0; stat.enhance=0; stat.skill=0; stat.synergy=0 })
   
   if (isPitcher.value) {
     pitcherStats.movement.base = Number(p.movement || 0)
@@ -137,14 +140,14 @@ const selectPlayer = (p: Raw) => {
   }
 }
 
-// 개별 스탯 가로 총합 계산기 (조건부 포함)
-const getStatTotal = (stat: { base: number, enhance: number, skill: number, conditional: number, synergy: number }) => {
-  return stat.base + (stat.enhance || 0) + (stat.skill || 0) + (stat.conditional || 0) + (stat.synergy || 0)
+// 개별 스탯 가로 총합 계산기
+const getStatTotal = (stat: { base: number, enhance: number, skill: number, synergy: number }) => {
+  return stat.base + (stat.enhance || 0) + (stat.skill || 0) + (stat.synergy || 0)
 }
 
-// 전체 파워(종합 OVR) 계산기 (※ 조건부 스탯은 파워 총합에서 제외됩니다 ※)
+// 전체 파워(종합 OVR) 계산기
 const totalPower = computed(() => {
-  let baseSum = 0, enhanceSum = 0, skillSum = 0, synergySum = 0, conditionalSum = 0
+  let baseSum = 0, enhanceSum = 0, skillSum = 0, synergySum = 0
   
   const stats = isPitcher.value ? Object.values(pitcherStats) : Object.values(batterStats)
   
@@ -153,17 +156,16 @@ const totalPower = computed(() => {
     enhanceSum += (s.enhance || 0)
     skillSum += (s.skill || 0)
     synergySum += (s.synergy || 0)
-    conditionalSum += (s.conditional || 0)
   })
   
-  // 조건부는 제외하고 합산
+  // 조건부는 삭제되었으므로 순수하게 합산
   const rawTotalPower = baseSum + enhanceSum + skillSum + synergySum + manualPowerFixed.value
   const totalPercentBonus = autoPowerPercent.value + manualPowerPercent.value
   
   // % 보너스 적용
   const finalSum = Math.floor(rawTotalPower * (1 + totalPercentBonus / 100))
   
-  return { baseSum, enhanceSum, skillSum, synergySum, conditionalSum, finalSum, rawTotalPower, totalPercentBonus }
+  return { baseSum, enhanceSum, skillSum, synergySum, finalSum, rawTotalPower, totalPercentBonus }
 })
 
 // 유틸: 텍스트 배열화
@@ -183,7 +185,7 @@ const getArray = (str: any) => {
         </div>
         <div>
           <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 tracking-tight">스탯 계산기</h1>
-          <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">조건부 스탯은 파워에 합산되지 않도록 게임과 동일하게 구현되었습니다.</p>
+          <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">타순/보직 스킬과 일반 스킬을 분리하여 더욱 엑셀에 가깝게 개편되었습니다.</p>
         </div>
       </header>
 
@@ -193,7 +195,7 @@ const getArray = (str: any) => {
 
       <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        <!-- 왼쪽: 선수 검색 -->
+        <!-- 왼쪽: 선수 검색 및 스킬 힌트 -->
         <div class="lg:col-span-3 flex flex-col gap-6">
           <section class="bg-white dark:bg-neutral-800 rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-700 p-5">
             <h2 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
@@ -232,12 +234,19 @@ const getArray = (str: any) => {
             </div>
           </section>
 
-          <!-- 선택된 선수 스킬/시너지 힌트 정보 -->
           <section v-if="selectedPlayer" class="bg-white dark:bg-neutral-800 rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-700 p-5">
             <h2 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
               <Zap class="w-4 h-4 text-amber-500" /> 보유 스킬 힌트
             </h2>
             <div class="space-y-4">
+              <div>
+                <h3 class="text-xs font-bold text-neutral-400 dark:text-neutral-500 mb-2 uppercase tracking-wider">보유 시너지</h3>
+                <div class="flex flex-wrap gap-1.5">
+                  <span v-for="syn in getArray(selectedPlayer.synergy)" :key="syn" class="px-2.5 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-xs rounded-lg">{{ syn }}</span>
+                  <span v-if="!getArray(selectedPlayer.synergy).length" class="text-xs text-neutral-400">없음</span>
+                </div>
+              </div>
+              <div class="h-px w-full bg-neutral-100 dark:bg-neutral-700"></div>
               <div>
                 <h3 class="text-xs font-bold text-neutral-400 dark:text-neutral-500 mb-2 uppercase tracking-wider">기본 스킬</h3>
                 <div class="flex flex-wrap gap-1.5">
@@ -286,32 +295,56 @@ const getArray = (str: any) => {
             </div>
 
             <!-- 스킬 선택 슬롯 영역 -->
-            <div class="px-6 pt-6 border-b border-neutral-100 dark:border-neutral-700 pb-5">
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-                  <Zap class="w-4 h-4 text-amber-500" /> 스킬 장착 슬롯
-                </h3>
-                <span class="px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-bold rounded-lg text-xs border border-amber-200 dark:border-amber-800">
-                  {{ Number(selectedPlayer.rarity) }}성 카드로 최대 {{ maxSkillSlots }}개 장착 가능
-                </span>
-              </div>
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div v-for="i in 3" :key="i" class="flex flex-col gap-1">
-                  <label class="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-                    슬롯 {{ i }} <span v-if="i > maxSkillSlots" class="text-red-400">(잠김)</span>
-                  </label>
-                  <select 
-                    v-model="selectedSkills[i-1]"
-                    :disabled="i > maxSkillSlots"
-                    class="w-full px-3 py-2 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg outline-none focus:border-amber-500 disabled:opacity-50 disabled:bg-neutral-100 dark:disabled:bg-neutral-900 text-sm text-neutral-900 dark:text-neutral-100 transition-colors"
-                  >
-                    <option value="">스킬 선택 안함</option>
-                    <option v-for="skill in availableSkills" :key="skill" :value="skill">{{ skill }}</option>
-                  </select>
+            <div class="p-6 bg-neutral-50/50 dark:bg-neutral-800/50 border-b border-neutral-100 dark:border-neutral-700">
+              <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <!-- 타순/보직 스킬 (파워 % 관여) -->
+                <div class="md:col-span-1 border-r border-neutral-200 dark:border-neutral-700 pr-6">
+                  <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
+                      <Zap class="w-4 h-4 text-rose-500" /> 타순 / 보직
+                    </h3>
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <label class="text-xs font-medium text-neutral-500 dark:text-neutral-400">역할 스킬</label>
+                    <select 
+                      v-model="selectedRoleSkill"
+                      class="w-full px-3 py-2 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg outline-none focus:border-rose-500 text-sm text-neutral-900 dark:text-neutral-100 transition-colors"
+                    >
+                      <option value="">선택 안함</option>
+                      <option v-for="skill in availableSkills" :key="skill" :value="skill">{{ skill }}</option>
+                    </select>
+                  </div>
+                  <div v-if="autoPowerPercent > 0" class="mt-3 text-xs font-medium text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 py-1.5 px-3 rounded-lg border border-rose-100 dark:border-rose-800 inline-block">
+                    파워 총합 <strong>+{{ autoPowerPercent }}%</strong> 적용
+                  </div>
                 </div>
-              </div>
-              <div v-if="autoPowerPercent > 0" class="mt-3 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 py-1.5 px-3 rounded-lg border border-blue-100 dark:border-blue-800 inline-block">
-                💡 타순 스킬 자동 적용 중: 파워 <strong>+{{ autoPowerPercent }}%</strong> 증가
+
+                <!-- 일반 스킬 (개별 스탯 관여) -->
+                <div class="md:col-span-3">
+                  <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
+                      <Zap class="w-4 h-4 text-amber-500" /> 일반 스킬
+                    </h3>
+                    <span class="px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-bold rounded-lg text-xs border border-amber-200 dark:border-amber-800">
+                      최대 {{ maxGeneralSkillSlots }}개 장착 가능
+                    </span>
+                  </div>
+                  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div v-for="i in 3" :key="i" class="flex flex-col gap-1">
+                      <label class="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                        슬롯 {{ i }} <span v-if="i > maxGeneralSkillSlots" class="text-red-400">(잠김)</span>
+                      </label>
+                      <select 
+                        v-model="selectedGeneralSkills[i-1]"
+                        :disabled="i > maxGeneralSkillSlots"
+                        class="w-full px-3 py-2 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg outline-none focus:border-amber-500 disabled:opacity-50 disabled:bg-neutral-100 dark:disabled:bg-neutral-900 text-sm text-neutral-900 dark:text-neutral-100 transition-colors"
+                      >
+                        <option value="">스킬 선택 안함</option>
+                        <option v-for="skill in availableSkills" :key="skill" :value="skill">{{ skill }}</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -327,13 +360,12 @@ const getArray = (str: any) => {
                 <table class="w-full text-sm text-center border-collapse">
                   <thead>
                     <tr class="bg-neutral-100 dark:bg-neutral-700/80 text-neutral-600 dark:text-neutral-300">
-                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-24">스탯 항목</th>
-                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 w-24">DB 기본</th>
-                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-24">강화/훈련 (+)</th>
-                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-24 bg-amber-50/30 dark:bg-amber-900/5">스킬 (+)</th>
-                      <th class="p-3 border-b border-r border-emerald-200 dark:border-emerald-800/50 font-semibold w-24 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400">조건부<br><span class="text-[10px] font-normal opacity-80">(파워제외)</span></th>
-                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-24">시너지 (+)</th>
-                      <th class="p-3 border-b border-neutral-200 dark:border-neutral-700 font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/10 w-28">최종 스탯</th>
+                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-1/6">스탯 항목</th>
+                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 w-1/6">DB 기본</th>
+                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-1/6">강화/훈련 (+)</th>
+                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-1/6 bg-amber-50/30 dark:bg-amber-900/5">스킬 (+)</th>
+                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-1/6">시너지 (+)</th>
+                      <th class="p-3 border-b border-neutral-200 dark:border-neutral-700 font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/10 w-1/6">최종 스탯</th>
                     </tr>
                   </thead>
                   
@@ -352,9 +384,6 @@ const getArray = (str: any) => {
                         </td>
                         <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-amber-50/10 dark:bg-amber-900/5">
                           <input type="number" v-model.number="statObj.skill" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-shadow" />
-                        </td>
-                        <td class="p-2 border-r border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/30 dark:bg-emerald-900/10">
-                          <input type="number" v-model.number="statObj.conditional" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-emerald-300 dark:border-emerald-600 rounded-lg outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-shadow" />
                         </td>
                         <td class="p-2 border-r border-neutral-200 dark:border-neutral-700">
                           <input type="number" v-model.number="statObj.synergy" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-shadow" />
@@ -378,9 +407,6 @@ const getArray = (str: any) => {
                         </td>
                         <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-amber-50/10 dark:bg-amber-900/5">
                           <input type="number" v-model.number="statObj.skill" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-shadow" />
-                        </td>
-                        <td class="p-2 border-r border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/30 dark:bg-emerald-900/10">
-                          <input type="number" v-model.number="statObj.conditional" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-emerald-300 dark:border-emerald-600 rounded-lg outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-shadow" />
                         </td>
                         <td class="p-2 border-r border-neutral-200 dark:border-neutral-700">
                           <input type="number" v-model.number="statObj.synergy" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-shadow" />
@@ -407,10 +433,6 @@ const getArray = (str: any) => {
                       <td class="p-4 border-r border-neutral-200 dark:border-neutral-700 font-bold text-amber-700 dark:text-amber-500 tabular-nums">
                         +{{ totalPower.skillSum }}
                       </td>
-                      <td class="p-4 border-r border-emerald-200 dark:border-emerald-800/50 font-bold text-neutral-400 dark:text-neutral-500 text-xs">
-                        <span class="block line-through opacity-70 mb-1">합산안됨</span>
-                        ({{ totalPower.conditionalSum }})
-                      </td>
                       <td class="p-4 border-r border-neutral-200 dark:border-neutral-700 font-bold text-neutral-700 dark:text-neutral-300 tabular-nums">
                         +{{ totalPower.synergySum }}
                         <div v-if="manualPowerFixed > 0" class="text-xs text-blue-500 mt-1">추가 +{{ manualPowerFixed }}</div>
@@ -425,8 +447,8 @@ const getArray = (str: any) => {
                     
                     <!-- 추가 파워 수동 입력 줄 -->
                     <tr>
-                      <td colspan="5" class="p-3 text-right text-xs font-semibold text-neutral-500 dark:text-neutral-400 border-r border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800">
-                        기타 추가 파워 보너스 수동 입력 (시너지 등) ➔
+                      <td colspan="4" class="p-3 text-right text-xs font-semibold text-neutral-500 dark:text-neutral-400 border-r border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800">
+                        기타 파워 보너스 수동 입력 (시너지 등) ➔
                       </td>
                       <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800">
                         <div class="flex items-center gap-1">
@@ -449,7 +471,7 @@ const getArray = (str: any) => {
               <div class="mt-4 p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-300 flex items-start gap-2">
                 <Shield class="w-5 h-5 flex-shrink-0 mt-0.5" />
                 <div class="space-y-1">
-                  <p><strong>[조건부 스킬 입력 방법]</strong> '주자 없을 시 파워 +10%' 와 같은 스킬은 인게임 파워 총합에 들어가지 않습니다. 해당 스킬 보너스는 <strong>초록색 조건부(파워제외) 칸에 입력</strong>하시면 개별 스탯만 오르고 전체 파워는 오르지 않게 게임과 동일하게 계산됩니다.</p>
+                  <p><strong>[스킬 입력 방법]</strong> 일반 스킬 슬롯에 장착한 스킬의 능력치 상승분은 해당하는 스탯(예: 갭파워)의 <strong>[스킬 (+)] 칸에 직접 숫자로 기입</strong>하시면 됩니다. (주자 있을 시, 득점권 등 '조건부' 스킬의 옵션은 총합 파워(OVR)에 반영되지 않으므로 아예 입력하지 않습니다.)</p>
                 </div>
               </div>
             </div>
