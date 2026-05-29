@@ -39,7 +39,7 @@ const isPitcher = computed(() => {
   return pos.includes('SP') || pos.includes('RP') || !!selectedPlayer.value.movement
 })
 
-// 카드 성수(rarity)에 따른 스킬 슬롯 개수 계산 (1~3성: 1개, 4성: 2개, 5~6성: 3개)
+// 카드 성수(rarity)에 따른 '스킬' 슬롯 개수 계산 (1~3성: 1개, 4성: 2개, 5~6성: 3개)
 const maxSkillSlots = computed(() => {
   if (!selectedPlayer.value) return 0
   const r = Number(selectedPlayer.value.rarity || 0)
@@ -51,15 +51,24 @@ const maxSkillSlots = computed(() => {
 // 선수가 보유한 전체 스킬 목록 (기본 + 강화)
 const availableSkills = computed(() => {
   if (!selectedPlayer.value) return []
+  const getArray = (str: any) => {
+    if (!str) return []
+    return String(str).split(',').map(s => s.trim()).filter(Boolean)
+  }
   const baseSkills = getArray(selectedPlayer.value.skill)
   const enhancedSkills = getArray(selectedPlayer.value.enhancedSkill)
-  return Array.from(new Set([...baseSkills, ...enhancedSkills]))
+  
+  // 포수 전용 스킬 필터링 (파워 계산에서 아예 제외)
+  const excludedCatcherSkills = ["야전사령관", "인사이드 워크", "투수 리드", "친화력", "도루 저지"]
+  const filteredSkills = [...baseSkills, ...enhancedSkills].filter(s => !excludedCatcherSkills.includes(s))
+  
+  return Array.from(new Set(filteredSkills))
 })
 
 // 통합된 스킬 선택 슬롯
 const selectedSkills = ref(['', '', ''])
 
-// AI가 분석한 스킬별 상시 효과 데이터베이스 (조건부 스탯은 제외됨)
+// 수정 및 검수 완료된 스킬 상시 효과 데이터베이스 (조건부 스탯 철저히 배제)
 const SKILL_EFFECTS: Record<string, any> = {
   "1번": {"powerPercent": 10.0, "stats": {}}, 
   "2번": {"powerPercent": 10.0, "stats": {}}, 
@@ -75,33 +84,31 @@ const SKILL_EFFECTS: Record<string, any> = {
   "게스히팅": {"powerPercent": 0, "stats": {"gapPower": 8.0, "homeRunPower": 10.0, "strikeoutAvoidance": -5.0}}, 
   "공갈포": {"powerPercent": 0, "stats": {"homeRunPower": 20.0, "contact": -7.0, "strikeoutAvoidance": -7.0}}, 
   "그라운드볼러": {"powerPercent": 0, "stats": {"movement": -5.0, "hrSup": 10.0, "longHitSup": 10.0}}, 
-  "그린라이트": {"powerPercent": 7.0, "stats": {}}, 
+  "그린라이트": {"powerPercent": 0, "stats": {}}, 
   "너클볼": {"powerPercent": 0, "stats": {"stuff": 20.0, "hrSup": -5.0, "longHitSup": -5.0, "movement": 20.0, "control": 20.0}}, 
   "더티 무브먼트": {"powerPercent": 0, "stats": {"movement": 25.0}}, 
   "라이징 무브먼트": {"powerPercent": 0, "stats": {"stuff": 20.0}}, 
   "로우볼 히터": {"powerPercent": 0, "stats": {"gapPower": 5.0, "homeRunPower": 10.0, "plateDiscipline": -5.0}}, 
-  "롱맨": {"powerPercent": 13.0, "stats": {}}, 
-  "맞춰잡기": {"powerPercent": 0, "stats": {"control": 15.0}}, 
+  "롱맨": {"powerPercent": 10.0, "stats": {}}, 
+  "맞춰잡기": {"powerPercent": 0, "stats": {"control": 15.0, "pitchLimit": 10.0}}, 
   "묵직함": {"powerPercent": 0, "stats": {"longHitSup": 10.0, "hrSup": 10.0}}, 
   "믿을맨": {"powerPercent": 10.0, "stats": {}}, 
   "배드볼히터": {"powerPercent": 0, "stats": {"contact": 15.0, "gapPower": 20.0, "plateDiscipline": -3.0}}, 
   "배럴 히터": {"powerPercent": 0, "stats": {"contact": 10.0, "gapPower": 10.0, "strikeoutAvoidance": 10.0}}, 
   "변칙타순": {"powerPercent": 4.0, "stats": {}}, 
-  "변칙투구": {"powerPercent": -25.0, "stats": {}}, 
-  "선구안": {"powerPercent": 0, "stats": {"strikeoutAvoidance": 15.0}}, 
+  "변칙투구": {"powerPercent": 0, "stats": {}}, 
+  "선구안": {"powerPercent": 0, "stats": {"strikeoutAvoidance": 15.0, "plateDiscipline": 15.0}}, 
   "셋업": {"powerPercent": 10.0, "stats": {}}, 
-  "스토퍼": {"powerPercent": 20.0, "stats": {}}, 
+  "스토퍼": {"powerPercent": 10.0, "stats": {}}, 
   "스플리터": {"powerPercent": 0, "stats": {"movement": 15.0, "stuff": 25.0, "control": -5.0}}, 
-  "스피드스터": {"powerPercent": 5.0, "stats": {}}, 
-  "슬랩 히터": {"powerPercent": 0, "stats": {"contact": 15.0, "baseRunning": 10.0, "gapPower": -5.0}}, 
+  "스피드스터": {"powerPercent": 0, "stats": {}}, 
+  "슬랩 히터": {"powerPercent": 0, "stats": {"contact": 20.0, "baseRunning": 10.0}}, 
   "싱커": {"powerPercent": 0, "stats": {"hrSup": 20.0, "stuff": -5.0}}, 
-  "야전사령관": {"powerPercent": 5.0, "stats": {}}, 
   "에이스": {"powerPercent": 9.0, "stats": {}}, 
   "와일드씽": {"powerPercent": 0, "stats": {"control": -3.0, "stuff": 10.0}}, 
   "원투펀치": {"powerPercent": 8.0, "stats": {}}, 
   "원포인터": {"powerPercent": 10.0, "stats": {}}, 
   "이닝이팅": {"powerPercent": 0, "stats": {"pitchLimit": 5.0}}, 
-  "인사이드 워크": {"powerPercent": 5.0, "stats": {}}, 
   "적극성": {"powerPercent": 0, "stats": {"contact": 15.0}}, 
   "지명타자": {"powerPercent": 8.5, "stats": {}}, 
   "체인지업": {"powerPercent": 0, "stats": {"longHitSup": 15.0}}, 
@@ -109,11 +116,10 @@ const SKILL_EFFECTS: Record<string, any> = {
   "컨택터": {"powerPercent": 0, "stats": {"contact": 20.0}}, 
   "클로저": {"powerPercent": 10.0, "stats": {}}, 
   "클린업": {"powerPercent": 8.0, "stats": {}}, 
-  "타격 전략": {"powerPercent": 0, "stats": {"contact": 20.0, "strikeoutAvoidance": 20.0}}, 
+  "타격 전략": {"powerPercent": 0, "stats": {"contact": 20.0}}, 
   "테이블세터": {"powerPercent": 7.0, "stats": {}}, 
-  "투수 리드": {"powerPercent": 7.0, "stats": {}}, 
-  "파워": {"powerPercent": 0, "stats": {"homeRunPower": 15.0}}, 
-  "파이어볼러": {"powerPercent": 0, "stats": {"hrSup": -5.0}}, 
+  "파워": {"powerPercent": 0, "stats": {"gapPower": 15.0, "homeRunPower": 15.0}}, 
+  "파이어볼러": {"powerPercent": 0, "stats": {"stuff": 15.0}}, 
   "펀치력": {"powerPercent": 0, "stats": {"gapPower": 10.0, "homeRunPower": 5.0}}, 
   "플라이볼피쳐": {"powerPercent": 0, "stats": {"movement": 20.0, "hrSup": -5.0}}, 
   "하위타선": {"powerPercent": 8.0, "stats": {"defense": 10.0}}, 
@@ -122,48 +128,10 @@ const SKILL_EFFECTS: Record<string, any> = {
 
 // 자동 계산되는 총합 % 상태
 const autoPowerPercent = ref(0)
+
+// 수동 파워 보너스 입력 (시너지 등)
 const manualPowerFixed = ref(0)
 const manualPowerPercent = ref(0)
-
-// 스킬 선택 시 자동으로 스탯(skill 필드) 채워넣는 로직
-watch(selectedSkills, () => {
-  let totalPowerP = 0
-  let statPercents: Record<string, number> = {
-    contact: 0, gapPower: 0, homeRunPower: 0, plateDiscipline: 0, strikeoutAvoidance: 0, stealing: 0, baseRunning: 0, defense: 0,
-    movement: 0, longHitSup: 0, hrSup: 0, control: 0, stuff: 0, pitchLimit: 0, runnerCtrl: 0
-  }
-  
-  selectedSkills.value.forEach(s => {
-    if (s && SKILL_EFFECTS[s]) {
-      totalPowerP += SKILL_EFFECTS[s].powerPercent || 0
-      for (const [key, val] of Object.entries(SKILL_EFFECTS[s].stats || {})) {
-        statPercents[key] += Number(val)
-      }
-    }
-  })
-  
-  autoPowerPercent.value = totalPowerP
-  
-  // 타자 스탯 자동 적용
-  Object.keys(batterStats).forEach(key => {
-    const statKey = key as keyof typeof batterStats
-    if (statPercents[statKey]) {
-      batterStats[statKey].skill = Math.floor(batterStats[statKey].base * (statPercents[statKey] / 100))
-    } else {
-      batterStats[statKey].skill = 0
-    }
-  })
-  
-  // 투수 스탯 자동 적용
-  Object.keys(pitcherStats).forEach(key => {
-    const statKey = key as keyof typeof pitcherStats
-    if (statPercents[statKey]) {
-      pitcherStats[statKey].skill = Math.floor(pitcherStats[statKey].base * (statPercents[statKey] / 100))
-    } else {
-      pitcherStats[statKey].skill = 0
-    }
-  })
-}, { deep: true })
 
 // 데이터 불러오기
 onMounted(async () => {
@@ -193,13 +161,14 @@ const filteredPlayers = computed(() => {
   ).slice(0, 50)
 })
 
-// 선수 선택 시 스탯 연동
+// 선수 선택 시 스탯 초기화 및 데이터 연동
 const selectPlayer = (p: Raw) => {
   selectedPlayer.value = p
   searchQuery.value = ''
   selectedSkills.value = ['', '', '']
   manualPowerFixed.value = 0
   manualPowerPercent.value = 0
+  autoPowerPercent.value = 0
   
   // 모든 스탯 초기화
   Object.values(batterStats).forEach(stat => { stat.base=0; stat.enhance=0; stat.skill=0; stat.synergy=0 })
@@ -225,6 +194,42 @@ const selectPlayer = (p: Raw) => {
     batterStats.defense.base = Number(p.defense || 0)
   }
 }
+
+// 스킬 선택 시 자동으로 표의 [스킬 (+)] 칸에 수치를 채워넣는 로직
+watch(selectedSkills, () => {
+  let totalPowerP = 0
+  let statPercents: Record<string, number> = {
+    contact: 0, gapPower: 0, homeRunPower: 0, plateDiscipline: 0, strikeoutAvoidance: 0, stealing: 0, baseRunning: 0, defense: 0,
+    movement: 0, longHitSup: 0, hrSup: 0, control: 0, stuff: 0, pitchLimit: 0, runnerCtrl: 0
+  }
+  
+  selectedSkills.value.forEach(s => {
+    if (s && SKILL_EFFECTS[s]) {
+      totalPowerP += SKILL_EFFECTS[s].powerPercent || 0
+      for (const [key, val] of Object.entries(SKILL_EFFECTS[s].stats || {})) {
+        statPercents[key] += Number(val)
+      }
+    }
+  })
+  
+  autoPowerPercent.value = totalPowerP
+  
+  if (isPitcher.value) {
+    Object.keys(pitcherStats).forEach(key => {
+      const statKey = key as keyof typeof pitcherStats
+      pitcherStats[statKey].skill = statPercents[statKey] 
+        ? Math.floor(pitcherStats[statKey].base * (statPercents[statKey] / 100))
+        : 0
+    })
+  } else {
+    Object.keys(batterStats).forEach(key => {
+      const statKey = key as keyof typeof batterStats
+      batterStats[statKey].skill = statPercents[statKey] 
+        ? Math.floor(batterStats[statKey].base * (statPercents[statKey] / 100))
+        : 0
+    })
+  }
+}, { deep: true })
 
 // 개별 스탯 가로 총합 계산기
 const getStatTotal = (stat: { base: number, enhance: number, skill: number, synergy: number }) => {
@@ -252,23 +257,19 @@ const totalPower = computed(() => {
   
   return { baseSum, enhanceSum, skillSum, synergySum, finalSum, rawTotalPower, totalPercentBonus }
 })
-
-const getArray = (str: any) => {
-  if (!str) return []
-  return String(str).split(',').map(s => s.trim()).filter(Boolean)
-}
 </script>
 
 <template>
   <div class="bg-neutral-50 dark:bg-neutral-900 min-h-screen transition-colors p-4 lg:p-8">
     <div class="max-w-[1500px] mx-auto">
+      <!-- 헤더 -->
       <header class="mb-6 flex items-center gap-3">
         <div class="p-3 bg-blue-600 rounded-xl text-white shadow-lg shadow-blue-600/20">
           <Calculator class="w-6 h-6" />
         </div>
         <div>
           <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 tracking-tight">스탯 계산기</h1>
-          <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">엑셀 없이 웹에서 편하게 선수의 최종 스탯과 종합 파워를 계산해보세요.</p>
+          <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">타순 및 모든 9UP 스킬 상시 효과가 자동으로 파워/세부 스탯에 합산됩니다.</p>
         </div>
       </header>
 
@@ -278,6 +279,7 @@ const getArray = (str: any) => {
 
       <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
+        <!-- 왼쪽: 선수 검색 -->
         <div class="lg:col-span-3 flex flex-col gap-6">
           <section class="bg-white dark:bg-neutral-800 rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-700 p-5">
             <h2 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
@@ -315,41 +317,12 @@ const getArray = (str: any) => {
               검색 결과가 없습니다.
             </div>
           </section>
-
-          <section v-if="selectedPlayer" class="bg-white dark:bg-neutral-800 rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-700 p-5">
-            <h2 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
-              <Zap class="w-4 h-4 text-amber-500" /> 보유 스킬 힌트
-            </h2>
-            <div class="space-y-4">
-              <div>
-                <h3 class="text-xs font-bold text-neutral-400 dark:text-neutral-500 mb-2 uppercase tracking-wider">보유 시너지</h3>
-                <div class="flex flex-wrap gap-1.5">
-                  <span v-for="syn in getArray(selectedPlayer.synergy)" :key="syn" class="px-2.5 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-xs rounded-lg">{{ syn }}</span>
-                  <span v-if="!getArray(selectedPlayer.synergy).length" class="text-xs text-neutral-400">없음</span>
-                </div>
-              </div>
-              <div class="h-px w-full bg-neutral-100 dark:bg-neutral-700"></div>
-              <div>
-                <h3 class="text-xs font-bold text-neutral-400 dark:text-neutral-500 mb-2 uppercase tracking-wider">기본 스킬</h3>
-                <div class="flex flex-wrap gap-1.5">
-                  <span v-for="skill in getArray(selectedPlayer.skill)" :key="skill" class="px-2.5 py-1 bg-neutral-100 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-600 text-xs rounded-lg">{{ skill }}</span>
-                  <span v-if="!getArray(selectedPlayer.skill).length" class="text-xs text-neutral-400">없음</span>
-                </div>
-              </div>
-              <div class="h-px w-full bg-neutral-100 dark:bg-neutral-700"></div>
-              <div>
-                <h3 class="text-xs font-bold text-neutral-400 dark:text-neutral-500 mb-2 uppercase tracking-wider">강화 스킬</h3>
-                <div class="flex flex-wrap gap-1.5">
-                  <span v-for="eskill in getArray(selectedPlayer.enhancedSkill)" :key="eskill" class="px-2.5 py-1 bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 text-xs font-medium rounded-lg">{{ eskill }}</span>
-                  <span v-if="!getArray(selectedPlayer.enhancedSkill).length" class="text-xs text-neutral-400">없음</span>
-                </div>
-              </div>
-            </div>
-          </section>
         </div>
 
+        <!-- 오른쪽: 엑셀 형태 스탯 계산기 -->
         <div class="lg:col-span-9 flex flex-col gap-6">
           <section v-if="selectedPlayer" class="bg-white dark:bg-neutral-800 rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+            <!-- 선수 요약 헤더 -->
             <div class="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 text-white flex items-center gap-6">
               <img :src="`/assets/logos/grade/${selectedPlayer.grade || 'C'}.png`" class="w-16 h-16 object-contain bg-white/10 rounded-xl p-2" />
               <div class="flex-1">
@@ -374,6 +347,7 @@ const getArray = (str: any) => {
               </div>
             </div>
 
+            <!-- 스킬 선택 슬롯 영역 (모든 스킬 통합) -->
             <div class="p-6 bg-neutral-50/50 dark:bg-neutral-800/50 border-b border-neutral-100 dark:border-neutral-700">
               <div class="flex items-center justify-between mb-3">
                 <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
@@ -398,11 +372,9 @@ const getArray = (str: any) => {
                   </select>
                 </div>
               </div>
-              <div v-if="autoPowerPercent > 0" class="mt-3 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 py-1.5 px-3 rounded-lg border border-blue-100 dark:border-blue-800 inline-block">
-                💡 역할 스킬 적용됨: 종합 파워 <strong>+{{ autoPowerPercent }}%</strong> 증가
-              </div>
             </div>
 
+            <!-- 계산기 테이블 -->
             <div class="p-6 pt-5">
               <div class="mb-4 flex items-center justify-between">
                 <h3 class="text-lg font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
@@ -424,6 +396,7 @@ const getArray = (str: any) => {
                   </thead>
                   
                   <tbody>
+                    <!-- 반복 렌더링 영역 (타자/투수에 따라 다름) -->
                     <template v-if="!isPitcher">
                       <tr v-for="(statObj, key) in batterStats" :key="key" class="border-b border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700/30 transition-colors">
                         <td class="p-3 border-r border-neutral-200 dark:border-neutral-700 font-semibold text-neutral-800 dark:text-neutral-200 bg-neutral-50/50 dark:bg-neutral-700/20">
@@ -471,6 +444,7 @@ const getArray = (str: any) => {
                     </template>
                   </tbody>
 
+                  <!-- 파워 (총합) 요약 로우 -->
                   <tfoot class="bg-neutral-100 dark:bg-neutral-700/50">
                     <tr>
                       <td class="p-4 border-r border-neutral-200 dark:border-neutral-700 font-extrabold text-neutral-900 dark:text-neutral-100 uppercase tracking-widest text-base bg-blue-100/50 dark:bg-blue-900/20">
@@ -491,12 +465,13 @@ const getArray = (str: any) => {
                       </td>
                       <td class="p-4 font-black text-xl text-indigo-700 dark:text-indigo-400 bg-indigo-100/50 dark:bg-indigo-900/20 tabular-nums relative">
                         <span class="absolute top-1 left-0 w-full text-[10px] text-center text-indigo-400 dark:text-indigo-500 font-normal">
-                          <span v-if="totalPower.totalPercentBonus > 0">합계 × {{ 100 + totalPower.totalPercentBonus }}%</span>
+                          <span v-if="totalPower.totalPercentBonus > 0">스킬 합계 × {{ 100 + totalPower.totalPercentBonus }}%</span>
                         </span>
                         <div class="mt-2">{{ totalPower.finalSum }}</div>
                       </td>
                     </tr>
                     
+                    <!-- 추가 파워 수동 입력 줄 -->
                     <tr>
                       <td colspan="3" class="p-3 text-right text-xs font-semibold text-neutral-500 dark:text-neutral-400 border-r border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800">
                         기타 추가 파워 보너스 수동 입력 (시너지 등) ➔
@@ -528,6 +503,7 @@ const getArray = (str: any) => {
             </div>
           </section>
 
+          <!-- 초기 안내 화면 -->
           <section v-else class="h-full bg-white dark:bg-neutral-800 rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-700 flex flex-col items-center justify-center p-10 text-center min-h-[500px]">
             <div class="w-20 h-20 bg-blue-50 dark:bg-neutral-700 rounded-full flex items-center justify-center mb-6">
               <Calculator class="w-10 h-10 text-blue-500" />
