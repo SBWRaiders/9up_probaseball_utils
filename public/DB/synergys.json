@@ -4054,7 +4054,7 @@
   {
     "id": 130,
     "synergy": "히트",
-    "synergy_effect": "- 라인업에 2~3명 기용 시 파워 +4% \n- 라인업에 4명 이상 기용 시 파워 +6% ",
+    "synergy_effect": "- 라인업에 2명 이상 기용 시 파워 +6% ",
     "description": "히트 등급 선수들입니다.",
     "stackable": false,
     "conditions": [
