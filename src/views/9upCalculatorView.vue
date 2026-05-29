@@ -55,7 +55,32 @@ const isPitcher = computed(() => {
   return pos.includes('SP') || pos.includes('RP') || !!selectedPlayer.value.movement
 })
 
-// 카드 성수(rarity)에 따른 스킬 슬롯 개수 계산
+// === 강화 시스템 로직 ===
+const enhancementLevel = ref(0) // 유저가 선택하는 강화 단계
+
+const maxEnhanceLevel = computed(() => {
+  if (!selectedPlayer.value) return 15
+  const grade = String(selectedPlayer.value.grade).toUpperCase()
+  return grade === 'DGN' ? 10 : 15
+})
+
+const enhanceMultiplier = computed(() => {
+  if (!selectedPlayer.value) return 0
+  const grade = String(selectedPlayer.value.grade).toUpperCase()
+  const map: Record<string, number> = {
+    'SEA': 30, 'ASG': 30,
+    'POS': 40, 'TEA': 40, 'MMVP': 40,
+    'ROY': 50, 'HIT': 50, 'ACE': 50, 'GG': 50, 'TOP': 50,
+    'DGN': 300
+  }
+  return map[grade] || 0
+})
+
+const autoEnhanceFixed = computed(() => {
+  return enhancementLevel.value * enhanceMultiplier.value
+})
+
+// === 스킬 시스템 로직 ===
 const maxSkillSlots = computed(() => {
   if (!selectedPlayer.value) return 0
   const r = Number(selectedPlayer.value.rarity || 0)
@@ -64,34 +89,11 @@ const maxSkillSlots = computed(() => {
   return 3
 })
 
-// === 강화 시스템 로직 ===
-const enhancementLevel = ref(0) // 유저가 입력하는 강화 단계
-const enhanceMultiplier = computed(() => {
-  if (!selectedPlayer.value) return 0
-  const grade = String(selectedPlayer.value.grade).toUpperCase()
-  
-  // DB의 등급 기호와 파워 증가량 매핑
-  const map: Record<string, number> = {
-    'SEA': 30, 'ASG': 30, // 시즌, 올스타
-    'POS': 40, 'TEA': 40, 'MMVP': 40, // 포스트시즌, 팀플레이어, 월간MVP
-    'ROY': 50, 'HIT': 50, 'ACE': 50, 'GG': 50, 'TOP': 50, // 루키, 히트, 에이스, 골글, 탑클래스
-    'DGN': 300 // 디그니티
-  }
-  return map[grade] || 0
-})
-
-const autoEnhanceFixed = computed(() => {
-  const level = Math.max(0, enhancementLevel.value || 0)
-  return level * enhanceMultiplier.value
-})
-
-// 유틸: 텍스트 배열화
 const getArray = (str: any) => {
   if (!str) return []
   return String(str).split(',').map(s => s.trim()).filter(Boolean)
 }
 
-// 선수가 보유한 전체 스킬 목록 (포수 전용 제외)
 const availableSkills = computed(() => {
   if (!selectedPlayer.value) return []
   const baseSkills = getArray(selectedPlayer.value.skill)
@@ -103,9 +105,21 @@ const availableSkills = computed(() => {
   return Array.from(new Set(filteredSkills))
 })
 
-const selectedSkills = ref(['', '', ''])
+const selectedSkills = ref<string[]>([]) // 유저가 클릭한 스킬 목록 배열
 
-// AI 분석 스킬 효과 데이터베이스
+const toggleSkill = (skill: string) => {
+  if (selectedSkills.value.includes(skill)) {
+    selectedSkills.value = selectedSkills.value.filter(s => s !== skill)
+  } else {
+    if (selectedSkills.value.length >= maxSkillSlots.value) {
+      alert(`이 카드는 별 ${selectedPlayer.value?.rarity}개 등급이므로 최대 ${maxSkillSlots.value}개의 스킬만 장착할 수 있습니다.`)
+      return
+    }
+    selectedSkills.value.push(skill)
+  }
+}
+
+// AI 분석 스킬 효과 데이터베이스 (조건부 스탯은 OVR 반영에서 제외됨)
 const SKILL_EFFECTS: Record<string, any> = {
   "1번": {"powerPercent": 10.0, "stats": {}}, 
   "2번": {"powerPercent": 10.0, "stats": {}}, 
@@ -163,10 +177,12 @@ const SKILL_EFFECTS: Record<string, any> = {
   "하이볼 히터": {"powerPercent": 0, "stats": {"contact": 10.0, "strikeoutAvoidance": 5.0, "homeRunPower": -5.0}}
 }
 
+// 자동 파워 계산 상태 관리
 const autoPowerPercent = ref(0)
 const manualPowerFixed = ref(0)
 const manualPowerPercent = ref(0)
 
+// === 시너지 시스템 로직 ===
 const activeSynergyConditions = ref<Record<string, number>>({})
 
 const playerSynergiesData = computed(() => {
@@ -221,6 +237,7 @@ const autoSynergyPercent = computed(() => {
   return total
 })
 
+// === 앱 초기화 로직 ===
 onMounted(async () => {
   try {
     const response = await fetch('/DB/player_sorted.csv', { cache: 'no-store' })
@@ -254,11 +271,11 @@ const filteredPlayers = computed(() => {
   ).slice(0, 50)
 })
 
-// 선수 선택 시 스탯 및 강화단계 초기화
+// 선수 선택 시 모든 상태 초기화 및 기본 스탯 연동
 const selectPlayer = (p: Raw) => {
   selectedPlayer.value = p
   searchQuery.value = ''
-  selectedSkills.value = ['', '', '']
+  selectedSkills.value = [] // 스킬 선택 초기화
   activeSynergyConditions.value = {}
   manualPowerFixed.value = 0
   manualPowerPercent.value = 0
@@ -289,6 +306,7 @@ const selectPlayer = (p: Raw) => {
   }
 }
 
+// 스킬 변경 감지하여 스탯 표에 자동 기입
 watch(selectedSkills, () => {
   let totalPowerP = 0
   let statPercents: Record<string, number> = {
@@ -322,15 +340,12 @@ watch(selectedSkills, () => {
   }
 }, { deep: true })
 
-// 개별 스탯 1개의 최종합 계산기 (핵심 스탯에 강화 및 고정파워 분배 적용)
+// 개별 스탯 1개의 최종합 계산기 (핵심 5스탯만 파워 분배 적용)
 const getStatTotal = (stat: { base: number, enhance: number, skill: number, synergy: number, isCore: boolean }) => {
   let raw = stat.base + (stat.enhance || 0) + (stat.skill || 0) + (stat.synergy || 0)
   
   if (stat.isCore) {
-    // 강화, 시너지, 수동고정증가를 5개 핵심스탯에 1/5씩 분배
     raw += ((manualPowerFixed.value + autoSynergyFixed.value + autoEnhanceFixed.value) / 5)
-    
-    // 전체 파워 % 보너스 적용
     const totalPercentBonus = autoPowerPercent.value + manualPowerPercent.value + autoSynergyPercent.value
     raw = Math.floor(raw * (1 + totalPercentBonus / 100))
   }
@@ -378,7 +393,7 @@ const totalPower = computed(() => {
         </div>
         <div>
           <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 tracking-tight">스탯 계산기</h1>
-          <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">카드 강화, 스킬 효과, 시너지 보너스가 완벽하게 자동 연동됩니다.</p>
+          <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">버튼 클릭 한 번으로 등급별 강화, 9UP 스킬, 인원별 시너지가 완벽하게 자동 계산됩니다.</p>
         </div>
       </header>
 
@@ -455,60 +470,49 @@ const totalPower = computed(() => {
               </div>
             </div>
 
-            <!-- 강화 단계 선택 슬롯 -->
+            <!-- 강화 단계 버튼 영역 (버튼식) -->
             <div class="p-6 bg-emerald-50/30 dark:bg-emerald-900/10 border-b border-neutral-100 dark:border-neutral-700">
               <div class="flex items-center justify-between mb-3">
                 <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
                   <ArrowUpCircle class="w-4 h-4 text-emerald-500" /> 카드 강화
                 </h3>
                 <span class="px-2 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-bold rounded-lg text-xs border border-emerald-200 dark:border-emerald-800">
-                  현재 등급: 1강당 파워 +{{ enhanceMultiplier }} 증가
+                  현재 등급: 1강당 파워 +{{ enhanceMultiplier }}
                 </span>
               </div>
-              <div class="flex items-center gap-4">
-                <div class="flex flex-col gap-1">
-                  <label class="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-                    강화 단계
-                  </label>
-                  <div class="flex items-center">
-                    <span class="text-sm font-bold text-neutral-400 mr-1">+</span>
-                    <input type="number" v-model.number="enhancementLevel" min="0" class="w-24 px-3 py-2 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg outline-none focus:border-emerald-500 text-sm font-bold transition-colors" />
-                  </div>
-                </div>
-                <div v-if="enhancementLevel > 0" class="mt-5 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 py-2 px-3 rounded-lg border border-emerald-100 dark:border-emerald-800">
-                  강화 효과로 종합 파워 <strong>+{{ autoEnhanceFixed }}</strong> (핵심 5스탯에 각각 +{{ autoEnhanceFixed / 5 }})
-                </div>
+              <div class="flex flex-wrap gap-1.5">
+                <button v-for="lvl in (maxEnhanceLevel + 1)" :key="lvl"
+                  @click="enhancementLevel = lvl-1"
+                  :class="enhancementLevel === lvl-1 ? 'bg-emerald-600 text-white border-emerald-600 shadow-md' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-300 dark:border-neutral-600 hover:border-emerald-400 dark:hover:border-emerald-500'"
+                  class="w-10 h-8 flex items-center justify-center text-xs font-bold border rounded-lg transition-colors">
+                  +{{ lvl-1 }}
+                </button>
               </div>
             </div>
 
-            <!-- 스킬 선택 슬롯 영역 -->
+            <!-- 통합 스킬 선택 버튼 영역 (버튼식) -->
             <div class="p-6 bg-neutral-50/50 dark:bg-neutral-800/50 border-b border-neutral-100 dark:border-neutral-700">
               <div class="flex items-center justify-between mb-3">
                 <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
                   <Zap class="w-4 h-4 text-amber-500" /> 스킬 장착 슬롯
                 </h3>
                 <span class="px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-bold rounded-lg text-xs border border-amber-200 dark:border-amber-800">
-                  최대 {{ maxSkillSlots }}개 장착 가능
+                  선택: {{ selectedSkills.length }} / {{ maxSkillSlots }}
                 </span>
               </div>
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div v-for="i in 3" :key="i" class="flex flex-col gap-1">
-                  <label class="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-                    슬롯 {{ i }} <span v-if="i > maxSkillSlots" class="text-red-400">(잠김)</span>
-                  </label>
-                  <select 
-                    v-model="selectedSkills[i-1]"
-                    :disabled="i > maxSkillSlots"
-                    class="w-full px-3 py-2 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg outline-none focus:border-amber-500 disabled:opacity-50 disabled:bg-neutral-100 dark:disabled:bg-neutral-900 text-sm text-neutral-900 dark:text-neutral-100 transition-colors"
-                  >
-                    <option value="">스킬 선택 안함</option>
-                    <option v-for="skill in availableSkills" :key="skill" :value="skill">{{ skill }}</option>
-                  </select>
-                </div>
+              
+              <div v-if="availableSkills.length > 0" class="flex flex-wrap gap-2">
+                <button v-for="skill in availableSkills" :key="skill"
+                  @click="toggleSkill(skill)"
+                  :class="selectedSkills.includes(skill) ? 'bg-amber-500 text-white border-amber-600 shadow-md' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-300 dark:border-neutral-600 hover:border-amber-400 dark:hover:border-amber-500'"
+                  class="px-3 py-1.5 text-xs font-bold border rounded-lg transition-colors">
+                  {{ skill }}
+                </button>
               </div>
+              <div v-else class="text-xs text-neutral-400">보유한 스킬이 없습니다.</div>
             </div>
 
-            <!-- 시너지 선택 슬롯 영역 -->
+            <!-- 시너지 선택 버튼 영역 -->
             <div class="p-6 bg-indigo-50/30 dark:bg-indigo-900/10 border-b border-neutral-100 dark:border-neutral-700">
               <div class="flex items-center justify-between mb-3">
                 <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
@@ -634,14 +638,14 @@ const totalPower = computed(() => {
                       </td>
                       <td class="p-4 border-r border-neutral-200 dark:border-neutral-700 font-bold text-neutral-700 dark:text-neutral-300 tabular-nums">
                         +{{ totalPower.enhanceSum }}
-                        <div v-if="autoEnhanceFixed > 0" class="text-xs text-blue-500 mt-1">자동 +{{ autoEnhanceFixed }}</div>
+                        <div v-if="autoEnhanceFixed > 0" class="text-xs text-emerald-500 mt-1">자동 +{{ autoEnhanceFixed }}</div>
                       </td>
                       <td class="p-4 border-r border-neutral-200 dark:border-neutral-700 font-bold text-amber-700 dark:text-amber-500 tabular-nums">
                         +{{ totalPower.skillSum }}
                       </td>
                       <td class="p-4 border-r border-neutral-200 dark:border-neutral-700 font-bold text-neutral-700 dark:text-neutral-300 tabular-nums">
                         +{{ totalPower.synergySum }}
-                        <div v-if="totalPower.globalFixed > 0" class="text-xs text-blue-500 mt-1">자동/수동 일괄포함됨</div>
+                        <div v-if="totalPower.globalFixed > 0" class="text-xs text-indigo-500 mt-1">자동/수동 일괄포함됨</div>
                       </td>
                       <td class="p-4 font-black text-xl text-indigo-700 dark:text-indigo-400 bg-indigo-100/50 dark:bg-indigo-900/20 tabular-nums relative">
                         <span class="absolute top-1 left-0 w-full text-[10px] text-center text-indigo-400 dark:text-indigo-500 font-normal">
