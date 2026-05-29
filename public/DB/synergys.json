@@ -3810,26 +3810,14 @@
   {
     "id": 122,
     "synergy": "에이스",
-    "synergy_effect": "- 라인업에 2~3명 기용 시 파워 +4% \n- 라인업에 4명 이상 기용 시 파워 +6% ",
+    "synergy_effect": "- n- 라인업에 2명 이상 기용 시 파워 +6% ",
     "description": "에이스 등급 선수들입니다.",
     "stackable": false,
     "conditions": [
       {
         "count": {
-          "op": "between",
-          "min": 2,
-          "max": 3
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 4.0
-        }
-      },
-      {
-        "count": {
           "op": ">=",
-          "value": 4
+          "value": 2
         },
         "stat": "power",
         "bonus": {
