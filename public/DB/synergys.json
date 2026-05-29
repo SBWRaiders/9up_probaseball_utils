@@ -4060,20 +4060,8 @@
     "conditions": [
       {
         "count": {
-          "op": "between",
-          "min": 2,
-          "max": 3
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 4.0
-        }
-      },
-      {
-        "count": {
           "op": ">=",
-          "value": 4
+          "value": 2
         },
         "stat": "power",
         "bonus": {
