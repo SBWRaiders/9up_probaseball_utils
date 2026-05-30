@@ -161,7 +161,6 @@ const savedLineups = ref<Record<string, any>>({})
 const lineupModalMode = ref<'save' | 'load' | null>(null)
 const newLineupName = ref('')
 
-// 로컬 스토리지 데이터 로드
 const fetchSavedLineups = () => {
   const data = localStorage.getItem(LINEUP_SAVES_KEY)
   if (data) {
@@ -169,7 +168,6 @@ const fetchSavedLineups = () => {
   }
 }
 
-// 오토 세이브 (작업 중 새로고침 날아감 방지)
 watch(lineup, () => {
   localStorage.setItem(LINEUP_AUTOSAVE_KEY, JSON.stringify(lineup.value))
 }, { deep: true })
@@ -188,7 +186,7 @@ const confirmSaveLineup = () => {
     return
   }
   
-  savedLineups.value[name] = JSON.parse(JSON.stringify(lineup.value)) // 깊은 복사
+  savedLineups.value[name] = JSON.parse(JSON.stringify(lineup.value))
   localStorage.setItem(LINEUP_SAVES_KEY, JSON.stringify(savedLineups.value))
   lineupModalMode.value = null
   alert(`'${name}' 라인업이 성공적으로 저장되었습니다! 💾`)
@@ -204,7 +202,7 @@ const openLoadModal = () => {
 
 const selectAndLoadLineup = (name: string) => {
   if (confirm(`'${name}' 라인업을 불러오시겠습니까? 현재 화면의 라인업은 덮어씌워집니다.`)) {
-    lineup.value = JSON.parse(JSON.stringify(savedLineups.value[name])) // 깊은 복사
+    lineup.value = JSON.parse(JSON.stringify(savedLineups.value[name]))
     lineupModalMode.value = null
   }
 }
@@ -324,6 +322,7 @@ const preparedPlayers = computed<PreparedPlayer[]>(() =>
     }))
 )
 
+// ✨ 등급 정렬 순서를 지정하여 보기 좋게 렌더링
 const searchOptions = computed(() => {
   const o: Record<string, Set<string>> = { team: new Set(), position: new Set(), grade: new Set() }
   for (const p of players.value) {
@@ -335,8 +334,14 @@ const searchOptions = computed(() => {
     team: [...o.team].sort(),
     position: [...o.position].sort(),
     grade: [...o.grade].sort((a, b) => {
-      const gradeOrder = ['SS', 'S', 'A', 'B', 'C', 'D']
-      return gradeOrder.indexOf(a) - gradeOrder.indexOf(b)
+      const specialOrder = ['DGN', 'TOP', 'GG', 'GGY', 'HIT', 'ACE', 'ROY', 'MMVP', 'TEA', 'POS', 'ASG', 'SEA']
+      const standardOrder = ['SS', 'S', 'A', 'B', 'C', 'D']
+      
+      const idxA = specialOrder.includes(a) ? specialOrder.indexOf(a) : (standardOrder.includes(a) ? 100 + standardOrder.indexOf(a) : 999)
+      const idxB = specialOrder.includes(b) ? specialOrder.indexOf(b) : (standardOrder.includes(b) ? 100 + standardOrder.indexOf(b) : 999)
+      
+      if (idxA !== idxB) return idxA - idxB
+      return a.localeCompare(b)
     })
   }
 })
@@ -347,7 +352,6 @@ const filteredPlayers = computed(() => {
       : []
   return preparedPlayers.value
       .filter(({ raw: p, nameNormalized, teamLowerCase, positionLowerCase, yearsNumeric, synergyNormalizedSet }) => {
-        // OR 검색: 하나라도 매치되면 통과
         if (searchQuery.team.length && !searchQuery.team.some(t => teamLowerCase.includes(toLowerCase(t)))) return false
         if (searchQuery.rarity != null && Number(p.rarity) !== Number(searchQuery.rarity)) return false
         if (searchQuery.grade.length && !searchQuery.grade.includes(String(p.grade || ''))) return false
@@ -400,7 +404,6 @@ const assignPlayerToSlot = (slot: string, p: Raw) => {
   }
   const s = normalizePosition(slot)
 
-  // 중복 제거
   Object.keys(lineup.value).forEach(k => { if (lineup.value[k]?.id === p.id) lineup.value[k] = null })
 
   if (s === 'DH') {
@@ -488,14 +491,12 @@ const checkSynergyInclusion = (target: string, playerSynergies: string[]) => {
   const meta = synergyMetadata.value
   const key = String(target ?? '').trim()
   const t = meta.get(key)
-  // group 기준
   if (t?.family && typeof t.tier === 'number') {
     for (const ps of playerSynergies) {
       const pm = meta.get(String(ps).trim())
       if (pm?.family === t.family && typeof pm.tier === 'number' && pm.tier >= t.tier) return true
     }
   }
-  // 텍스트 휴리스틱
   const clean = (x:string)=>String(x??'').normalize('NFKC').replace(/​|‌|‍|⁠/g,'').replace(/[,\s]/g,'').trim()
   if (playerSynergies.some(s => clean(s)===clean(key))) return true
   const tm = clean(key).match(/(\D*)(\d+)(\D*)/); if (!tm) return false
@@ -589,7 +590,6 @@ const activeSynergyList = computed(() => {
     })
   }
 
-  // family grouping
   const families = new Map<string, JsonSynergy[]>()
   for (const s of synergys.value) {
     const fam = (s as any)?.group?.family
@@ -624,7 +624,6 @@ const activeSynergyList = computed(() => {
         return
       }
       if (mode==='cumulative') { out.push({...r, appliedPlayers: r.appliedPlayers.slice()}); return }
-      // cumulative_dedup
       const uniq = r.appliedPlayers.filter(n=>!awarded.has(n))
       out.push({...r, appliedPlayers: uniq})
       uniq.forEach(n=>awarded.add(n))
@@ -642,7 +641,6 @@ const activeSynergyList = computed(() => {
         if (!rec) continue
         implied.push({ name: nm, count: rec.count })
       }
-      // 마지막(최상위) 항목에 붙여서 표시
       if (out.length && implied.length) {
         const lastIdx = out.length-1
         out[lastIdx] = { ...out[lastIdx], impliedChildren: implied }
@@ -735,14 +733,12 @@ const playerSynergyList = computed(() => {
       if (!rec) continue
 
       if (rec.activated.length > 0 && rec.topCondition) {
-        // 활성 시너지
         activeSynergies.push({
           name: synergyName,
           description: rec.synergy.description || '',
           activeCondition: rec.topCondition
         })
       } else if (rec.nextCondition) {
-        // 비활성 시너지 (조건 부족)
         const remainingCount = Math.max(0, rec.nextCondition.required - rec.count)
         const stat = rec.nextCondition.condition.stat
         const bonus = rec.nextCondition.condition.bonus
@@ -756,7 +752,6 @@ const playerSynergyList = computed(() => {
       }
     }
 
-    // 라인업에서 선수의 포지션 찾기
     let playerPosition = ''
     for (const [pos, p] of Object.entries(lineup.value)) {
       if (p && p.id === player.id) {
@@ -773,34 +768,11 @@ const playerSynergyList = computed(() => {
     })
   }
 
-  return playerList.sort((a, b) => {
-    // 활성 시너지가 많은 순으로 정렬
-    return b.activeSynergies.length - a.activeSynergies.length
-  })
-})
-
-/* =========================
-   라이프사이클
-========================= */
-onMounted(async () => {
-  isLoading.value = true
-  try {
-    await Promise.all([loadPlayerData(), loadSynergyData(), loadTeamData()])
-    // 오토 세이브된 작업중인 라인업이 있다면 불러오기
-    const autoSaved = localStorage.getItem(LINEUP_AUTOSAVE_KEY)
-    if (autoSaved) {
-      try { lineup.value = JSON.parse(autoSaved) } catch (e) {}
-    }
-  } catch (e) {
-    console.error(e)
-  } finally {
-    isLoading.value = false
-  }
+  return playerList.sort((a, b) => b.activeSynergies.length - a.activeSynergies.length)
 })
 
 /* =========================
    로컬 컴포넌트: LineupSlot
-   (템플릿에서 <LineupSlot .../> 로 사용)
 ========================= */
 const LineupSlot = defineComponent({
   name: 'LineupSlot',
@@ -817,7 +789,6 @@ const LineupSlot = defineComponent({
           'border-neutral-200 bg-white hover:border-neutral-300 ' +
           'dark:border-neutral-700 dark:bg-neutral-800 dark:hover:border-neutral-600'
 
-      // 빈 슬롯
       if (!props.p) {
         return h('div', { class: `${rootCls} min-h-[120px] flex flex-col items-center justify-center` }, [
           h('div', { class: 'text-xs font-medium text-neutral-400 dark:text-neutral-500 uppercase tracking-wide' }, props.pos),
@@ -828,7 +799,6 @@ const LineupSlot = defineComponent({
       const p = props.p as Raw
       const infos = (props.getInfo(p) || []).filter((s: any) => s?.isActive)
 
-      // 스탯별 보너스 합산 (percent/fixed)
       const statBonuses = new Map<
           string,
           { percent: number; fixed: number; details: Array<{ name: string; value: number; unit: 'percent' | 'fixed' }> }
@@ -851,7 +821,6 @@ const LineupSlot = defineComponent({
         cur.details.push({ name: info.name, value: bonus, unit })
       })
 
-      // 공통 툴팁 렌더러
       const renderTooltip = (children: any[]) =>
           h(
               'div',
@@ -873,7 +842,6 @@ const LineupSlot = defineComponent({
           )
 
       return h('div', { class: `${rootCls} flex flex-col items-center p-3` }, [
-        // 헤더 (포지션 + 등급)
         h(
             'div',
             { class: 'w-full flex items-center justify-between mb-3' },
@@ -886,8 +854,6 @@ const LineupSlot = defineComponent({
               })
             ]
         ),
-
-        // 선수 이름/팀/연도/레어도 (가운데 정렬)
         h('div', { class: 'mb-3 w-full flex flex-col items-center' }, [
           h('h3', { class: 'text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate mb-1 max-w-full' }, p.name),
           h(
@@ -906,8 +872,6 @@ const LineupSlot = defineComponent({
               ].filter(Boolean)
           )
         ]),
-
-        // 스탯 합산 표시 (중앙 정렬 + hover 상세)
         statBonuses.size > 0
             ? h(
                 'div',
@@ -944,8 +908,6 @@ const LineupSlot = defineComponent({
                     .filter(Boolean) as any[]
             )
             : null,
-
-        // 제거 버튼 (우상단)
         h(
             'button',
             {
@@ -1027,15 +989,18 @@ const LineupSlot = defineComponent({
             <div v-if="advancedFilterOpen" class="mt-3 space-y-4">
               <div>
                 <label class="mb-2 block text-xs font-medium text-neutral-500 dark:text-neutral-400">등급</label>
-                <div class="flex flex-wrap gap-2">
+                <div class="grid grid-cols-5 sm:grid-cols-6 gap-2">
                   <button
                       v-for="grade in searchOptions.grade"
                       :key="grade"
                       @click="searchQuery.grade.includes(grade) ? searchQuery.grade = searchQuery.grade.filter(g => g !== grade) : searchQuery.grade.push(grade)"
-                      :class="searchQuery.grade.includes(grade) ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border-blue-300 dark:border-blue-600' : 'bg-white dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-600'"
-                      class="px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors hover:bg-blue-50 dark:hover:bg-blue-800"
+                      :class="searchQuery.grade.includes(grade) ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800' : 'bg-white dark:bg-neutral-700 border-neutral-200 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-600'"
+                      class="h-10 p-1 rounded-lg border transition-all flex items-center justify-center shadow-sm"
+                      :title="grade"
                   >
-                    {{ grade }}
+                    <img :src="`/assets/logos/grade/${grade}.png`" class="w-full h-full object-contain" :alt="grade"
+                         @error="(e) => { e.target.style.display='none'; e.target.nextElementSibling.style.display='block'; }" />
+                    <span class="text-[11px] font-bold text-neutral-500 dark:text-neutral-400 hidden">{{ grade }}</span>
                   </button>
                 </div>
               </div>
@@ -1441,10 +1406,8 @@ const LineupSlot = defineComponent({
       </div>
     </div>
     
-    <!-- 라인업 저장/불러오기 모달 -->
     <div v-if="lineupModalMode" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       <div class="bg-white dark:bg-neutral-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-        <!-- 헤더 -->
         <div class="flex items-center justify-between px-5 py-4 border-b border-neutral-100 dark:border-neutral-700">
           <h3 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
             {{ lineupModalMode === 'save' ? '라인업 저장' : '라인업 불러오기' }}
@@ -1454,7 +1417,6 @@ const LineupSlot = defineComponent({
           </button>
         </div>
         
-        <!-- 저장 모드 -->
         <div v-if="lineupModalMode === 'save'" class="p-5 space-y-4">
           <div>
             <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">라인업 이름</label>
@@ -1472,7 +1434,6 @@ const LineupSlot = defineComponent({
           </div>
         </div>
         
-        <!-- 불러오기 모드 -->
         <div v-else-if="lineupModalMode === 'load'" class="p-5">
           <div class="space-y-2 max-h-64 overflow-y-auto pr-1">
             <div v-for="(savedData, name) in savedLineups" :key="name" class="flex items-center justify-between p-3 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900/50 hover:border-blue-300 dark:hover:border-blue-600 transition-colors">
