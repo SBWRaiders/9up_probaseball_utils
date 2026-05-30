@@ -85,7 +85,7 @@ const yearOptions = computed(() => {
 /* =========================
    포지션 / 등급 / 팀
 ========================= */
-const gradeOrder = ['DGN','TOP','ACE','HIT','POS','GG','TEA','SEA','ROY','MMVP','ASG'] as const
+const gradeOrder = ['DGN','TOP','ACE','HIT','POS','GG','GGY','TEA','SEA','ROY','MMVP','ASG'] as const
 const visibleGrades = computed(() =>
   gradeOrder.filter((g) => props.filterOptions?.grade?.includes(g))
 )
@@ -613,7 +613,8 @@ defineExpose({
                         @click="toggleFilter('grade', grade)"
                         @keydown.enter.space="toggleFilter('grade', grade)"
                         loading="lazy"
-                      />
+                       @error="(e) => { e.target.style.display=\'none\'; e.target.nextElementSibling.style.display=\'flex\'; }" />
+<span class="hidden w-full h-full items-center justify-center text-[11px] font-bold text-neutral-500">{{ grade }}</span>
                     </div>
                   </div>
                 </div>
@@ -642,7 +643,8 @@ defineExpose({
                           @click="toggleFilter('grade', grade)"
                           @keydown.enter.space="toggleFilter('grade', grade)"
                           loading="lazy"
-                        />
+                         @error="(e) => { e.target.style.display=\'none\'; e.target.nextElementSibling.style.display=\'flex\'; }" />
+<span class="hidden w-full h-full items-center justify-center text-[11px] font-bold text-neutral-500">{{ grade }}</span>
                       </div>
                     </div>
                   </div>
