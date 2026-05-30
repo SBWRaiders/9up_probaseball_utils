@@ -222,6 +222,14 @@ const SKILL_EFFECTS: Record<string, any> = {
 }
 
 const autoPowerPercent = ref(0)
+const manualPowerFixed = ref(0)
+const manualPowerPercent = ref(0)
+const careerAllStatFlat = ref(0) 
+const managerBuff = ref(0) 
+
+const imprintMainPower = ref(0)
+const imprintSubPower = ref(0)
+const imprintStarterPower = ref(0)
 
 // === 시너지 시스템 ===
 const activeSynergyConditions = ref<Record<string, number>>({})
@@ -301,8 +309,7 @@ const filteredPlayers = computed(() => {
   if (!searchQuery.value.trim()) return []
   const query = searchQuery.value.toLowerCase().trim()
   return players.value.filter(p => 
-    String(p.name || '').toLowerCase().includes(query) ||
-    String(p.team || '').toLowerCase().includes(query)
+    String(p.name || '').toLowerCase().includes(query)
   ).slice(0, 50)
 })
 
@@ -402,7 +409,7 @@ const baseTotalPower = computed(() => {
   return sum;
 })
 
-// ✨ 이중 풀(Double Pool) + 개별 깡스탯 엔진
+// ✨ [오류 완벽 해결] 시너지 고정파워를 개별 스킬 풀에 편입시키는 마스터 엔진
 const getStatTotal = (stat: { base: number, skill: number, career: number, imprint: number, manager: number, isCore: boolean }) => {
   let finalVal = Number(stat.base || 0);
   
@@ -414,11 +421,12 @@ const getStatTotal = (stat: { base: number, skill: number, career: number, impri
     let growthB = Number(percentableGrowthB.value) + Number(autoSynergyFixed.value);
     
     // 3. 글로벌 퍼센트 보너스 (시너지, 타순/보직, 얼티밋 등)
+    // 글로벌은 오직 "8스탯 기본합 + 그룹 A"에만 곱해집니다! (시너지 깡파워 영향 안 받음)
     let globalPercentPool = baseTotalPower.value + growthA;
-    let globalPercent = Number(autoPowerPercent.value) + Number(autoSynergyPercent.value) + Number(ultimateImprintPercent.value);
+    let globalPercent = Number(autoPowerPercent.value) + Number(manualPowerPercent.value) + Number(autoSynergyPercent.value) + Number(ultimateImprintPercent.value);
     let globalBonusTotal = globalPercentPool * (globalPercent / 100);
     
-    // 4. 개별 스킬 퍼센트 보너스 (OPS형 타자 등)
+    // 4. 개별 스킬 퍼센트 보너스 (OPS형 타자 등 특정 스탯 % 증가)
     let specificPercent = Number(stat.skill || 0);
     let specificBonus = 0;
     
@@ -429,18 +437,27 @@ const getStatTotal = (stat: { base: number, skill: number, career: number, impri
     }
     
     // 5. [그룹 C] 퍼센트 연산을 절대 받지 않는 순수 깡파워 (바인더, 클랜, 돌파)
-    let flatC = Number(unpercentableGrowthC.value) + Number(autoBreakthroughFixed.value);
+    let imprintGlobal = Number(imprintMainPower.value || 0) + Number(imprintSubPower.value || 0);
+    if (isPitcher.value) imprintGlobal += Number(imprintStarterPower.value || 0);
     
-    // 6. 합산 (수동입력 글로벌 깡파워는 삭제되었으므로 제외)
+    let flatC = Number(unpercentableGrowthC.value)
+              + Number(manualPowerFixed.value)
+              + Number(autoBreakthroughFixed.value)
+              + Number(careerAllStatFlat.value)
+              + Number(managerBuff.value)
+              + imprintGlobal;
+    
+    // 6. 최종 합산
     finalVal = statPreSpecific + specificBonus + (flatC / 5);
     
     // 7. 코어 여부 상관없이 더해지는 개별 깡스탯 (커리어, 각인, 감독)
     finalVal += Number(stat.career || 0) + Number(stat.imprint || 0) + Number(stat.manager || 0);
     
-    return Math.round(finalVal); 
+    // 8. 최종 소수점 반올림 처리
+    return Math.round(finalVal);
     
   } else {
-    // 코어 스탯이 아닌 경우 (도루, 수비 등) 
+    // 코어 스탯이 아닌 경우 (도루, 수비 등) - 기본값 유지 및 개별 스킬% 적용
     if (stat.skill) {
       finalVal += finalVal * (Number(stat.skill) / 100);
       finalVal = Math.round(finalVal);
@@ -470,8 +487,8 @@ const totalPower = computed(() => {
     hitAceBuff: hitAceBuff.value,
     careerLevelBuff: careerLevelBuff.value,
     autoEnhanceFixed: autoEnhanceFixed.value,
-    totalPercentBonus: autoPowerPercent.value + ultimateImprintPercent.value,
-    synergyPercentBonus: autoSynergyPercent.value
+    managerBuff: managerBuff.value,
+    totalPercentBonus: autoPowerPercent.value + manualPowerPercent.value + autoSynergyPercent.value + ultimateImprintPercent.value
   }
 })
 </script>
@@ -479,13 +496,13 @@ const totalPower = computed(() => {
 <template>
   <div class="bg-neutral-50 dark:bg-neutral-900 min-h-screen transition-colors p-4 lg:p-8">
     <div class="max-w-[1600px] mx-auto">
+      <!-- 헤더 -->
       <header class="mb-6 flex items-center gap-3">
         <div class="p-3 bg-blue-600 rounded-xl text-white shadow-lg shadow-blue-600/20">
           <Calculator class="w-6 h-6" />
         </div>
         <div>
           <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 tracking-tight">스탯 계산기</h1>
-          <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1"></strong></p>
         </div>
       </header>
 
@@ -495,6 +512,7 @@ const totalPower = computed(() => {
 
       <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
+        <!-- 왼쪽: 선수 검색 -->
         <div class="lg:col-span-3 flex flex-col gap-6">
           <section class="bg-white dark:bg-neutral-800 rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-700 p-5">
             <h2 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
@@ -504,7 +522,7 @@ const totalPower = computed(() => {
               <input 
                 v-model="searchQuery" 
                 type="text" 
-                placeholder="이름이나 팀명으로 검색..." 
+                placeholder="이름으로 검색..." 
                 class="w-full pl-10 pr-4 py-3 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl outline-none focus:border-blue-500 dark:focus:border-blue-500 transition-colors text-neutral-900 dark:text-neutral-100"
               />
               <Search class="w-5 h-5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -534,8 +552,10 @@ const totalPower = computed(() => {
           </section>
         </div>
 
+        <!-- 오른쪽: 엑셀 형태 스탯 계산기 -->
         <div class="lg:col-span-9 flex flex-col gap-6">
           <section v-if="selectedPlayer" class="bg-white dark:bg-neutral-800 rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+            <!-- 선수 요약 헤더 -->
             <div class="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 text-white flex items-center gap-6">
               <img :src="`/assets/logos/grade/${selectedPlayer.grade || 'C'}.png`" class="w-16 h-16 object-contain bg-white/10 rounded-xl p-2" />
               <div class="flex-1">
@@ -559,6 +579,7 @@ const totalPower = computed(() => {
               </div>
             </div>
 
+            <!-- [그룹 A] 글로벌 % (시너지, 타순 등) 공통 기준 -->
             <div class="p-6 bg-sky-50/30 dark:bg-sky-900/10 border-b border-neutral-100 dark:border-neutral-700">
               <div class="flex items-center justify-between mb-3">
                 <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
@@ -585,6 +606,7 @@ const totalPower = computed(() => {
               </div>
             </div>
 
+            <!-- [그룹 B] 개별 스킬 전용 기준 -->
             <div class="p-6 bg-amber-50/30 dark:bg-amber-900/10 border-b border-neutral-100 dark:border-neutral-700">
               <div class="flex items-center justify-between mb-3">
                 <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
@@ -611,6 +633,7 @@ const totalPower = computed(() => {
               </div>
             </div>
 
+            <!-- [그룹 C] 퍼센트 미적용 깡파워 -->
             <div class="p-6 bg-fuchsia-50/30 dark:bg-fuchsia-900/10 border-b border-neutral-100 dark:border-neutral-700">
               <div class="flex items-center justify-between mb-3">
                 <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
@@ -629,8 +652,10 @@ const totalPower = computed(() => {
               </div>
             </div>
 
+            <!-- 강화 및 돌파 단계 버튼 영역 -->
             <div class="p-6 bg-emerald-50/30 dark:bg-emerald-900/10 border-b border-neutral-100 dark:border-neutral-700">
               <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- 강화 영역 -->
                 <div>
                   <div class="flex items-center justify-between mb-3">
                     <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
@@ -650,6 +675,7 @@ const totalPower = computed(() => {
                   </div>
                 </div>
 
+                <!-- 돌파 영역 -->
                 <div v-if="maxBreakthrough > 0">
                   <div class="flex items-center justify-between mb-3">
                     <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
@@ -671,16 +697,13 @@ const totalPower = computed(() => {
               </div>
             </div>
 
+            <!-- 통합 스킬 선택 버튼 영역 -->
             <div class="p-6 bg-neutral-50/50 dark:bg-neutral-800/50 border-b border-neutral-100 dark:border-neutral-700">
               <div class="flex items-center justify-between mb-3">
                 <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
                   <Zap class="w-4 h-4 text-amber-500" /> 스킬 장착 슬롯 <span class="text-[10px] text-amber-600 font-normal ml-1">(계산 시 그룹 A+B 풀 전체를 끌어와서 곱연산)</span>
                 </h3>
                 <div class="flex items-center gap-4">
-                  <div class="flex flex-col gap-1 items-end">
-                    <label class="text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase" title="0~3% 전체 파워 증가 (글로벌 %로 취급)">얼티밋 각인(%)</label>
-                    <input type="number" v-model.number="ultimateImprintPercent" min="0" max="3" class="w-20 px-2 py-1 text-center bg-blue-50 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-600 rounded-lg text-xs font-bold focus:border-blue-500 outline-none transition-colors" />
-                  </div>
                   <span class="px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-bold rounded-lg text-xs border border-amber-200 dark:border-amber-800">
                     선택: {{ selectedSkills.length }} / {{ maxSkillSlots }}
                   </span>
@@ -698,6 +721,7 @@ const totalPower = computed(() => {
               <div v-else class="text-xs text-neutral-400">보유한 스킬이 없습니다.</div>
             </div>
 
+            <!-- 시너지 선택 버튼 영역 -->
             <div class="p-6 bg-indigo-50/30 dark:bg-indigo-900/10 border-b border-neutral-100 dark:border-neutral-700">
               <div class="flex items-center justify-between mb-3">
                 <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
@@ -720,6 +744,7 @@ const totalPower = computed(() => {
               </div>
             </div>
 
+            <!-- 계산기 테이블 -->
             <div class="p-6 pt-5">
               <div class="mb-4 flex items-center justify-between">
                 <h3 class="text-lg font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
@@ -805,7 +830,7 @@ const totalPower = computed(() => {
                       </td>
                       <td colspan="4" class="p-4 border-r border-neutral-200 dark:border-neutral-700 font-bold text-neutral-500 dark:text-neutral-400 text-sm text-left">
                         <div><span class="text-sky-600 font-bold">[그룹 A/B 합산]</span> 강화 +{{ totalPower.autoEnhanceFixed }} / 기본(A)+추가(B) +{{ totalPower.percentableGrowthBuffSum - totalPower.autoEnhanceFixed }} <span v-if="totalPower.totalPercentBonus > 0 || totalPower.synergyPercentBonus > 0" class="text-indigo-500">➔ ( 스킬 {{ totalPower.totalPercentBonus }}% / 시너지 {{ totalPower.synergyPercentBonus }}% 이중 분리 적용 완료 )</span></div>
-                        <div class="mt-1 text-fuchsia-600 font-bold">[그룹 C 합산] 돌파 +{{ totalPower.autoBreakthroughFixed }} / 시너지 +{{ totalPower.autoSynergyFixed }} / 바인더,클랜 등 +{{ totalPower.unpercentableGrowthBuffSum }}</div>
+                        <div class="mt-1 text-fuchsia-600 font-bold">[그룹 C 합산] 돌파 +{{ totalPower.autoBreakthroughFixed }} / 바인더,클랜 등 +{{ totalPower.unpercentableGrowthBuffSum }}</div>
                       </td>
                       <td class="p-4 font-black text-3xl text-indigo-700 dark:text-indigo-400 bg-indigo-100/50 dark:bg-indigo-900/20 tabular-nums">
                         {{ totalPower.finalSum }}
