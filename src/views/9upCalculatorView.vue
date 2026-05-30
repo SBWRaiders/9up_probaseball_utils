@@ -485,7 +485,7 @@ const totalPower = computed(() => {
         </div>
         <div>
           <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 tracking-tight">스탯 계산기</h1>
-          <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">완벽 정리 버전: <strong>불필요한 수동 입력창 삭제 및 각 스탯별 감독 깡스탯 입력이 추가되었습니다.</strong></p>
+          <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">완벽 정리 버전: <strong>각인과 감독 깡스탯 입력칸 순서가 변경되었습니다.</strong></p>
         </div>
       </header>
 
@@ -701,7 +701,7 @@ const totalPower = computed(() => {
             <div class="p-6 bg-indigo-50/30 dark:bg-indigo-900/10 border-b border-neutral-100 dark:border-neutral-700">
               <div class="flex items-center justify-between mb-3">
                 <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-                  <Users class="w-4 h-4 text-indigo-500" /> 보유 시너지 적용 <span class="text-[10px] text-indigo-600 font-normal ml-1">(시너지 %는 오직 그룹 A 풀에만 곱연산)</span>
+                  <Users class="w-4 h-4 text-indigo-500" /> 보유 시너지 적용 <span class="text-[10px] text-indigo-600 font-normal ml-1">(시너지 %는 오직 그룹 A 풀만 사용)</span>
                 </h3>
               </div>
               <div class="flex flex-col gap-3">
@@ -734,8 +734,8 @@ const totalPower = computed(() => {
                       <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-1/6">스탯 항목</th>
                       <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 w-1/6">DB 기본 스탯</th>
                       <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-1/6 bg-fuchsia-50/30 dark:bg-fuchsia-900/10 text-fuchsia-700 dark:text-fuchsia-400">커리어 깡스탯<br><span class="text-[10px] font-normal opacity-80">(% 미적용)</span></th>
-                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-1/6 bg-orange-50/30 dark:bg-orange-900/10 text-orange-700 dark:text-orange-400">감독 깡스탯<br><span class="text-[10px] font-normal opacity-80">(% 미적용)</span></th>
                       <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-1/6 bg-purple-50/30 dark:bg-purple-900/10 text-purple-700 dark:text-purple-400">각인 깡스탯<br><span class="text-[10px] font-normal opacity-80">(% 미적용)</span></th>
+                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-1/6 bg-orange-50/30 dark:bg-orange-900/10 text-orange-700 dark:text-orange-400">감독 깡스탯<br><span class="text-[10px] font-normal opacity-80">(% 미적용)</span></th>
                       <th class="p-3 border-b border-neutral-200 dark:border-neutral-700 font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/10 w-1/6">최종 스탯</th>
                     </tr>
                   </thead>
@@ -754,11 +754,11 @@ const totalPower = computed(() => {
                         <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-fuchsia-50/20 dark:bg-fuchsia-900/10">
                           <input type="number" v-model.number="statObj.career" class="w-full px-1 py-1.5 text-center bg-white dark:bg-neutral-800 border border-fuchsia-300 dark:border-fuchsia-600 rounded-lg outline-none focus:border-fuchsia-500" />
                         </td>
-                        <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-orange-50/20 dark:bg-orange-900/10">
-                          <input type="number" v-model.number="statObj.manager" class="w-full px-1 py-1.5 text-center bg-white dark:bg-neutral-800 border border-orange-300 dark:border-orange-600 rounded-lg outline-none focus:border-orange-500" />
-                        </td>
                         <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-purple-50/20 dark:bg-purple-900/10">
                           <input type="number" v-model.number="statObj.imprint" class="w-full px-1 py-1.5 text-center bg-white dark:bg-neutral-800 border border-purple-300 dark:border-purple-600 rounded-lg outline-none focus:border-purple-500" />
+                        </td>
+                        <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-orange-50/20 dark:bg-orange-900/10">
+                          <input type="number" v-model.number="statObj.manager" class="w-full px-1 py-1.5 text-center bg-white dark:bg-neutral-800 border border-orange-300 dark:border-orange-600 rounded-lg outline-none focus:border-orange-500" />
                         </td>
                         <td class="p-3 font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50/30 dark:bg-indigo-900/5 text-lg">
                           {{ getStatTotal(statObj) }}
@@ -779,11 +779,11 @@ const totalPower = computed(() => {
                         <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-fuchsia-50/20 dark:bg-fuchsia-900/10">
                           <input type="number" v-model.number="statObj.career" class="w-full px-1 py-1.5 text-center bg-white dark:bg-neutral-800 border border-fuchsia-300 dark:border-fuchsia-600 rounded-lg outline-none focus:border-fuchsia-500" />
                         </td>
-                        <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-orange-50/20 dark:bg-orange-900/10">
-                          <input type="number" v-model.number="statObj.manager" class="w-full px-1 py-1.5 text-center bg-white dark:bg-neutral-800 border border-orange-300 dark:border-orange-600 rounded-lg outline-none focus:border-orange-500" />
-                        </td>
                         <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-purple-50/20 dark:bg-purple-900/10">
                           <input type="number" v-model.number="statObj.imprint" class="w-full px-1 py-1.5 text-center bg-white dark:bg-neutral-800 border border-purple-300 dark:border-purple-600 rounded-lg outline-none focus:border-purple-500" />
+                        </td>
+                        <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-orange-50/20 dark:bg-orange-900/10">
+                          <input type="number" v-model.number="statObj.manager" class="w-full px-1 py-1.5 text-center bg-white dark:bg-neutral-800 border border-orange-300 dark:border-orange-600 rounded-lg outline-none focus:border-orange-500" />
                         </td>
                         <td class="p-3 font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50/30 dark:bg-indigo-900/5 text-lg">
                           {{ getStatTotal(statObj) }}
