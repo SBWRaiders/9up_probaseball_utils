@@ -73,6 +73,21 @@ const update = (field: string, value: unknown) =>
   emit('update:filters', { ...(props.filters ?? {}), [field]: value })
 
 /* =========================
+   이미지 에러 핸들러 (타입스크립트 에러 방지)
+========================= */
+const handleImageError = (e: Event) => {
+  const target = e.target as HTMLElement
+  if (target) {
+    target.style.display = 'none'
+    const nextElem = target.nextElementSibling as HTMLElement
+    if (nextElem) {
+      nextElem.style.display = 'flex'
+      nextElem.classList.remove('hidden')
+    }
+  }
+}
+
+/* =========================
    연도 옵션 (올해 제외)
 ========================= */
 const currentYear = new Date().getFullYear()
@@ -613,8 +628,9 @@ defineExpose({
                         @click="toggleFilter('grade', grade)"
                         @keydown.enter.space="toggleFilter('grade', grade)"
                         loading="lazy"
-                       @error="(e) => { e.target.style.display=\'none\'; e.target.nextElementSibling.style.display=\'flex\'; }" />
-<span class="hidden w-full h-full items-center justify-center text-[11px] font-bold text-neutral-500">{{ grade }}</span>
+                        @error="handleImageError"
+                      />
+                      <span class="hidden w-full h-full items-center justify-center text-[11px] font-bold text-neutral-500">{{ grade }}</span>
                     </div>
                   </div>
                 </div>
@@ -643,8 +659,9 @@ defineExpose({
                           @click="toggleFilter('grade', grade)"
                           @keydown.enter.space="toggleFilter('grade', grade)"
                           loading="lazy"
-                         @error="(e) => { e.target.style.display=\'none\'; e.target.nextElementSibling.style.display=\'flex\'; }" />
-<span class="hidden w-full h-full items-center justify-center text-[11px] font-bold text-neutral-500">{{ grade }}</span>
+                          @error="handleImageError"
+                        />
+                        <span class="hidden w-full h-full items-center justify-center text-[11px] font-bold text-neutral-500" style="min-width: 64px; min-height: 64px;">{{ grade }}</span>
                       </div>
                     </div>
                   </div>
