@@ -1,14 +1,18 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, reactive, watch } from 'vue'
+import { ref, computed, onMounted, defineComponent, h, nextTick, watch, reactive } from 'vue'
 import Papa from 'papaparse'
-import { Search, Calculator, Star, Shield, Zap, TrendingUp, X, Users, ArrowUpCircle, Sparkles } from 'lucide-vue-next'
+import { Star, Search, Filter, ChevronRight as ChevronRightIcon, ChevronDown, X, Save, FolderOpen, RotateCcw, Trash2 } from 'lucide-vue-next'
 
+/* =========================
+   타입 정의
+========================= */
 type Raw = Record<string, any>
+type CountOp = '==' | '>=' | '<=' | '>' | '<' | 'between'
 
 interface JsonBonus { unit: 'percent' | 'fixed'; value: number }
 interface JsonCond  {
   count: (
-      | { op: string, value: number }
+      | { op: Exclude<CountOp,'between'>, value: number }
       | { op: 'between', min: number, max: number }
       ),
   stat: string
@@ -17,886 +21,1461 @@ interface JsonCond  {
 interface JsonSynergy {
   id: number | string
   synergy: string
+  synergy_effect?: string
+  description?: string
+  stackable?: boolean
   conditions: JsonCond[]
+  group?: {
+    family?: string
+    tier?: number
+    inherit_lower_tiers?: boolean
+    stack_mode?: 'cumulative' | 'max' | 'cumulative_dedup'
+  }
+}
+interface PlayerRow { _id: string }
+interface TeamHistory { key: string; name: string; logo: string }
+interface TeamSetting { id: number|string; key: string; name: string; history: TeamHistory[] }
+
+/* =========================
+   상수
+========================= */
+const STAT_LABELS: Record<string, string> = {
+  power: '파워', contact: '컨택', defense: '수비', running: '주루',
+  control: '컨트', movement: '무브먼트', stuff: '스터프',
+  longHitSuppression: '장타 억제', homeRunSuppression: '홈런 억제', runnerControl: '주자 견제'
+}
+const POSITION_ALIASES: Record<string, string> = {
+  'b1': '1B', '1b': '1B', '1': '1B', '1루': '1B',
+  'b2': '2B', '2b': '2B', '2': '2B', '2루': '2B',
+  'b3': '3B', '3b': '3B', '3': '3B', '3루': '3B',
+  'c': 'C', '포': 'C',
+  'ss': 'SS', '유격': 'SS',
+  'lf': 'LF', '좌익': 'LF',
+  'cf': 'CF', '중견': 'CF',
+  'rf': 'RF', '우익': 'RF',
+  'sp': 'SP', '선발': 'SP',
+  'rp': 'RP', '불펜': 'RP',
+  'dh': 'DH', '지타': 'DH',
+}
+const CSV_SPLIT = /[,、;、]+/
+const lineupViewMode = ref('batter')
+
+/* =========================
+   다크모드 & UI 상태
+========================= */
+const expandedSynergies = ref<Set<string>>(new Set())
+
+const toggleSynergy = (synergyName: string) => {
+  const newExpanded = new Set(expandedSynergies.value)
+  if (newExpanded.has(synergyName)) {
+    newExpanded.delete(synergyName)
+  } else {
+    newExpanded.add(synergyName)
+  }
+  expandedSynergies.value = newExpanded
 }
 
+const expandAllSynergies = () => {
+  const allActive = activeSynergyList.value.map(s => s.name)
+  expandedSynergies.value = new Set(allActive)
+}
+
+const collapseAllSynergies = () => {
+  expandedSynergies.value = new Set()
+}
+
+/* =========================
+   유틸
+========================= */
+const normalizeText = (text: unknown): string =>
+    String(text ?? '')
+        .normalize('NFKC')
+        .replace(/​|‌|‍|⁠/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase()
+
+const toLowerCase = (s: unknown): string => String(s ?? '').toLowerCase().trim()
+
+const toArray = (value: any, { allowComma = true }: { allowComma?: boolean } = {}): string[] => {
+  if (Array.isArray(value)) return value.map(x => String(x).trim()).filter(Boolean)
+  const str = String(value ?? '').trim()
+  if (!str) return []
+  if (str.startsWith('[') && str.endsWith(']')) {
+    try {
+      const parsed = JSON.parse(str)
+      return Array.isArray(parsed) ? parsed.map(x => String(x).trim()).filter(Boolean) : []
+    } catch {}
+  }
+  const splitter = allowComma ? CSV_SPLIT : /[、;、;]+/
+  return str.split(splitter).map(x => x.replace(/^["']|["']$/g,'').trim()).filter(Boolean)
+}
+
+const normalizePosition = (position: any): string => {
+  const str = String(position ?? '').trim()
+  if (!str) return ''
+  const lower = str.toLowerCase()
+  return POSITION_ALIASES[lower] ?? str.toUpperCase()
+}
+
+/* =========================
+   반응형 상태
+========================= */
 const isLoading = ref(true)
 const players = ref<Raw[]>([])
 const synergys = ref<JsonSynergy[]>([])
-const searchQuery = ref('')
-const selectedGrade = ref<string>('') // ✨ 등급 필터용 변수 추가
-const filterGrades = ['DGN', 'TOP', 'GG', 'GGY', 'HIT', 'ACE', 'ROY', 'MMVP', 'TEA', 'POS', 'ASG', 'SEA'] // ✨ 필터 버튼 목록
-const selectedPlayer = ref<Raw | null>(null)
+const teamData = ref<TeamSetting[]>([])
+const synergyOptions = ref<string[]>([])
 
-// 🌟 크래시 방지 안전 장치
-const parsedRarity = computed(() => {
-  if (!selectedPlayer.value) return 0
-  return Math.max(0, parseInt(String(selectedPlayer.value.rarity), 10) || 0)
+const searchQuery = reactive({
+  search: '',
+  position: [] as string[],
+  team: [] as string[],
+  synergy: [] as string[],
+  rarity: null as number | null,
+  grade: [] as string[]
 })
 
-// 엑셀 계산기 스타일의 스탯 상태
-const batterStats = reactive({
-  contact: { base: 0, skill: 0, career: 0, imprint: 0, manager: 0, label: '컨택', isCore: true },
-  gapPower: { base: 0, skill: 0, career: 0, imprint: 0, manager: 0, label: '갭파워', isCore: true },
-  homeRunPower: { base: 0, skill: 0, career: 0, imprint: 0, manager: 0, label: '홈런파워', isCore: true },
-  plateDiscipline: { base: 0, skill: 0, career: 0, imprint: 0, manager: 0, label: '선구', isCore: true },
-  strikeoutAvoidance: { base: 0, skill: 0, career: 0, imprint: 0, manager: 0, label: '삼진회피', isCore: true },
-  stealing: { base: 0, skill: 0, career: 0, imprint: 0, manager: 0, label: '도루', isCore: false },
-  baseRunning: { base: 0, skill: 0, career: 0, imprint: 0, manager: 0, label: '주루', isCore: false },
-  defense: { base: 0, skill: 0, career: 0, imprint: 0, manager: 0, label: '수비', isCore: false },
-})
+const advancedFilterOpen = ref(false)
+const currentPage = ref(1)
+const pageSize = 50
 
-const pitcherStats = reactive({
-  movement: { base: 0, skill: 0, career: 0, imprint: 0, manager: 0, label: '무브먼트', isCore: true },
-  longHitSup: { base: 0, skill: 0, career: 0, imprint: 0, manager: 0, label: '장타억제', isCore: true },
-  hrSup: { base: 0, skill: 0, career: 0, imprint: 0, manager: 0, label: '홈런억제', isCore: true },
-  control: { base: 0, skill: 0, career: 0, imprint: 0, manager: 0, label: '컨트롤', isCore: true },
-  stuff: { base: 0, skill: 0, career: 0, imprint: 0, manager: 0, label: '스터프(구위)', isCore: true },
-  defense: { base: 0, skill: 0, career: 0, imprint: 0, manager: 0, label: '수비', isCore: false },
-  pitchLimit: { base: 0, skill: 0, career: 0, imprint: 0, manager: 0, label: '한계투구', isCore: false },
-  runnerCtrl: { base: 0, skill: 0, career: 0, imprint: 0, manager: 0, label: '주자견제', isCore: false },
-})
+const lineup = ref({
+  C: null, '1B': null, '2B': null, '3B': null, SS: null,
+  LF: null, CF: null, RF: null, DH: null,
+  SP1: null, SP2: null, SP3: null, SP4: null, SP5: null,
+  RP1: null, RP2: null, RP3: null, RP4: null, RP5: null, RP6: null,
+  BENCH1: null, BENCH2: null, BENCH3: null, BENCH4: null,
+  BENCH5: null, BENCH6: null, BENCH7: null, BENCH8: null
+} as Record<string, Raw | null>)
 
-const isPitcher = computed(() => {
-  if (!selectedPlayer.value) return false
-  const pos = String(selectedPlayer.value.position || '').toUpperCase()
-  return pos.includes('SP') || pos.includes('RP') || !!selectedPlayer.value.movement
-})
+const synergyViewMode = ref('by-synergy')
 
-// === 기본 육성 및 버프 로직 ===
-const playerLevel = ref(100)          
-const collectionBuff = ref(0)         
-const teamLevelBuff = ref(750)        
-const careerLevelBuff = ref(149)      
+/* =========================
+   다중 저장 / 불러오기 기능
+========================= */
+const LINEUP_SAVES_KEY = '9up_lineup_multiple_saves'
+const LINEUP_AUTOSAVE_KEY = '9up_lineup_autosave'
 
-const careerTeamCount = ref(0) 
-const hitAceBuff = ref(0)             
-const teamPlayerDignityBuff = ref(0)  
+const savedLineups = ref<Record<string, any>>({})
+const lineupModalMode = ref<'save' | 'load' | null>(null)
+const newLineupName = ref('')
 
-const binderBuff = ref(537) 
-const clanBuff = ref(15)              
-
-const ultimateImprintPercent = ref(0) 
-
-// 1. [그룹 A] 합산
-const percentableGrowthA = computed(() => {
-  return Number(Math.max(0, Number(playerLevel.value) - 1) * 10) + 
-         Number(collectionBuff.value || 0) + 
-         Number(teamLevelBuff.value || 0) + 
-         Number(careerLevelBuff.value || 0)
-})
-
-// 2. [그룹 B] 합산
-const percentableGrowthB = computed(() => {
-  return Number((careerTeamCount.value || 0) * 112) + 
-         Number(hitAceBuff.value || 0) +
-         Number(teamPlayerDignityBuff.value || 0)
-})
-
-// 3. [그룹 C] 합산
-const unpercentableGrowthC = computed(() => {
-  return Number(binderBuff.value || 0) + 
-         Number(clanBuff.value || 0)
-})
-
-// === 강화 시스템 로직 ===
-const enhancementLevel = ref(15)
-
-const maxEnhanceLevel = computed(() => {
-  if (!selectedPlayer.value) return 15
-  const grade = String(selectedPlayer.value.grade).toUpperCase()
-  return grade === 'DGN' ? 10 : 15
-})
-
-const enhanceMultiplier = computed(() => {
-  if (!selectedPlayer.value) return 0
-  const grade = String(selectedPlayer.value.grade).toUpperCase()
-  const map: Record<string, number> = {
-    'SEA': 30, 'ASG': 30,
-    'POS': 40, 'TEA': 40, 'MMVP': 40,
-    'ROY': 50, 'HIT': 50, 'ACE': 50, 'GG': 50, 'TOP': 50,
-    'DGN': 300
-  }
-  return map[grade] || 0
-})
-
-const autoEnhanceFixed = computed(() => {
-  return Number(enhancementLevel.value) * Number(enhanceMultiplier.value)
-})
-
-// === 한계 돌파(Breakthrough) 시스템 로직 ===
-const breakthroughLevel = ref(0)
-
-const maxBreakthrough = computed(() => {
-  if (!selectedPlayer.value) return 0
-  const grade = String(selectedPlayer.value.grade).toUpperCase()
-  if (grade === 'DGN') return 0 
-  return parsedRarity.value + 1
-})
-
-const autoBreakthroughFixed = computed(() => {
-  if (breakthroughLevel.value === 0 || !selectedPlayer.value) return 0
-  const grade = String(selectedPlayer.value.grade).toUpperCase()
-  const lvl = Number(breakthroughLevel.value)
-  
-  if (['SEA', 'ASG', 'POS'].includes(grade)) {
-    const mults = [0, 1, 3, 6, 10, 15, 21, 28, 36]
-    return 30 * (mults[lvl] || 0)
-  } else if (['TEA', 'ROY', 'MMVP'].includes(grade)) {
-    const mults = [0, 1, 3, 6, 10, 15, 21, 28, 36]
-    return 50 * (mults[lvl] || 0)
-  } else if (['HIT', 'ACE', 'GG', 'TOP'].includes(grade)) {
-    const mults = [0, 1, 2.5, 4.5, 7, 10, 15, 21, 28] 
-    return 100 * (mults[lvl] || 0)
-  }
-  return 0
-})
-
-// === 스킬 시스템 로직 ===
-const maxSkillSlots = computed(() => {
-  if (!selectedPlayer.value) return 0
-  const r = parsedRarity.value
-  if (r <= 3) return 1
-  if (r === 4) return 2
-  return 3
-})
-
-const getArray = (str: any) => {
-  if (!str) return []
-  return String(str).split(',').map(s => s.trim()).filter(Boolean)
-}
-
-const availableSkills = computed(() => {
-  if (!selectedPlayer.value) return []
-  const baseSkills = getArray(selectedPlayer.value.skill)
-  const enhancedSkills = getArray(selectedPlayer.value.enhancedSkill)
-  
-  const excludedCatcherSkills = ["야전사령관", "인사이드 워크", "투수 리드", "친화력", "도루 저지"]
-  const filteredSkills = [...baseSkills, ...enhancedSkills].filter(s => !excludedCatcherSkills.includes(s))
-  
-  return Array.from(new Set(filteredSkills))
-})
-
-const selectedSkills = ref<string[]>([])
-
-const toggleSkill = (skill: string) => {
-  if (selectedSkills.value.includes(skill)) {
-    selectedSkills.value = selectedSkills.value.filter(s => s !== skill)
-  } else {
-    if (selectedSkills.value.length >= maxSkillSlots.value) {
-      alert(`이 카드는 별 등급에 따라 최대 ${maxSkillSlots.value}개의 스킬만 장착할 수 있습니다.`)
-      return
-    }
-    selectedSkills.value.push(skill)
+const fetchSavedLineups = () => {
+  const data = localStorage.getItem(LINEUP_SAVES_KEY)
+  if (data) {
+    try { savedLineups.value = JSON.parse(data) } catch (e) {}
   }
 }
 
-const SKILL_EFFECTS: Record<string, any> = {
-  "1번": {"powerPercent": 10.0, "stats": {}}, "2번": {"powerPercent": 10.0, "stats": {}}, 
-  "3번": {"powerPercent": 10.0, "stats": {}}, "4번": {"powerPercent": 10.0, "stats": {}}, 
-  "5번": {"powerPercent": 10.0, "stats": {}}, "6번": {"powerPercent": 10.0, "stats": {}}, 
-  "7번": {"powerPercent": 10.0, "stats": {}}, "8번": {"powerPercent": 10.0, "stats": {}}, 
-  "9번": {"powerPercent": 10.0, "stats": {}}, "OPS형 타자": {"powerPercent": 0, "stats": {"gapPower": 10.0, "homeRunPower": 10.0}}, 
-  "갭 히터": {"powerPercent": 0, "stats": {"gapPower": 15.0}}, "게스히팅": {"powerPercent": 0, "stats": {"gapPower": 8.0, "homeRunPower": 10.0, "strikeoutAvoidance": -5.0}}, 
-  "공갈포": {"powerPercent": 0, "stats": {"homeRunPower": 20.0, "contact": -7.0, "strikeoutAvoidance": -7.0}}, "그라운드볼러": {"powerPercent": 0, "stats": {"movement": -5.0, "hrSup": 10.0, "longHitSup": 10.0}}, 
-  "그린라이트": {"powerPercent": 0, "stats": {}}, "너클볼": {"powerPercent": 0, "stats": {"stuff": 20.0, "hrSup": -5.0, "longHitSup": -5.0, "movement": 20.0, "control": 20.0}}, 
-  "더티 무브먼트": {"powerPercent": 0, "stats": {"movement": 25.0}}, "라이징 무브먼트": {"powerPercent": 0, "stats": {"stuff": 20.0}}, 
-  "로우볼 히터": {"powerPercent": 0, "stats": {"gapPower": 5.0, "homeRunPower": 10.0, "plateDiscipline": -5.0}}, "롱맨": {"powerPercent": 10.0, "stats": {}}, 
-  "맞춰잡기": {"powerPercent": 0, "stats": {"control": 15.0, "pitchLimit": 10.0}}, "묵직함": {"powerPercent": 0, "stats": {"longHitSup": 10.0, "hrSup": 10.0}}, 
-  "믿을맨": {"powerPercent": 10.0, "stats": {}}, "배드볼히터": {"powerPercent": 0, "stats": {"contact": 15.0, "gapPower": 20.0, "plateDiscipline": -3.0}}, 
-  "배럴 히터": {"powerPercent": 0, "stats": {"contact": 10.0, "gapPower": 10.0, "strikeoutAvoidance": 10.0}}, "변칙타순": {"powerPercent": 4.0, "stats": {}}, 
-  "변칙투구": {"powerPercent": 0, "stats": {}}, "선구안": {"powerPercent": 0, "stats": {"strikeoutAvoidance": 15.0, "plateDiscipline": 15.0}}, 
-  "셋업": {"powerPercent": 10.0, "stats": {}}, "스토퍼": {"powerPercent": 10.0, "stats": {}}, "스플리터": {"powerPercent": 0, "stats": {"movement": 15.0, "stuff": 25.0, "control": -5.0}}, 
-  "스피드스터": {"powerPercent": 0, "stats": {}}, "슬랩 히터": {"powerPercent": 0, "stats": {"contact": 20.0, "baseRunning": 10.0}}, "싱커": {"powerPercent": 0, "stats": {"hrSup": 20.0, "stuff": -5.0}}, 
-  "에이스": {"powerPercent": 9.0, "stats": {}}, "와일드씽": {"powerPercent": 0, "stats": {"control": -3.0, "stuff": 10.0}}, "원투펀치": {"powerPercent": 8.0, "stats": {}}, 
-  "원포인터": {"powerPercent": 10.0, "stats": {}}, "이닝이팅": {"powerPercent": 0, "stats": {"pitchLimit": 5.0}}, "적극성": {"powerPercent": 0, "stats": {"contact": 15.0}}, 
-  "지명타자": {"powerPercent": 8.5, "stats": {}}, "체인지업": {"powerPercent": 0, "stats": {"longHitSup": 15.0}}, "커브": {"powerPercent": 0, "stats": {"movement": 15.0, "longHitSup": 10.0}}, 
-  "컨택터": {"powerPercent": 0, "stats": {"contact": 20.0}}, "클로저": {"powerPercent": 10.0, "stats": {}}, "클린업": {"powerPercent": 8.0, "stats": {}}, 
-  "타격 전략": {"powerPercent": 0, "stats": {"contact": 20.0}}, "테이블세터": {"powerPercent": 7.0, "stats": {}}, "파워": {"powerPercent": 0, "stats": {"gapPower": 15.0, "homeRunPower": 15.0}}, 
-  "파이어볼러": {"powerPercent": 0, "stats": {"stuff": 15.0}}, "펀치력": {"powerPercent": 0, "stats": {"gapPower": 10.0, "homeRunPower": 5.0}}, 
-  "플라이볼피쳐": {"powerPercent": 0, "stats": {"movement": 20.0, "hrSup": -5.0}}, "하위타선": {"powerPercent": 8.0, "stats": {"defense": 10.0}}, 
-  "하이볼 히터": {"powerPercent": 0, "stats": {"contact": 10.0, "strikeoutAvoidance": 5.0, "homeRunPower": -5.0}}
-}
-
-const autoPowerPercent = ref(0)
-const manualPowerFixed = ref(0)
-const manualPowerPercent = ref(0)
-const careerAllStatFlat = ref(0) 
-const managerBuff = ref(0) 
-
-const imprintMainPower = ref(0)
-const imprintSubPower = ref(0)
-const imprintStarterPower = ref(0)
-
-// === 시너지 시스템 ===
-const activeSynergyConditions = ref<Record<string, number>>({})
-
-const playerSynergiesData = computed(() => {
-  if (!selectedPlayer.value) return []
-  const synNames = getArray(selectedPlayer.value.synergy)
-  return synergys.value.filter(s => synNames.includes(s.synergy))
-})
-
-const toggleSynergyCondition = (synName: string, idx: number) => {
-  if (activeSynergyConditions.value[synName] === idx) {
-    const newObj = { ...activeSynergyConditions.value }
-    delete newObj[synName]
-    activeSynergyConditions.value = newObj
-  } else {
-    activeSynergyConditions.value = { ...activeSynergyConditions.value, [synName]: idx }
-  }
-}
-
-const formatConditionText = (cond: any) => {
-  if (!cond.count) return ''
-  if (cond.count.op === 'between') return `${cond.count.min}~${cond.count.max}명`
-  return `${cond.count.value}명 이상`
-}
-
-const autoSynergyFixed = computed(() => {
-  let total = 0
-  for (const [synName, condIdx] of Object.entries(activeSynergyConditions.value)) {
-    const syn = synergys.value.find(s => s.synergy === synName)
-    if (syn && syn.conditions[condIdx]) {
-      const cond = syn.conditions[condIdx]
-      if (cond.stat === 'power' && cond.bonus.unit === 'fixed') total += cond.bonus.value
-    }
-  }
-  return total
-})
-
-const autoSynergyPercent = computed(() => {
-  let total = 0
-  for (const [synName, condIdx] of Object.entries(activeSynergyConditions.value)) {
-    const syn = synergys.value.find(s => s.synergy === synName)
-    if (syn && syn.conditions[condIdx]) {
-      const cond = syn.conditions[condIdx]
-      if (cond.stat === 'power' && cond.bonus.unit === 'percent') total += cond.bonus.value
-    }
-  }
-  return total
-})
-
-// === 앱 초기화 로직 ===
-onMounted(async () => {
-  try {
-    const response = await fetch('/DB/player_sorted.csv', { cache: 'no-store' })
-    const csvText = await response.text()
-    const result: Raw[] = []
-    Papa.parse(csvText, {
-      header: true, skipEmptyLines: true,
-      complete: ({ data }) => (data as Raw[]).forEach(row => result.push(row))
-    })
-    players.value = result
-    
-    const synRes = await fetch('/DB/synergys.json', { cache: 'no-store' })
-    if (synRes.ok) {
-      const synJson = await synRes.json()
-      synergys.value = (Array.isArray(synJson) ? synJson : [])
-        .filter((it: any) => Array.isArray(it?.conditions) && it.conditions.length > 0)
-    }
-  } catch (e) {
-    console.error(e)
-  } finally {
-    isLoading.value = false
-  }
-})
-
-// ✨ 검색어와 시즌(등급) 필터가 모두 적용된 플레이어 리스트
-const filteredPlayers = computed(() => {
-  let result = players.value
-
-  // 시즌(등급) 필터가 선택되어 있다면 먼저 필터링
-  if (selectedGrade.value) {
-    result = result.filter(p => String(p.grade).toUpperCase() === selectedGrade.value)
-  }
-
-  // 텍스트 검색어가 있다면 이름으로 필터링
-  if (searchQuery.value.trim()) {
-    const query = searchQuery.value.toLowerCase().trim()
-    result = result.filter(p => 
-      String(p.name || '').toLowerCase().includes(query)
-    )
-  }
-
-  // 검색어나 필터가 없을 때는 렉을 방지하기 위해 빈 배열 반환 (원하시면 삭제 가능)
-  if (!searchQuery.value.trim() && !selectedGrade.value) return []
-
-  return result.slice(0, 50)
-})
-
-// 선수 선택 시 모든 상태 초기화
-const selectPlayer = (p: Raw) => {
-  selectedPlayer.value = p
-  searchQuery.value = ''
-  selectedGrade.value = '' // 선택 완료 시 등급 필터도 초기화
-  selectedSkills.value = [] 
-  activeSynergyConditions.value = {}
-  
-  autoPowerPercent.value = 0
-  breakthroughLevel.value = 0
-  
-  playerLevel.value = 100
-  teamLevelBuff.value = 750
-  binderBuff.value = 537 
-  careerLevelBuff.value = 149
-  careerTeamCount.value = 0 
-  teamPlayerDignityBuff.value = 0 
-  clanBuff.value = 15
-  ultimateImprintPercent.value = 0
-  collectionBuff.value = 0
-  
-  const grade = String(p.grade || '').toUpperCase()
-  enhancementLevel.value = grade === 'DGN' ? 10 : 15
-  
-  if (['SEA', 'ASG'].includes(grade)) collectionBuff.value = 800
-  else if (['POS', 'TEA', 'MMVP', 'GG', 'GGY', 'HIT', 'ACE'].includes(grade)) collectionBuff.value = 900
-  else if (grade === 'ROY') collectionBuff.value = 1000
-  else if (grade === 'TOP') collectionBuff.value = 1200
-
-  if (['HIT', 'ACE'].includes(grade)) hitAceBuff.value = 896
-  else hitAceBuff.value = 0
-  
-  Object.values(batterStats).forEach(stat => { stat.base=0; stat.skill=0; stat.career=0; stat.imprint=0; stat.manager=0 })
-  Object.values(pitcherStats).forEach(stat => { stat.base=0; stat.skill=0; stat.career=0; stat.imprint=0; stat.manager=0 })
-  
-  if (isPitcher.value) {
-    pitcherStats.movement.base = Number(p.movement || 0)
-    pitcherStats.longHitSup.base = Number(p.longHitSuppression || 0)
-    pitcherStats.hrSup.base = Number(p.homeRunSuppression || 0)
-    pitcherStats.control.base = Number(p.control || 0)
-    pitcherStats.stuff.base = Number(p.stuff || 0)
-    pitcherStats.defense.base = Number(p.defense || 0)
-    pitcherStats.pitchLimit.base = Number(p.pitchLimit || 0)
-    pitcherStats.runnerCtrl.base = Number(p.runnerControl || 0)
-  } else {
-    batterStats.contact.base = Number(p.contact || 0)
-    batterStats.gapPower.base = Number(p.gapPower || 0)
-    batterStats.homeRunPower.base = Number(p.homeRunPower || 0)
-    batterStats.plateDiscipline.base = Number(p.plateDiscipline || 0)
-    batterStats.strikeoutAvoidance.base = Number(p.strikeoutAvoidance || 0)
-    batterStats.stealing.base = Number(p.stealing || 0)
-    batterStats.baseRunning.base = Number(p.baseRunning || 0)
-    batterStats.defense.base = Number(p.defense || 0)
-  }
-}
-
-// 스킬 변경 시 내장 스탯 % 업데이트
-watch(selectedSkills, () => {
-  let totalPowerP = 0
-  let statPercents: Record<string, number> = {
-    contact: 0, gapPower: 0, homeRunPower: 0, plateDiscipline: 0, strikeoutAvoidance: 0, stealing: 0, baseRunning: 0, defense: 0,
-    movement: 0, longHitSup: 0, hrSup: 0, control: 0, stuff: 0, pitchLimit: 0, runnerCtrl: 0
-  }
-  
-  selectedSkills.value.forEach(s => {
-    if (s && SKILL_EFFECTS[s]) {
-      totalPowerP += SKILL_EFFECTS[s].powerPercent || 0
-      for (const [key, val] of Object.entries(SKILL_EFFECTS[s].stats || {})) {
-        statPercents[key] += Number(val)
-      }
-    }
-  })
-  
-  autoPowerPercent.value = totalPowerP
-  
-  if (isPitcher.value) {
-    Object.keys(pitcherStats).forEach(key => {
-      pitcherStats[key as keyof typeof pitcherStats].skill = statPercents[key] || 0
-    })
-  } else {
-    Object.keys(batterStats).forEach(key => {
-      batterStats[key as keyof typeof batterStats].skill = statPercents[key] || 0
-    })
-  }
+watch(lineup, () => {
+  localStorage.setItem(LINEUP_AUTOSAVE_KEY, JSON.stringify(lineup.value))
 }, { deep: true })
 
-const baseTotalPower = computed(() => {
-  let sum = 0;
-  if (isPitcher.value) {
-    Object.values(pitcherStats).forEach(s => sum += Number(s.base || 0));
-  } else {
-    Object.values(batterStats).forEach(s => sum += Number(s.base || 0));
-  }
-  return sum;
-})
+const openSaveModal = () => {
+  newLineupName.value = ''
+  lineupModalMode.value = 'save'
+}
 
-const getStatTotal = (stat: { base: number, skill: number, career: number, imprint: number, manager: number, isCore: boolean }) => {
-  let finalVal = Number(stat.base || 0);
+const confirmSaveLineup = () => {
+  const name = newLineupName.value.trim()
+  if (!name) return alert('라인업 이름을 입력해주세요.')
   
-  if (stat.isCore) {
-    let growthA = Number(percentableGrowthA.value) + Number(autoEnhanceFixed.value);
-    let growthB = Number(percentableGrowthB.value) + Number(autoSynergyFixed.value);
-    
-    let globalPercentPool = baseTotalPower.value + growthA;
-    let globalPercent = Number(autoPowerPercent.value) + Number(autoSynergyPercent.value) + Number(ultimateImprintPercent.value);
-    let globalBonusTotal = globalPercentPool * (globalPercent / 100);
-    
-    let specificPercent = Number(stat.skill || 0);
-    let specificBonus = 0;
-    
-    let statPreSpecific = finalVal + (growthA / 5) + (growthB / 5) + (globalBonusTotal / 5);
-    
-    if (specificPercent !== 0) {
-       specificBonus = statPreSpecific * (specificPercent / 100);
-    }
-    
-    let flatC = Number(unpercentableGrowthC.value) + Number(autoBreakthroughFixed.value);
-    
-    finalVal = statPreSpecific + specificBonus + (flatC / 5);
-    finalVal += Number(stat.career || 0) + Number(stat.imprint || 0) + Number(stat.manager || 0);
-    
-    return Math.round(finalVal); 
-    
-  } else {
-    if (stat.skill) {
-      finalVal += finalVal * (Number(stat.skill) / 100);
-      finalVal = Math.round(finalVal);
-    }
-    finalVal += Number(stat.career || 0) + Number(stat.imprint || 0) + Number(stat.manager || 0);
-    return Math.round(finalVal);
+  fetchSavedLineups()
+  if (savedLineups.value[name] && !confirm(`'${name}' 라인업이 이미 존재합니다. 덮어쓰시겠습니까?`)) {
+    return
+  }
+  
+  savedLineups.value[name] = JSON.parse(JSON.stringify(lineup.value))
+  localStorage.setItem(LINEUP_SAVES_KEY, JSON.stringify(savedLineups.value))
+  lineupModalMode.value = null
+  alert(`'${name}' 라인업이 성공적으로 저장되었습니다! 💾`)
+}
+
+const openLoadModal = () => {
+  fetchSavedLineups()
+  if (Object.keys(savedLineups.value).length === 0) {
+    return alert('저장된 라인업이 없습니다.')
+  }
+  lineupModalMode.value = 'load'
+}
+
+const selectAndLoadLineup = (name: string) => {
+  if (confirm(`'${name}' 라인업을 불러오시겠습니까? 현재 화면의 라인업은 덮어씌워집니다.`)) {
+    lineup.value = JSON.parse(JSON.stringify(savedLineups.value[name]))
+    lineupModalMode.value = null
   }
 }
 
-const totalPower = computed(() => {
-  let finalSum = 0;
-  const stats = isPitcher.value ? Object.values(pitcherStats) : Object.values(batterStats);
-  
-  stats.forEach(s => {
-    finalSum += getStatTotal(s);
-  });
-  
-  return { 
-    finalSum, 
-    autoBreakthroughFixed: autoBreakthroughFixed.value, 
-    autoSynergyFixed: autoSynergyFixed.value,
-    percentableGrowthBuffSum: Number(percentableGrowthA.value) + Number(percentableGrowthB.value) + Number(autoSynergyFixed.value),
-    unpercentableGrowthBuffSum: unpercentableGrowthC.value,
-    clanBuff: clanBuff.value,
-    binderBuff: binderBuff.value,
-    hitAceBuff: hitAceBuff.value,
-    careerLevelBuff: careerLevelBuff.value,
-    autoEnhanceFixed: autoEnhanceFixed.value,
-    totalPercentBonus: autoPowerPercent.value + ultimateImprintPercent.value,
-    synergyPercentBonus: autoSynergyPercent.value
+const deleteSavedLineup = (name: string) => {
+  if (confirm(`'${name}' 라인업을 삭제하시겠습니까?`)) {
+    delete savedLineups.value[name]
+    localStorage.setItem(LINEUP_SAVES_KEY, JSON.stringify(savedLineups.value))
+    if (Object.keys(savedLineups.value).length === 0) {
+      lineupModalMode.value = null
+    }
+  }
+}
+
+const resetLineup = () => {
+  if (confirm('현재 라인업의 모든 선수를 슬롯에서 제거하시겠습니까? (저장된 라인업은 삭제되지 않습니다)')) {
+    Object.keys(lineup.value).forEach(slot => {
+      lineup.value[slot] = null
+    })
+  }
+}
+
+/* =========================
+   로딩
+========================= */
+const loadPlayerData = async () => {
+  const response = await fetch('/DB/player_sorted.csv', { cache: 'no-store' })
+  const csvText = await response.text()
+  const result: Raw[] = []
+  Papa.parse(csvText, {
+    header: true, skipEmptyLines: true,
+    complete: ({ data }) => (data as Raw[]).forEach(row => result.push(row))
+  })
+  players.value = result
+  await nextTick()
+  await loadSynergyOptions()
+}
+
+const loadSynergyData = async () => {
+  const response = await fetch('/DB/synergys.json', { cache: 'no-store' })
+  if (!response.ok) throw new Error(`Synergy load failed: ${response.status}`)
+  const json = await response.json()
+  synergys.value = (Array.isArray(json) ? json : [])
+      .filter((it: any) => Array.isArray(it?.conditions) && it.conditions.length > 0)
+      .map((it: any) => ({
+        ...it,
+        conditions: it.conditions.filter((c: any) => c && c.count && c.bonus)
+      }))
+}
+
+const loadTeamData = async () => {
+  const response = await fetch('/DB/setting.json', { cache: 'no-store' })
+  if (!response.ok) throw new Error(`setting.json ${response.status}`)
+  const json = await response.json()
+  teamData.value = Array.isArray(json) ? (json as TeamSetting[]) : []
+}
+
+const loadSynergyOptions = async () => {
+  try {
+    const response = await fetch('/DB/synergys.json', { cache: 'no-store' })
+    if (response.ok) {
+      const json = await response.json()
+      const options: string[] = Array.isArray(json)
+          ? json.map((item: any) => (typeof item === 'string' ? item : item?.synergy)).filter(Boolean)
+          : []
+      synergyOptions.value = Array.from(new Set(options.map(s => String(s).trim()))).sort((a,b)=>a.localeCompare(b))
+      return
+    }
+  } catch {}
+  const tokens: string[] = []
+  for (const p of players.value) toArray(p.synergy).forEach(t => tokens.push(String(t)))
+  synergyOptions.value = Array.from(new Set(tokens.map(s => s.trim()))).sort((a,b)=>a.localeCompare(b))
+}
+
+/* =========================
+   팀 유틸
+========================= */
+const findTeamLogo = (teamKey: string): string | null => {
+  for (const team of teamData.value) {
+    for (const history of team.history) {
+      if (history.key === teamKey) return history.logo
+    }
+  }
+  return null
+}
+const findTeamName = (teamKeyOrName: string): string => {
+  const key = String(teamKeyOrName ?? '')
+  for (const team of teamData.value) {
+    if (team.key === key) return team.name
+    for (const h of team.history) {
+      if (h.key === key || h.name === key) return h.name
+    }
+  }
+  return key
+}
+const getTeamLogoUrl = (teamKey: string): string => findTeamLogo(teamKey) ?? '/assets/logos/teams/unknown.png'
+
+/* =========================
+   전처리/검색
+========================= */
+interface PreparedPlayer {
+  raw: Raw
+  nameNormalized: string
+  teamLowerCase: string[]
+  positionLowerCase: string[]
+  yearsNumeric: number[]
+  synergyNormalizedSet: Set<string>
+}
+const preparedPlayers = computed<PreparedPlayer[]>(() =>
+    players.value.map(player => ({
+      raw: player,
+      nameNormalized: normalizeText(player.name),
+      teamLowerCase: toArray(player.team).map(toLowerCase),
+      positionLowerCase: toArray(player.position).map(toLowerCase),
+      yearsNumeric: toArray(player.year).map((y:any)=>Number(y)).filter((y:any)=>!Number.isNaN(y)),
+      synergyNormalizedSet: new Set(toArray(player.synergy).map(normalizeText))
+    }))
+)
+
+// ✨ 등급 정렬 순서를 지정하여 보기 좋게 렌더링
+const searchOptions = computed(() => {
+  const o: Record<string, Set<string>> = { team: new Set(), position: new Set(), grade: new Set() }
+  for (const p of players.value) {
+    toArray(p.team).forEach(v => o.team.add(v))
+    toArray(p.position).forEach(v => o.position.add(v))
+    if (p.grade) o.grade.add(String(p.grade))
+  }
+  return {
+    team: [...o.team].sort(),
+    position: [...o.position].sort(),
+    grade: [...o.grade].sort((a, b) => {
+      const specialOrder = ['DGN', 'TOP', 'GG', 'GGY', 'HIT', 'ACE', 'ROY', 'MMVP', 'TEA', 'POS', 'ASG', 'SEA']
+      const standardOrder = ['SS', 'S', 'A', 'B', 'C', 'D']
+      
+      const idxA = specialOrder.includes(a) ? specialOrder.indexOf(a) : (standardOrder.includes(a) ? 100 + standardOrder.indexOf(a) : 999)
+      const idxB = specialOrder.includes(b) ? specialOrder.indexOf(b) : (standardOrder.includes(b) ? 100 + standardOrder.indexOf(b) : 999)
+      
+      if (idxA !== idxB) return idxA - idxB
+      return a.localeCompare(b)
+    })
   }
 })
+
+const filteredPlayers = computed(() => {
+  const tokens = searchQuery.search
+      ? searchQuery.search.split(/[,\s]+/).map(t=>t.trim()).filter(Boolean).map(normalizeText)
+      : []
+  return preparedPlayers.value
+      .filter(({ raw: p, nameNormalized, teamLowerCase, positionLowerCase, yearsNumeric, synergyNormalizedSet }) => {
+        if (searchQuery.team.length && !searchQuery.team.some(t => teamLowerCase.includes(toLowerCase(t)))) return false
+        if (searchQuery.rarity != null && Number(p.rarity) !== Number(searchQuery.rarity)) return false
+        if (searchQuery.grade.length && !searchQuery.grade.includes(String(p.grade || ''))) return false
+        if (searchQuery.position.length && !searchQuery.position.some(v => positionLowerCase.includes(toLowerCase(v)))) return false
+        if (searchQuery.synergy.length && !searchQuery.synergy.map(normalizeText).some(t => synergyNormalizedSet.has(t))) return false
+        if (tokens.length) {
+          const hay = new Set<string>([
+            nameNormalized, ...teamLowerCase, ...positionLowerCase,
+            ...Array.from(synergyNormalizedSet), ...yearsNumeric.map(String)
+          ])
+          const ok = tokens.some(t => hay.has(t) || nameNormalized.includes(t))
+          if (!ok) return false
+        }
+        return true
+      })
+      .map(pp => ({ _id: String(pp.raw.id ?? `${pp.raw.name}-${pp.raw.team}-${pp.raw.year}`), ...pp.raw })) as (Raw & PlayerRow)[]
+})
+
+watch(searchQuery, () => { currentPage.value = 1 }, { deep: true })
+const totalPlayers = computed(() => filteredPlayers.value.length)
+const totalPages = computed(() => Math.max(1, Math.ceil(totalPlayers.value / pageSize)))
+const paginatedPlayers = computed(() => filteredPlayers.value.slice((currentPage.value-1)*pageSize, (currentPage.value)*pageSize))
+const goToPage = (page:number) => { if (page>=1 && page<=totalPages.value) currentPage.value = page }
+const resetFilters = () => {
+  searchQuery.search='';
+  searchQuery.team=[];
+  searchQuery.position=[];
+  searchQuery.synergy=[];
+  searchQuery.rarity=null;
+  searchQuery.grade=[]
+}
+
+/* =========================
+   라인업 관리
+========================= */
+const isPitcher = (p: Raw) => {
+  const positions = toArray(p.position).map(normalizePosition)
+  return positions.includes('SP') || positions.includes('RP')
+}
+const clearLineupSlot = (slot: string) => { lineup.value[slot] = null }
+
+const assignPlayerToSlot = (slot: string, p: Raw) => {
+  if (!slot || !p) return
+  let posList: string[] = []
+  try {
+    const parsed = typeof p.position === 'string' ? JSON.parse(p.position) : p.position
+    posList = (Array.isArray(parsed) ? parsed : toArray(p.position)).map(normalizePosition).filter(Boolean)
+  } catch {
+    posList = toArray(p.position).map(normalizePosition).filter(Boolean)
+  }
+  const s = normalizePosition(slot)
+
+  Object.keys(lineup.value).forEach(k => { if (lineup.value[k]?.id === p.id) lineup.value[k] = null })
+
+  if (s === 'DH') {
+    if (isPitcher(p)) return alert('DH에는 타자만 배치할 수 있습니다.')
+    lineup.value['DH'] = p
+  } else if (s === 'SP') {
+    if (!posList.includes('SP')) return alert('선발 투수만 배치할 수 있습니다.')
+    const spSlots = ['SP1','SP2','SP3','SP4','SP5'] as const
+    const empty = spSlots.find(slot => !lineup.value[slot]); if (empty) lineup.value[empty] = p; else alert('모든 선발 슬롯이 가득 찼습니다.')
+  } else if (s === 'RP') {
+    if (!posList.includes('RP')) return alert('중계/마무리 투수만 배치할 수 있습니다.')
+    const rpSlots = ['RP1','RP2','RP3','RP4','RP5','RP6'] as const
+    const empty = rpSlots.find(slot => !lineup.value[slot]); if (empty) lineup.value[empty] = p; else alert('모든 중계 슬롯이 가득 찼습니다.')
+  } else if (s.startsWith('SP')) {
+    if (!posList.includes('SP')) return alert('선발 투수만 배치할 수 있습니다.')
+    lineup.value[s] = p
+  } else if (s.startsWith('RP')) {
+    if (!posList.includes('RP')) return alert('중계/마무리 투수만 배치할 수 있습니다.')
+    lineup.value[s] = p
+  } else if (s.startsWith('BENCH')) {
+    lineup.value[s] = p
+  } else {
+    if (!posList.includes(s)) return alert(`${s} 슬롯에 배치할 수 없습니다. (선수 포지션: ${posList.join(', ')})`)
+    lineup.value[s] = p
+  }
+}
+
+const autoAssignPlayer = (p: Raw) => {
+  if (!p) return
+  Object.keys(lineup.value).forEach(k => { if (lineup.value[k]?.id === p.id) lineup.value[k] = null })
+  const posList = (() => {
+    try {
+      const parsed = typeof p.position === 'string' ? JSON.parse(p.position) : p.position
+      return (Array.isArray(parsed) ? parsed : toArray(p.position)).map(normalizePosition).filter(Boolean)
+    } catch { return toArray(p.position).map(normalizePosition).filter(Boolean) }
+  })()
+  const isPit = posList.includes('SP') || posList.includes('RP')
+  if (!isPit) {
+    const order = ['C','1B','2B','3B','SS','LF','CF','RF','DH'] as const
+    for (const k of order) {
+      if (k==='DH') { if (!lineup.value[k]) { lineup.value[k]=p; return } }
+      else if (posList.includes(k)) { if (!lineup.value[k]) { lineup.value[k]=p; return } }
+    }
+    assignToBench(p)
+  } else {
+    const spOrder = ['SP1','SP2','SP3','SP4','SP5'] as const
+    const rpOrder = ['RP1','RP2','RP3','RP4','RP5','RP6'] as const
+    if (posList.includes('SP')) for (const k of spOrder) { if (!lineup.value[k]) { lineup.value[k]=p; return } }
+    if (posList.includes('RP')) for (const k of rpOrder) { if (!lineup.value[k]) { lineup.value[k]=p; return } }
+    assignToBench(p)
+  }
+}
+const assignToBench = (p: Raw) => {
+  if (!p) return
+  Object.keys(lineup.value).forEach(k => { if (lineup.value[k]?.id === p.id) lineup.value[k] = null })
+  const bench = ['BENCH1','BENCH2','BENCH3','BENCH4','BENCH5','BENCH6','BENCH7','BENCH8'] as const
+  for (const k of bench) { if (!lineup.value[k]) { lineup.value[k]=p; return } }
+  alert('모든 벤치 슬롯이 가득 찼습니다.')
+}
+
+/* =========================
+   시너지 계산
+========================= */
+const compareCondition = (op: CountOp, lhs: number, rhs?: number, max?: number): boolean => {
+  if (op==='==') return lhs === (rhs ?? 0)
+  if (op=== '>=') return lhs >= (rhs ?? 0)
+  if (op=== '<=') return lhs <= (rhs ?? 0)
+  if (op===  '>') return lhs >  (rhs ?? 0)
+  if (op===  '<') return lhs <  (rhs ?? 0)
+  if (op==='between') return lhs >= (rhs ?? 0) && lhs <= (max ?? Number.POSITIVE_INFINITY)
+  return false
+}
+
+const synergyMetadata = computed(() => {
+  const m = new Map<string, { family?: string; tier?: number }>()
+  for (const s of synergys.value) {
+    const g = (s as any)?.group ?? {}
+    const tier = Number.isFinite(Number(g.tier)) ? Number(g.tier) : undefined
+    m.set(String(s.synergy).trim(), { family: g.family, tier })
+  }
+  return m
+})
+
+const checkSynergyInclusion = (target: string, playerSynergies: string[]) => {
+  const meta = synergyMetadata.value
+  const key = String(target ?? '').trim()
+  const t = meta.get(key)
+  if (t?.family && typeof t.tier === 'number') {
+    for (const ps of playerSynergies) {
+      const pm = meta.get(String(ps).trim())
+      if (pm?.family === t.family && typeof pm.tier === 'number' && pm.tier >= t.tier) return true
+    }
+  }
+  const clean = (x:string)=>String(x??'').normalize('NFKC').replace(/​|‌|‍|⁠/g,'').replace(/[,\s]/g,'').trim()
+  if (playerSynergies.some(s => clean(s)===clean(key))) return true
+  const tm = clean(key).match(/(\D*)(\d+)(\D*)/); if (!tm) return false
+  const [,tp,tn,ts] = tm
+  if (tn.length===4 || tp.includes('동명이인') || ts.includes('동명이인')) return false
+  const tnum = parseInt(tn,10)
+  return playerSynergies.some(s => {
+    const sm = clean(s).match(/(\D*)(\d+)(\D*)/); if (!sm) return false
+    const [,pp,pn,ps] = sm
+    if (pn.length===4 || pp.includes('동명이인') || ps.includes('동명이인')) return false
+    return pp===tp && ps===ts && parseInt(pn,10)>=tnum
+  })
+}
+
+const synergyIndex = computed(() => {
+  const index = new Map<string, {
+    count: number
+    activated: JsonCond[]
+    conditionTexts: string[]
+    topCondition?: JsonCond | null
+    qualifiedPlayers: string[]
+    nextCondition: { condition: JsonCond, required: number, text: string } | null
+    synergy: JsonSynergy
+  }>()
+  const lineupPlayers = Object.values(lineup.value).filter(Boolean) as Raw[]
+
+  for (const s of synergys.value) {
+    const name = String(s.synergy).trim()
+    const qualified = lineupPlayers.filter(p => checkSynergyInclusion(name, toArray(p.synergy).map(t=>t.trim())))
+    const count = qualified.length
+
+    const all = (s.conditions||[])
+        .map(c=>{
+          const isBetween = c.count.op==='between'
+          const upper = isBetween ? (c.count as any).max : (c.count as any).value
+          const lower = isBetween ? (c.count as any).min : (c.count as any).value
+          const text  = isBetween ? `${lower}~${upper}명` : `${upper}명 이상`
+          return { raw:c, upper:Number(upper??0), text }
+        })
+        .sort((a,b)=>a.upper-b.upper)
+
+    const matched = all.filter(({raw})=>{
+      const c:any = raw.count
+      return c?.op==='between'
+          ? compareCondition('between', count, c.min, c.max)
+          : compareCondition(c?.op as CountOp, count, c?.value)
+    })
+
+    const activated = matched.map(m=>m.raw)
+    const conditionTexts = matched.map(m=>m.text)
+    const top = matched.length
+        ? matched.slice().sort((a,b)=>(b.upper-a.upper)||((b.raw.bonus.value??0)-(a.raw.bonus.value??0)))[0].raw
+        : null
+
+    const bigger = all.find(c => count < c.upper) || null
+    const nextCondition = bigger ? { condition: bigger.raw, required: bigger.upper, text: `${bigger.upper}명 필요` } : null
+
+    index.set(name, {
+      count,
+      activated,
+      conditionTexts,
+      topCondition: top,
+      qualifiedPlayers: qualified.map(p=>String(p.name||'')),
+      nextCondition,
+      synergy: s
+    })
+  }
+  return index
+})
+
+const activeSynergyList = computed(() => {
+  type Rec = {
+    name: string
+    count: number
+    activeCondition: JsonCond | null
+    conditionText?: string
+    appliedPlayers: string[]
+    synergy: JsonSynergy
+    isInherited?: boolean
+    impliedChildren?: Array<{name:string; count:number}>
+  }
+
+  const self: Rec[] = []
+  for (const [name, rec] of synergyIndex.value.entries()) {
+    if (!rec.activated.length) continue
+    rec.activated.forEach((cond, i) => {
+      self.push({
+        name, count: rec.count, activeCondition: cond, conditionText: rec.conditionTexts[i],
+        appliedPlayers: rec.qualifiedPlayers.slice(), synergy: rec.synergy, isInherited: false
+      })
+    })
+  }
+
+  const families = new Map<string, JsonSynergy[]>()
+  for (const s of synergys.value) {
+    const fam = (s as any)?.group?.family
+    if (!fam) continue
+    if (!families.has(fam)) families.set(fam, [])
+    families.get(fam)!.push(s)
+  }
+  for (const [, list] of families) list.sort((a,b)=>Number((b as any)?.group?.tier??0)-Number((a as any)?.group?.tier??0))
+
+  const byFamily = new Map<string, Rec[]>()
+  const noFamily: Rec[] = []
+  for (const r of self) {
+    const fam = (r.synergy as any)?.group?.family
+    if (!fam) noFamily.push(r)
+    else {
+      if (!byFamily.has(fam)) byFamily.set(fam, [])
+      byFamily.get(fam)!.push(r)
+    }
+  }
+
+  const out: Rec[] = [...noFamily]
+  for (const [fam, list] of byFamily.entries()) {
+    const members = families.get(fam) || []
+    const mode: 'cumulative'|'max'|'cumulative_dedup' = ((members[0] as any)?.group?.stack_mode) ?? 'cumulative'
+    const inherit = !!(members[0] as any)?.group?.inherit_lower_tiers
+    const sorted = list.slice().sort((a,b)=>Number((b.synergy as any)?.group?.tier??0)-Number((a.synergy as any)?.group?.tier??0))
+    const awarded = new Set<string>()
+
+    const pushByMode = (r: Rec) => {
+      if (mode==='max') {
+        if (!out.some(x => (x.synergy as any)?.group?.family===fam)) out.push({...r, appliedPlayers: r.appliedPlayers.slice()})
+        return
+      }
+      if (mode==='cumulative') { out.push({...r, appliedPlayers: r.appliedPlayers.slice()}); return }
+      const uniq = r.appliedPlayers.filter(n=>!awarded.has(n))
+      out.push({...r, appliedPlayers: uniq})
+      uniq.forEach(n=>awarded.add(n))
+    }
+
+    sorted.forEach(pushByMode)
+
+    if (inherit && sorted.length>0) {
+      const activeNames = new Set(sorted.map(r=>r.name))
+      const implied: Array<{name:string;count:number}> = []
+      for (const m of members) {
+        const nm = String(m.synergy).trim()
+        if (activeNames.has(nm)) continue
+        const rec = synergyIndex.value.get(nm)
+        if (!rec) continue
+        implied.push({ name: nm, count: rec.count })
+      }
+      if (out.length && implied.length) {
+        const lastIdx = out.length-1
+        out[lastIdx] = { ...out[lastIdx], impliedChildren: implied }
+      }
+    }
+  }
+
+  out.sort((a,b)=>{
+    const av = a.activeCondition?.bonus.value ?? 0
+    const bv = b.activeCondition?.bonus.value ?? 0
+    if (!!a.isInherited !== !!b.isInherited) return a.isInherited ? 1 : -1
+    return bv-av
+  })
+  return out
+})
+
+const inactiveSynergyList = computed(() => {
+  const out: Array<{
+    name: string
+    count: number
+    requiredCount: number
+    remainingCount: number
+    progress: number
+    nextText: string
+    nextEffectDescription: string
+  }> = []
+  for (const [name, rec] of synergyIndex.value.entries()) {
+    if (rec.activated.length || !rec.nextCondition?.condition) continue
+    const need = rec.nextCondition.required
+    const left = Math.max(0, need - rec.count)
+    const maxNeed = (rec.synergy.conditions||[]).reduce((m,c)=>{
+      const b = c.count.op==='between'
+      const u = b ? (c.count as any).max : (c.count as any).value
+      return Math.max(m, Number(u ?? 0))
+    }, need)
+    const progress = Math.max(0, Math.min(100, Math.round((rec.count/Math.max(1,maxNeed))*100)))
+    const stat = rec.nextCondition.condition.stat
+    const bonus = rec.nextCondition.condition.bonus
+    const title = `${STAT_LABELS[stat] || stat} +${bonus.value}${bonus.unit==='percent'?'%':''}`
+    out.push({
+      name, count: rec.count, requiredCount: need, remainingCount: left,
+      progress, nextText: rec.nextCondition.text, nextEffectDescription: title
+    })
+  }
+  return out.sort((a,b)=>a.remainingCount-b.remainingCount)
+})
+
+const getPlayerSynergyInfo = (player: Raw) => {
+  if (!player?.synergy) return []
+  const playerSynergies = toArray(player.synergy).map(s => s.trim())
+  const info: Array<{name:string; isActive:boolean; effectText:string; count:number; description:string}> = []
+  for (const nm of playerSynergies) {
+    const rec = synergyIndex.value.get(nm)
+    if (!rec) continue
+    const isActive = rec.activated.length > 0
+    const effectText = isActive && rec.topCondition
+        ? `${STAT_LABELS[rec.topCondition.stat] || rec.topCondition.stat} +${rec.topCondition.bonus.value}${rec.topCondition.bonus.unit==='percent' ? '%' : ''}`
+        : rec.nextCondition ? rec.nextCondition.text : '조건 없음'
+    info.push({ name: nm, isActive, effectText, count: rec.count, description: rec.synergy.description || '' })
+  }
+  return info
+}
+
+const playerSynergyList = computed(() => {
+  const lineupPlayers = Object.values(lineup.value).filter(Boolean) as Raw[]
+  const playerList: Array<{
+    playerName: string
+    position: string
+    activeSynergies: Array<{
+      name: string
+      description: string
+      activeCondition: JsonCond
+    }>
+    inactiveSynergies: Array<{
+      name: string
+      remainingCount: number
+      nextEffectDescription: string
+    }>
+  }> = []
+
+  for (const player of lineupPlayers) {
+    if (!player?.synergy) continue
+
+    const playerSynergies = toArray(player.synergy).map(s => s.trim())
+    const activeSynergies: Array<{name: string; description: string; activeCondition: JsonCond}> = []
+    const inactiveSynergies: Array<{name: string; remainingCount: number; nextEffectDescription: string}> = []
+
+    for (const synergyName of playerSynergies) {
+      const rec = synergyIndex.value.get(synergyName)
+      if (!rec) continue
+
+      if (rec.activated.length > 0 && rec.topCondition) {
+        activeSynergies.push({
+          name: synergyName,
+          description: rec.synergy.description || '',
+          activeCondition: rec.topCondition
+        })
+      } else if (rec.nextCondition) {
+        const remainingCount = Math.max(0, rec.nextCondition.required - rec.count)
+        const stat = rec.nextCondition.condition.stat
+        const bonus = rec.nextCondition.condition.bonus
+        const effectDescription = `${STAT_LABELS[stat] || stat} +${bonus.value}${bonus.unit==='percent'?'%':''}`
+
+        inactiveSynergies.push({
+          name: synergyName,
+          remainingCount,
+          nextEffectDescription: effectDescription
+        })
+      }
+    }
+
+    let playerPosition = ''
+    for (const [pos, p] of Object.entries(lineup.value)) {
+      if (p && p.id === player.id) {
+        playerPosition = pos
+        break
+      }
+    }
+
+    playerList.push({
+      playerName: String(player.name || ''),
+      position: playerPosition,
+      activeSynergies,
+      inactiveSynergies
+    })
+  }
+
+  return playerList.sort((a, b) => b.activeSynergies.length - a.activeSynergies.length)
+})
+
+/* =========================
+   로컬 컴포넌트: LineupSlot
+========================= */
+const LineupSlot = defineComponent({
+  name: 'LineupSlot',
+  props: {
+    pos: { type: String, required: true },
+    p: { type: Object as () => Raw | null, default: null },
+    getInfo: { type: Function as () => (p: Raw) => any[], required: true }
+  },
+  emits: ['clear'],
+  setup(props, { emit }) {
+    return () => {
+      const rootCls =
+          'group relative rounded-lg border transition-colors text-center ' +
+          'border-neutral-200 bg-white hover:border-neutral-300 ' +
+          'dark:border-neutral-700 dark:bg-neutral-800 dark:hover:border-neutral-600'
+
+      if (!props.p) {
+        return h('div', { class: `${rootCls} min-h-[120px] flex flex-col items-center justify-center` }, [
+          h('div', { class: 'text-xs font-medium text-neutral-400 dark:text-neutral-500 uppercase tracking-wide' }, props.pos),
+          h('div', { class: 'text-xs text-neutral-300 dark:text-neutral-600 mt-1' }, '비어있음')
+        ])
+      }
+
+      const p = props.p as Raw
+      const infos = (props.getInfo(p) || []).filter((s: any) => s?.isActive)
+
+      const statBonuses = new Map<
+          string,
+          { percent: number; fixed: number; details: Array<{ name: string; value: number; unit: 'percent' | 'fixed' }> }
+      >()
+
+      infos.forEach((info: any) => {
+        const rec = synergyIndex.value?.get?.(info.name)
+        const top = rec?.topCondition
+        if (!top) return
+        const stat: string = top.stat
+        const unit: 'percent' | 'fixed' = top.bonus?.unit
+        const bonus: number = top.bonus?.value ?? 0
+
+        if (!statBonuses.has(stat)) {
+          statBonuses.set(stat, { percent: 0, fixed: 0, details: [] })
+        }
+        const cur = statBonuses.get(stat)!
+        if (unit === 'percent') cur.percent += bonus
+        else cur.fixed += bonus
+        cur.details.push({ name: info.name, value: bonus, unit })
+      })
+
+      const renderTooltip = (children: any[]) =>
+          h(
+              'div',
+              {
+                class:
+                    'absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded-lg ' +
+                    'bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-xs ' +
+                    'opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap'
+              },
+              [
+                ...children,
+                h('div', {
+                  class:
+                      'absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 ' +
+                      'border-l-4 border-r-4 border-t-4 border-transparent ' +
+                      'border-t-neutral-900 dark:border-t-neutral-100'
+                })
+              ]
+          )
+
+      return h('div', { class: `${rootCls} flex flex-col items-center p-3` }, [
+        h(
+            'div',
+            { class: 'w-full flex items-center justify-between mb-3' },
+            [
+              h('div', { class: 'text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wide' }, props.pos),
+              h('img', {
+                src: `/assets/logos/grade/${p.grade || 'C'}.png`,
+                alt: p.grade || 'C',
+                class: 'w-6 h-6 rounded object-contain'
+              })
+            ]
+        ),
+        h('div', { class: 'mb-3 w-full flex flex-col items-center' }, [
+          h('h3', { class: 'text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate mb-1 max-w-full' }, p.name),
+          h(
+              'div',
+              { class: 'flex items-center justify-center text-xs text-neutral-500 dark:text-neutral-400 gap-2' },
+              [
+                p.rarity
+                    ? h(
+                        'div',
+                        { class: 'flex ml-2 gap-1' },
+                        Array.from({ length: Number(p.rarity) }, (_, i) =>
+                            h('div', { key: i, class: 'w-2 h-2 bg-blue-500 rounded-full' })
+                        )
+                    )
+                    : null
+              ].filter(Boolean)
+          )
+        ]),
+        statBonuses.size > 0
+            ? h(
+                'div',
+                { class: 'w-full flex flex-col items-center gap-1' },
+                Array.from(statBonuses.entries())
+                    .map(([stat, bonuses]) => {
+                      const hasPercent = bonuses.percent > 0
+                      const hasFixed = bonuses.fixed > 0
+                      if (!hasPercent && !hasFixed) return null
+                      return h('div', { key: stat, class: 'relative group/tooltip' }, [
+                        h(
+                            'div',
+                            { class: 'inline-flex items-center justify-between gap-2 py-1 px-2 rounded text-xs ' +
+                                  'bg-neutral-50 dark:bg-neutral-700' },
+                            [
+                              h('div', { class: 'flex gap-2' }, [
+                                hasFixed ? h('span', { class: 'font-semibold text-neutral-900 dark:text-neutral-100' }, `+${bonuses.fixed}`) : null,
+                                hasPercent ? h('span', { class: 'font-semibold text-blue-600 dark:text-blue-400' }, `+${bonuses.percent}%`) : null,
+                                !hasPercent && !hasFixed ? h('span', { class: 'font-semibold text-gray-400 dark:text-gray-500' }, `효과 없음`) : null,
+                              ])
+                            ]
+                        ),
+                        renderTooltip([
+                          h(
+                              'div',
+                              { class: 'text-left space-y-1' },
+                              bonuses.details.map((d, i) =>
+                                  h('div', { key: i }, `${d.name}: +${d.value}${d.unit === 'percent' ? '%' : ''}`)
+                              )
+                          )
+                        ])
+                      ])
+                    })
+                    .filter(Boolean) as any[]
+            )
+            : null,
+        h(
+            'button',
+            {
+              class:
+                  'absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 rounded-full ' +
+                  'bg-neutral-100 hover:bg-red-100 dark:bg-neutral-700 dark:hover:bg-red-900 ' +
+                  'flex items-center justify-center text-neutral-400 hover:text-red-500 dark:text-neutral-500 dark:hover:text-red-400',
+              onClick: () => emit('clear'),
+              title: '제거'
+            },
+            [
+              h('svg', { class: 'w-3 h-3', viewBox: '0 0 20 20', fill: 'currentColor' }, [
+                h('path', {
+                  'fill-rule': 'evenodd',
+                  d:
+                      'M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 ' +
+                      '4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 ' +
+                      '4.293 5.707a1 1 0 010-1.414z',
+                  'clip-rule': 'evenodd'
+                })
+              ])
+            ]
+        )
+      ])
+    }
+  }
+})
+
 </script>
-
 <template>
-  <div class="bg-neutral-50 dark:bg-neutral-900 min-h-screen transition-colors p-4 lg:p-8">
-    <div class="max-w-[1600px] mx-auto">
-      <!-- 헤더 -->
-      <header class="mb-6 flex items-center gap-3">
-        <div class="p-3 bg-blue-600 rounded-xl text-white shadow-lg shadow-blue-600/20">
-          <Calculator class="w-6 h-6" />
+  <div class="bg-neutral-50 dark:bg-neutral-900 min-h-screen transition-colors">
+    <div class="mx-auto max-w-[1800px] px-4 py-6 h-screen flex flex-col">
+      <div v-if="isLoading" class="flex h-full items-center justify-center">
+        <div class="text-center">
+          <div class="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-neutral-300 dark:border-neutral-600 border-t-neutral-900 dark:border-t-neutral-100"></div>
+          <p class="text-sm text-neutral-500 dark:text-neutral-400">데이터를 불러오는 중…</p>
         </div>
-        <div>
-          <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 tracking-tight">스탯 계산기</h1>
-        </div>
-      </header>
-
-      <div v-if="isLoading" class="flex h-64 items-center justify-center">
-        <div class="animate-spin rounded-full border-4 border-neutral-300 dark:border-neutral-600 border-t-blue-600 h-10 w-10"></div>
       </div>
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0">
+        <section :class="[
+          'lg:col-span-3 flex flex-col rounded-2xl bg-white dark:bg-neutral-800 ring-1 ring-neutral-200/70 dark:ring-neutral-700/70 min-h-0 transition-colors'
+        ]">
+          <header class="px-5 py-4 border-b border-neutral-100 dark:border-neutral-700 flex-shrink-0">
+            <div class="flex items-center justify-between">
+              <h1 class="text-base font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">선수 검색</h1>
+              <div class="flex items-center gap-3">
+                <span class="text-xs text-neutral-500 dark:text-neutral-400">{{ totalPlayers.toLocaleString() }}명</span>
+              </div>
+            </div>
+          </header>
 
-      <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        <!-- 왼쪽: 선수 검색 -->
-        <div class="lg:col-span-3 flex flex-col gap-6">
-          <section class="bg-white dark:bg-neutral-800 rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-700 p-5">
-            <h2 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
-              <Search class="w-4 h-4 text-blue-500" /> 선수 찾기
-            </h2>
-            <div class="relative mb-4">
-              <input 
-                v-model="searchQuery" 
-                type="text" 
-                placeholder="이름으로 검색..." 
-                class="w-full pl-10 pr-4 py-3 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl outline-none focus:border-blue-500 dark:focus:border-blue-500 transition-colors text-neutral-900 dark:text-neutral-100"
+          <div class="border-b border-neutral-100 dark:border-neutral-700 p-4 flex-shrink-0">
+            <div class="relative">
+              <input
+                  v-model.trim="searchQuery.search"
+                  type="text"
+                  placeholder="이름, 팀, 포지션, 시너지…"
+                  class="w-full rounded-xl border border-neutral-200 dark:border-neutral-600 bg-neutral-50/60 dark:bg-neutral-700/60 px-4 py-2.5 text-sm text-neutral-800 dark:text-neutral-200 placeholder-neutral-400 dark:placeholder-neutral-500 outline-none focus:border-neutral-300 dark:focus:border-neutral-500 focus:ring-0 transition-colors"
               />
-              <Search class="w-5 h-5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <button v-if="searchQuery" @click="searchQuery = ''" class="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600">
-                <X class="w-4 h-4" />
-              </button>
+              <Search class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400 dark:text-neutral-500" />
             </div>
-            
-            <!-- ✨ 등급(시즌) 로고 필터 영역 추가 -->
-            <div class="grid grid-cols-5 gap-2 mb-4">
-              <button 
-                @click="selectedGrade = ''" 
-                :class="selectedGrade === '' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700'"
-                class="w-full h-10 rounded-lg text-xs font-bold border transition-colors shadow-sm">
-                ALL
-              </button>
-              <button 
-                v-for="grade in filterGrades" :key="grade"
-                @click="selectedGrade = selectedGrade === grade ? '' : grade"
-                :class="selectedGrade === grade ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800' : 'bg-white dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700'"
-                class="w-full h-10 p-1.5 rounded-lg border transition-all flex items-center justify-center shadow-sm"
-                :title="grade">
-                <img :src="`/assets/logos/grade/${grade}.png`" class="w-full h-full object-contain" :alt="grade"
-                     @error="(e) => { e.target.style.display='none'; e.target.nextElementSibling.style.display='block'; }" />
-                <span class="text-[10px] font-bold text-neutral-400 hidden">{{ grade }}</span>
-              </button>
-            </div>
-            
-            <div v-if="(searchQuery || selectedGrade) && filteredPlayers.length > 0" class="max-h-[400px] overflow-y-auto space-y-2 pr-2">
-              <button 
-                v-for="p in filteredPlayers" :key="p.id" 
-                @click="selectPlayer(p)"
-                class="w-full text-left p-3 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-neutral-700/50 transition-all flex items-center gap-4"
-              >
-                <img :src="`/assets/logos/grade/${p.grade || 'C'}.png`" class="w-10 h-10 object-contain" />
+
+            <button
+                @click="advancedFilterOpen = !advancedFilterOpen"
+                class="mt-3 inline-flex w-full items-center justify-between rounded-xl border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-600 transition-colors"
+            >
+              <span class="inline-flex items-center gap-2">
+                <Filter class="h-4 w-4" />
+                상세 필터
+              </span>
+              <span class="inline-flex items-center gap-2">
+                <span class="rounded-full bg-neutral-100 dark:bg-neutral-600 px-2 py-0.5 text-[11px] text-neutral-700 dark:text-neutral-300">
+                  {{ [searchQuery.position.length, searchQuery.team.length, searchQuery.synergy.length, searchQuery.grade.length, searchQuery.rarity ? 1 : 0].reduce((a,b)=>a+b,0) }}
+                </span>
+                <ChevronRightIcon :class="advancedFilterOpen ? 'rotate-90' : ''" class="h-4 w-4 transition-transform" />
+              </span>
+            </button>
+
+            <div v-if="advancedFilterOpen" class="mt-3 space-y-4">
+              <div>
+                <label class="mb-2 block text-xs font-medium text-neutral-500 dark:text-neutral-400">등급</label>
+                <div class="grid grid-cols-5 sm:grid-cols-6 gap-2">
+                  <button
+                      v-for="grade in searchOptions.grade"
+                      :key="grade"
+                      @click="searchQuery.grade.includes(grade) ? searchQuery.grade = searchQuery.grade.filter(g => g !== grade) : searchQuery.grade.push(grade)"
+                      :class="searchQuery.grade.includes(grade) ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800' : 'bg-white dark:bg-neutral-700 border-neutral-200 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-600'"
+                      class="h-10 p-1 rounded-lg border transition-all flex items-center justify-center shadow-sm"
+                      :title="grade"
+                  >
+                    <img :src="`/assets/logos/grade/${grade}.png`" class="w-full h-full object-contain" :alt="grade"
+                         @error="(e) => { e.target.style.display='none'; e.target.nextElementSibling.style.display='block'; }" />
+                    <span class="text-[11px] font-bold text-neutral-500 dark:text-neutral-400 hidden">{{ grade }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label class="mb-2 block text-xs font-medium text-neutral-500 dark:text-neutral-400">포지션</label>
+                <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2">
+                  <button
+                      v-for="pos in searchOptions.position"
+                      :key="pos"
+                      @click="searchQuery.position.includes(pos) ? searchQuery.position = searchQuery.position.filter(p => p !== pos) : searchQuery.position.push(pos)"
+                      :class="searchQuery.position.includes(pos) ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border-green-300 dark:border-green-600' : 'bg-white dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-600'"
+                      class="px-2 py-1.5 rounded-lg border text-xs font-medium transition-colors hover:bg-green-50 dark:hover:bg-green-800"
+                  >
+                    {{ pos }}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label class="mb-2 block text-xs font-medium text-neutral-500 dark:text-neutral-400">팀</label>
+                <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 max-h-32 overflow-y-auto">
+                  <button
+                      v-for="team in searchOptions.team"
+                      :key="team"
+                      @click="searchQuery.team.includes(team) ? searchQuery.team = searchQuery.team.filter(t => t !== team) : searchQuery.team.push(team)"
+                      :class="searchQuery.team.includes(team) ? 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 border-purple-300 dark:border-purple-600' : 'bg-white dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-600'"
+                      class="px-2 py-1.5 rounded-lg border text-xs font-medium transition-colors hover:bg-purple-50 dark:hover:bg-purple-800 truncate"
+                  >
+                    {{ findTeamName(team) }}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label class="mb-2 block text-xs font-medium text-neutral-500 dark:text-neutral-400">시너지</label>
+                <select v-model="searchQuery.synergy" multiple class="h-24 w-full rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 px-2 py-2 text-sm focus:border-neutral-300 dark:focus:border-neutral-500 focus:ring-0 transition-colors">
+                  <option v-for="s in synergyOptions" :key="s" :value="s">{{ s }}</option>
+                </select>
+              </div>
+
+              <div class="grid grid-cols-2 items-end gap-3">
                 <div>
-                  <div class="font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-                    {{ p.name }} <span class="text-xs font-normal bg-neutral-100 dark:bg-neutral-600 px-2 py-0.5 rounded text-neutral-600 dark:text-neutral-300">{{ p.position }}</span>
+                  <label class="mb-1 block text-xs font-medium text-neutral-500 dark:text-neutral-400">레어도</label>
+                  <input v-model.number="searchQuery.rarity" type="number" min="0" max="6" class="w-full rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 px-3 py-2 text-sm focus:border-neutral-300 dark:focus:border-neutral-500 focus:ring-0 transition-colors">
+                </div>
+                <div class="text-right">
+                  <button @click="resetFilters" class="inline-flex items-center justify-center rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-600 transition-colors">
+                    필터 초기화
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-700 px-4 py-3 text-xs text-neutral-500 dark:text-neutral-400 flex-shrink-0">
+            <span>{{ currentPage }} / {{ totalPages }} 페이지</span>
+            <div class="inline-flex gap-1">
+              <button @click="goToPage(currentPage-1)" :disabled="currentPage<=1" class="rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 px-2 py-1 disabled:opacity-40 hover:bg-neutral-50 dark:hover:bg-neutral-600 transition-colors">이전</button>
+              <button @click="goToPage(currentPage+1)" :disabled="currentPage>=totalPages" class="rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 px-2 py-1 disabled:opacity-40 hover:bg-neutral-50 dark:hover:bg-neutral-600 transition-colors">다음</button>
+            </div>
+          </div>
+
+          <div class="flex-1 overflow-y-auto min-h-0">
+            <div
+                v-for="(player, i) in paginatedPlayers"
+                :key="i"
+                @click="autoAssignPlayer(player)"
+                class="group cursor-pointer border-b border-neutral-100 dark:border-neutral-700 px-4 py-4 transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-700/50"
+            >
+              <div class="flex items-start gap-4">
+                <img :src="`/assets/logos/grade/${player.grade}.png`" :alt="player.grade" class="h-10 w-10 rounded-md object-contain ring-1 ring-neutral-200 dark:ring-neutral-600 flex-shrink-0" />
+                <div class="min-w-0 flex-1">
+                  <div class="mb-1 flex items-center gap-2">
+                    <h3 class="truncate text-base font-semibold text-neutral-900 dark:text-neutral-100">{{ player.name }}</h3>
+                    <div class="flex">
+                      <Star v-for="k in Number(player.rarity)" :key="k" class="h-4 w-4 text-amber-400" fill="currentColor" />
+                    </div>
                   </div>
-                  <div class="text-xs text-neutral-500 mt-1">{{ p.team }} · {{ p.year }}</div>
-                </div>
-              </button>
-            </div>
-            <div v-else-if="(searchQuery || selectedGrade) && filteredPlayers.length === 0" class="text-center py-10 text-neutral-500 text-sm">
-              검색 결과가 없습니다.
-            </div>
-            <div v-else-if="!searchQuery && !selectedGrade" class="text-center py-10 text-neutral-400 text-sm">
-              이름을 검색하거나 등급을 선택해주세요.
-            </div>
-          </section>
-        </div>
-
-        <!-- 오른쪽: 엑셀 형태 스탯 계산기 -->
-        <div class="lg:col-span-9 flex flex-col gap-6">
-          <section v-if="selectedPlayer" class="bg-white dark:bg-neutral-800 rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-700 overflow-hidden">
-            <!-- 선수 요약 헤더 -->
-            <div class="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 text-white flex items-center gap-6">
-              <img :src="`/assets/logos/grade/${selectedPlayer.grade || 'C'}.png`" class="w-16 h-16 object-contain bg-white/10 rounded-xl p-2" />
-              <div class="flex-1">
-                <div class="flex items-center gap-2 mb-1">
-                  <span class="px-2 py-0.5 bg-white/20 rounded text-xs font-semibold tracking-wide">{{ isPitcher ? '투수' : '타자' }}</span>
-                  <span class="px-2 py-0.5 bg-white/20 rounded text-xs font-semibold tracking-wide">{{ selectedPlayer.position }}</span>
-                  <span class="text-blue-100 text-sm ml-2">{{ selectedPlayer.team }} · {{ selectedPlayer.year }}</span>
-                </div>
-                <h2 class="text-3xl font-extrabold flex items-center gap-3">
-                  {{ selectedPlayer.name }}
-                  <div class="flex text-amber-300">
-                    <Star v-for="n in parsedRarity" :key="n" class="w-4 h-4" fill="currentColor" />
-                  </div>
-                </h2>
-              </div>
-              <div class="text-right flex flex-col items-end bg-black/20 p-4 rounded-xl border border-white/10 shadow-inner">
-                <span class="text-blue-200 text-xs font-semibold uppercase tracking-wider mb-1">종합 파워 (총합)</span>
-                <div class="flex items-baseline gap-1">
-                  <span class="text-4xl font-black tabular-nums">{{ totalPower.finalSum }}</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- [그룹 A] 글로벌 % (시너지, 타순 등) 공통 기준 -->
-            <div class="p-6 bg-sky-50/30 dark:bg-sky-900/10 border-b border-neutral-100 dark:border-neutral-700">
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-                  <TrendingUp class="w-4 h-4 text-sky-500" /> [그룹 A] 글로벌 퍼센트(%) 공통 기준 <span class="text-[10px] text-sky-600 font-normal ml-1">(모든 % 연산의 기초 뼈대)</span>
-                </h3>
-              </div>
-              <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
-                <div class="flex flex-col gap-1">
-                  <label class="text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase" title="1레벨업당 핵심스탯 각각 +2 (총파워 +10)">선수 레벨</label>
-                  <input type="number" v-model.number="playerLevel" min="1" max="100" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg text-sm font-medium focus:border-sky-500 outline-none transition-colors" />
-                </div>
-                <div class="flex flex-col gap-1">
-                  <label class="text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase">도감 파워</label>
-                  <input type="number" v-model.number="collectionBuff" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg text-sm font-medium focus:border-sky-500 outline-none transition-colors" />
-                </div>
-                <div class="flex flex-col gap-1">
-                  <label class="text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase">팀 레벨 파워</label>
-                  <input type="number" v-model.number="teamLevelBuff" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg text-sm font-medium focus:border-sky-500 outline-none transition-colors" />
-                </div>
-                <div class="flex flex-col gap-1">
-                  <label class="text-[11px] font-bold text-sky-600 dark:text-sky-400 uppercase">커리어 레벨 파워</label>
-                  <input type="number" v-model.number="careerLevelBuff" class="w-full px-2 py-1.5 text-center bg-sky-50 dark:bg-sky-900/30 border border-sky-300 dark:border-sky-600 rounded-lg text-sm font-bold focus:border-sky-500 outline-none transition-colors" />
-                </div>
-              </div>
-            </div>
-
-            <!-- [그룹 B] 개별 스킬 전용 기준 -->
-            <div class="p-6 bg-amber-50/30 dark:bg-amber-900/10 border-b border-neutral-100 dark:border-neutral-700">
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-                  <Zap class="w-4 h-4 text-amber-500" /> [그룹 B] 개별 스킬(%) 추가 기준 <span class="text-[10px] text-amber-600 font-normal ml-1">(글로벌 퍼센트 무시, 개별 스탯 퍼센트에만 추가 합류)</span>
-                </h3>
-              </div>
-              <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
-                <div class="flex flex-col gap-1">
-                  <label class="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase" title="개당 112 증가">커리어 (자팀수)</label>
-                  <input type="number" v-model.number="careerTeamCount" min="0" max="6" placeholder="ex: 3" class="w-full px-2 py-1.5 text-center bg-amber-50 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-600 rounded-lg text-sm font-bold focus:border-amber-500 outline-none transition-colors" />
-                </div>
-                <div class="flex flex-col gap-1">
-                  <label class="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase" title="HIT/ACE 전용">HIT/ACE 전용</label>
-                  <input type="number" v-model.number="hitAceBuff" :disabled="!['HIT', 'ACE'].includes(String(selectedPlayer.grade).toUpperCase())" class="w-full px-2 py-1.5 text-center border border-amber-300 dark:border-amber-600 rounded-lg text-sm font-medium focus:border-amber-500 outline-none transition-colors disabled:opacity-50 disabled:bg-neutral-100 dark:disabled:bg-neutral-900" :class="['HIT', 'ACE'].includes(String(selectedPlayer.grade).toUpperCase()) ? 'bg-amber-50 dark:bg-amber-900/30' : 'bg-white dark:bg-neutral-800'" />
-                </div>
-                <div class="flex flex-col gap-1">
-                  <label class="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase" title="팀플(최대 23) + 디그니티(100)">팀플+디그강화</label>
-                  <input type="number" v-model.number="teamPlayerDignityBuff" placeholder="파워 합" class="w-full px-2 py-1.5 text-center bg-amber-50 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-600 rounded-lg text-sm font-bold focus:border-amber-500 outline-none transition-colors" />
-                </div>
-                <div class="flex flex-col gap-1">
-                  <label class="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase" title="시너지 깡파워는 자동으로 개별 스킬 연산에만 합류합니다.">시너지 고정파워</label>
-                  <div class="w-full px-2 py-1.5 text-center bg-amber-100 dark:bg-amber-800/30 border border-amber-300 dark:border-amber-600 rounded-lg text-sm font-bold text-amber-700 dark:text-amber-400 opacity-80 select-none">+{{ autoSynergyFixed }} (자동)</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- [그룹 C] 퍼센트 미적용 깡파워 -->
-            <div class="p-6 bg-fuchsia-50/30 dark:bg-fuchsia-900/10 border-b border-neutral-100 dark:border-neutral-700">
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-                  <Sparkles class="w-4 h-4 text-fuchsia-500" /> [그룹 C] 퍼센트 미적용 깡파워 <span class="text-[10px] text-fuchsia-600 font-normal ml-1">(모든 % 연산 완전 무시, 2대장 고정)</span>
-                </h3>
-              </div>
-              <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-4">
-                <div class="flex flex-col gap-1">
-                  <label class="text-[11px] font-bold text-fuchsia-600 dark:text-fuchsia-400 uppercase">바인더 파워</label>
-                  <input type="number" v-model.number="binderBuff" class="w-full px-2 py-1.5 text-center bg-fuchsia-50 dark:bg-fuchsia-900/30 border border-fuchsia-300 dark:border-fuchsia-600 rounded-lg text-sm font-bold focus:border-fuchsia-500 outline-none transition-colors" />
-                </div>
-                <div class="flex flex-col gap-1">
-                  <label class="text-[11px] font-bold text-fuchsia-600 dark:text-fuchsia-400 uppercase" title="최대 15">클랜 레벨 파워</label>
-                  <input type="number" v-model.number="clanBuff" min="0" max="15" class="w-full px-2 py-1.5 text-center bg-fuchsia-50 dark:bg-fuchsia-900/30 border border-fuchsia-300 dark:border-fuchsia-600 rounded-lg text-sm font-bold focus:border-fuchsia-500 outline-none transition-colors" />
-                </div>
-              </div>
-            </div>
-
-            <!-- 강화 및 돌파 단계 버튼 영역 -->
-            <div class="p-6 bg-emerald-50/30 dark:bg-emerald-900/10 border-b border-neutral-100 dark:border-neutral-700">
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <!-- 강화 영역 -->
-                <div>
-                  <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-                      <ArrowUpCircle class="w-4 h-4 text-emerald-500" /> 카드 강화 <span class="text-[10px] text-emerald-600 font-normal ml-1">(그룹 A 소속)</span>
-                    </h3>
-                    <span class="px-2 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-bold rounded-lg text-[10px] border border-emerald-200 dark:border-emerald-800">
-                      1강당 파워 +{{ enhanceMultiplier }}
-                    </span>
+                  <div class="mb-3 flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
+                    <img :src="getTeamLogoUrl(player.team)" :alt="player.team" class="h-4 w-4 flex-shrink-0" />
+                    <span class="truncate">{{ findTeamName(player.team) }}</span>
+                    <span>·</span>
+                    <span>{{ player.year }}</span>
                   </div>
                   <div class="flex flex-wrap gap-1.5">
-                    <button v-for="lvl in (maxEnhanceLevel + 1)" :key="lvl"
-                      @click="enhancementLevel = lvl-1"
-                      :class="enhancementLevel === lvl-1 ? 'bg-emerald-600 text-white border-emerald-600 shadow-md' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-300 dark:border-neutral-600 hover:border-emerald-400 dark:hover:border-emerald-500'"
-                      class="w-10 h-8 flex items-center justify-center text-xs font-bold border rounded-lg transition-colors">
-                      +{{ lvl-1 }}
-                    </button>
-                  </div>
-                </div>
-
-                <!-- 돌파 영역 -->
-                <div v-if="maxBreakthrough > 0">
-                  <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-                      <Sparkles class="w-4 h-4 text-fuchsia-500" /> 한계 돌파 <span class="text-[10px] text-fuchsia-600 font-normal ml-1">(그룹 C 소속)</span>
-                    </h3>
-                    <span class="px-2 py-1 bg-fuchsia-100 dark:bg-fuchsia-900/30 text-fuchsia-700 dark:text-fuchsia-400 font-bold rounded-lg text-[10px] border border-fuchsia-200 dark:border-fuchsia-800">
-                      누적 깡파워 배수 적용
-                    </span>
-                  </div>
-                  <div class="flex flex-wrap gap-1.5">
-                    <button v-for="lvl in (maxBreakthrough + 1)" :key="'brk'+lvl"
-                      @click="breakthroughLevel = lvl-1"
-                      :class="breakthroughLevel === lvl-1 ? 'bg-fuchsia-600 text-white border-fuchsia-600 shadow-md' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-300 dark:border-neutral-600 hover:border-fuchsia-400 dark:hover:border-fuchsia-500'"
-                      class="px-3 h-8 flex items-center justify-center text-xs font-bold border rounded-lg transition-colors">
-                      {{ lvl-1 === 0 ? '돌파 안함' : lvl-1 + '돌' }}
-                    </button>
+                    <button
+                        v-for="pos in Array.from(new Set(toArray(player.position).map(normalizePosition))).filter(Boolean)"
+                        :key="pos"
+                        @click.stop="assignPlayerToSlot(pos, player)"
+                        class="rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 px-3 py-1.5 text-xs hover:bg-neutral-50 dark:hover:bg-neutral-600 transition-colors"
+                    >{{ pos }}</button>
+                    <button
+                        v-if="!isPitcher(player)"
+                        @click.stop="assignPlayerToSlot('DH', player)"
+                        class="rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 px-3 py-1.5 text-xs hover:bg-neutral-50 dark:hover:bg-neutral-600 transition-colors"
+                    >DH</button>
+                    <button
+                        @click.stop="assignToBench(player)"
+                        class="rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 px-3 py-1.5 text-xs hover:bg-neutral-50 dark:hover:bg-neutral-600 transition-colors"
+                    >벤치</button>
                   </div>
                 </div>
               </div>
             </div>
 
-            <!-- 통합 스킬 선택 버튼 영역 -->
-            <div class="p-6 bg-neutral-50/50 dark:bg-neutral-800/50 border-b border-neutral-100 dark:border-neutral-700">
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-                  <Zap class="w-4 h-4 text-amber-500" /> 스킬 장착 슬롯 <span class="text-[10px] text-amber-600 font-normal ml-1">(계산 시 그룹 A+B 풀 전체를 끌어와서 곱연산)</span>
-                </h3>
-                <div class="flex items-center gap-4">
-                  <div class="flex flex-col gap-1 items-end">
-                    <label class="text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase" title="0~3% 전체 파워 증가 (글로벌 %로 취급)">얼티밋 각인(%)</label>
-                    <input type="number" v-model.number="ultimateImprintPercent" min="0" max="3" class="w-20 px-2 py-1 text-center bg-blue-50 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-600 rounded-lg text-xs font-bold focus:border-blue-500 outline-none transition-colors" />
-                  </div>
-                  <span class="px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-bold rounded-lg text-xs border border-amber-200 dark:border-amber-800">
-                    선택: {{ selectedSkills.length }} / {{ maxSkillSlots }}
-                  </span>
-                </div>
-              </div>
+            <div v-if="!paginatedPlayers.length" class="flex h-40 items-center justify-center text-sm text-neutral-500 dark:text-neutral-400">
+              검색 결과가 없습니다
+              <button @click="resetFilters" class="ml-2 underline underline-offset-2 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors">필터 초기화</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="lg:col-span-6 flex flex-col rounded-2xl bg-white dark:bg-neutral-800 ring-1 ring-neutral-200/70 dark:ring-neutral-700/70 min-h-0 transition-colors">
+          <header class="border-b border-neutral-100 dark:border-neutral-700 px-5 py-4 flex-shrink-0">
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="text-base font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">라인업</h2>
               
-              <div v-if="availableSkills.length > 0" class="flex flex-wrap gap-2">
-                <button v-for="skill in availableSkills" :key="skill"
-                  @click="toggleSkill(skill)"
-                  :class="selectedSkills.includes(skill) ? 'bg-amber-500 text-white border-amber-600 shadow-md' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-300 dark:border-neutral-600 hover:border-amber-400 dark:hover:border-amber-500'"
-                  class="px-3 py-1.5 text-xs font-bold border rounded-lg transition-colors">
-                  {{ skill }}
+              <div class="flex items-center gap-2">
+                <button 
+                  @click="openSaveModal" 
+                  title="현재 라인업 저장"
+                  class="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-800/40 transition-colors border border-blue-100 dark:border-blue-800/50"
+                >
+                  <Save class="w-4 h-4" />
+                </button>
+                <button 
+                  @click="openLoadModal" 
+                  title="저장된 라인업 불러오기"
+                  class="p-2 rounded-lg bg-neutral-50 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-600 transition-colors border border-neutral-200 dark:border-neutral-600"
+                >
+                  <FolderOpen class="w-4 h-4" />
+                </button>
+                <button 
+                  @click="resetLineup" 
+                  title="라인업 전체 초기화"
+                  class="p-2 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-800/40 transition-colors border border-red-100 dark:border-red-800/50"
+                >
+                  <RotateCcw class="w-4 h-4" />
+                </button>
+                <span class="ml-2 text-xs text-neutral-500 dark:text-neutral-400">{{ Object.values(lineup).filter(Boolean).length }}/28</span>
+              </div>
+            </div>
+
+            <div class="flex rounded-lg bg-neutral-100 dark:bg-neutral-700 p-1">
+              <button
+                  @click="lineupViewMode = 'batter'"
+                  :class="lineupViewMode === 'batter' ? 'bg-white dark:bg-neutral-600 text-neutral-900 dark:text-neutral-100 shadow-sm' : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'"
+                  class="flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all"
+              >
+                타자
+              </button>
+              <button
+                  @click="lineupViewMode = 'pitcher'"
+                  :class="lineupViewMode === 'pitcher' ? 'bg-white dark:bg-neutral-600 text-neutral-900 dark:text-neutral-100 shadow-sm' : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'"
+                  class="flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all"
+              >
+                투수
+              </button>
+              <button
+                  @click="lineupViewMode = 'bench'"
+                  :class="lineupViewMode === 'bench' ? 'bg-white dark:bg-neutral-600 text-neutral-900 dark:text-neutral-100 shadow-sm' : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'"
+                  class="flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all"
+              >
+                벤치
+              </button>
+            </div>
+          </header>
+
+          <div class="flex-1 overflow-y-auto min-h-0 p-3 lg:p-5">
+            <div v-if="lineupViewMode === 'batter'" class="space-y-12">
+              <h3 class="mb-4 text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">타자</h3>
+              <div class="pt-3">
+                <div class="grid grid-cols-3 gap-3 lg:gap-6 mb-6 lg:mb-8">
+                  <div class="w-24 lg:w-32 mx-auto">
+                    <LineupSlot pos="LF" :p="lineup.LF" @clear="clearLineupSlot('LF')" :get-info="getPlayerSynergyInfo" />
+                  </div>
+                  <div class="w-24 lg:w-32 mx-auto">
+                    <LineupSlot pos="CF" :p="lineup.CF" @clear="clearLineupSlot('CF')" :get-info="getPlayerSynergyInfo" />
+                  </div>
+                  <div class="w-24 lg:w-32 mx-auto">
+                    <LineupSlot pos="RF" :p="lineup.RF" @clear="clearLineupSlot('RF')" :get-info="getPlayerSynergyInfo" />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div class="relative" style="height: 400px;">
+                  <div class="absolute top-0 transform -translate-x-1/2 w-20 lg:w-32" style="right: calc(24% - 50px);">
+                    <LineupSlot pos="2B" :p="lineup['2B']" @clear="clearLineupSlot('2B')" :get-info="getPlayerSynergyInfo" />
+                  </div>
+                  <div class="absolute top-16 lg:top-24 left-2 lg:left-10 w-20 lg:w-32">
+                    <LineupSlot pos="3B" :p="lineup['3B']" @clear="clearLineupSlot('3B')" :get-info="getPlayerSynergyInfo" />
+                  </div>
+                  <div class="absolute top-0 transform -translate-x-1/2 w-20 lg:w-32" style="left: calc(27% + 50px);">
+                    <LineupSlot pos="SS" :p="lineup.SS" @clear="clearLineupSlot('SS')" :get-info="getPlayerSynergyInfo" />
+                  </div>
+                  <div class="absolute top-16 lg:top-24 right-2 lg:right-10 w-20 lg:w-32">
+                    <LineupSlot pos="1B" :p="lineup['1B']" @clear="clearLineupSlot('1B')" :get-info="getPlayerSynergyInfo" />
+                  </div>
+                  <div class="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-20 lg:w-32" style="left: calc(50%);">
+                    <LineupSlot pos="C" :p="lineup.C" @clear="clearLineupSlot('C')" :get-info="getPlayerSynergyInfo" />
+                  </div>
+                  <div class="absolute bottom-0 right-1/2 transform translate-x-1/2 w-20 lg:w-32" style="right: calc(25%);">
+                    <LineupSlot pos="DH" :p="lineup.DH" @clear="clearLineupSlot('DH')" :get-info="getPlayerSynergyInfo" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div v-else-if="lineupViewMode === 'pitcher'" class="space-y-6 lg:space-y-8">
+              <div>
+                <h3 class="mb-4 text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">선발 투수</h3>
+                <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 lg:gap-6">
+                  <div v-for="i in 5" :key="'SP'+i" class="w-24 lg:w-32 mx-auto">
+                    <LineupSlot :pos="'SP'+i" :p="lineup['SP'+i]" @clear="clearLineupSlot('SP'+i)" :get-info="getPlayerSynergyInfo" />
+                  </div>
+                </div>
+              </div>
+              <div>
+                <h3 class="mb-4 text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">중계 & 마무리</h3>
+                <div class="grid grid-cols-2 lg:grid-cols-6 gap-3 lg:gap-6">
+                  <div v-for="i in 6" :key="'RP'+i" class="w-24 lg:w-32 mx-auto">
+                    <LineupSlot :pos="'RP'+i" :p="lineup['RP'+i]" @clear="clearLineupSlot('RP'+i)" :get-info="getPlayerSynergyInfo" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div v-else class="space-y-6 lg:space-y-8">
+              <div>
+                <h3 class="mb-4 text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">벤치 선수</h3>
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6">
+                  <div v-for="i in 8" :key="'BENCH'+i" class="w-24 lg:w-32 mx-auto">
+                    <LineupSlot :pos="'BENCH'+i" :p="lineup['BENCH'+i]" @clear="clearLineupSlot('BENCH'+i)" :get-info="getPlayerSynergyInfo" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="lg:col-span-3 flex flex-col rounded-2xl bg-white dark:bg-neutral-800 ring-1 ring-neutral-200/70 dark:ring-neutral-700/70 min-h-0 transition-colors">
+          <header class="border-b border-neutral-100 dark:border-neutral-700 px-5 py-4 flex-shrink-0">
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="text-base font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">시너지</h2>
+              <div class="text-xs text-neutral-500 dark:text-neutral-400">
+                활성 {{ activeSynergyList.filter(s=>s.activeCondition).length }} · 대기 {{ inactiveSynergyList.length }}
+              </div>
+            </div>
+
+            <div class="flex rounded-lg bg-neutral-100 dark:bg-neutral-700 p-1">
+              <button
+                  @click="synergyViewMode = 'by-synergy'"
+                  :class="synergyViewMode === 'by-synergy' ? 'bg-white dark:bg-neutral-600 text-neutral-900 dark:text-neutral-100 shadow-sm' : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'"
+                  class="flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all"
+              >
+                시너지별
+              </button>
+              <button
+                  @click="synergyViewMode = 'by-player'"
+                  :class="synergyViewMode === 'by-player' ? 'bg-white dark:bg-neutral-600 text-neutral-900 dark:text-neutral-100 shadow-sm' : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'"
+                  class="flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all"
+              >
+                선수별
+              </button>
+            </div>
+          </header>
+
+          <div class="flex-1 overflow-y-auto min-h-0 p-5">
+            <div v-if="synergyViewMode === 'by-synergy'" class="space-y-6">
+              <div>
+                <div class="flex items-center justify-between mb-4">
+                  <h3 class="text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">활성</h3>
+                  <div class="flex gap-1" v-if="activeSynergyList.filter(s=>s.activeCondition).length">
+                    <button
+                        @click="expandAllSynergies"
+                        class="text-xs text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors"
+                    >전체 펼치기</button>
+                    <span class="text-xs text-neutral-300 dark:text-neutral-600">|</span>
+                    <button
+                        @click="collapseAllSynergies"
+                        class="text-xs text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors"
+                    >전체 접기</button>
+                  </div>
+                </div>
+                <div v-if="!activeSynergyList.filter(s=>s.activeCondition).length" class="rounded-xl bg-neutral-50 dark:bg-neutral-700/50 p-6 text-center text-sm text-neutral-500 dark:text-neutral-400">
+                  발동된 시너지가 없습니다
+                </div>
+                <div class="space-y-4">
+                  <div
+                      v-for="sy in activeSynergyList.filter(s=>s.activeCondition)"
+                      :key="sy.name + '-active'"
+                      class="rounded-xl border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 transition-colors"
+                  >
+                    <button
+                        @click="toggleSynergy(sy.name)"
+                        class="w-full p-4 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-700/30 transition-colors rounded-xl"
+                    >
+                      <div class="flex items-center gap-3 min-w-0 flex-1">
+                        <div class="min-w-0 flex-1 text-left">
+                          <div class="text-[15px] font-semibold text-neutral-900 dark:text-neutral-100 mb-1">{{ sy.name }}</div>
+                          <div class="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed truncate">{{ sy.synergy.description }}</div>
+                        </div>
+                        <div class="rounded-full bg-neutral-100 dark:bg-neutral-600 px-2 py-0.5 text-xs text-neutral-600 dark:text-neutral-300 flex-shrink-0">{{ sy.count }}명</div>
+                      </div>
+                      <ChevronDown
+                          :class="expandedSynergies.has(sy.name) ? 'rotate-180' : ''"
+                          class="w-4 h-4 text-neutral-400 dark:text-neutral-500 transition-transform flex-shrink-0 ml-2"
+                      />
+                    </button>
+                    <div
+                        v-show="expandedSynergies.has(sy.name)"
+                        class="px-4 pb-4 border-t border-neutral-100 dark:border-neutral-700"
+                    >
+                      <div class="pt-3">
+                        <div class="mb-4 rounded-lg bg-neutral-50 dark:bg-neutral-600 px-3 py-2 text-[13px] font-semibold text-neutral-900 dark:text-neutral-100">
+                          {{ STAT_LABELS[sy.activeCondition!.stat] || sy.activeCondition!.stat }}
+                          +{{ sy.activeCondition!.bonus.value }}{{ sy.activeCondition!.bonus.unit==='percent' ? '%' : '' }}
+                        </div>
+                        <div class="flex flex-wrap gap-1.5 mb-3">
+                          <span v-for="nm in sy.appliedPlayers" :key="nm" class="rounded-md bg-neutral-100 dark:bg-neutral-600 px-2 py-0.5 text-[11px] text-neutral-700 dark:text-neutral-300">{{ nm }}</span>
+                        </div>
+                        <div v-if="sy.impliedChildren?.length" class="border-t border-neutral-100 dark:border-neutral-600 pt-3">
+                          <div class="mb-2 text-[11px] font-medium text-neutral-500 dark:text-neutral-400">하위 시너지 (표시)</div>
+                          <div class="flex flex-wrap gap-1.5">
+                            <span v-for="child in sy.impliedChildren" :key="child.name" class="rounded-full bg-white dark:bg-neutral-700 px-2 py-0.5 text-[11px] text-neutral-600 dark:text-neutral-300 ring-1 ring-neutral-200 dark:ring-neutral-600">
+                              {{ child.name }} · {{ child.count }}명
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <h3 class="mb-4 text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">비활성화</h3>
+                <div v-if="!inactiveSynergyList.length" class="rounded-xl bg-neutral-50 dark:bg-neutral-700/50 p-6 text-center text-sm text-neutral-500 dark:text-neutral-400">
+                  조건 부족 시너지가 없습니다
+                </div>
+                <div class="space-y-4">
+                  <div v-for="sy in inactiveSynergyList" :key="sy.name + '-inactive'" class="rounded-xl border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 p-4 transition-colors">
+                    <div class="mb-3 flex items-center justify-between">
+                      <div class="truncate text-[15px] font-semibold text-neutral-900 dark:text-neutral-100 flex-1 pr-3">{{ sy.name }}</div>
+                      <div class="rounded-full bg-neutral-100 dark:bg-neutral-600 px-2 py-0.5 text-xs text-neutral-600 dark:text-neutral-300 flex-shrink-0">{{ sy.count }}명</div>
+                    </div>
+                    <div class="mb-2 text-[13px] text-neutral-800 dark:text-neutral-200 leading-relaxed">{{ sy.nextEffectDescription }}</div>
+                    <div class="mb-3 text-xs font-medium text-red-600 dark:text-red-400">{{ sy.remainingCount }}명 더 필요</div>
+                    <div class="h-2 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-600 mb-2">
+                      <div class="h-2 rounded-full bg-neutral-900 dark:bg-neutral-300 transition-[width] duration-500" :style="{ width: sy.progress + '%' }"></div>
+                    </div>
+                    <div class="text-center text-[11px] text-neutral-500 dark:text-neutral-400">{{ sy.progress }}% 진행</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div v-else class="space-y-4">
+              <div v-if="!playerSynergyList.length" class="rounded-xl bg-neutral-50 dark:bg-neutral-700/50 p-6 text-center text-sm text-neutral-500 dark:text-neutral-400">
+                라인업에 선수가 없습니다
+              </div>
+              <div v-for="playerSynergy in playerSynergyList" :key="playerSynergy.playerName" class="rounded-xl border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 p-4 transition-colors">
+                <div class="mb-3 flex items-start justify-between">
+                  <div class="min-w-0 flex-1 pr-3">
+                    <div class="text-[15px] font-semibold text-neutral-900 dark:text-neutral-100 mb-1">{{ playerSynergy.playerName }}</div>
+                    <div class="text-xs text-neutral-500 dark:text-neutral-400">{{ playerSynergy.position }}</div>
+                  </div>
+                  <div class="rounded-full bg-neutral-100 dark:bg-neutral-600 px-2 py-0.5 text-xs text-neutral-600 dark:text-neutral-300 flex-shrink-0">
+                    {{ playerSynergy.activeSynergies.length }}개 활성
+                  </div>
+                </div>
+                <div v-if="playerSynergy.activeSynergies.length" class="space-y-3">
+                  <div v-for="synergy in playerSynergy.activeSynergies" :key="synergy.name" class="rounded-lg bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-300 p-3">
+                    <div class="flex items-center justify-between mb-2">
+                      <div class="text-sm font-medium text-green-900 dark:text-green-200">{{ synergy.name }}</div>
+                      <div class="text-xs text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-800 px-2 py-0.5 rounded-full">활성</div>
+                    </div>
+                    <div class="text-xs text-green-800 dark:text-green-300 mb-2">{{ synergy.description }}</div>
+                    <div class="text-sm font-semibold text-green-900 dark:text-green-100  px-2 py-1 rounded">
+                      {{ STAT_LABELS[synergy.activeCondition.stat] || synergy.activeCondition.stat }}
+                      +{{ synergy.activeCondition.bonus.value }}{{ synergy.activeCondition.bonus.unit==='percent' ? '%' : '' }}
+                    </div>
+                  </div>
+                </div>
+                <div v-if="playerSynergy.inactiveSynergies.length" class="mt-3 space-y-2">
+                  <div class="text-xs font-medium text-neutral-500 dark:text-neutral-400 border-t border-neutral-100 dark:border-neutral-600 pt-3">비활성화된 시너지</div>
+                  <div v-for="synergy in playerSynergy.inactiveSynergies" :key="synergy.name" class="rounded-lg bg-neutral-50 dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-600 p-2">
+                    <div class="flex items-center justify-between mb-1">
+                      <div class="text-xs font-medium text-neutral-900 dark:text-neutral-100">{{ synergy.name }}</div>
+                      <div class="text-xs text-neutral-600 dark:text-neutral-400">{{ synergy.remainingCount }}명 더 필요</div>
+                    </div>
+                    <div class="text-xs text-neutral-600 dark:text-neutral-400">{{ synergy.nextEffectDescription }}</div>
+                  </div>
+                </div>
+                <div v-if="!playerSynergy.activeSynergies.length && !playerSynergy.inactiveSynergies.length" class="text-xs text-neutral-500 dark:text-neutral-400 italic">
+                  적용 가능한 시너지가 없습니다
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+    
+    <div v-if="lineupModalMode" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div class="bg-white dark:bg-neutral-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-neutral-100 dark:border-neutral-700">
+          <h3 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+            {{ lineupModalMode === 'save' ? '라인업 저장' : '라인업 불러오기' }}
+          </h3>
+          <button @click="lineupModalMode = null" class="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300">
+            <X class="w-5 h-5" />
+          </button>
+        </div>
+        
+        <div v-if="lineupModalMode === 'save'" class="p-5 space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">라인업 이름</label>
+            <input 
+              v-model="newLineupName" 
+              @keyup.enter="confirmSaveLineup"
+              type="text" 
+              placeholder="예: 83 해태 우승 라인업" 
+              class="w-full px-4 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+            >
+          </div>
+          <div class="flex justify-end gap-2 pt-2">
+            <button @click="lineupModalMode = null" class="px-4 py-2 rounded-lg text-sm font-medium text-neutral-600 bg-neutral-100 hover:bg-neutral-200 dark:text-neutral-300 dark:bg-neutral-700 dark:hover:bg-neutral-600 transition-colors">취소</button>
+            <button @click="confirmSaveLineup" class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors">저장하기</button>
+          </div>
+        </div>
+        
+        <div v-else-if="lineupModalMode === 'load'" class="p-5">
+          <div class="space-y-2 max-h-64 overflow-y-auto pr-1">
+            <div v-for="(savedData, name) in savedLineups" :key="name" class="flex items-center justify-between p-3 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900/50 hover:border-blue-300 dark:hover:border-blue-600 transition-colors">
+              <span class="font-medium text-neutral-800 dark:text-neutral-200 truncate pr-4">{{ name }}</span>
+              <div class="flex items-center gap-2 flex-shrink-0">
+                <button @click="selectAndLoadLineup(String(name))" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:hover:bg-blue-800/60 transition-colors">불러오기</button>
+                <button @click="deleteSavedLineup(String(name))" class="p-1.5 text-xs font-semibold rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors" title="삭제">
+                  <Trash2 class="w-4 h-4" />
                 </button>
               </div>
-              <div v-else class="text-xs text-neutral-400">보유한 스킬이 없습니다.</div>
             </div>
-
-            <!-- 시너지 선택 버튼 영역 -->
-            <div class="p-6 bg-indigo-50/30 dark:bg-indigo-900/10 border-b border-neutral-100 dark:border-neutral-700">
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-                  <Users class="w-4 h-4 text-indigo-500" /> 보유 시너지 적용 <span class="text-[10px] text-indigo-600 font-normal ml-1">(시너지 %는 오직 그룹 A 풀만 사용)</span>
-                </h3>
-              </div>
-              <div class="flex flex-col gap-3">
-                <div v-for="syn in playerSynergiesData" :key="syn.synergy" class="flex flex-col sm:flex-row sm:items-center gap-2">
-                  <span class="text-xs font-bold text-neutral-700 dark:text-neutral-300 w-36 shrink-0">{{ syn.synergy }}</span>
-                  <div class="flex flex-wrap gap-2">
-                    <button v-for="(cond, idx) in syn.conditions" :key="idx"
-                      @click="toggleSynergyCondition(syn.synergy, idx)"
-                      class="px-3 py-1.5 text-[11px] font-medium rounded-lg border transition-colors shadow-sm"
-                      :class="activeSynergyConditions[syn.synergy] === idx ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-300 dark:border-neutral-600 hover:border-indigo-400 dark:hover:border-indigo-500'">
-                      {{ formatConditionText(cond) }} (파워 +{{ cond.bonus.value }}{{ cond.bonus.unit === 'percent' ? '%' : '' }})
-                    </button>
-                  </div>
-                </div>
-                <div v-if="!playerSynergiesData.length" class="text-xs text-neutral-400">보유한 시너지가 없습니다.</div>
-              </div>
-            </div>
-
-            <!-- 계산기 테이블 -->
-            <div class="p-6 pt-5">
-              <div class="mb-4 flex items-center justify-between">
-                <h3 class="text-lg font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-                  <TrendingUp class="w-5 h-5 text-blue-500" /> 세부 스탯 수동 계산기
-                </h3>
-              </div>
-
-              <div class="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-700">
-                <table class="w-full text-sm text-center border-collapse">
-                  <thead>
-                    <tr class="bg-neutral-100 dark:bg-neutral-700/80 text-neutral-600 dark:text-neutral-300">
-                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-1/6">스탯 항목</th>
-                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 w-1/6">DB 기본 스탯</th>
-                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-1/6 bg-fuchsia-50/30 dark:bg-fuchsia-900/10 text-fuchsia-700 dark:text-fuchsia-400">커리어 깡스탯<br><span class="text-[10px] font-normal opacity-80">(% 미적용)</span></th>
-                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-1/6 bg-purple-50/30 dark:bg-purple-900/10 text-purple-700 dark:text-purple-400">각인 깡스탯<br><span class="text-[10px] font-normal opacity-80">(% 미적용)</span></th>
-                      <th class="p-3 border-b border-r border-neutral-200 dark:border-neutral-700 font-semibold w-1/6 bg-orange-50/30 dark:bg-orange-900/10 text-orange-700 dark:text-orange-400">감독 깡스탯<br><span class="text-[10px] font-normal opacity-80">(% 미적용)</span></th>
-                      <th class="p-3 border-b border-neutral-200 dark:border-neutral-700 font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/10 w-1/6">최종 스탯</th>
-                    </tr>
-                  </thead>
-                  
-                  <tbody>
-                    <template v-if="!isPitcher">
-                      <tr v-for="(statObj, key) in batterStats" :key="key" class="border-b border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700/30 transition-colors">
-                        <td class="p-3 border-r border-neutral-200 dark:border-neutral-700 font-semibold text-neutral-800 dark:text-neutral-200 bg-neutral-50/50 dark:bg-neutral-700/20 text-left pl-4">
-                          <span v-if="statObj.isCore" class="text-amber-500 font-black mr-1" title="파워의 영향을 받는 핵심 스탯">⚡</span>
-                          <span v-else class="mr-3 opacity-0">⚡</span>
-                          {{ statObj.label }}
-                        </td>
-                        <td class="p-3 border-r border-neutral-200 dark:border-neutral-700 font-bold text-blue-600 dark:text-blue-400 bg-blue-50/30 dark:bg-blue-900/5">
-                          {{ statObj.base }}
-                        </td>
-                        <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-fuchsia-50/20 dark:bg-fuchsia-900/10">
-                          <input type="number" v-model.number="statObj.career" class="w-full px-1 py-1.5 text-center bg-white dark:bg-neutral-800 border border-fuchsia-300 dark:border-fuchsia-600 rounded-lg outline-none focus:border-fuchsia-500" />
-                        </td>
-                        <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-purple-50/20 dark:bg-purple-900/10">
-                          <input type="number" v-model.number="statObj.imprint" class="w-full px-1 py-1.5 text-center bg-white dark:bg-neutral-800 border border-purple-300 dark:border-purple-600 rounded-lg outline-none focus:border-purple-500" />
-                        </td>
-                        <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-orange-50/20 dark:bg-orange-900/10">
-                          <input type="number" v-model.number="statObj.manager" class="w-full px-1 py-1.5 text-center bg-white dark:bg-neutral-800 border border-orange-300 dark:border-orange-600 rounded-lg outline-none focus:border-orange-500" />
-                        </td>
-                        <td class="p-3 font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50/30 dark:bg-indigo-900/5 text-lg">
-                          {{ getStatTotal(statObj) }}
-                        </td>
-                      </tr>
-                    </template>
-
-                    <template v-else>
-                      <tr v-for="(statObj, key) in pitcherStats" :key="key" class="border-b border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700/30 transition-colors">
-                        <td class="p-3 border-r border-neutral-200 dark:border-neutral-700 font-semibold text-neutral-800 dark:text-neutral-200 bg-neutral-50/50 dark:bg-neutral-700/20 text-left pl-4">
-                          <span v-if="statObj.isCore" class="text-amber-500 font-black mr-1" title="파워의 영향을 받는 핵심 스탯">⚡</span>
-                          <span v-else class="mr-3 opacity-0">⚡</span>
-                          {{ statObj.label }}
-                        </td>
-                        <td class="p-3 border-r border-neutral-200 dark:border-neutral-700 font-bold text-blue-600 dark:text-blue-400 bg-blue-50/30 dark:bg-blue-900/5">
-                          {{ statObj.base }}
-                        </td>
-                        <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-fuchsia-50/20 dark:bg-fuchsia-900/10">
-                          <input type="number" v-model.number="statObj.career" class="w-full px-1 py-1.5 text-center bg-white dark:bg-neutral-800 border border-fuchsia-300 dark:border-fuchsia-600 rounded-lg outline-none focus:border-fuchsia-500" />
-                        </td>
-                        <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-purple-50/20 dark:bg-purple-900/10">
-                          <input type="number" v-model.number="statObj.imprint" class="w-full px-1 py-1.5 text-center bg-white dark:bg-neutral-800 border border-purple-300 dark:border-purple-600 rounded-lg outline-none focus:border-purple-500" />
-                        </td>
-                        <td class="p-2 border-r border-neutral-200 dark:border-neutral-700 bg-orange-50/20 dark:bg-orange-900/10">
-                          <input type="number" v-model.number="statObj.manager" class="w-full px-1 py-1.5 text-center bg-white dark:bg-neutral-800 border border-orange-300 dark:border-orange-600 rounded-lg outline-none focus:border-orange-500" />
-                        </td>
-                        <td class="p-3 font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50/30 dark:bg-indigo-900/5 text-lg">
-                          {{ getStatTotal(statObj) }}
-                        </td>
-                      </tr>
-                    </template>
-                  </tbody>
-
-                  <tfoot class="bg-neutral-100 dark:bg-neutral-700/50">
-                    <tr>
-                      <td colspan="6" class="p-2 text-center text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 border-b border-neutral-200 dark:border-neutral-700 bg-neutral-200 dark:bg-neutral-800">
-                        <span class="text-indigo-600 dark:text-indigo-400">📊 OVR(종합 파워)는 모든 8개 스탯의 최종합입니다.</span>
-                      </td>
-                    </tr>
-
-                    <tr>
-                      <td class="p-4 border-r border-neutral-200 dark:border-neutral-700 font-extrabold text-neutral-900 dark:text-neutral-100 uppercase tracking-widest text-base bg-blue-100/50 dark:bg-blue-900/20">
-                        파워 (총합)
-                      </td>
-                      <td colspan="4" class="p-4 border-r border-neutral-200 dark:border-neutral-700 font-bold text-neutral-500 dark:text-neutral-400 text-sm text-left">
-                        <div><span class="text-sky-600 font-bold">[그룹 A/B 합산]</span> 강화 +{{ totalPower.autoEnhanceFixed }} / 기본(A)+추가(B) +{{ totalPower.percentableGrowthBuffSum - totalPower.autoEnhanceFixed }} <span v-if="totalPower.totalPercentBonus > 0 || totalPower.synergyPercentBonus > 0" class="text-indigo-500">➔ ( 스킬 {{ totalPower.totalPercentBonus }}% / 시너지 {{ totalPower.synergyPercentBonus }}% 이중 분리 적용 완료 )</span></div>
-                        <div class="mt-1 text-fuchsia-600 font-bold">[그룹 C 합산] 돌파 +{{ totalPower.autoBreakthroughFixed }} / 시너지 +{{ totalPower.autoSynergyFixed }} / 바인더,클랜 등 +{{ totalPower.unpercentableGrowthBuffSum }}</div>
-                      </td>
-                      <td class="p-4 font-black text-3xl text-indigo-700 dark:text-indigo-400 bg-indigo-100/50 dark:bg-indigo-900/20 tabular-nums">
-                        {{ totalPower.finalSum }}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            </div>
-          </section>
-
-          <section v-else class="h-full bg-white dark:bg-neutral-800 rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-700 flex flex-col items-center justify-center p-10 text-center min-h-[500px]">
-            <div class="w-20 h-20 bg-blue-50 dark:bg-neutral-700 rounded-full flex items-center justify-center mb-6">
-              <Calculator class="w-10 h-10 text-blue-500" />
-            </div>
-            <h2 class="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-2">선수를 선택해주세요</h2>
-            <p class="text-neutral-500 dark:text-neutral-400 max-w-md">
-              왼쪽 검색창에서 스탯을 계산할 선수를 찾아 클릭하면, 해당 선수의 모든 세부 스탯과 파워(총합)를 계산할 수 있는 테이블이 열립니다.
-            </p>
-          </section>
+          </div>
         </div>
       </div>
     </div>
   </div>
 </template>
-
 <style scoped>
-/* 입력창 스피너(화살표) 숨기기 */
-input[type="number"]::-webkit-inner-spin-button,
-input[type="number"]::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-input[type="number"] {
-  -moz-appearance: textfield;
-}
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+* { scroll-behavior: smooth; }
 ::-webkit-scrollbar { width: 8px; }
+
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: linear-gradient(180deg, #3b82f6 0%, #8b5cf6 100%);
   border-radius: 4px;
 }
-::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-.dark ::-webkit-scrollbar-thumb { background: #475569; }
-.dark ::-webkit-scrollbar-thumb:hover { background: #64748b; }
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #2563eb 0%, #7c3aed 100%);
 }
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+.dark ::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #60a5fa 0%, #a78bfa 100%);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #3b82f6 0%, #8b5cf6 100%);
+}
+
+.dark { color-scheme: dark; }
+
+@media (max-width: 1024px) {
+  .lineup-diamond { height: 250px !important; }
+}
+@media (max-width: 768px) {
+  .lineup-diamond { height: 200px !important; }
 }
 </style>
