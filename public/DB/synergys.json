@@ -3544,31 +3544,19 @@
   {
     "id": 113,
     "synergy": "골든글러브",
-    "synergy_effect": "- 라인업에 3~8명 기용 시 파워 +7% \n- 라인업에 9명 이상 기용 시 파워 +12% ",
+    "synergy_effect": "- 라인업에 10명 이하 기용 시 파워 +5% ",
     "description": "당해년도 골든글러브를 수상한 선수들입니다.",
     "stackable": false,
     "conditions": [
       {
         "count": {
-          "op": "between",
-          "min": 3,
-          "max": 8
+          "op": "=<",
+          "value": 10
         },
         "stat": "power",
         "bonus": {
           "unit": "percent",
-          "value": 7.0
-        }
-      },
-      {
-        "count": {
-          "op": ">=",
-          "value": 9
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 12.0
+          "value": 5
         }
       }
     ]
@@ -10533,5 +10521,37 @@
         }
       }
     ]
-  }
+  },
+    {
+    "id": 416,
+    "synergy": "골글(연도)",
+    "synergy_effect": "- 라인업에 3~8명 기용 시 파워 +7% \n- 라인업에 9명 이상 기용 시 파워 +12% ",
+    "description": "연도(골글) 선수들은 동일한 연도 선수를 상대할 때 엄청난 퍼포먼스를 보입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "between",
+          "min": 3,
+          "max": 8
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 7.0
+        }
+      },
+      {
+        "count": {
+          "op": ">=",
+          "value": 9
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 12.0
+        }
+      }
+    ]
+  },
 ]
