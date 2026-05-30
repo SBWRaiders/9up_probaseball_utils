@@ -100,7 +100,7 @@ const yearOptions = computed(() => {
 /* =========================
    포지션 / 등급 / 팀
 ========================= */
-const gradeOrder = ['DGN','TOP','ACE','HIT','POS','GG','GGY','TEA','SEA','ROY','MMVP','ASG'] as const
+const gradeOrder = ['DGN', 'TOP', 'GG', 'ACE', 'HIT', 'GGY', 'MMVP', 'ROY', 'TEA', 'POS', 'ASG', 'SEA'] as const
 const visibleGrades = computed(() =>
   gradeOrder.filter((g) => props.filterOptions?.grade?.includes(g))
 )
