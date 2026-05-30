@@ -522,20 +522,22 @@ const totalPower = computed(() => {
             </div>
             
             <!-- ✨ 등급(시즌) 로고 필터 영역 추가 -->
-            <div class="flex items-center gap-2 overflow-x-auto pb-2 mb-4 scrollbar-hide">
+            <div class="grid grid-cols-5 gap-2 mb-4">
               <button 
                 @click="selectedGrade = ''" 
                 :class="selectedGrade === '' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700'"
-                class="shrink-0 px-3 h-9 rounded-lg text-xs font-bold border transition-colors shadow-sm">
+                class="w-full h-10 rounded-lg text-xs font-bold border transition-colors shadow-sm">
                 ALL
               </button>
               <button 
                 v-for="grade in filterGrades" :key="grade"
                 @click="selectedGrade = selectedGrade === grade ? '' : grade"
                 :class="selectedGrade === grade ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800' : 'bg-white dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700'"
-                class="shrink-0 w-12 h-9 p-1 rounded-lg border transition-all flex items-center justify-center shadow-sm"
+                class="w-full h-10 p-1.5 rounded-lg border transition-all flex items-center justify-center shadow-sm"
                 :title="grade">
-                <img :src="`/assets/logos/grade/${grade}.png`" class="w-full h-full object-contain" />
+                <img :src="`/assets/logos/grade/${grade}.png`" class="w-full h-full object-contain" :alt="grade"
+                     @error="(e) => { e.target.style.display='none'; e.target.nextElementSibling.style.display='block'; }" />
+                <span class="text-[10px] font-bold text-neutral-400 hidden">{{ grade }}</span>
               </button>
             </div>
             
