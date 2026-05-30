@@ -484,24 +484,23 @@ const totalPower = computed(() => {
 </script>
 
 <template>
-  <div class="grid grid-cols-5 gap-2 mb-4">
-              <button 
-                @click="selectedGrade = ''" 
-                :class="selectedGrade === '' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700'"
-                class="w-full h-10 rounded-lg text-xs font-bold border transition-colors shadow-sm">
-                ALL
-              </button>
-              <button 
-                v-for="grade in filterGrades" :key="grade"
-                @click="selectedGrade = selectedGrade === grade ? '' : grade"
-                :class="selectedGrade === grade ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800' : 'bg-white dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700'"
-                class="w-full h-10 p-1.5 rounded-lg border transition-all flex items-center justify-center shadow-sm"
-                :title="grade">
-                <img :src="`/assets/logos/grade/${grade}.png`" class="w-full h-full object-contain" :alt="grade"
-                     @error="(e) => { e.target.style.display='none'; e.target.nextElementSibling.style.display='block'; }" />
-                <span class="text-[10px] font-bold text-neutral-400 hidden">{{ grade }}</span>
-              </button>
-            </div>
+  <div class="bg-neutral-50 dark:bg-neutral-900 min-h-screen transition-colors p-4 lg:p-8">
+    <div class="max-w-[1600px] mx-auto">
+      <!-- 헤더 -->
+      <header class="mb-6 flex items-center gap-3">
+        <div class="p-3 bg-blue-600 rounded-xl text-white shadow-lg shadow-blue-600/20">
+          <Calculator class="w-6 h-6" />
+        </div>
+        <div>
+          <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 tracking-tight">스탯 계산기</h1>
+        </div>
+      </header>
+
+      <div v-if="isLoading" class="flex h-64 items-center justify-center">
+        <div class="animate-spin rounded-full border-4 border-neutral-300 dark:border-neutral-600 border-t-blue-600 h-10 w-10"></div>
+      </div>
+
+      <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         <!-- 왼쪽: 선수 검색 -->
         <div class="lg:col-span-3 flex flex-col gap-6">
