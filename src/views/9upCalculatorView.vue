@@ -485,7 +485,7 @@ const totalPower = computed(() => {
         </div>
         <div>
           <h1 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100 tracking-tight">스탯 계산기</h1>
-          <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">완벽 정리 버전: <strong>각인과 감독 깡스탯 입력칸 순서가 변경되었습니다.</strong></p>
+          <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1"></strong></p>
         </div>
       </header>
 
