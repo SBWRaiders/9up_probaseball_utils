@@ -6468,7 +6468,7 @@
   },
   {
     "id": 249,
-    "synergy": "배터리1",
+    "synergy": "배터리(니퍼트-양의지)",
     "synergy_effect": "- 라인업에 2명 기용 시 파워 +30 ",
     "description": "오랜 기간 합을 맞춘 투수와 포수입니다.",
     "stackable": false,
@@ -6488,7 +6488,7 @@
   },
   {
     "id": 250,
-    "synergy": "배터리2",
+    "synergy": "배터리(오승환-진갑용)",
     "synergy_effect": "- 라인업에 2명 기용 시 파워 +30 ",
     "description": "오랜 기간 합을 맞춘 투수와 포수입니다.",
     "stackable": false,
@@ -6508,7 +6508,7 @@
   },
   {
     "id": 251,
-    "synergy": "배터리3",
+    "synergy": "배터리(김원형-박경완)",
     "synergy_effect": "- 라인업에 2명 기용 시 파워 +30 ",
     "description": "오랜 기간 합을 맞춘 투수와 포수입니다.",
     "stackable": false,
@@ -6528,7 +6528,7 @@
   },
   {
     "id": 252,
-    "synergy": "배터리4",
+    "synergy": "배터리(김시진-이만수)",
     "synergy_effect": "- 라인업에 2명 기용 시 파워 +30 ",
     "description": "오랜 기간 합을 맞춘 투수와 포수입니다.",
     "stackable": false,
@@ -7008,7 +7008,7 @@
   },
   {
     "id": 276,
-    "synergy": "원투펀치1",
+    "synergy": "원투펀치(헥터-양현종)",
     "synergy_effect": "- 라인업에 2명 기용 시 파워 +30 ",
     "description": "에이스와 그에 못지 않은 2선발로 활약한 선수들입니다.",
     "stackable": false,
@@ -7028,7 +7028,7 @@
   },
   {
     "id": 277,
-    "synergy": "원투펀치2",
+    "synergy": "원투펀치(김광현-켈리)",
     "synergy_effect": "- 라인업에 2명 기용 시 파워 +30 ",
     "description": "에이스와 그에 못지 않은 2선발로 활약한 선수들입니다.",
     "stackable": false,
@@ -7048,7 +7048,7 @@
   },
   {
     "id": 278,
-    "synergy": "원투펀치3",
+    "synergy": "원투펀치(리우슨-랜도)",
     "synergy_effect": "- 라인업에 2명 기용 시 파워 +30 ",
     "description": "에이스와 그에 못지 않은 2선발로 활약한 선수들입니다.",
     "stackable": false,
@@ -7068,7 +7068,7 @@
   },
   {
     "id": 279,
-    "synergy": "원투펀치4",
+    "synergy": "원투펀치(김시진-김일융)",
     "synergy_effect": "- 라인업에 2명 기용 시 파워 +30 ",
     "description": "에이스와 그에 못지 않은 2선발로 활약한 선수들입니다.",
     "stackable": false,
@@ -10550,6 +10550,26 @@
         "bonus": {
           "unit": "percent",
           "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 417,
+    "synergy": "NC 3김",
+    "synergy_effect": "- 라인업에 3명 기용 시 파워 +40",
+    "description": "2025년 현재 NC의 타자 유망주 셋의 성을 따서 붙였습니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 3
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "fixed",
+          "value": 40.0
         }
       }
     ]
