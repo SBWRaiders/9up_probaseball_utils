@@ -232,6 +232,53 @@ const imprintStarterPower = ref(0)
 // === 시너지 시스템 ===
 const activeSynergyConditions = ref<Record<string, number>>({})
 
+const synergyHierarchy: Record<string, string[]> = {
+  '190안타 클럽': ['180안타 클럽', '170안타 클럽'],
+  '180안타 클럽': ['170안타 클럽'],
+  '40홈런 클럽': ['30홈런 클럽'],
+  '40도루 클럽': ['30도루 클럽'],
+  '20승 클럽': ['15승 클럽'],
+  '180탈삼진 클럽': ['150탈삼진 클럽'],
+  '200이닝 클럽': ['180이닝 클럽'],
+  '30세이브 클럽': ['20세이브 클럽'],
+  '30홀드 클럽': ['20홀드 클럽'],
+  '계투 80이닝 클럽': ['계투 70이닝 클럽'],
+  '3-30-100-100 클럽': ['3-30-100 클럽', '100득점-100타점 클럽', '100타점 클럽', '30홈런 클럽'],
+  '3-30-100 클럽': ['100타점 클럽', '30홈런 클럽'],
+  '100득점-100타점 클럽': ['100타점 클럽'],
+  '통산 2000경기 클럽': ['통산 1500경기 클럽', '통산 700경기 클럽', '통산 500경기 클럽'],
+  '통산 1500경기 클럽': ['통산 700경기 클럽', '통산 500경기 클럽'],
+  '통산 700경기 클럽': ['통산 500경기 클럽'],
+  '통산 2000안타 클럽': ['통산 1500안타 클럽'],
+  '통산 300도루 클럽': ['통산 200도루 클럽'],
+  '통산 300홈런 클럽': ['통산 200홈런 클럽']
+}
+
+// ✅ CSV를 수정하지 않고, 계산기 화면 내에서만 자동으로 하위 시너지를 추가해서 보여줍니다.
+const playerSynergiesData = computed(() => {
+  if (!selectedPlayer.value) return []
+  const rawSynNames = getArray(selectedPlayer.value.synergy)
+  const expandedSet = new Set<string>(rawSynNames)
+  
+  let added = true
+  while (added) {
+    added = false
+    for (const syn of Array.from(expandedSet)) {
+      if (synergyHierarchy[syn]) {
+        synergyHierarchy[syn].forEach(lowerSyn => {
+          if (!expandedSet.has(lowerSyn)) {
+            expandedSet.add(lowerSyn)
+            added = true
+          }
+        })
+      }
+    }
+  }
+  
+  const finalSynNames = Array.from(expandedSet)
+  return synergys.value.filter(s => finalSynNames.includes(s.synergy))
+})
+
 // ✅ (추가) "모든" 종류의 시너지를 보여주기 위해 수정
 const playerSynergiesData = computed(() => {
   if (!selectedPlayer.value) return []
