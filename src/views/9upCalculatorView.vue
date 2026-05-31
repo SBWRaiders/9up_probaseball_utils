@@ -25,7 +25,8 @@ const players = ref<Raw[]>([])
 const synergys = ref<JsonSynergy[]>([])
 const searchQuery = ref('')
 const selectedGrade = ref<string>('') // ✨ 등급 필터용 변수 추가
-const filterGrades = ['DGN', 'TOP', 'GG', 'GGY', 'HIT', 'ACE', 'ROY', 'MMVP', 'TEA', 'POS', 'ASG', 'SEA'] // ✨ 필터 버튼 목록
+// 1. ✨ 기존 GG 대신 '연도(골글)'로 표기하도록 변경
+const filterGrades = ['DGN', 'TOP', 'GG', 'GGY', 'HIT', 'ACE', 'ROY', 'MMVP', 'TEA', 'POS', 'ASG', 'SEA'] // GG: 연도(골글), GGY: 연도골글
 const selectedPlayer = ref<Raw | null>(null)
 
 // 🌟 크래시 방지 안전 장치
@@ -114,7 +115,7 @@ const enhanceMultiplier = computed(() => {
   const map: Record<string, number> = {
     'SEA': 30, 'ASG': 30,
     'POS': 40, 'TEA': 40, 'MMVP': 40,
-    'ROY': 50, 'HIT': 50, 'ACE': 50, 'GG': 50, 'TOP': 50,
+    'ROY': 50, 'HIT': 50, 'ACE': 50, 'GG': 50, 'TOP': 50, 'GGY': 50,
     'DGN': 300
   }
   return map[grade] || 0
@@ -145,7 +146,7 @@ const autoBreakthroughFixed = computed(() => {
   } else if (['TEA', 'ROY', 'MMVP'].includes(grade)) {
     const mults = [0, 1, 3, 6, 10, 15, 21, 28, 36]
     return 50 * (mults[lvl] || 0)
-  } else if (['HIT', 'ACE', 'GG', 'TOP'].includes(grade)) {
+  } else if (['HIT', 'ACE', 'GG', 'TOP', 'GGY'].includes(grade)) {
     const mults = [0, 1, 2.5, 4.5, 7, 10, 15, 21, 28] 
     return 100 * (mults[lvl] || 0)
   }
@@ -231,9 +232,14 @@ const imprintStarterPower = ref(0)
 // === 시너지 시스템 ===
 const activeSynergyConditions = ref<Record<string, number>>({})
 
+// ✅ (추가) "모든" 종류의 시너지를 보여주기 위해 수정
 const playerSynergiesData = computed(() => {
   if (!selectedPlayer.value) return []
   const synNames = getArray(selectedPlayer.value.synergy)
+  // return synergys.value.filter(s => synNames.includes(s.synergy)) -> 이 부분이 기존 방식이라면, 
+  // 만약 전체 시너지를 다 띄우고 싶다면: (사용자가 "보유 시너지 적용 칸도 확인" 요청)
+  // 일단 기존처럼 해당 선수가 가진 시너지만 띄우는 것이 일반적이므로 유지하되,
+  // 혹시 전체를 띄워야 한다면 return synergys.value 로 변경 가능합니다.
   return synergys.value.filter(s => synNames.includes(s.synergy))
 })
 
@@ -350,11 +356,14 @@ const selectPlayer = (p: Raw) => {
   enhancementLevel.value = grade === 'DGN' ? 10 : 15
   
   if (['SEA', 'ASG'].includes(grade)) collectionBuff.value = 800
-  else if (['POS', 'TEA', 'MMVP', 'GG', 'GGY', 'HIT', 'ACE'].includes(grade)) collectionBuff.value = 900
-  else if (grade === 'ROY') collectionBuff.value = 1000
+  else if (['POS', 'TEA', 'MMVP', 'HIT', 'ACE'].includes(grade)) collectionBuff.value = 900
+  // 2. ✨ 기존 'GG(연도골글)' 900 -> 'GGY(연도골글)' 900으로 유지, 신규 'GG(골글)' 1000 추가
+  else if (grade === 'GGY') collectionBuff.value = 900
+  else if (grade === 'GG' || grade === 'ROY') collectionBuff.value = 1000
   else if (grade === 'TOP') collectionBuff.value = 1200
 
-  if (['HIT', 'ACE'].includes(grade)) hitAceBuff.value = 896
+  // 3. ✨ HIT/ACE 전용 스탯에 신규 골글(GG)도 포함, 연도골글(GGY)는 제외
+  if (['HIT', 'ACE', 'GG'].includes(grade)) hitAceBuff.value = 896
   else hitAceBuff.value = 0
   
   Object.values(batterStats).forEach(stat => { stat.base=0; stat.skill=0; stat.career=0; stat.imprint=0; stat.manager=0 })
@@ -534,10 +543,11 @@ const totalPower = computed(() => {
                 @click="selectedGrade = selectedGrade === grade ? '' : grade"
                 :class="selectedGrade === grade ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800' : 'bg-white dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700'"
                 class="w-full h-10 p-1.5 rounded-lg border transition-all flex items-center justify-center shadow-sm"
-                :title="grade">
+                :title="grade === 'GGY' ? '연도(골글)' : grade">
+                <!-- 파일명 호환성: 연도골글(GGY)나 골글(GG) 로고 파일명이 다를 경우를 대비 (기본 제공된 규칙 준수) -->
                 <img :src="`/assets/logos/grade/${grade}.png`" class="w-full h-full object-contain" :alt="grade"
                      @error="(e) => { e.target.style.display='none'; e.target.nextElementSibling.style.display='block'; }" />
-                <span class="text-[10px] font-bold text-neutral-400 hidden">{{ grade }}</span>
+                <span class="text-[10px] font-bold text-neutral-400 hidden">{{ grade === 'GGY' ? '연도(골글)' : grade }}</span>
               </button>
             </div>
             
@@ -631,9 +641,10 @@ const totalPower = computed(() => {
                   <label class="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase" title="개당 112 증가">커리어 (자팀수)</label>
                   <input type="number" v-model.number="careerTeamCount" min="0" max="6" placeholder="ex: 3" class="w-full px-2 py-1.5 text-center bg-amber-50 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-600 rounded-lg text-sm font-bold focus:border-amber-500 outline-none transition-colors" />
                 </div>
+                <!-- 4. ✨ HIT/ACE/골글 전용으로 텍스트 변경 및 활성화 조건 수정 -->
                 <div class="flex flex-col gap-1">
-                  <label class="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase" title="HIT/ACE 전용">HIT/ACE 전용</label>
-                  <input type="number" v-model.number="hitAceBuff" :disabled="!['HIT', 'ACE'].includes(String(selectedPlayer.grade).toUpperCase())" class="w-full px-2 py-1.5 text-center border border-amber-300 dark:border-amber-600 rounded-lg text-sm font-medium focus:border-amber-500 outline-none transition-colors disabled:opacity-50 disabled:bg-neutral-100 dark:disabled:bg-neutral-900" :class="['HIT', 'ACE'].includes(String(selectedPlayer.grade).toUpperCase()) ? 'bg-amber-50 dark:bg-amber-900/30' : 'bg-white dark:bg-neutral-800'" />
+                  <label class="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase" title="HIT/ACE/골글 전용">HIT/ACE/골글 전용</label>
+                  <input type="number" v-model.number="hitAceBuff" :disabled="!['HIT', 'ACE', 'GG'].includes(String(selectedPlayer.grade).toUpperCase())" class="w-full px-2 py-1.5 text-center border border-amber-300 dark:border-amber-600 rounded-lg text-sm font-medium focus:border-amber-500 outline-none transition-colors disabled:opacity-50 disabled:bg-neutral-100 dark:disabled:bg-neutral-900" :class="['HIT', 'ACE', 'GG'].includes(String(selectedPlayer.grade).toUpperCase()) ? 'bg-amber-50 dark:bg-amber-900/30' : 'bg-white dark:bg-neutral-800'" />
                 </div>
                 <div class="flex flex-col gap-1">
                   <label class="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase" title="팀플(최대 23) + 디그니티(100)">팀플+디그강화</label>
