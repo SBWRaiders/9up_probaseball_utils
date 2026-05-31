@@ -211,8 +211,7 @@ const radarOptions = {
         font: { size: 12 },
         callback: function (label, index) {
           const value = abilities.value?.[index]?.value ?? ''
-          return `${label}
-${value}`
+          return `${label}\n${value}`
         }
       },
       ticks : {display : false}
@@ -256,8 +255,6 @@ const matchSkillInfo = (skill: string, type: string, year?: string) => {
   } else if (type === 'effects_by_level') {
     return findEnhanced(skill, year)?.effects_by_level || []
   } else if (type === 'effects_by_year') {
-    // 골글/압도는 레벨별, 연도별 효과 구조가 다를 수 있음.
-    // 골글은 effects_by_year 내부에 연도별로 배열이 들어있음
     return findEnhanced(skill, year)?.effects_by_year?.[year || ''] || []
   }
   return ''
@@ -336,8 +333,8 @@ const matchAllstarTeam = (team: string) => {
               </div>
 
               <div class="grid grid-cols-6 gap-2">
-                <!-- 골든글러브와 압도(존재감)는 레벨이 아닌 연도별 배열로 효과를 저장하므로 effects_by_year를 사용 -->
-                <template v-if="player.grade === 'GG' || player.enhancedSkill === '압도' || player.enhancedSkill === '존재감'">
+                <!-- ✅ 압도(존재감) 스킬만 연도별 효과(effects_by_year) 사용, 골든글러브 등 나머지는 레벨별 효과(effects_by_level) 사용 -->
+                <template v-if="player.enhancedSkill === '압도' || player.enhancedSkill === '존재감'">
                   <button v-for="(effect, i) in matchSkillInfo(player.enhancedSkill, 'effects_by_year', parsedPlayerYear) || []"
                       :key="'btn-' + i" @click="selectedEffectIndex = i"
                       class="px-1 py-1 text-xs font-medium rounded-md transition-colors text-center"
@@ -358,7 +355,7 @@ const matchAllstarTeam = (team: string) => {
               <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
                 <div class="text-xs text-blue-800 dark:text-blue-200 whitespace-pre-line leading-relaxed">
                   {{
-                    (player.grade === 'GG' || player.enhancedSkill === '압도' || player.enhancedSkill === '존재감')
+                    (player.enhancedSkill === '압도' || player.enhancedSkill === '존재감')
                         ? matchSkillInfo(player.enhancedSkill, 'effects_by_year', parsedPlayerYear)[selectedEffectIndex]
                         : matchSkillInfo(player.enhancedSkill, 'effects_by_level', parsedPlayerYear)[selectedEffectIndex]
                   }}
