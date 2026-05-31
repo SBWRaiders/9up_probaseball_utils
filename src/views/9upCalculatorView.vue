@@ -24,18 +24,15 @@ const isLoading = ref(true)
 const players = ref<Raw[]>([])
 const synergys = ref<JsonSynergy[]>([])
 const searchQuery = ref('')
-const selectedGrade = ref<string>('') // ✨ 등급 필터용 변수 추가
-// 1. ✨ 기존 GG 대신 '연도(골글)'로 표기하도록 변경
-const filterGrades = ['DGN', 'TOP', 'GG', 'GGY', 'HIT', 'ACE', 'ROY', 'MMVP', 'TEA', 'POS', 'ASG', 'SEA'] // GG: 연도(골글), GGY: 연도골글
+const selectedGrade = ref<string>('')
+const filterGrades = ['DGN', 'TOP', 'GG', 'GGY', 'HIT', 'ACE', 'ROY', 'MMVP', 'TEA', 'POS', 'ASG', 'SEA']
 const selectedPlayer = ref<Raw | null>(null)
 
-// 🌟 크래시 방지 안전 장치
 const parsedRarity = computed(() => {
   if (!selectedPlayer.value) return 0
   return Math.max(0, parseInt(String(selectedPlayer.value.rarity), 10) || 0)
 })
 
-// 엑셀 계산기 스타일의 스탯 상태
 const batterStats = reactive({
   contact: { base: 0, skill: 0, career: 0, imprint: 0, manager: 0, label: '컨택', isCore: true },
   gapPower: { base: 0, skill: 0, career: 0, imprint: 0, manager: 0, label: '갭파워', isCore: true },
@@ -64,7 +61,6 @@ const isPitcher = computed(() => {
   return pos.includes('SP') || pos.includes('RP') || !!selectedPlayer.value.movement
 })
 
-// === 기본 육성 및 버프 로직 ===
 const playerLevel = ref(100)          
 const collectionBuff = ref(0)         
 const teamLevelBuff = ref(750)        
@@ -79,7 +75,6 @@ const clanBuff = ref(15)
 
 const ultimateImprintPercent = ref(0) 
 
-// 1. [그룹 A] 합산
 const percentableGrowthA = computed(() => {
   return Number(Math.max(0, Number(playerLevel.value) - 1) * 10) + 
          Number(collectionBuff.value || 0) + 
@@ -87,20 +82,17 @@ const percentableGrowthA = computed(() => {
          Number(careerLevelBuff.value || 0)
 })
 
-// 2. [그룹 B] 합산
 const percentableGrowthB = computed(() => {
   return Number((careerTeamCount.value || 0) * 112) + 
          Number(hitAceBuff.value || 0) +
          Number(teamPlayerDignityBuff.value || 0)
 })
 
-// 3. [그룹 C] 합산
 const unpercentableGrowthC = computed(() => {
   return Number(binderBuff.value || 0) + 
          Number(clanBuff.value || 0)
 })
 
-// === 강화 시스템 로직 ===
 const enhancementLevel = ref(15)
 
 const maxEnhanceLevel = computed(() => {
@@ -125,7 +117,6 @@ const autoEnhanceFixed = computed(() => {
   return Number(enhancementLevel.value) * Number(enhanceMultiplier.value)
 })
 
-// === 한계 돌파(Breakthrough) 시스템 로직 ===
 const breakthroughLevel = ref(0)
 
 const maxBreakthrough = computed(() => {
@@ -153,7 +144,6 @@ const autoBreakthroughFixed = computed(() => {
   return 0
 })
 
-// === 스킬 시스템 로직 ===
 const maxSkillSlots = computed(() => {
   if (!selectedPlayer.value) return 0
   const r = parsedRarity.value
@@ -220,14 +210,6 @@ const SKILL_EFFECTS: Record<string, any> = {
 }
 
 const autoPowerPercent = ref(0)
-const manualPowerFixed = ref(0)
-const manualPowerPercent = ref(0)
-const careerAllStatFlat = ref(0) 
-const managerBuff = ref(0) 
-
-const imprintMainPower = ref(0)
-const imprintSubPower = ref(0)
-const imprintStarterPower = ref(0)
 
 // === 시너지 시스템 ===
 const activeSynergyConditions = ref<Record<string, number>>({})
@@ -254,7 +236,6 @@ const synergyHierarchy: Record<string, string[]> = {
   '통산 300홈런 클럽': ['통산 200홈런 클럽']
 }
 
-// ✅ CSV를 수정하지 않고, 계산기 화면 내에서만 자동으로 하위 시너지를 추가해서 보여줍니다.
 const playerSynergiesData = computed(() => {
   if (!selectedPlayer.value) return []
   const rawSynNames = getArray(selectedPlayer.value.synergy)
@@ -277,17 +258,6 @@ const playerSynergiesData = computed(() => {
   
   const finalSynNames = Array.from(expandedSet)
   return synergys.value.filter(s => finalSynNames.includes(s.synergy))
-})
-
-// ✅ (추가) "모든" 종류의 시너지를 보여주기 위해 수정
-const playerSynergiesData = computed(() => {
-  if (!selectedPlayer.value) return []
-  const synNames = getArray(selectedPlayer.value.synergy)
-  // return synergys.value.filter(s => synNames.includes(s.synergy)) -> 이 부분이 기존 방식이라면, 
-  // 만약 전체 시너지를 다 띄우고 싶다면: (사용자가 "보유 시너지 적용 칸도 확인" 요청)
-  // 일단 기존처럼 해당 선수가 가진 시너지만 띄우는 것이 일반적이므로 유지하되,
-  // 혹시 전체를 띄워야 한다면 return synergys.value 로 변경 가능합니다.
-  return synergys.value.filter(s => synNames.includes(s.synergy))
 })
 
 const toggleSynergyCondition = (synName: string, idx: number) => {
@@ -355,16 +325,13 @@ onMounted(async () => {
   }
 })
 
-// ✨ 검색어와 시즌(등급) 필터가 모두 적용된 플레이어 리스트
 const filteredPlayers = computed(() => {
   let result = players.value
 
-  // 시즌(등급) 필터가 선택되어 있다면 먼저 필터링
   if (selectedGrade.value) {
     result = result.filter(p => String(p.grade).toUpperCase() === selectedGrade.value)
   }
 
-  // 텍스트 검색어가 있다면 이름으로 필터링
   if (searchQuery.value.trim()) {
     const query = searchQuery.value.toLowerCase().trim()
     result = result.filter(p => 
@@ -372,17 +339,15 @@ const filteredPlayers = computed(() => {
     )
   }
 
-  // 검색어나 필터가 없을 때는 렉을 방지하기 위해 빈 배열 반환 (원하시면 삭제 가능)
   if (!searchQuery.value.trim() && !selectedGrade.value) return []
 
   return result.slice(0, 50)
 })
 
-// 선수 선택 시 모든 상태 초기화
 const selectPlayer = (p: Raw) => {
   selectedPlayer.value = p
   searchQuery.value = ''
-  selectedGrade.value = '' // 선택 완료 시 등급 필터도 초기화
+  selectedGrade.value = '' 
   selectedSkills.value = [] 
   activeSynergyConditions.value = {}
   
@@ -404,12 +369,10 @@ const selectPlayer = (p: Raw) => {
   
   if (['SEA', 'ASG'].includes(grade)) collectionBuff.value = 800
   else if (['POS', 'TEA', 'MMVP', 'HIT', 'ACE'].includes(grade)) collectionBuff.value = 900
-  // 2. ✨ 기존 'GG(연도골글)' 900 -> 'GGY(연도골글)' 900으로 유지, 신규 'GG(골글)' 1000 추가
   else if (grade === 'GGY') collectionBuff.value = 900
   else if (grade === 'GG' || grade === 'ROY') collectionBuff.value = 1000
   else if (grade === 'TOP') collectionBuff.value = 1200
 
-  // 3. ✨ HIT/ACE 전용 스탯에 신규 골글(GG)도 포함, 연도골글(GGY)는 제외
   if (['HIT', 'ACE', 'GG'].includes(grade)) hitAceBuff.value = 896
   else hitAceBuff.value = 0
   
@@ -437,7 +400,6 @@ const selectPlayer = (p: Raw) => {
   }
 }
 
-// 스킬 변경 시 내장 스탯 % 업데이트
 watch(selectedSkills, () => {
   let totalPowerP = 0
   let statPercents: Record<string, number> = {
@@ -542,7 +504,6 @@ const totalPower = computed(() => {
 <template>
   <div class="bg-neutral-50 dark:bg-neutral-900 min-h-screen transition-colors p-4 lg:p-8">
     <div class="max-w-[1600px] mx-auto">
-      <!-- 헤더 -->
       <header class="mb-6 flex items-center gap-3">
         <div class="p-3 bg-blue-600 rounded-xl text-white shadow-lg shadow-blue-600/20">
           <Calculator class="w-6 h-6" />
@@ -558,7 +519,6 @@ const totalPower = computed(() => {
 
       <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        <!-- 왼쪽: 선수 검색 -->
         <div class="lg:col-span-3 flex flex-col gap-6">
           <section class="bg-white dark:bg-neutral-800 rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-700 p-5">
             <h2 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
@@ -577,7 +537,6 @@ const totalPower = computed(() => {
               </button>
             </div>
             
-            <!-- ✨ 등급(시즌) 로고 필터 영역 추가 -->
             <div class="grid grid-cols-5 gap-2 mb-4">
               <button 
                 @click="selectedGrade = ''" 
@@ -591,7 +550,6 @@ const totalPower = computed(() => {
                 :class="selectedGrade === grade ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800' : 'bg-white dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700'"
                 class="w-full h-10 p-1.5 rounded-lg border transition-all flex items-center justify-center shadow-sm"
                 :title="grade === 'GGY' ? '연도(골글)' : grade">
-                <!-- 파일명 호환성: 연도골글(GGY)나 골글(GG) 로고 파일명이 다를 경우를 대비 (기본 제공된 규칙 준수) -->
                 <img :src="`/assets/logos/grade/${grade}.png`" class="w-full h-full object-contain" :alt="grade"
                      @error="(e) => { e.target.style.display='none'; e.target.nextElementSibling.style.display='block'; }" />
                 <span class="text-[10px] font-bold text-neutral-400 hidden">{{ grade === 'GGY' ? '연도(골글)' : grade }}</span>
@@ -622,10 +580,8 @@ const totalPower = computed(() => {
           </section>
         </div>
 
-        <!-- 오른쪽: 엑셀 형태 스탯 계산기 -->
         <div class="lg:col-span-9 flex flex-col gap-6">
           <section v-if="selectedPlayer" class="bg-white dark:bg-neutral-800 rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-700 overflow-hidden">
-            <!-- 선수 요약 헤더 -->
             <div class="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 text-white flex items-center gap-6">
               <img :src="`/assets/logos/grade/${selectedPlayer.grade || 'C'}.png`" class="w-16 h-16 object-contain bg-white/10 rounded-xl p-2" />
               <div class="flex-1">
@@ -649,7 +605,6 @@ const totalPower = computed(() => {
               </div>
             </div>
 
-            <!-- [그룹 A] 글로벌 % (시너지, 타순 등) 공통 기준 -->
             <div class="p-6 bg-sky-50/30 dark:bg-sky-900/10 border-b border-neutral-100 dark:border-neutral-700">
               <div class="flex items-center justify-between mb-3">
                 <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
@@ -676,7 +631,6 @@ const totalPower = computed(() => {
               </div>
             </div>
 
-            <!-- [그룹 B] 개별 스킬 전용 기준 -->
             <div class="p-6 bg-amber-50/30 dark:bg-amber-900/10 border-b border-neutral-100 dark:border-neutral-700">
               <div class="flex items-center justify-between mb-3">
                 <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
@@ -688,7 +642,6 @@ const totalPower = computed(() => {
                   <label class="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase" title="개당 112 증가">커리어 (자팀수)</label>
                   <input type="number" v-model.number="careerTeamCount" min="0" max="6" placeholder="ex: 3" class="w-full px-2 py-1.5 text-center bg-amber-50 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-600 rounded-lg text-sm font-bold focus:border-amber-500 outline-none transition-colors" />
                 </div>
-                <!-- 4. ✨ HIT/ACE/골글 전용으로 텍스트 변경 및 활성화 조건 수정 -->
                 <div class="flex flex-col gap-1">
                   <label class="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase" title="HIT/ACE/골글 전용">HIT/ACE/골글 전용</label>
                   <input type="number" v-model.number="hitAceBuff" :disabled="!['HIT', 'ACE', 'GG'].includes(String(selectedPlayer.grade).toUpperCase())" class="w-full px-2 py-1.5 text-center border border-amber-300 dark:border-amber-600 rounded-lg text-sm font-medium focus:border-amber-500 outline-none transition-colors disabled:opacity-50 disabled:bg-neutral-100 dark:disabled:bg-neutral-900" :class="['HIT', 'ACE', 'GG'].includes(String(selectedPlayer.grade).toUpperCase()) ? 'bg-amber-50 dark:bg-amber-900/30' : 'bg-white dark:bg-neutral-800'" />
@@ -704,7 +657,6 @@ const totalPower = computed(() => {
               </div>
             </div>
 
-            <!-- [그룹 C] 퍼센트 미적용 깡파워 -->
             <div class="p-6 bg-fuchsia-50/30 dark:bg-fuchsia-900/10 border-b border-neutral-100 dark:border-neutral-700">
               <div class="flex items-center justify-between mb-3">
                 <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
@@ -723,10 +675,8 @@ const totalPower = computed(() => {
               </div>
             </div>
 
-            <!-- 강화 및 돌파 단계 버튼 영역 -->
             <div class="p-6 bg-emerald-50/30 dark:bg-emerald-900/10 border-b border-neutral-100 dark:border-neutral-700">
               <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <!-- 강화 영역 -->
                 <div>
                   <div class="flex items-center justify-between mb-3">
                     <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
@@ -746,7 +696,6 @@ const totalPower = computed(() => {
                   </div>
                 </div>
 
-                <!-- 돌파 영역 -->
                 <div v-if="maxBreakthrough > 0">
                   <div class="flex items-center justify-between mb-3">
                     <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
@@ -768,7 +717,6 @@ const totalPower = computed(() => {
               </div>
             </div>
 
-            <!-- 통합 스킬 선택 버튼 영역 -->
             <div class="p-6 bg-neutral-50/50 dark:bg-neutral-800/50 border-b border-neutral-100 dark:border-neutral-700">
               <div class="flex items-center justify-between mb-3">
                 <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
@@ -796,7 +744,6 @@ const totalPower = computed(() => {
               <div v-else class="text-xs text-neutral-400">보유한 스킬이 없습니다.</div>
             </div>
 
-            <!-- 시너지 선택 버튼 영역 -->
             <div class="p-6 bg-indigo-50/30 dark:bg-indigo-900/10 border-b border-neutral-100 dark:border-neutral-700">
               <div class="flex items-center justify-between mb-3">
                 <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
@@ -819,7 +766,6 @@ const totalPower = computed(() => {
               </div>
             </div>
 
-            <!-- 계산기 테이블 -->
             <div class="p-6 pt-5">
               <div class="mb-4 flex items-center justify-between">
                 <h3 class="text-lg font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
@@ -933,7 +879,6 @@ const totalPower = computed(() => {
 </template>
 
 <style scoped>
-/* 입력창 스피너(화살표) 숨기기 */
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {
   -webkit-appearance: none;
