@@ -38,7 +38,7 @@ const q = ref('')
 const debouncedQ = ref('')
 const type = ref<'normal' | 'enhanced'>('normal')
 
-// 카드별 연도 선택 상태 (존재감 전용 사용)
+// 카드별 연도 선택 상태 (압도 전용 사용)
 const selectedYearByName = ref<Record<string, string>>({})
 
 // 전역 레벨(강화 탭)
@@ -85,7 +85,9 @@ onMounted(async () => {
     enhancedSkillData.value.forEach(s => { if (s.enhanced_skill) emp[s.enhanced_skill] = s })
     enhancedMap.value = emp
 
-    // 존재감 기본 연도(최신) 초기화
+    // 압도(구 존재감) 기본 연도(최신) 초기화
+    initDefaultYear('압도')
+    // 이전 버전 호환성
     initDefaultYear('존재감')
   } catch (e: any) {
     error.value = e?.message || '스킬 데이터를 불러오지 못했습니다.'
@@ -111,10 +113,10 @@ function initDefaultYear(name: string) {
 
 /* =========================
    Sprite helper
-   (존재감만 bg-${imageKey}${year})
+   (압도/존재감 bg-${imageKey}${year})
 ========================= */
 function spriteBgClass(card: SkillCardVM) {
-  if (card.kind === 'enhanced' && card.name === '존재감') {
+  if (card.kind === 'enhanced' && (card.name === '압도' || card.name === '존재감')) {
     const y = selectedYearByName.value[card.name]
     return y ? `bg-${(card.imageKey || '')}${y}` : `bg-${card.imageKey}`
   }
@@ -136,7 +138,7 @@ function renderEffectItem(e: any): string {
 
 /**
  * 레벨 효과 리졸버
- * - 연도 노드가 "배열"이면 => 그 배열을 해당 연도의 레벨 테이블로 간주 (존재감)
+ * - 연도 노드가 "배열"이면 => 그 배열을 해당 연도의 레벨 테이블로 간주 (압도)
  * - 연도 노드가 "객체"이고 내부에 by_level/effects_by_level 등이 있으면 그걸 사용
  * - 아니면 전역 effects_by_level 사용
  */
@@ -148,7 +150,7 @@ function resolveLevelEffects(card: SkillCardVM, lvl: number) {
   const y = selectedYearByName.value[card.name]
   const yearNode = y ? meta.effects_by_year?.[y] : undefined
 
-  // 1) 존재감 케이스: 연도별 배열 = 레벨 테이블
+  // 1) 압도 케이스: 연도별 배열 = 레벨 테이블
   if (Array.isArray(yearNode)) {
     const idx = Math.min(Math.max(lvl, 1), yearNode.length) - 1
     const item = yearNode[idx]
@@ -196,7 +198,7 @@ const levelEffects = (card: SkillCardVM, lvl: number) => resolveLevelEffects(car
 function yearEffects(card: SkillCardVM, y?: string) {
   if (!y || card.kind !== 'enhanced') return []
   const node = enhancedMap.value[card.name]?.effects_by_year?.[y]
-  if (Array.isArray(node)) return [] // 존재감: 레벨로 처리함
+  if (Array.isArray(node)) return [] // 압도: 레벨로 처리함
   if (!node) return []
   return Array.isArray(node) ? node : [node]
 }
@@ -236,7 +238,17 @@ const listToRender = computed<SkillCardVM[]>(() => {
       description: s.description ?? '',
       effectsByLevel: s.effects_by_level ?? []
     }))
-    .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+    .sort((a, b) => {
+      // 골든글러브, 압도 같은 특수 스킬을 최상단으로 끌어올림
+      const special = ['골든글러브', '압도', '존재감']
+      const aIsSpecial = special.includes(a.name)
+      const bIsSpecial = special.includes(b.name)
+      
+      if (aIsSpecial && !bIsSpecial) return -1
+      if (!aIsSpecial && bIsSpecial) return 1
+      
+      return a.name.localeCompare(b.name, 'ko')
+    })
 })
 
 /* =========================
@@ -332,7 +344,7 @@ function goToPage(p: number) {
     <div v-if="type === 'enhanced'" class="mb-6 flex flex-wrap items-center gap-4">
       <div class="flex items-center gap-3">
         <span class="text-sm text-neutral-700 dark:text-neutral-300">레벨</span>
-        <!-- 존재감은 16레벨까지 커버. 다른 스킬은 클램프됨 -->
+        <!-- 압도/골글은 16레벨까지 커버. -->
         <input type="range" min="1" max="16" v-model.number="level" class="slider w-36 accent-blue-600" />
         <span class="inline-flex items-center rounded-full border border-blue-200 dark:border-blue-800 px-2 py-0.5 text-xs font-semibold
                       text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30">
@@ -368,14 +380,16 @@ function goToPage(p: number) {
           v-for="card in pagedList"
           :key="card.kind + ':' + card.name"
           class="group rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-4 shadow-sm hover:shadow-md transition-shadow"
+          :class="['골든글러브', '압도', '존재감'].includes(card.name) ? 'ring-2 ring-yellow-400 dark:ring-yellow-500 bg-yellow-50/10 dark:bg-yellow-900/10' : ''"
         >
           <!-- Header -->
           <div class="flex items-start justify-between mb-3">
             <div class="flex items-center gap-3">
               <div :class="spriteBgClass(card)"
                    class="h-10 w-10 rounded-md ring-1 ring-neutral-200 dark:ring-neutral-700 shrink-0"></div>
-              <h3 class="font-semibold text-neutral-900 dark:text-neutral-100 leading-tight">
+              <h3 class="font-semibold text-neutral-900 dark:text-neutral-100 leading-tight flex items-center gap-2">
                 {{ card.name }}
+                <span v-if="['골든글러브', '압도', '존재감'].includes(card.name)" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-700/50">특수</span>
               </h3>
             </div>
           </div>
@@ -388,9 +402,9 @@ function goToPage(p: number) {
           </div>
 
           <div v-else class="space-y-2">
-            <!-- 존재감 전용: 카드 내부 '년도' 셀렉터 -->
+            <!-- 압도 전용: 카드 내부 '년도' 셀렉터 -->
             <div
-              v-if="card.name === '존재감' && yearOptionsFor(card.name).length"
+              v-if="(card.name === '압도' || card.name === '존재감') && yearOptionsFor(card.name).length"
               class="flex items-center gap-3 mb-1"
             >
               <span class="text-xs text-neutral-600 dark:text-neutral-300">년도</span>
