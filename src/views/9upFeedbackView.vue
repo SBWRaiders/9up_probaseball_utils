@@ -18,21 +18,10 @@ function loadGiscus() {
      ⭐ [중요] 여기에 본인의 GitHub 레포지토리 정보를 넣어주셔야 작동합니다!
      giscus.app 사이트에서 발급받은 키 값을 아래에 채워넣어주세요.
      ================================================================= */
-<script src="https://giscus.app/client.js"
-        data-repo="SBWRaiders/question"
-        data-repo-id="R_kgDOSt_ntw"
-        data-category="Q&A"
-        data-category-id="DIC_kwDOSt_nt84C-R8m"
-        data-mapping="pathname"
-        data-strict="0"
-        data-reactions-enabled="1"
-        data-emit-metadata="0"
-        data-input-position="bottom"
-        data-theme="preferred_color_scheme"
-        data-lang="ko"
-        crossorigin="anonymous"
-        async>
-</script>
+  script.setAttribute('data-repo', '본인의_깃허브_아이디/레포지토리_이름') 
+  script.setAttribute('data-repo-id', '레포지토리_ID_값')
+  script.setAttribute('data-category', 'General') // Discussions 카테고리 이름
+  script.setAttribute('data-category-id', '카테고리_ID_값')
   /* ================================================================= */
 
   script.setAttribute('data-mapping', 'pathname')
