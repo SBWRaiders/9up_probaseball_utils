@@ -37,6 +37,11 @@ import CalculatorView from '@/views/9upCalculatorView.vue'
         name: 'NotFound',
         component: () => import('@/views/NotFound.vue'),
     },
+  {
+  path: '/feedback',
+  name: 'feedback',
+  component: () => import('../views/9upFeedbackView.vue')
+},
 ]
 
 export const router = createRouter({
