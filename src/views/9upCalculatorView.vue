@@ -681,7 +681,9 @@ const totalPower = computed(() => {
                   <input type="number" v-model.number="clanBuff" min="0" max="15" class="w-full px-2 py-1.5 text-center bg-fuchsia-50 dark:bg-fuchsia-900/30 border border-fuchsia-300 dark:border-fuchsia-600 rounded-lg text-sm font-bold focus:border-fuchsia-500 outline-none transition-colors" />
                 </div>
                 <div class="flex flex-col gap-1">
-                  <label class="text-[11px] font-bold text-fuchsia-600 dark:text-fuchsia-400 uppercase" title="입력된 값이 5대 핵심 능력치에 골고루 분배됩니다">특수 각인 파워</label>
+                  <label class="text-[11px] font-bold text-fuchsia-600 dark:text-fuchsia-400 uppercase" title="입력된 값이 5대 핵심 능력치에 골고루 분배됩니다">
+                    {{ selectedPlayer && String(selectedPlayer.position).toUpperCase().includes('SP') ? '1,2선발시 파워증가' : '특수 각인 파워' }}
+                  </label>
                   <input type="number" v-model.number="imprintStarterPower" placeholder="총 증가량" class="w-full px-2 py-1.5 text-center bg-fuchsia-50 dark:bg-fuchsia-900/30 border border-fuchsia-300 dark:border-fuchsia-600 rounded-lg text-sm font-bold focus:border-fuchsia-500 outline-none transition-colors" />
                 </div>
                 <div class="flex flex-col gap-1">
