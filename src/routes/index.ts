@@ -1,7 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import CalculatorView from '@/views/9upCalculatorView.vue'
- const routes = [
-        {
+
+const routes = [
+    {
         path: '/',
         redirect: '/notice',
     },
@@ -10,12 +11,11 @@ import CalculatorView from '@/views/9upCalculatorView.vue'
         name: 'Notice',
         component: () => import('@/views/9upNoticeView.vue')
     },
-     {
-         path: '/skills',
-         name: 'Skills',
-         component: () => import('@/views/9upSkillListView.vue'),
-     },
-
+    {
+        path: '/skills',
+        name: 'Skills',
+        component: () => import('@/views/9upSkillListView.vue'),
+    },
     {
         path: '/calculator',
         name: 'Calculator',
@@ -31,17 +31,17 @@ import CalculatorView from '@/views/9upCalculatorView.vue'
         name: 'Players',
         component: () => import('@/views/9upPlayersView.vue'),
     },
+    {
+        path: '/feedback',
+        name: 'Feedback',
+        component: () => import('@/views/9upFeedbackView.vue'),
+    },
     // 404 fallback
     {
         path: '/:pathMatch(.*)*',
         name: 'NotFound',
         component: () => import('@/views/NotFound.vue'),
-    },
-  {
-  path: '/feedback',
-  name: 'feedback',
-  component: () => import('../views/9upFeedbackView.vue')
-},
+    }
 ]
 
 export const router = createRouter({
