@@ -69,7 +69,8 @@ const menuItems = [
   { name: '선수 검색', path: '/players', disabled: false },
   { name: '스킬 목록', path: '/skills', disabled: false },
   { name: '라인업 생성', path: '/lineups', disabled: false },
-  { name: '스탯 계산기', path: '/calculator', disabled: false }
+  { name: '스탯 계산기', path: '/calculator', disabled: false },
+  { name: '건의 게시판', path: '/feedback', disabled: false }
 ]
 
 const navigate = (item: { path: string; disabled?: boolean }) => {
