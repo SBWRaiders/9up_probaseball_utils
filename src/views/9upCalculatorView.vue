@@ -273,6 +273,8 @@ const toggleSynergyCondition = (synName: string, idx: number) => {
 const formatConditionText = (cond: any) => {
   if (!cond.count) return ''
   if (cond.count.op === 'between') return `${cond.count.min}~${cond.count.max}명`
+  if (cond.count.op === '<=') return `${cond.count.value}명 이하`
+  if (cond.count.op === '==') return `${cond.count.value}명`
   return `${cond.count.value}명 이상`
 }
 
