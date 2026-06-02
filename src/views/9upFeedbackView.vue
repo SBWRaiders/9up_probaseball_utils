@@ -5,7 +5,7 @@ import { MessageSquare, AlertCircle, Sparkles, Send, CheckCircle2, Mail } from '
 /* =================================================================
    ⭐ [중요] 디스코드에서 발급받은 웹훅 URL을 아래 따옴표 안에 붙여넣으세요!
    ================================================================= */
-const WEBHOOK_URL = '여기에_복사한_디스코드_웹훅_URL을_넣어주세요'
+const WEBHOOK_URL = 'https://discord.com/api/webhooks/1511026553298092106/Bt9VVPblIgrzlh61pqDb9FTXFMiTHvhEWgnnHQv6IbK1hggWUDyTTuzUFkkeTDUdTs3-'
 /* ================================================================= */
 
 const form = ref({
