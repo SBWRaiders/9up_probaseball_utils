@@ -3574,27 +3574,6 @@
     ]
   },
   {
-    "id": 114,
-    "synergy": "디그니티",
-    "synergy_effect": "- 라인업에 4명 이하 기용 시 파워 +15% ",
-    "description": "디그니티 등급 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "between",
-          "min": 1,
-          "max": 4
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 15.0
-        }
-      }
-    ]
-  },
-  {
     "id": 115,
     "synergy": "롯데 자이언츠",
     "synergy_effect": "- 라인업에 10~19명 기용 시 파워 +100 \n- 라인업에 20명 이상 기용 시 파워 +250 ",
@@ -8963,8 +8942,9 @@
     "conditions": [
       {
         "count": {
-          "op": "<=",
-          "value": 10
+          "op": "between",
+          "min": 1,
+          "max": 10
         },
         "stat": "power",
         "bonus": {
@@ -10230,6 +10210,48 @@
         "bonus": {
           "unit": "percent",
           "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 480,
+    "synergy": "디그니티(투수)",
+    "synergy_effect": "- 라인업에 2명 이하 기용 시 파워 +15%",
+    "description": "디그니티 등급 투수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "between",
+          "min": 1,
+          "max": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 15.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 481,
+    "synergy": "디그니티(타자)",
+    "synergy_effect": "- 라인업에 2명 이하 기용 시 파워 +15%",
+    "description": "디그니티 등급 타자들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "between",
+          "min": 1,
+          "max": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 15.0
         }
       }
     ]
