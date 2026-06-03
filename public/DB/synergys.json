@@ -4483,7 +4483,7 @@
   },
   {
     "id": 152,
-    "synergy": "키스톤콤비(김선빈-안치홍)",
+    "synergy": "꼬꼬마 키스톤",
     "synergy_effect": "- 라인업에 2명 기용 시 파워 +30 ",
     "description": "신인 시절부터 10년 동안\nKIA의 내야를 책임진 듀오입니다.",
     "stackable": false,
@@ -5687,7 +5687,7 @@
   },
   {
     "id": 290,
-    "synergy": "키스톤콤비(김재호-오렉스)",
+    "synergy": "키스톤(김재호-오렉스)",
     "synergy_effect": "- 라인업에 2명 기용 시 파워 +30 ",
     "description": "오랜 기간 합을 맞춘 유격수와 2루수입니다.",
     "stackable": false,
@@ -5707,7 +5707,7 @@
   },
   {
     "id": 291,
-    "synergy": "키스톤콤비(박민우-손시헌)",
+    "synergy": "키스톤(손시헌-박민우)",
     "synergy_effect": "- 라인업에 2명 기용 시 파워 +30 ",
     "description": "오랜 기간 합을 맞춘 유격수와 2루수입니다.",
     "stackable": false,
@@ -5727,7 +5727,7 @@
   },
   {
     "id": 292,
-    "synergy": "키스톤콤비(박종호-박진만)",
+    "synergy": "키스톤(박종호-박진만)",
     "synergy_effect": "- 라인업에 2명 기용 시 파워 +30 ",
     "description": "오랜 기간 합을 맞춘 유격수와 2루수입니다.",
     "stackable": false,
@@ -5747,7 +5747,7 @@
   },
   {
     "id": 293,
-    "synergy": "키스톤콤비(강기웅-류중일)",
+    "synergy": "키스톤(류중일-강기웅)",
     "synergy_effect": "- 라인업에 2명 기용 시 파워 +30 ",
     "description": "오랜 기간 합을 맞춘 유격수와 2루수입니다.",
     "stackable": false,
