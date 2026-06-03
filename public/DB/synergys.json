@@ -4775,1586 +4775,6 @@
     ]
   },
   {
-    "id": 165,
-    "synergy": "동명이인(김상수)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 166,
-    "synergy": "동명이인(이민호)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 167,
-    "synergy": "동명이인(김태완)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 168,
-    "synergy": "동명이인(이병규)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 169,
-    "synergy": "동명이인(김태훈)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 170,
-    "synergy": "동명이인14",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 171,
-    "synergy": "동명이인15",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 172,
-    "synergy": "동명이인(이승호)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 173,
-    "synergy": "동명이인(정성훈)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 174,
-    "synergy": "동명이인(전준호)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 175,
-    "synergy": "동명이인(이상훈)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 176,
-    "synergy": "동명이인(이재원)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 177,
-    "synergy": "동명이인(이진영)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 178,
-    "synergy": "동명이인(김재현)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 179,
-    "synergy": "동명이인(김기태)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 180,
-    "synergy": "동명이인(이정훈)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 181,
-    "synergy": "동명이인(김상현)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 182,
-    "synergy": "동명이인(신재웅)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 183,
-    "synergy": "동명이인(김민호)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 184,
-    "synergy": "동명이인(김상훈)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 185,
-    "synergy": "동명이인(김성현)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 186,
-    "synergy": "동명이인(김정수)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 187,
-    "synergy": "동명이인(윤석민)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 188,
-    "synergy": "동명이인(김종석)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 189,
-    "synergy": "동명이인(박정현)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 190,
-    "synergy": "동명이인32",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 191,
-    "synergy": "동명이인(조용호)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 192,
-    "synergy": "동명이인(박종훈)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 193,
-    "synergy": "동명이인(김진욱)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 194,
-    "synergy": "동명이인(김진우)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 195,
-    "synergy": "동명이인(김광수)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 196,
-    "synergy": "동명이인(이해창)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 197,
-    "synergy": "동명이인(김동주)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 198,
-    "synergy": "동명이인(이승현)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 199,
-    "synergy": "동명이인(김재열)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 200,
-    "synergy": "동명이인(김종수)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 201,
-    "synergy": "동명이인(이영욱)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 202,
-    "synergy": "동명이인(이준호)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 203,
-    "synergy": "동명이인(정진호)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 204,
-    "synergy": "동명이인45",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 205,
-    "synergy": "동명이인(정재훈)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 206,
-    "synergy": "동명이인(장태수)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 207,
-    "synergy": "동명이인(장재혁)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 208,
-    "synergy": "동명이인(이희성)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 209,
-    "synergy": "동명이인(김민수)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 210,
-    "synergy": "동명이인(이종민)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 211,
-    "synergy": "동명이인(이원석)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 212,
-    "synergy": "동명이인52",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 213,
-    "synergy": "동명이인(이병헌)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 214,
-    "synergy": "동명이인(박지훈)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 215,
-    "synergy": "동명이인(박준영)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 216,
-    "synergy": "동명이인56",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 217,
-    "synergy": "동명이인(박건우)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 218,
-    "synergy": "동명이인(김현수)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 219,
-    "synergy": "동명이인(김창훈)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 220,
-    "synergy": "동명이인6",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 221,
-    "synergy": "동명이인(김진수)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 222,
-    "synergy": "동명이인61",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 223,
-    "synergy": "동명이인(김주성)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 224,
-    "synergy": "동명이인(김정민)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 225,
-    "synergy": "동명이인(김재성)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 226,
-    "synergy": "동명이인(김성호)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 227,
-    "synergy": "동명이인(김성한)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 228,
-    "synergy": "동명이인67",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 229,
-    "synergy": "동명이인(김선우)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 230,
-    "synergy": "동명이인(김병준)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 231,
-    "synergy": "동명이인(최원준)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 232,
-    "synergy": "동명이인(김민혁)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 233,
-    "synergy": "동명이인(김광현)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 234,
-    "synergy": "동명이인(김건우)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 235,
-    "synergy": "동명이인(김태형)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 236,
-    "synergy": "동명이인(김민규)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 237,
-    "synergy": "동명이인(김재상)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 238,
-    "synergy": "동명이인(박성빈)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 239,
-    "synergy": "동명이인(박주현)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 240,
-    "synergy": "동명이인(서동욱)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 241,
-    "synergy": "동명이인(최준호)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 242,
-    "synergy": "동명이인8",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 243,
-    "synergy": "동명이인(김민우)",
-    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
-    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": "==",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "percent",
-          "value": 5.0
-        }
-      }
-    ]
-  },
-  {
     "id": 244,
     "synergy": "드림 올스타",
     "synergy_effect": "- 라인업에 8~13명 기용 시 파워 +10% \n- 라인업에 14명 이상 기용 시 파워 +12% ",
@@ -10570,6 +8990,1246 @@
         "bonus": {
           "unit": "fixed",
           "value": 40.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 418,
+    "synergy": "동명이인(김건우)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 419,
+    "synergy": "동명이인(김광수)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 420,
+    "synergy": "동명이인(김광현)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 421,
+    "synergy": "동명이인(김기태)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 422,
+    "synergy": "동명이인(김동주)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 423,
+    "synergy": "동명이인(김민규)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 424,
+    "synergy": "동명이인(김민수)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 425,
+    "synergy": "동명이인(김민우)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 426,
+    "synergy": "동명이인(김민혁)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 427,
+    "synergy": "동명이인(김민호)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 428,
+    "synergy": "동명이인(김병준)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 429,
+    "synergy": "동명이인(김상현)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 430,
+    "synergy": "동명이인(김상훈)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 431,
+    "synergy": "동명이인(김성한)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 432,
+    "synergy": "동명이인(김성현)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 433,
+    "synergy": "동명이인(김성호)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 434,
+    "synergy": "동명이인(김재상)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 435,
+    "synergy": "동명이인(김재성)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 436,
+    "synergy": "동명이인(김재열)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 437,
+    "synergy": "동명이인(김재현)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 438,
+    "synergy": "동명이인(김정수)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 439,
+    "synergy": "동명이인(김종석)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 440,
+    "synergy": "동명이인(김종수)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 441,
+    "synergy": "동명이인(김주성)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 442,
+    "synergy": "동명이인(김진수)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 443,
+    "synergy": "동명이인(김진우)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 444,
+    "synergy": "동명이인(김진욱)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 445,
+    "synergy": "동명이인(김태완)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 446,
+    "synergy": "동명이인(김태형)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 447,
+    "synergy": "동명이인(김태훈)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 448,
+    "synergy": "동명이인(김현수)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 449,
+    "synergy": "동명이인(박건우)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 450,
+    "synergy": "동명이인(박성빈)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 451,
+    "synergy": "동명이인(박정현)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 452,
+    "synergy": "동명이인(박종훈)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 453,
+    "synergy": "동명이인(박지훈)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 454,
+    "synergy": "동명이인(서동욱)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 455,
+    "synergy": "동명이인(신재웅)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 456,
+    "synergy": "동명이인(윤석민)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 457,
+    "synergy": "동명이인(이민호)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 458,
+    "synergy": "동명이인(이병규)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 459,
+    "synergy": "동명이인(이병헌)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 460,
+    "synergy": "동명이인(이상훈)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 461,
+    "synergy": "동명이인(이승현)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 462,
+    "synergy": "동명이인(이승호)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 463,
+    "synergy": "동명이인(이원석)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 464,
+    "synergy": "동명이인(이재원)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 465,
+    "synergy": "동명이인(이정훈)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 466,
+    "synergy": "동명이인(이종민)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 467,
+    "synergy": "동명이인(이준호)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 468,
+    "synergy": "동명이인(이진영)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 469,
+    "synergy": "동명이인(이해창)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 470,
+    "synergy": "동명이인(이희성)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 471,
+    "synergy": "동명이인(장재혁)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 472,
+    "synergy": "동명이인(장태수)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 473,
+    "synergy": "동명이인(전준호)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 474,
+    "synergy": "동명이인(정성훈)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 475,
+    "synergy": "동명이인(정재훈)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 476,
+    "synergy": "동명이인(정진호)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 477,
+    "synergy": "동명이인(조용호)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 478,
+    "synergy": "동명이인(최원준)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ]
+  },
+  {
+    "id": 479,
+    "synergy": "동명이인(최준호)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
         }
       }
     ]
