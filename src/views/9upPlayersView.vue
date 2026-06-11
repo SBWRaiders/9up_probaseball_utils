@@ -72,7 +72,7 @@ const columns = ref([
 /* =========================
    Utils
 ========================= */
-const CSV_SPLIT = /[,\u3001;、]+/
+const CSV_SPLIT = /[,、;、]+/
 const lc = (s: unknown) => String(s ?? '').toLowerCase().trim()
 const normText = (s: unknown) =>
     String(s ?? '')
@@ -91,7 +91,7 @@ const toArray = (v: unknown, { allowComma = true }: { allowComma?: boolean } = {
         return Array.isArray(parsed) ? parsed.map(x => String(x).trim()).filter(Boolean) : [t]
       } catch { /* ignore */ }
     }
-    const splitter = allowComma ? CSV_SPLIT : /[\u3001;、;]+/
+    const splitter = allowComma ? CSV_SPLIT : /[、;、;]+/
     return t.split(splitter).map(s => s.trim()).filter(Boolean)
   }
   return [String(v ?? '').trim()].filter(Boolean)
@@ -162,6 +162,24 @@ const filterOptions = computed(() => {
     toArray(p.skill).forEach(v => searchSet.add(v))
   }
   options['searchSuggestions'] = searchSet
+  
+  // 팀 옵션 덮어쓰기 (인게임 로직 그룹화 적용)
+  options['team'] = new Set([
+    'all',
+    'ssg', 'sk',
+    'kiwoom', 'nexen',
+    'kia', 'haitai',
+    'samsung',
+    'doosan', 'ob',
+    'lotte',
+    'lg', 'mbc',
+    'hanwha', 'binggrae',
+    'nc',
+    'kt',
+    'hyundai', 'pacific', 'chungbo', 'sammi',
+    'sbw'
+  ])
+
   return Object.fromEntries(
       Object.entries(options).map(([k, set]) => [k, [...set].sort((a, b) => a.localeCompare(b))])
   )
@@ -209,7 +227,14 @@ const filteredPlayers = computed(() => {
             continue
           }
           if (field === 'team') {
-            if (!(selected as string[]).some(sel => teamLc.includes(lc(sel)))) return false
+            // ✅ 배열로 묶인 팀 그룹 필터링 로직 (ex. 해태 선택 시 기아도 포함)
+            const isMatch = (selected as string[]).some(selGroup => {
+              if (selGroup === 'all') return true;
+              
+              const targetTeams = Array.isArray(selGroup) ? selGroup : [selGroup];
+              return targetTeams.some(t => teamLc.includes(lc(t)));
+            });
+            if (!isMatch) return false;
             continue
           }
           if (field === 'year') {
