@@ -72,7 +72,7 @@ const columns = ref([
 /* =========================
    Utils
 ========================= */
-const CSV_SPLIT = /[,、;、]+/
+const CSV_SPLIT = /[,\u3001;、]+/
 const lc = (s: unknown) => String(s ?? '').toLowerCase().trim()
 const normText = (s: unknown) =>
     String(s ?? '')
@@ -91,7 +91,7 @@ const toArray = (v: unknown, { allowComma = true }: { allowComma?: boolean } = {
         return Array.isArray(parsed) ? parsed.map(x => String(x).trim()).filter(Boolean) : [t]
       } catch { /* ignore */ }
     }
-    const splitter = allowComma ? CSV_SPLIT : /[、;、;]+/
+    const splitter = allowComma ? CSV_SPLIT : /[\u3001;、;]+/
     return t.split(splitter).map(s => s.trim()).filter(Boolean)
   }
   return [String(v ?? '').trim()].filter(Boolean)
@@ -162,27 +162,24 @@ const filterOptions = computed(() => {
     toArray(p.skill).forEach(v => searchSet.add(v))
   }
   options['searchSuggestions'] = searchSet
-  
-  // 팀 옵션 덮어쓰기 (인게임 로직 그룹화 적용)
-  options['team'] = new Set([
-    'all',
-    'ssg', 'sk',
-    'kiwoom', 'nexen',
-    'kia', 'haitai',
-    'samsung',
-    'doosan', 'ob',
-    'lotte',
-    'lg', 'mbc',
-    'hanwha', 'binggrae',
-    'nc',
-    'kt',
-    'hyundai', 'pacific', 'chungbo', 'sammi',
-    'sbw'
-  ])
-
-  return Object.fromEntries(
+  const res = Object.fromEntries(
       Object.entries(options).map(([k, set]) => [k, [...set].sort((a, b) => a.localeCompare(b))])
   )
+  res['team'] = [
+    'SSG/SK',
+    '키움/히어로즈',
+    'KIA/해태',
+    '삼성',
+    '두산/OB',
+    '롯데',
+    'LG/MBC',
+    '한화/빙그레',
+    'NC',
+    'KT',
+    '현대/태평양/청보/삼미',
+    '쌍방울'
+  ]
+  return res
 })
 
 /* =========================
@@ -227,11 +224,23 @@ const filteredPlayers = computed(() => {
             continue
           }
           if (field === 'team') {
-            // ✅ 배열로 묶인 팀 그룹 필터링 로직 (ex. 해태 선택 시 기아도 포함)
+            const teamGroups: Record<string, string[]> = {
+              'SSG/SK': ['ssg', 'sk'],
+              '키움/히어로즈': ['kiwoom', 'nexen'],
+              'KIA/해태': ['kia', 'haitai'],
+              '삼성': ['samsung'],
+              '두산/OB': ['doosan', 'ob'],
+              '롯데': ['lotte'],
+              'LG/MBC': ['lg', 'mbc'],
+              '한화/빙그레': ['hanwha', 'binggrae'],
+              'NC': ['nc'],
+              'KT': ['kt'],
+              '현대/태평양/청보/삼미': ['hyundai', 'pacific', 'chungbo', 'sammi'],
+              '쌍방울': ['sbw']
+            }
             const isMatch = (selected as string[]).some(selGroup => {
               if (selGroup === 'all') return true;
-              
-              const targetTeams = Array.isArray(selGroup) ? selGroup : [selGroup];
+              const targetTeams = teamGroups[selGroup] || [selGroup];
               return targetTeams.some(t => teamLc.includes(lc(t)));
             });
             if (!isMatch) return false;
