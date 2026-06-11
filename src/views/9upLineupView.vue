@@ -324,6 +324,36 @@ const preparedPlayers = computed<PreparedPlayer[]>(() =>
     }))
 )
 
+const groupedTeams = [
+  { id: ['ssg', 'sk'], name: 'SSG/SK' },
+  { id: ['kiwoom', 'nexen'], name: '키움/히어로즈' },
+  { id: ['kia', 'haitai'], name: 'KIA/해태' },
+  { id: ['samsung'], name: '삼성' },
+  { id: ['doosan', 'ob'], name: '두산/OB' },
+  { id: ['lotte'], name: '롯데' },
+  { id: ['lg', 'mbc'], name: 'LG/MBC' },
+  { id: ['hanwha', 'binggrae'], name: '한화/빙그레' },
+  { id: ['nc'], name: 'NC' },
+  { id: ['kt'], name: 'KT' },
+  { id: ['hyundai', 'pacific', 'chungbo', 'sammi'], name: '현대/태평양/청보/삼미' },
+  { id: ['sbw'], name: '쌍방울' }
+]
+
+const toggleTeamGroup = (group: { id: string[], name: string }) => {
+  const isSelected = isTeamGroupSelected(group)
+  if (isSelected) {
+    searchQuery.team = searchQuery.team.filter(t => !group.id.includes(t))
+  } else {
+    const newTeams = [...searchQuery.team]
+    group.id.forEach(t => { if (!newTeams.includes(t)) newTeams.push(t) })
+    searchQuery.team = newTeams
+  }
+}
+
+const isTeamGroupSelected = (group: { id: string[], name: string }) => {
+  return group.id.every(t => searchQuery.team.includes(t))
+}
+
 const searchOptions = computed(() => {
   const o: Record<string, Set<string>> = { team: new Set(), position: new Set(), grade: new Set() }
   for (const p of players.value) {
@@ -1059,13 +1089,13 @@ const LineupSlot = defineComponent({
                 <label class="mb-2 block text-xs font-medium text-neutral-500 dark:text-neutral-400">팀</label>
                 <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 max-h-32 overflow-y-auto">
                   <button
-                      v-for="team in searchOptions.team"
-                      :key="team"
-                      @click="searchQuery.team.includes(team) ? searchQuery.team = searchQuery.team.filter(t => t !== team) : searchQuery.team.push(team)"
-                      :class="searchQuery.team.includes(team) ? 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 border-purple-300 dark:border-purple-600' : 'bg-white dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-600'"
+                      v-for="group in groupedTeams"
+                      :key="group.name"
+                      @click="toggleTeamGroup(group)"
+                      :class="isTeamGroupSelected(group) ? 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 border-purple-300 dark:border-purple-600' : 'bg-white dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-600'"
                       class="px-2 py-1.5 rounded-lg border text-xs font-medium transition-colors hover:bg-purple-50 dark:hover:bg-purple-800 truncate"
                   >
-                    {{ findTeamName(team) }}
+                    {{ group.name }}
                   </button>
                 </div>
               </div>
