@@ -165,19 +165,21 @@ const filterOptions = computed(() => {
   const res = Object.fromEntries(
       Object.entries(options).map(([k, set]) => [k, [...set].sort((a, b) => a.localeCompare(b))])
   )
+  
+  // 가장 최신 팀 ID(대표 ID)만 남겨서 FilterPanel에서 로고를 정상적으로 불러올 수 있게 합니다.
   res['team'] = [
-    'SSG/SK',
-    '키움/히어로즈',
-    'KIA/해태',
-    '삼성',
-    '두산/OB',
-    '롯데',
-    'LG/MBC',
-    '한화/빙그레',
-    'NC',
-    'KT',
-    '현대/태평양/청보/삼미',
-    '쌍방울'
+    'ssg',
+    'kiwoom',
+    'kia',
+    'samsung',
+    'doosan',
+    'lotte',
+    'lg',
+    'hanwha',
+    'nc',
+    'kt',
+    'hyundai',
+    'sbw'
   ]
   return res
 })
@@ -224,23 +226,24 @@ const filteredPlayers = computed(() => {
             continue
           }
           if (field === 'team') {
-            const teamGroups: Record<string, string[]> = {
-              'SSG/SK': ['ssg', 'sk'],
-              '키움/히어로즈': ['kiwoom', 'nexen'],
-              'KIA/해태': ['kia', 'haitai'],
-              '삼성': ['samsung'],
-              '두산/OB': ['doosan', 'ob'],
-              '롯데': ['lotte'],
-              'LG/MBC': ['lg', 'mbc'],
-              '한화/빙그레': ['hanwha', 'binggrae'],
-              'NC': ['nc'],
-              'KT': ['kt'],
-              '현대/태평양/청보/삼미': ['hyundai', 'pacific', 'chungbo', 'sammi'],
-              '쌍방울': ['sbw']
+            // 대표 팀 ID를 선택하면 전신 구단까지 모두 포함하여 검색하도록 확장
+            const teamExpand: Record<string, string[]> = {
+              'ssg': ['ssg', 'sk'],
+              'kiwoom': ['kiwoom', 'nexen'],
+              'kia': ['kia', 'haitai'],
+              'samsung': ['samsung'],
+              'doosan': ['doosan', 'ob'],
+              'lotte': ['lotte'],
+              'lg': ['lg', 'mbc'],
+              'hanwha': ['hanwha', 'binggrae'],
+              'nc': ['nc'],
+              'kt': ['kt'],
+              'hyundai': ['hyundai', 'pacific', 'chungbo', 'sammi'],
+              'sbw': ['sbw']
             }
-            const isMatch = (selected as string[]).some(selGroup => {
-              if (selGroup === 'all') return true;
-              const targetTeams = teamGroups[selGroup] || [selGroup];
+            const isMatch = (selected as string[]).some(sel => {
+              if (sel === 'all') return true;
+              const targetTeams = teamExpand[sel] || [sel];
               return targetTeams.some(t => teamLc.includes(lc(t)));
             });
             if (!isMatch) return false;
