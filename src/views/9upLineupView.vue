@@ -1092,12 +1092,12 @@ const LineupSlot = defineComponent({
                   <button
                       v-for="group in groupedTeams"
                       :key="group.name"
+                      :title="group.name"
                       @click="toggleTeamGroup(group)"
-                      :class="isTeamGroupSelected(group) ? 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 border-purple-300 dark:border-purple-600' : 'bg-white dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-600'"
-                      class="px-2 py-1.5 rounded-lg border text-xs font-medium transition-colors hover:bg-purple-50 dark:hover:bg-purple-800 truncate flex items-center justify-center gap-1.5"
+                      :class="isTeamGroupSelected(group) ? 'bg-purple-100 dark:bg-purple-900 border-purple-400 dark:border-purple-500 shadow-sm' : 'bg-white dark:bg-neutral-700 border-neutral-200 dark:border-neutral-600'"
+                      class="p-2 flex items-center justify-center rounded-lg border transition-colors hover:bg-purple-50 dark:hover:bg-purple-800"
                   >
-                    <img v-if="getTeamLogoUrl(group.id[0])" :src="getTeamLogoUrl(group.id[0])" :alt="group.name" class="w-4 h-4 object-contain" @error="$event.target.style.display='none'" />
-                    {{ group.name }}
+                    <img v-if="getTeamLogoUrl(group.id[0])" :src="getTeamLogoUrl(group.id[0])" :alt="group.name" class="w-6 h-6 object-contain" @error="$event.target.style.display='none'" />
                   </button>
                 </div>
               </div>
