@@ -130,7 +130,21 @@ const synergyOptions = ref<string[]>([])
 const searchQuery = reactive({
   search: '',
   position: [] as string[],
-  team: [] as string[],
+  team: [
+    { value: 'all', label: '전체' },
+    { value: ['ssg', 'sk'], label: 'SSG/SK' },
+    { value: ['kiwoom', 'nexen'], label: '키움/히어로즈' },
+    { value: ['kia', 'haitai'], label: 'KIA/해태' },
+    { value: ['samsung'], label: '삼성' },
+    { value: ['doosan', 'ob'], label: '두산/OB' },
+    { value: ['lotte'], label: '롯데' },
+    { value: ['lg', 'mbc'], label: 'LG/MBC' },
+    { value: ['hanwha', 'binggrae'], label: '한화/빙그레' },
+    { value: ['nc'], label: 'NC' },
+    { value: ['kt'], label: 'KT' },
+    { value: ['hyundai', 'pacific', 'chungbo', 'sammi'], label: '현대/태평양/청보/삼미' },
+    { value: ['sbw'], label: '쌍방울' }
+  ] as string[],
   synergy: [] as string[],
   rarity: null as number | null,
   grade: [] as string[]
@@ -332,7 +346,21 @@ const searchOptions = computed(() => {
     if (p.grade) o.grade.add(String(p.grade))
   }
   return {
-    team: [...o.team].sort(),
+    team: [
+    { value: 'all', label: '전체' },
+    { value: ['ssg', 'sk'], label: 'SSG/SK' },
+    { value: ['kiwoom', 'nexen'], label: '키움/히어로즈' },
+    { value: ['kia', 'haitai'], label: 'KIA/해태' },
+    { value: ['samsung'], label: '삼성' },
+    { value: ['doosan', 'ob'], label: '두산/OB' },
+    { value: ['lotte'], label: '롯데' },
+    { value: ['lg', 'mbc'], label: 'LG/MBC' },
+    { value: ['hanwha', 'binggrae'], label: '한화/빙그레' },
+    { value: ['nc'], label: 'NC' },
+    { value: ['kt'], label: 'KT' },
+    { value: ['hyundai', 'pacific', 'chungbo', 'sammi'], label: '현대/태평양/청보/삼미' },
+    { value: ['sbw'], label: '쌍방울' }
+  ].sort(),
     position: [...o.position].sort(),
     grade: [...o.grade].sort((a, b) => {
       const gradeOrder = ['SS', 'S', 'A', 'B', 'C', 'D']
