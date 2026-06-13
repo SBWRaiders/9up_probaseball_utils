@@ -275,7 +275,6 @@ const filteredPlayers = computed(() => {
             if (!(selected as string[]).some(sel => yearsNum.includes(Number(sel)))) return false
             continue
           }
-          }
           if (field === 'skill') {
             if (!(selected as string[]).every(sel => skillLc.includes(lc(sel)))) return false
             continue
@@ -287,7 +286,6 @@ const filteredPlayers = computed(() => {
           if (field === 'position') {
             if (!(selected as string[]).some(sel => positionLc.includes(normalizePosition(sel).toLowerCase()))) return false
             continue
-          }
           }
           if (field === 'name') {
             const want = normText(selected)
