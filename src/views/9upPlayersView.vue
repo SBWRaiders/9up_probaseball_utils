@@ -95,6 +95,7 @@ const POSITION_ALIASES: Record<string, string> = {
   'rp': 'RP', '불펜': 'RP',
   'dh': 'DH', '지타': 'DH',
 }
+
 const normalizePosition = (position: any): string => {
   const str = String(position ?? '').trim()
   if (!str) return ''
@@ -271,7 +272,7 @@ const filteredPlayers = computed(() => {
             continue
           }
           if (field === 'year') {
-            if (!(selected as string[]).every(sel => yearsNum.includes(Number(sel)))) return false
+            if (!(selected as string[]).some(sel => yearsNum.includes(Number(sel)))) return false
             continue
           }
           if (field === 'skill') {
