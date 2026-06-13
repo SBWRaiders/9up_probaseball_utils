@@ -112,7 +112,7 @@ const toArray = (value: any, { allowComma = true }: { allowComma?: boolean } = {
 }
 
 const normalizePosition = (position: any): string => {
-  const str = String(position ?? '').trim()
+  const str = String(position ?? '').replace(/['"\[\]]+/g, '').trim()
   if (!str) return ''
   const lower = str.toLowerCase()
   return POSITION_ALIASES[lower] ?? str.toUpperCase()
@@ -382,7 +382,7 @@ const filteredPlayers = computed(() => {
         if (searchQuery.team.length && !searchQuery.team.some(t => teamLowerCase.includes(toLowerCase(t)))) return false
         if (searchQuery.rarity != null && Number(p.rarity) !== Number(searchQuery.rarity)) return false
         if (searchQuery.grade.length && !searchQuery.grade.includes(String(p.grade || ''))) return false
-        if (searchQuery.position.length && !searchQuery.position.some(v => positionLowerCase.includes(toLowerCase(v)))) return false
+        if (searchQuery.position.length && !searchQuery.position.some(v => positionLowerCase.includes(normalizePosition(v).toLowerCase()))) return false
         if (searchQuery.synergy.length && !searchQuery.synergy.map(normalizeText).some(t => synergyNormalizedSet.has(t))) return false
         if (tokens.length) {
           const hay = new Set<string>([

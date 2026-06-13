@@ -97,7 +97,7 @@ const POSITION_ALIASES: Record<string, string> = {
 }
 
 const normalizePosition = (position: any): string => {
-  const str = String(position ?? '').trim()
+  const str = String(position ?? '').replace(/['"\[\]]+/g, '').trim()
   if (!str) return ''
   const lower = str.toLowerCase()
   return POSITION_ALIASES[lower] ?? str.toUpperCase()
