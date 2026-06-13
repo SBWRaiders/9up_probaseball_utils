@@ -81,6 +81,27 @@ const normText = (s: unknown) =>
         .trim()
         .toLowerCase()
 
+
+const POSITION_ALIASES: Record<string, string> = {
+  'b1': '1B', '1b': '1B', '1': '1B', '1루': '1B',
+  'b2': '2B', '2b': '2B', '2': '2B', '2루': '2B',
+  'b3': '3B', '3b': '3B', '3': '3B', '3루': '3B',
+  'c': 'C', '포': 'C',
+  'ss': 'SS', '유격': 'SS',
+  'lf': 'LF', '좌익': 'LF',
+  'cf': 'CF', '중견': 'CF',
+  'rf': 'RF', '우익': 'RF',
+  'sp': 'SP', '선발': 'SP',
+  'rp': 'RP', '불펜': 'RP',
+  'dh': 'DH', '지타': 'DH',
+}
+const normalizePosition = (position: any): string => {
+  const str = String(position ?? '').trim()
+  if (!str) return ''
+  const lower = str.toLowerCase()
+  return POSITION_ALIASES[lower] ?? str.toUpperCase()
+}
+
 const toArray = (v: unknown, { allowComma = true }: { allowComma?: boolean } = {}) => {
   if (Array.isArray(v)) return v.map(x => String(x).trim()).filter(Boolean)
   if (typeof v === 'string') {
@@ -145,7 +166,7 @@ const filterOptions = computed(() => {
       if (raw == null || raw === '') continue
 
       if (field === 'position') {
-        toArray(raw).forEach(v => options[field].add(String(v)))
+        toArray(raw).forEach(v => options[field].add(normalizePosition(v)))
       } else if (field === 'enhancedSkill') {
         toArray(raw, { allowComma: false }).forEach(v => options[field].add(v))
       } else {
@@ -205,7 +226,7 @@ const preparedPlayers = computed<Prepared[]>(() =>
       teamLc: toArray(p.team).map(lc),
       skillLc: toArray(p.skill).map(lc),
       enhancedSkillLc: toArray(p.enhancedSkill, { allowComma: false }).map(lc),
-      positionLc: toArray(p.position).map(lc),
+      positionLc: toArray(p.position).map(v => normalizePosition(v).toLowerCase()),
       yearsNum: toArray(p.year).map(n => Number(n)).filter(n => !Number.isNaN(n)),
       synergyNormSet: new Set(toArray(p.synergy).map(normText)),
     }))

@@ -318,7 +318,7 @@ const preparedPlayers = computed<PreparedPlayer[]>(() =>
       raw: player,
       nameNormalized: normalizeText(player.name),
       teamLowerCase: toArray(player.team).map(toLowerCase),
-      positionLowerCase: toArray(player.position).map(toLowerCase),
+      positionLowerCase: toArray(player.position).map(v => normalizePosition(v).toLowerCase()),
       yearsNumeric: toArray(player.year).map((y:any)=>Number(y)).filter((y:any)=>!Number.isNaN(y)),
       synergyNormalizedSet: new Set(toArray(player.synergy).map(normalizeText))
     }))
@@ -359,7 +359,7 @@ const searchOptions = computed(() => {
   const o: Record<string, Set<string>> = { team: new Set(), position: new Set(), grade: new Set() }
   for (const p of players.value) {
     toArray(p.team).forEach(v => o.team.add(v))
-    toArray(p.position).forEach(v => o.position.add(v))
+    toArray(p.position).forEach(v => o.position.add(normalizePosition(v)))
     if (p.grade) o.grade.add(String(p.grade))
   }
   return {
