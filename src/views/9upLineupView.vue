@@ -1111,33 +1111,39 @@ const LineupSlot = defineComponent({
 
               <div>
                 <label class="mb-2 block text-xs font-medium text-neutral-500 dark:text-neutral-400">시너지</label>
-                <div class="relative">
-                  <div class="flex flex-wrap gap-1 mb-2" v-if="searchQuery.synergy.length > 0">
-                    <span v-for="s in searchQuery.synergy" :key="s" class="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded-md text-xs">
-                      {{ s }}
-                      <button @click="searchQuery.synergy = searchQuery.synergy.filter(x => x !== s)" class="hover:text-red-500 focus:outline-none"><X class="w-3 h-3"/></button>
-                    </span>
-                  </div>
-                  <input 
-                    v-model="synergySearchText" 
-                    @focus="synergyDropdownOpen = true"
-                    @blur="closeSynergyDropdown"
-                    placeholder="시너지 검색 (타이핑하세요)" 
-                    class="w-full rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 px-3 py-2 text-sm focus:border-neutral-300 dark:focus:border-neutral-500 focus:ring-0 transition-colors"
+              <div class="flex flex-col gap-2">
+                <!-- 선택된 시너지 칩 -->
+                <div class="flex flex-wrap gap-1" v-if="searchQuery.synergy.length > 0">
+                  <span v-for="s in searchQuery.synergy" :key="s" class="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded-md text-xs">
+                    {{ s }}
+                    <button @click="searchQuery.synergy = searchQuery.synergy.filter(x => x !== s)" class="hover:text-red-500 focus:outline-none"><X class="w-3 h-3"/></button>
+                  </span>
+                </div>
+                
+                <!-- 검색 입력창 -->
+                <input 
+                  v-model="synergySearchText" 
+                  placeholder="시너지 검색 (타이핑하세요)" 
+                  class="w-full rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 px-3 py-2 text-sm focus:border-neutral-300 dark:focus:border-neutral-500 focus:ring-0 transition-colors"
+                >
+                
+                <!-- 항상 보이는 리스트 창 (스크롤) -->
+                <div class="w-full border border-neutral-200 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 max-h-32 overflow-y-auto">
+                  <div 
+                    v-for="s in filteredSynergyOptions" 
+                    :key="s" 
+                    @click="toggleSynergy(s)"
+                    class="px-3 py-1.5 text-sm cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-600 flex items-center justify-between transition-colors"
+                    :class="{'bg-purple-50 dark:bg-purple-900/30': searchQuery.synergy.includes(s)}"
                   >
-                  <div v-if="synergyDropdownOpen && filteredSynergyOptions.length > 0" class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-600 rounded-md shadow-lg max-h-40 overflow-y-auto">
-                    <div 
-                      v-for="s in filteredSynergyOptions" 
-                      :key="s" 
-                      @click="toggleSynergy(s)"
-                      class="px-3 py-2 text-sm cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 flex items-center justify-between"
-                      :class="{'bg-purple-50 dark:bg-purple-900/30': searchQuery.synergy.includes(s)}"
-                    >
-                      <span :class="{'font-bold text-purple-700 dark:text-purple-300': searchQuery.synergy.includes(s)}">{{ s }}</span>
-                      <Check v-if="searchQuery.synergy.includes(s)" class="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                    </div>
+                    <span :class="{'font-bold text-purple-700 dark:text-purple-300': searchQuery.synergy.includes(s)}">{{ s }}</span>
+                    <Check v-if="searchQuery.synergy.includes(s)" class="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <div v-if="filteredSynergyOptions.length === 0" class="px-3 py-2 text-xs text-neutral-400 text-center">
+                    검색 결과가 없습니다.
                   </div>
                 </div>
+              </div>
               </div>
 
               <div class="grid grid-cols-2 items-end gap-3">
