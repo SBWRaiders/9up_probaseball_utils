@@ -1054,7 +1054,7 @@ const LineupSlot = defineComponent({
 
 </script>
 <template>
-  <div class="fixed inset-0 bg-neutral-50 dark:bg-neutral-900 overflow-hidden transition-colors">
+  <div class="bg-neutral-50 dark:bg-neutral-900 overflow-hidden transition-colors h-[calc(100vh-80px)]">
     <div class="mx-auto max-w-[1800px] px-2 py-2 lg:px-4 lg:py-2 h-full flex flex-col">
       <div v-if="isLoading" class="flex h-full items-center justify-center">
         <div class="text-center">
