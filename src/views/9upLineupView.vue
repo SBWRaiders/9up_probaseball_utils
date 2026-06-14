@@ -383,7 +383,7 @@ const filteredPlayers = computed(() => {
         if (searchQuery.rarity != null && Number(p.rarity) !== Number(searchQuery.rarity)) return false
         if (searchQuery.grade.length && !searchQuery.grade.includes(String(p.grade || ''))) return false
         if (searchQuery.position.length && !searchQuery.position.some(v => positionLowerCase.includes(toLowerCase(v)))) return false
-        if (searchQuery.synergy.length && !searchQuery.synergy.map(normalizeText).some(t => synergyNormalizedSet.has(t))) return false
+        if (searchQuery.synergy.length && !searchQuery.synergy.map(normalizeText).every(t => synergyNormalizedSet.has(t))) return false
         if (tokens.length) {
           const hay = new Set<string>([
             nameNormalized, ...teamLowerCase, ...positionLowerCase,
