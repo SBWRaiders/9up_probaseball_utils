@@ -528,16 +528,31 @@ const checkSynergyInclusion = (target: string, playerSynergies: string[]) => {
   }
   // 텍스트 휴리스틱
   const clean = (x:string)=>String(x??'').normalize('NFKC').replace(/​|‌|‍|⁠/g,'').replace(/[,\s클럽]/g,'').trim()
-  if (playerSynergies.some(s => clean(s)===clean(key))) return true
-  const tm = clean(key).match(/(\D*)(\d+)(\D*)/); if (!tm) return false
+  const keyClean = clean(key)
+  if (playerSynergies.some(s => clean(s) === keyClean)) return true
+
+  const tm = keyClean.match(/^(\D*)(\d+)(\D*)$/)
+  if (!tm) {
+    return playerSynergies.some(s => clean(s).includes(keyClean))
+  }
+
   const [,tp,tn,ts] = tm
   if (tn.length===4 || tp.includes('동명이인') || ts.includes('동명이인')) return false
   const tnum = parseInt(tn,10)
+
   return playerSynergies.some(s => {
-    const sm = clean(s).match(/(\D*)(\d+)(\D*)/); if (!sm) return false
-    const [,pp,pn,ps] = sm
-    if (pn.length===4 || pp.includes('동명이인') || ps.includes('동명이인')) return false
-    return pp===tp && ps===ts && parseInt(pn,10)>=tnum
+    const sClean = clean(s)
+    if (sClean.includes(keyClean)) return true
+
+    const parts = sClean.split('-')
+    for (const part of parts) {
+      const sm = part.match(/^(\D*)(\d+)(\D*)$/)
+      if (!sm) continue
+      const [,pp,pn,ps] = sm
+      if (pn.length===4 || pp.includes('동명이인') || ps.includes('동명이인')) continue
+      if (pp===tp && ps===ts && parseInt(pn,10)>=tnum) return true
+    }
+    return false
   })
 }
 
