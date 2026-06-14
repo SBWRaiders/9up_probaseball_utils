@@ -1055,14 +1055,14 @@ const LineupSlot = defineComponent({
 </script>
 <template>
   <div class="bg-neutral-50 dark:bg-neutral-900 min-h-screen transition-colors">
-    <div class="mx-auto max-w-[1800px] px-4 py-4 min-h-[850px] h-[100dvh] flex flex-col">
+    <div class="mx-auto max-w-[1800px] px-2 py-2 lg:px-4 lg:py-2 min-h-[700px] h-[100dvh] flex flex-col">
       <div v-if="isLoading" class="flex h-full items-center justify-center">
         <div class="text-center">
           <div class="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-neutral-300 dark:border-neutral-600 border-t-neutral-900 dark:border-t-neutral-100"></div>
           <p class="text-sm text-neutral-500 dark:text-neutral-400">데이터를 불러오는 중…</p>
         </div>
       </div>
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-4 flex-1 min-h-0">
         <section :class="[
           'lg:col-span-3 flex flex-col rounded-2xl bg-white dark:bg-neutral-800 ring-1 ring-neutral-200/70 dark:ring-neutral-700/70 min-h-0 transition-colors'
         ]">
@@ -1110,10 +1110,10 @@ const LineupSlot = defineComponent({
                       v-for="grade in searchOptions.grade"
                       :key="grade"
                       @click="searchQuery.grade.includes(grade) ? searchQuery.grade = searchQuery.grade.filter(g => g !== grade) : searchQuery.grade.push(grade)"
-                      :class="searchQuery.grade.includes(grade) ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border-blue-300 dark:border-blue-600' : 'bg-white dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-600'"
-                      class="px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors hover:bg-blue-50 dark:hover:bg-blue-800"
+                      :class="searchQuery.grade.includes(grade) ? 'border-purple-400 dark:border-purple-500 bg-purple-50 dark:bg-purple-900/30 shadow-sm' : 'border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 opacity-60 hover:opacity-100'"
+                      class="p-1.5 rounded-lg border transition-all hover:bg-purple-50 dark:hover:bg-purple-800"
                   >
-                    {{ grade }}
+                    <img :src="`/assets/logos/grade/${grade}.png`" :alt="grade" class="w-6 h-6 object-contain" @error="$event.target.style.display='none'" />
                   </button>
                 </div>
               </div>
@@ -1213,7 +1213,7 @@ const LineupSlot = defineComponent({
                 v-for="(player, i) in paginatedPlayers"
                 :key="i"
                 @click="autoAssignPlayer(player)"
-                class="group cursor-pointer border-b border-neutral-100 dark:border-neutral-700 px-4 py-4 transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-700/50"
+                class="group cursor-pointer border-b border-neutral-100 dark:border-neutral-700 px-2 py-2 lg:px-4 lg:py-2 transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-700/50"
             >
               <div class="flex items-start gap-4">
                 <img :src="`/assets/logos/grade/${player.grade}.png`" :alt="player.grade" class="h-10 w-10 rounded-md object-contain ring-1 ring-neutral-200 dark:ring-neutral-600 flex-shrink-0" />
@@ -1258,7 +1258,7 @@ const LineupSlot = defineComponent({
           </div>
         </section>
 
-        <section class="lg:col-span-6 flex flex-col rounded-2xl bg-white dark:bg-neutral-800 ring-1 ring-neutral-200/70 dark:ring-neutral-700/70 min-h-0 transition-colors">
+        <section class="lg:col-span-7 flex flex-col rounded-2xl bg-white dark:bg-neutral-800 ring-1 ring-neutral-200/70 dark:ring-neutral-700/70 min-h-0 transition-colors">
           <header class="border-b border-neutral-100 dark:border-neutral-700 px-5 py-4 flex-shrink-0">
             <div class="flex items-center justify-between mb-3">
               <h2 class="text-base font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">라인업</h2>
@@ -1332,7 +1332,7 @@ const LineupSlot = defineComponent({
               </div>
 
               <div>
-                <div class="relative" style="height: 400px;">
+                <div class="relative" style="height: 360px;">
                   <div class="absolute top-0 transform -translate-x-1/2 w-20 lg:w-32" style="right: calc(24% - 50px);">
                     <LineupSlot pos="2B" :p="lineup['2B']" @clear="clearLineupSlot('2B')" :get-info="getPlayerSynergyInfo" />
                   </div>
@@ -1387,7 +1387,7 @@ const LineupSlot = defineComponent({
           </div>
         </section>
 
-        <section class="lg:col-span-3 flex flex-col rounded-2xl bg-white dark:bg-neutral-800 ring-1 ring-neutral-200/70 dark:ring-neutral-700/70 min-h-0 transition-colors">
+        <section class="lg:col-span-2 flex flex-col rounded-2xl bg-white dark:bg-neutral-800 ring-1 ring-neutral-200/70 dark:ring-neutral-700/70 min-h-0 transition-colors">
           <header class="border-b border-neutral-100 dark:border-neutral-700 px-5 py-4 flex-shrink-0">
             <div class="flex items-center justify-between mb-3">
               <h2 class="text-base font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">시너지</h2>
