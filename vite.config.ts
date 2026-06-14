@@ -10,4 +10,8 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  server: {
+    port: 5173,         // 포트 번호를 5173으로 고정
+    strictPort: true,   // 다른 포트로 자동 변경되는 것을 차단
+  },
 })
