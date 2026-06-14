@@ -1054,8 +1054,8 @@ const LineupSlot = defineComponent({
 
 </script>
 <template>
-  <div class="bg-neutral-50 dark:bg-neutral-900 min-h-screen transition-colors">
-    <div class="mx-auto max-w-[1800px] px-2 py-2 lg:px-4 lg:py-2 h-[100dvh] overflow-hidden flex flex-col">
+  <div class="bg-neutral-50 dark:bg-neutral-900 h-screen overflow-hidden transition-colors">
+    <div class="mx-auto max-w-[1800px] px-2 py-2 lg:px-4 lg:py-2 h-full flex flex-col">
       <div v-if="isLoading" class="flex h-full items-center justify-center">
         <div class="text-center">
           <div class="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-neutral-300 dark:border-neutral-600 border-t-neutral-900 dark:border-t-neutral-100"></div>
@@ -1081,14 +1081,14 @@ const LineupSlot = defineComponent({
                   v-model.trim="searchQuery.search"
                   type="text"
                   placeholder="이름, 팀, 포지션, 시너지…"
-                  class="w-full rounded-xl border border-neutral-200 dark:border-neutral-600 bg-neutral-50/60 dark:bg-neutral-700/60 px-4 py-2.5 text-sm text-neutral-800 dark:text-neutral-200 placeholder-neutral-400 dark:placeholder-neutral-500 outline-none focus:border-neutral-300 dark:focus:border-neutral-500 focus:ring-0 transition-colors"
+                  class="w-full rounded-xl border border-neutral-200 dark:border-neutral-600 bg-neutral-50/60 dark:bg-neutral-700/60 px-3 py-1.5 text-sm text-neutral-800 dark:text-neutral-200 placeholder-neutral-400 dark:placeholder-neutral-500 outline-none focus:border-neutral-300 dark:focus:border-neutral-500 focus:ring-0 transition-colors"
               />
               <Search class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400 dark:text-neutral-500" />
             </div>
 
             <button
                 @click="advancedFilterOpen = !advancedFilterOpen"
-                class="mt-3 inline-flex w-full items-center justify-between rounded-xl border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-600 transition-colors"
+                class="mt-2 inline-flex w-full items-center justify-between rounded-xl border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-600 transition-colors"
             >
               <span class="inline-flex items-center gap-2">
                 <Filter class="h-4 w-4" />
@@ -1102,18 +1102,18 @@ const LineupSlot = defineComponent({
               </span>
             </button>
 
-            <div v-if="advancedFilterOpen" class="mt-3 space-y-4 max-h-[40vh] overflow-y-auto pr-2 pb-2 custom-scrollbar">
+            <div v-if="advancedFilterOpen" class="mt-2 space-y-3 max-h-[45vh] overflow-y-auto pr-2 pb-2 custom-scrollbar">
               <div>
-                <label class="mb-2 block text-xs font-medium text-neutral-500 dark:text-neutral-400">등급</label>
-                <div class="flex flex-wrap gap-2">
+                <label class="mb-1 block text-xs font-medium text-neutral-500 dark:text-neutral-400">등급</label>
+                <div class="grid grid-cols-6 gap-1">
                   <button
                       v-for="grade in searchOptions.grade"
                       :key="grade"
                       @click="searchQuery.grade.includes(grade) ? searchQuery.grade = searchQuery.grade.filter(g => g !== grade) : searchQuery.grade.push(grade)"
                       :class="searchQuery.grade.includes(grade) ? 'border-purple-400 dark:border-purple-500 bg-purple-50 dark:bg-purple-900/30 shadow-sm' : 'border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 opacity-60 hover:opacity-100'"
-                      class="p-0.5 rounded-lg border transition-all hover:bg-purple-50 dark:hover:bg-purple-800"
+                      class="p-0 flex items-center justify-center rounded-md border transition-all hover:bg-purple-50 dark:hover:bg-purple-800 aspect-square"
                   >
-                    <img :src="`/assets/logos/grade/${grade}.png`" :alt="grade" class="w-10 h-10 object-contain" @error="$event.target.style.display='none'" />
+                    <img :src="`/assets/logos/grade/${grade}.png`" :alt="grade" class="w-full h-full max-w-[40px] max-h-[40px] object-contain p-0.5" @error="$event.target.style.display='none'" />
                   </button>
                 </div>
               </div>
