@@ -1055,7 +1055,7 @@ const LineupSlot = defineComponent({
 </script>
 <template>
   <div class="bg-neutral-50 dark:bg-neutral-900 min-h-screen transition-colors">
-    <div class="mx-auto max-w-[1800px] px-2 py-2 lg:px-4 lg:py-2 min-h-[700px] h-[100dvh] flex flex-col">
+    <div class="mx-auto max-w-[1800px] px-2 py-2 lg:px-4 lg:py-2 h-[100dvh] overflow-hidden flex flex-col">
       <div v-if="isLoading" class="flex h-full items-center justify-center">
         <div class="text-center">
           <div class="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-neutral-300 dark:border-neutral-600 border-t-neutral-900 dark:border-t-neutral-100"></div>
@@ -1111,9 +1111,9 @@ const LineupSlot = defineComponent({
                       :key="grade"
                       @click="searchQuery.grade.includes(grade) ? searchQuery.grade = searchQuery.grade.filter(g => g !== grade) : searchQuery.grade.push(grade)"
                       :class="searchQuery.grade.includes(grade) ? 'border-purple-400 dark:border-purple-500 bg-purple-50 dark:bg-purple-900/30 shadow-sm' : 'border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 opacity-60 hover:opacity-100'"
-                      class="p-1.5 rounded-lg border transition-all hover:bg-purple-50 dark:hover:bg-purple-800"
+                      class="p-0.5 rounded-lg border transition-all hover:bg-purple-50 dark:hover:bg-purple-800"
                   >
-                    <img :src="`/assets/logos/grade/${grade}.png`" :alt="grade" class="w-6 h-6 object-contain" @error="$event.target.style.display='none'" />
+                    <img :src="`/assets/logos/grade/${grade}.png`" :alt="grade" class="w-10 h-10 object-contain" @error="$event.target.style.display='none'" />
                   </button>
                 </div>
               </div>
@@ -1135,16 +1135,16 @@ const LineupSlot = defineComponent({
 
               <div>
                 <label class="mb-2 block text-xs font-medium text-neutral-500 dark:text-neutral-400">팀</label>
-                <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 max-h-32 overflow-y-auto">
+                <div class="grid grid-cols-4 gap-1.5">
                   <button
                       v-for="group in groupedTeams"
                       :key="group.name"
                       :title="group.name"
                       @click="toggleTeamGroup(group)"
                       :class="isTeamGroupSelected(group) ? 'bg-purple-100 dark:bg-purple-900 border-purple-400 dark:border-purple-500 shadow-sm' : 'bg-white dark:bg-neutral-700 border-neutral-200 dark:border-neutral-600'"
-                      class="p-2 flex items-center justify-center rounded-lg border transition-colors hover:bg-purple-50 dark:hover:bg-purple-800"
+                      class="p-1 flex items-center justify-center rounded-lg border transition-colors hover:bg-purple-50 dark:hover:bg-purple-800"
                   >
-                    <img v-if="getTeamLogoUrl(group.id[0])" :src="getTeamLogoUrl(group.id[0])" :alt="group.name" class="w-6 h-6 object-contain" @error="$event.target.style.display='none'" />
+                    <img v-if="getTeamLogoUrl(group.id[0])" :src="getTeamLogoUrl(group.id[0])" :alt="group.name" class="w-8 h-8 object-contain" @error="$event.target.style.display='none'" />
                   </button>
                 </div>
               </div>
@@ -1332,7 +1332,7 @@ const LineupSlot = defineComponent({
               </div>
 
               <div>
-                <div class="relative" style="height: 360px;">
+                <div class="relative" style="height: 330px;">
                   <div class="absolute top-0 transform -translate-x-1/2 w-20 lg:w-32" style="right: calc(24% - 50px);">
                     <LineupSlot pos="2B" :p="lineup['2B']" @clear="clearLineupSlot('2B')" :get-info="getPlayerSynergyInfo" />
                   </div>
