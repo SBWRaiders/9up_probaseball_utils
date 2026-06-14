@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, defineComponent, h, nextTick, watch, reactive } from 'vue'
 import Papa from 'papaparse'
-import { Star, Search, Filter, ChevronRight as ChevronRightIcon, ChevronDown, X, Save, FolderOpen, RotateCcw, Trash2 } from 'lucide-vue-next'
+import { Star, Check, Search, Filter, ChevronRight as ChevronRightIcon, ChevronDown, X, Save, FolderOpen, RotateCcw, Trash2 } from 'lucide-vue-next'
 
 /* =========================
    타입 정의
@@ -64,6 +64,13 @@ const lineupViewMode = ref('batter')
    다크모드 & UI 상태
 ========================= */
 const expandedSynergies = ref<Set<string>>(new Set())
+
+
+const closeSynergyDropdown = () => {
+  setTimeout(() => {
+    synergyDropdownOpen.value = false
+  }, 200)
+}
 
 const toggleSynergy = (synergyName: string) => {
   const newExpanded = new Set(expandedSynergies.value)
@@ -1104,9 +1111,33 @@ const LineupSlot = defineComponent({
 
               <div>
                 <label class="mb-2 block text-xs font-medium text-neutral-500 dark:text-neutral-400">시너지</label>
-                <select v-model="searchQuery.synergy" multiple class="h-24 w-full rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 px-2 py-2 text-sm focus:border-neutral-300 dark:focus:border-neutral-500 focus:ring-0 transition-colors">
-                  <option v-for="s in synergyOptions" :key="s" :value="s">{{ s }}</option>
-                </select>
+                <div class="relative">
+                  <div class="flex flex-wrap gap-1 mb-2" v-if="searchQuery.synergy.length > 0">
+                    <span v-for="s in searchQuery.synergy" :key="s" class="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 rounded-md text-xs">
+                      {{ s }}
+                      <button @click="searchQuery.synergy = searchQuery.synergy.filter(x => x !== s)" class="hover:text-red-500 focus:outline-none"><X class="w-3 h-3"/></button>
+                    </span>
+                  </div>
+                  <input 
+                    v-model="synergySearchText" 
+                    @focus="synergyDropdownOpen = true"
+                    @blur="closeSynergyDropdown"
+                    placeholder="시너지 검색 (타이핑하세요)" 
+                    class="w-full rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 px-3 py-2 text-sm focus:border-neutral-300 dark:focus:border-neutral-500 focus:ring-0 transition-colors"
+                  >
+                  <div v-if="synergyDropdownOpen && filteredSynergyOptions.length > 0" class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-600 rounded-md shadow-lg max-h-40 overflow-y-auto">
+                    <div 
+                      v-for="s in filteredSynergyOptions" 
+                      :key="s" 
+                      @click="toggleSynergy(s)"
+                      class="px-3 py-2 text-sm cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 flex items-center justify-between"
+                      :class="{'bg-purple-50 dark:bg-purple-900/30': searchQuery.synergy.includes(s)}"
+                    >
+                      <span :class="{'font-bold text-purple-700 dark:text-purple-300': searchQuery.synergy.includes(s)}">{{ s }}</span>
+                      <Check v-if="searchQuery.synergy.includes(s)" class="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div class="grid grid-cols-2 items-end gap-3">
