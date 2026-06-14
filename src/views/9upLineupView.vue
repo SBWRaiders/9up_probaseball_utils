@@ -527,7 +527,7 @@ const checkSynergyInclusion = (target: string, playerSynergies: string[]) => {
     }
   }
   // 텍스트 휴리스틱
-  const clean = (x:string)=>String(x??'').normalize('NFKC').replace(/​|‌|‍|⁠/g,'').replace(/[,\s]/g,'').trim()
+  const clean = (x:string)=>String(x??'').normalize('NFKC').replace(/​|‌|‍|⁠/g,'').replace(/[,\s클럽]/g,'').trim()
   if (playerSynergies.some(s => clean(s)===clean(key))) return true
   const tm = clean(key).match(/(\D*)(\d+)(\D*)/); if (!tm) return false
   const [,tp,tn,ts] = tm
@@ -650,11 +650,15 @@ const activeSynergyList = computed(() => {
     const awarded = new Set<string>()
 
     const pushByMode = (r: Rec) => {
-      if (mode==='max') {
+      const famName = (r.synergy as any)?.group?.family || '';
+      const isStatSynergy = /(도루|홈런|타점|득점|안타|볼넷|클럽|출루|타율|방어율|승리|세이브|홀드|삼진)/.test(famName) || /(도루|홈런|타점|득점|안타|볼넷|클럽|출루|타율|방어율|승리|세이브|홀드|삼진)/.test(r.name);
+      const effectiveMode = isStatSynergy ? 'cumulative' : mode;
+
+      if (effectiveMode==='max') {
         if (!out.some(x => (x.synergy as any)?.group?.family===fam)) out.push({...r, appliedPlayers: r.appliedPlayers.slice()})
         return
       }
-      if (mode==='cumulative') { out.push({...r, appliedPlayers: r.appliedPlayers.slice()}); return }
+      if (effectiveMode==='cumulative') { out.push({...r, appliedPlayers: r.appliedPlayers.slice()}); return }
       // cumulative_dedup
       const uniq = r.appliedPlayers.filter(n=>!awarded.has(n))
       out.push({...r, appliedPlayers: uniq})
@@ -725,14 +729,14 @@ const getPlayerSynergyInfo = (player: Raw) => {
   if (!player?.synergy) return []
   const playerSynergies = toArray(player.synergy).map(s => s.trim())
   const info: Array<{name:string; isActive:boolean; effectText:string; count:number; description:string}> = []
-  for (const nm of playerSynergies) {
-    const rec = synergyIndex.value.get(nm)
-    if (!rec) continue
-    const isActive = rec.activated.length > 0
-    const effectText = isActive && rec.topCondition
-        ? `${STAT_LABELS[rec.topCondition.stat] || rec.topCondition.stat} +${rec.topCondition.bonus.value}${rec.topCondition.bonus.unit==='percent' ? '%' : ''}`
-        : rec.nextCondition ? rec.nextCondition.text : '조건 없음'
-    info.push({ name: nm, isActive, effectText, count: rec.count, description: rec.synergy.description || '' })
+  for (const [nm, rec] of synergyIndex.value.entries()) {
+    if (checkSynergyInclusion(nm, playerSynergies)) {
+      const isActive = rec.activated.length > 0
+      const effectText = isActive && rec.topCondition
+          ? `${STAT_LABELS[rec.topCondition.stat] || rec.topCondition.stat} +${rec.topCondition.bonus.value}${rec.topCondition.bonus.unit==='percent' ? '%' : ''}`
+          : rec.nextCondition ? rec.nextCondition.text : '조건 없음'
+      info.push({ name: nm, isActive, effectText, count: rec.count, description: rec.synergy.description || '' })
+    }
   }
   return info
 }
@@ -761,9 +765,8 @@ const playerSynergyList = computed(() => {
     const activeSynergies: Array<{name: string; description: string; activeCondition: JsonCond}> = []
     const inactiveSynergies: Array<{name: string; remainingCount: number; nextEffectDescription: string}> = []
 
-    for (const synergyName of playerSynergies) {
-      const rec = synergyIndex.value.get(synergyName)
-      if (!rec) continue
+    for (const [synergyName, rec] of synergyIndex.value.entries()) {
+      if (!checkSynergyInclusion(synergyName, playerSynergies)) continue
 
       if (rec.activated.length > 0 && rec.topCondition) {
         // 활성 시너지
