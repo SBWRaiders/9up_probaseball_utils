@@ -59,6 +59,7 @@ const POSITION_ALIASES: Record<string, string> = {
 }
 const CSV_SPLIT = /[,、;、]+/
 const lineupViewMode = ref('batter')
+const isInitialized = ref(false)
 
 /* =========================
    다크모드 & UI 상태
@@ -171,6 +172,8 @@ const fetchSavedLineups = () => {
 
 // 오토 세이브 (작업 중 새로고침 날아감 방지)
 watch(lineup, () => {
+  // 로드가 완전히 끝나기 전에는 절대로 빈 상태를 덮어쓰지 않도록 방어 (데이터 날아감 방지)
+  if (!isInitialized.value) return; 
   localStorage.setItem(LINEUP_AUTOSAVE_KEY, JSON.stringify(lineup.value))
 }, { deep: true })
 
@@ -852,11 +855,20 @@ onMounted(async () => {
   isLoading.value = true
   try {
     await Promise.all([loadPlayerData(), loadSynergyData(), loadTeamData()])
+    
+    // 저장된 다중 라인업 목록 미리 동기화
+    fetchSavedLineups()
+
     // 오토 세이브된 작업중인 라인업이 있다면 불러오기
     const autoSaved = localStorage.getItem(LINEUP_AUTOSAVE_KEY)
     if (autoSaved) {
       try { lineup.value = JSON.parse(autoSaved) } catch (e) {}
     }
+    
+    // 데이터 불러오기가 완벽하게 끝난 직후에만 자동 저장 잠금을 해제
+    nextTick(() => {
+      isInitialized.value = true
+    })
   } catch (e) {
     console.error(e)
   } finally {
