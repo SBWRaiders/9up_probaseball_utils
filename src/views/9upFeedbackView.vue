@@ -145,7 +145,7 @@ const submitFeedback = async () => {
         <!-- 연락처 입력 (선택) -->
         <div class="flex flex-col gap-2">
           <label class="text-sm font-bold text-neutral-700 dark:text-neutral-300">답변 받을 연락처 <span class="text-neutral-400 font-normal text-xs">(선택)</span></label>
-          <input type="text" v-model="form.contact" placeholder="이메일이나 디스코드 아이디를 남겨주시면 진행 상황을 알려드립니다.(EX. 직진본능#3334)" class="w-full px-4 py-3 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl outline-none focus:border-blue-500 dark:focus:border-blue-500 transition-colors text-neutral-900 dark:text-neutral-100" />
+          <input type="text" v-model="form.contact" placeholder="이메일이나 디스코드 아이디를 남겨주시면 진행 상황을 알려드립니다.(EX.디스코드:SBWRaiders)" class="w-full px-4 py-3 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl outline-none focus:border-blue-500 dark:focus:border-blue-500 transition-colors text-neutral-900 dark:text-neutral-100" />
         </div>
 
         <!-- 내용 입력 -->
