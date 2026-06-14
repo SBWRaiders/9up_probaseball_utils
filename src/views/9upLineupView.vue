@@ -1025,7 +1025,7 @@ const LineupSlot = defineComponent({
 </script>
 <template>
   <div class="bg-neutral-50 dark:bg-neutral-900 min-h-screen transition-colors">
-    <div class="mx-auto max-w-[1800px] px-4 py-6 h-screen flex flex-col">
+    <div class="mx-auto max-w-[1800px] px-4 py-4 min-h-[850px] h-[100dvh] flex flex-col">
       <div v-if="isLoading" class="flex h-full items-center justify-center">
         <div class="text-center">
           <div class="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-neutral-300 dark:border-neutral-600 border-t-neutral-900 dark:border-t-neutral-100"></div>
@@ -1072,7 +1072,7 @@ const LineupSlot = defineComponent({
               </span>
             </button>
 
-            <div v-if="advancedFilterOpen" class="mt-3 space-y-4">
+            <div v-if="advancedFilterOpen" class="mt-3 space-y-4 max-h-[40vh] overflow-y-auto pr-2 pb-2 custom-scrollbar">
               <div>
                 <label class="mb-2 block text-xs font-medium text-neutral-500 dark:text-neutral-400">등급</label>
                 <div class="flex flex-wrap gap-2">
@@ -1570,6 +1570,10 @@ const LineupSlot = defineComponent({
   </div>
 </template>
 <style scoped>
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
+.dark .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #475569; }
+
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 * { scroll-behavior: smooth; }
 ::-webkit-scrollbar { width: 8px; }
