@@ -42,7 +42,7 @@
   {
     "id": 3,
     "synergy": "100타점 클럽",
-    "synergy_effect": "- 라인업에 3명 이상 기용 시 파워 +50 ",
+    "synergy_effect": "- 라인업에 3명 이상 기용 시 파워 +50",
     "description": "단일 시즌 100타점 이상 기록한 선수들입니다.",
     "stackable": false,
     "conditions": [
