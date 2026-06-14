@@ -1054,7 +1054,7 @@ const LineupSlot = defineComponent({
 
 </script>
 <template>
-  <div class="bg-neutral-50 dark:bg-neutral-900 h-screen overflow-hidden transition-colors">
+  <div class="fixed inset-0 bg-neutral-50 dark:bg-neutral-900 overflow-hidden transition-colors">
     <div class="mx-auto max-w-[1800px] px-2 py-2 lg:px-4 lg:py-2 h-full flex flex-col">
       <div v-if="isLoading" class="flex h-full items-center justify-center">
         <div class="text-center">
@@ -1111,9 +1111,9 @@ const LineupSlot = defineComponent({
                       :key="grade"
                       @click="searchQuery.grade.includes(grade) ? searchQuery.grade = searchQuery.grade.filter(g => g !== grade) : searchQuery.grade.push(grade)"
                       :class="searchQuery.grade.includes(grade) ? 'border-purple-400 dark:border-purple-500 bg-purple-50 dark:bg-purple-900/30 shadow-sm' : 'border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 opacity-60 hover:opacity-100'"
-                      class="p-0 flex items-center justify-center rounded-md border transition-all hover:bg-purple-50 dark:hover:bg-purple-800 aspect-square"
+                      class="py-1 px-0 flex items-center justify-center rounded-md border transition-all hover:bg-purple-50 dark:hover:bg-purple-800 overflow-hidden"
                   >
-                    <img :src="`/assets/logos/grade/${grade}.png`" :alt="grade" class="w-full h-full max-w-[40px] max-h-[40px] object-contain p-0.5" @error="$event.target.style.display='none'" />
+                    <img :src="`/assets/logos/grade/${grade}.png`" :alt="grade" class="w-full h-8 object-contain scale-[1.3]" @error="$event.target.style.display='none'" />
                   </button>
                 </div>
               </div>
