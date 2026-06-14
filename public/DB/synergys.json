@@ -366,46 +366,6 @@
     }
   },
   {
-    "id": 16,
-    "synergy": "3-30-100 클럽",
-    "synergy_effect": "- 라인업에 3명 이상 기용 시 파워 +50 ",
-    "description": "단일 시즌 3할-30홈런-100타점을 동시에 기록한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": ">=",
-          "value": 3
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "fixed",
-          "value": 50.0
-        }
-      }
-    ]
-  },
-  {
-    "id": 17,
-    "synergy": "3-30-100-100 클럽",
-    "synergy_effect": "- 라인업에 2명 이상 기용 시 파워 +25 ",
-    "description": "단일 시즌 3할-30홈런-100타점-100득점을\n동시에 기록한 선수들입니다.",
-    "stackable": false,
-    "conditions": [
-      {
-        "count": {
-          "op": ">=",
-          "value": 2
-        },
-        "stat": "power",
-        "bonus": {
-          "unit": "fixed",
-          "value": 25.0
-        }
-      }
-    ]
-  },
-  {
     "id": 18,
     "synergy": "30도루 클럽",
     "synergy_effect": "- 라인업에 3명 이상 기용 시 파워 +75 ",
