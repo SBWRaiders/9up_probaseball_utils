@@ -282,7 +282,6 @@ const playerSynergiesData = computed(() => {
     return true;
   })
 })
-})
 
 const toggleSynergyCondition = (synName: string, idx: number) => {
   if (activeSynergyConditions.value[synName] === idx) {
