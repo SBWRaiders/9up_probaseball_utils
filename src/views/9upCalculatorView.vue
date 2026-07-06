@@ -232,12 +232,9 @@ const synergyHierarchy: Record<string, string[]> = {
   '3-30-100-100 클럽': ['3-30-100 클럽', '100득점-100타점 클럽', '100타점 클럽', '30홈런 클럽'],
   '3-30-100 클럽': ['100타점 클럽', '30홈런 클럽'],
   '100득점-100타점 클럽': ['100타점 클럽'],
-  // 타자 전용
-  '통산 2000경기 클럽': ['통산 1500경기 클럽'],
-  '통산 1500경기 클럽': [],
-  // 투수 전용
+  '통산 2000경기 클럽': ['통산 1500경기 클럽', '통산 700경기 클럽', '통산 500경기 클럽'],
+  '통산 1500경기 클럽': ['통산 700경기 클럽', '통산 500경기 클럽'],
   '통산 700경기 클럽': ['통산 500경기 클럽'],
-  '통산 500경기 클럽': [],
   '통산 2000안타 클럽': ['통산 1500안타 클럽'],
   '통산 300도루 클럽': ['통산 200도루 클럽'],
   '통산 300홈런 클럽': ['통산 200홈런 클럽']
@@ -266,18 +263,21 @@ const playerSynergiesData = computed(() => {
   const finalSynNames = Array.from(expandedSet)
   
   // 투수/타자 시너지 구분 함수 (스탯 기준)
-    // 이름(키워드) 기반 투수/타자 시너지 완벽 분리
-  const pitcherKeywords = ['승 클럽', '탈삼진', '이닝', '세이브', '홀드', '500경기', '700경기'];
-  const batterKeywords = ['안타', '홈런', '도루', '득점', '타점', '1500경기', '2000경기'];
+  const getSynergyType = (conditions: any[]) => {
+    const isPit = conditions?.some(c => ['control','movement','stuff','longHitSuppression','homeRunSuppression','runnerControl'].includes(c.stat));
+    const isBat = conditions?.some(c => ['power','contact','defense','running'].includes(c.stat));
+    if (isPit && !isBat) return 'pitcher';
+    if (isBat && !isPit) return 'batter';
+    return 'both';
+  }
 
   return synergys.value.filter(s => {
     if (!finalSynNames.includes(s.synergy)) return false;
     
-    if (isPitcher.value) {
-      if (batterKeywords.some(kw => s.synergy.includes(kw))) return false;
-    } else {
-      if (pitcherKeywords.some(kw => s.synergy.includes(kw))) return false;
-    }
+    // 현재 선택된 선수가 투수인지 타자인지에 따라 맞지 않는 시너지 완전히 차단
+    const synType = getSynergyType(s.conditions);
+    if (isPitcher.value && synType === 'batter') return false;
+    if (!isPitcher.value && synType === 'pitcher') return false;
     
     return true;
   })
