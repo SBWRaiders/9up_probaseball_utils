@@ -688,9 +688,30 @@ const activeSynergyList = computed(() => {
     if (inherit && sorted.length>0) {
       const activeNames = new Set(sorted.map(r=>r.name))
       const implied: Array<{name:string;count:number}> = []
+      
+      // 투수/타자 시너지 구분 함수 (스탯 기준)
+      const getSynergyType = (conditions: any[]) => {
+        const isPit = conditions?.some(c => ['control','movement','stuff','longHitSuppression','homeRunSuppression','runnerControl'].includes(c.stat));
+        const isBat = conditions?.some(c => ['power','contact','defense','running'].includes(c.stat));
+        if (isPit && !isBat) return 'pitcher';
+        if (isBat && !isPit) return 'batter';
+        return 'both';
+      }
+      
+      const parentType = getSynergyType(sorted[0].synergy.conditions);
+
       for (const m of members) {
         const nm = String(m.synergy).trim()
         if (activeNames.has(nm)) continue
+        
+        // 하위 시너지의 투타 타입 확인
+        const childType = getSynergyType(m.conditions);
+        
+        // 부모와 자식의 투/타 속성이 명확히 다르면 (예: 타자 통산경기에 투수 통산경기가 엮이는 현상 방지) 스킵
+        if (parentType !== 'both' && childType !== 'both' && parentType !== childType) {
+          continue;
+        }
+
         const rec = synergyIndex.value.get(nm)
         if (!rec) continue
         implied.push({ name: nm, count: rec.count })
