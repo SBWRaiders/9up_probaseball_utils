@@ -261,7 +261,26 @@ const playerSynergiesData = computed(() => {
   }
   
   const finalSynNames = Array.from(expandedSet)
-  return synergys.value.filter(s => finalSynNames.includes(s.synergy))
+  
+  // 투수/타자 시너지 구분 함수 (스탯 기준)
+  const getSynergyType = (conditions: any[]) => {
+    const isPit = conditions?.some(c => ['control','movement','stuff','longHitSuppression','homeRunSuppression','runnerControl'].includes(c.stat));
+    const isBat = conditions?.some(c => ['power','contact','defense','running'].includes(c.stat));
+    if (isPit && !isBat) return 'pitcher';
+    if (isBat && !isPit) return 'batter';
+    return 'both';
+  }
+
+  return synergys.value.filter(s => {
+    if (!finalSynNames.includes(s.synergy)) return false;
+    
+    // 현재 선택된 선수가 투수인지 타자인지에 따라 맞지 않는 시너지 완전히 차단
+    const synType = getSynergyType(s.conditions);
+    if (isPitcher.value && synType === 'batter') return false;
+    if (!isPitcher.value && synType === 'pitcher') return false;
+    
+    return true;
+  })
 })
 
 const toggleSynergyCondition = (synName: string, idx: number) => {
