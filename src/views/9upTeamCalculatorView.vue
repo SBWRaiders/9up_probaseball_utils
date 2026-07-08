@@ -386,31 +386,11 @@ const teamTotalPower = computed(() => {
   return sum
 })
 
-const getAvailableSlot = (basePos: string): string => {
-  if (selectedSlot.value && selectedSlot.value.startsWith(basePos)) {
-    if (['SP', 'RP', 'BENCH'].includes(basePos)) return selectedSlot.value;
-  }
-  if (basePos === 'SP') {
-    for (let i = 1; i <= 5; i++) if (!lineup.value[`SP${i}` as keyof typeof lineup.value]) return `SP${i}`
-    return 'SP1'
-  }
-  if (basePos === 'RP') {
-    for (let i = 1; i <= 6; i++) if (!lineup.value[`RP${i}` as keyof typeof lineup.value]) return `RP${i}`
-    return 'RP1'
-  }
-  if (basePos === 'BENCH') {
-    for (let i = 1; i <= 8; i++) if (!lineup.value[`BENCH${i}` as keyof typeof lineup.value]) return `BENCH${i}`
-    return 'BENCH1'
-  }
-  return basePos
-}
-
-const assignPlayerToSlot = (posOrSlot: string, p: Raw) => {
+const assignPlayerToSlot = (slot: string, p: Raw) => {
   Object.keys(lineup.value).forEach(k => { if (lineup.value[k]?.id === p.id) lineup.value[k] = null })
-  const targetSlot = getAvailableSlot(posOrSlot)
-  lineup.value[targetSlot] = p
-  initPlayerBuff(targetSlot, p)
-  selectedSlot.value = targetSlot
+  lineup.value[slot] = p
+  initPlayerBuff(slot, p)
+  selectedSlot.value = slot
   rightPanelTab.value = 'player'
 }
 const clearSlot = (slot: string) => { lineup.value[slot] = null; if (selectedSlot.value === slot) selectedSlot.value = null }
@@ -652,7 +632,7 @@ onMounted(async () => {
                         class="rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 px-3 py-1 text-[11px] hover:bg-indigo-50 dark:hover:bg-indigo-900/40 hover:text-indigo-600 hover:border-indigo-300 transition-colors"
                     >DH</button>
                     <button
-                        @click="assignPlayerToSlot('BENCH', player)"
+                        @click="assignPlayerToSlot('BENCH1', player)"
                         class="rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 px-3 py-1 text-[11px] hover:bg-neutral-100 dark:hover:bg-neutral-600 transition-colors"
                     >벤치</button>
                   </div>
