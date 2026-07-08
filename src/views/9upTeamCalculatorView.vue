@@ -17,18 +17,12 @@ interface PlayerBuff {
 }
 
 const POSITION_ALIASES: Record<string, string> = {
-  'b1': '1B', '1b': '1B', '1': '1B', '1루': '1B', '1루수': '1B',
-  'b2': '2B', '2b': '2B', '2': '2B', '2루': '2B', '2루수': '2B',
-  'b3': '3B', '3b': '3B', '3': '3B', '3루': '3B', '3루수': '3B',
-  'c': 'C', '포': 'C', '포수': 'C', 
-  'ss': 'SS', '유격': 'SS', '유격수': 'SS',
-  'lf': 'LF', '좌익': 'LF', '좌익수': 'LF', 
-  'cf': 'CF', '중견': 'CF', '중견수': 'CF', 
-  'rf': 'RF', '우익': 'RF', '우익수': 'RF',
-  '외야': 'LF', '외야수': 'LF', '외': 'LF',
-  'sp': 'SP', '선발': 'SP', '선발투수': 'SP', 
-  'rp': 'RP', '불펜': 'RP', '계투': 'RP', '중간': 'RP', '중간계투': 'RP', '마무리': 'RP', '구원': 'RP', '구원투수': 'RP',
-  'dh': 'DH', '지타': 'DH', '지명': 'DH', '지명타자': 'DH',
+  'b1': '1B', '1b': '1B', '1': '1B', '1루': '1B',
+  'b2': '2B', '2b': '2B', '2': '2B', '2루': '2B',
+  'b3': '3B', '3b': '3B', '3': '3B', '3루': '3B',
+  'c': 'C', '포': 'C', 'ss': 'SS', '유격': 'SS',
+  'lf': 'LF', '좌익': 'LF', 'cf': 'CF', '중견': 'CF', 'rf': 'RF', '우익': 'RF',
+  'sp': 'SP', '선발': 'SP', 'rp': 'RP', '불펜': 'RP', 'dh': 'DH', '지타': 'DH',
 }
 
 const isLoading = ref(true)
@@ -145,14 +139,23 @@ const isSkillActive = (skillName: string, slot: string, battingOrder: number | n
 
 const toLowerCase = (s: unknown): string => String(s ?? '').toLowerCase().trim()
 const normalizeText = (text: unknown): string => String(text ?? '').normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, ' ').trim().toLowerCase()
-const getArray = (str: any) => String(str || '').split(',').map(s => s.trim()).filter(Boolean)
-const toArray = (value: any): string[] => {
+const getCleanArray = (value: any): string[] => {
+  if (!value) return []
   if (Array.isArray(value)) return value.map(x => String(x).trim()).filter(Boolean)
-  return String(value ?? '').split(/[,;]+/).map(x => x.replace(/^["']|["']$/g,'').trim()).filter(Boolean)
+  let str = String(value).trim()
+  if (str.startsWith('[') && str.endsWith(']')) {
+    try {
+      const parsed = JSON.parse(str)
+      if (Array.isArray(parsed)) return parsed.map(x => String(x).trim()).filter(Boolean)
+    } catch {}
+  }
+  return str.replace(/[\[\]"']/g, '').split(/[,;]+/).map(x => x.trim()).filter(Boolean)
 }
+const getArray = getCleanArray
+const toArray = getCleanArray
 
 const normalizePosition = (position: any): string => {
-  const str = String(position ?? '').replace(/\s+/g, '').trim()
+  const str = String(position ?? '').trim()
   if (!str) return ''
   const lower = str.toLowerCase()
   return POSITION_ALIASES[lower] ?? str.toUpperCase()
