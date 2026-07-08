@@ -139,20 +139,11 @@ const isSkillActive = (skillName: string, slot: string, battingOrder: number | n
 
 const toLowerCase = (s: unknown): string => String(s ?? '').toLowerCase().trim()
 const normalizeText = (text: unknown): string => String(text ?? '').normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, ' ').trim().toLowerCase()
-const getCleanArray = (value: any): string[] => {
-  if (!value) return []
+const getArray = (str: any) => String(str || '').split(',').map(s => s.trim()).filter(Boolean)
+const toArray = (value: any): string[] => {
   if (Array.isArray(value)) return value.map(x => String(x).trim()).filter(Boolean)
-  let str = String(value).trim()
-  if (str.startsWith('[') && str.endsWith(']')) {
-    try {
-      const parsed = JSON.parse(str)
-      if (Array.isArray(parsed)) return parsed.map(x => String(x).trim()).filter(Boolean)
-    } catch {}
-  }
-  return str.replace(/[\[\]"']/g, '').split(/[,;]+/).map(x => x.trim()).filter(Boolean)
+  return String(value ?? '').split(/[,;]+/).map(x => x.replace(/^["']|["']$/g,'').trim()).filter(Boolean)
 }
-const getArray = getCleanArray
-const toArray = getCleanArray
 
 const normalizePosition = (position: any): string => {
   const str = String(position ?? '').trim()
@@ -389,6 +380,7 @@ const calculatePlayerPower = (p: Raw, slot: string) => {
 const teamTotalPower = computed(() => {
   let sum = 0
   Object.keys(lineup.value).forEach(slot => {
+    if (slot.startsWith('BENCH')) return // 벤치 선수는 시너지용이므로 팀 종합 파워에서 제외
     const p = lineup.value[slot]
     if (p) sum += calculatePlayerPower(p, slot)
   })
