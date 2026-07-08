@@ -26,6 +26,12 @@ const routes = [
         name: 'Lineups',
         component: () => import('@/views/9upLineupView.vue'),
     },
+    // 👇 여기에 새로운 팀 파워 시뮬레이터 탭 주소가 추가되었습니다!
+    {
+        path: '/team-calculator',
+        name: 'TeamCalculator',
+        component: () => import('@/views/9upTeamCalculatorView.vue'),
+    },
     {
         path: '/players',
         name: 'Players',
