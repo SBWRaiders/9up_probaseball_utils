@@ -7,62 +7,29 @@ type Raw = Record<string, any>
 type CountOp = '==' | '>=' | '<=' | '>' | '<' | 'between'
 
 interface JsonBonus { unit: 'percent' | 'fixed'; value: number }
-interface JsonCond  {
-  count: (
-      | { op: string, value: number }
-      | { op: 'between', min: number, max: number }
-      ),
-  stat: string
-  bonus: JsonBonus
-}
-interface JsonSynergy {
-  id: number | string
-  synergy: string
-  description?: string
-  conditions: JsonCond[]
-  group?: {
-    family?: string
-    tier?: number
-    inherit_lower_tiers?: boolean
-    stack_mode?: 'cumulative' | 'max' | 'cumulative_dedup'
-  }
-}
-
+interface JsonCond  { count: any; stat: string; bonus: JsonBonus }
+interface JsonSynergy { id: number | string; synergy: string; conditions: JsonCond[] }
 interface PlayerBuff {
-  enhancementLevel: number
-  breakthroughLevel: number
-  careerTeamCount: number
-  hitAceBuff: number
-  teamPlayerDignityBuff: number
-  imprintStarterPower: number
-  careerAllStatFlat: number
-  managerBuff: number
-  selectedSkills: string[]
-  battingOrder: number | null
+  enhancementLevel: number; breakthroughLevel: number; careerTeamCount: number;
+  hitAceBuff: number; teamPlayerDignityBuff: number; imprintStarterPower: number;
+  careerAllStatFlat: number; managerBuff: number; selectedSkills: string[];
+  battingOrder: number | null;
 }
 
-const STAT_LABELS: Record<string, string> = {
-  power: '파워', contact: '컨택', defense: '수비', running: '주루',
-  control: '컨트', movement: '무브먼트', stuff: '스터프',
-  longHitSuppression: '장타 억제', homeRunSuppression: '홈런 억제', runnerControl: '주자 견제'
-}
 const POSITION_ALIASES: Record<string, string> = {
   'b1': '1B', '1b': '1B', '1': '1B', '1루': '1B',
   'b2': '2B', '2b': '2B', '2': '2B', '2루': '2B',
   'b3': '3B', '3b': '3B', '3': '3B', '3루': '3B',
-  'c': 'C', '포': 'C',
-  'ss': 'SS', '유격': 'SS',
-  'lf': 'LF', '좌익': 'LF',
-  'cf': 'CF', '중견': 'CF',
-  'rf': 'RF', '우익': 'RF',
-  'sp': 'SP', '선발': 'SP',
-  'rp': 'RP', '불펜': 'RP',
-  'dh': 'DH', '지타': 'DH',
+  'c': 'C', '포': 'C', 'ss': 'SS', '유격': 'SS',
+  'lf': 'LF', '좌익': 'LF', 'cf': 'CF', '중견': 'CF', 'rf': 'RF', '우익': 'RF',
+  'sp': 'SP', '선발': 'SP', 'rp': 'RP', '불펜': 'RP', 'dh': 'DH', '지타': 'DH',
 }
 
 const isLoading = ref(true)
 const players = ref<Raw[]>([])
 const synergys = ref<JsonSynergy[]>([])
+const teamData = ref<any[]>([])
+
 const advancedFilterOpen = ref(false)
 const currentPage = ref(1)
 const pageSize = 50
@@ -70,12 +37,8 @@ const synergySearchText = ref('')
 const synergyOptions = ref<string[]>([])
 
 const searchQuery = reactive({
-  search: '',
-  position: [] as string[],
-  team: [] as string[],
-  synergy: [] as string[],
-  rarity: null as number | null,
-  grade: [] as string[]
+  search: '', position: [] as string[], team: [] as string[],
+  synergy: [] as string[], rarity: null as number | null, grade: [] as string[]
 })
 
 const lineupViewMode = ref('batter')
@@ -90,62 +53,43 @@ const lineup = ref({
 } as Record<string, Raw | null>)
 
 const globalBuffs = reactive({
-  playerLevel: 100,
-  collectionBuff: 1200,
-  teamLevelBuff: 750,
-  careerLevelBuff: 149,
-  binderBuff: 537,
-  clanBuff: 15,
-  ultimateImprintPercent: 0
+  playerLevel: 100, collectionBuff: 1200, teamLevelBuff: 750,
+  careerLevelBuff: 149, binderBuff: 537, clanBuff: 15, ultimateImprintPercent: 0
 })
 
 const playerBuffs = ref<Record<string, PlayerBuff>>({})
 
 const initPlayerBuff = (slot: string, p: Raw) => {
   const grade = String(p.grade || '').toUpperCase()
-  let colBuff = 0
-  let hitAce = 0
+  let colBuff = 0, hitAce = 0
   if (['SEA', 'ASG'].includes(grade)) colBuff = 800
   else if (['POS', 'TEA', 'MMVP', 'HIT', 'ACE'].includes(grade)) colBuff = 900
   else if (grade === 'GGY') colBuff = 900
   else if (grade === 'GG' || grade === 'ROY') colBuff = 1000
   else if (grade === 'TOP') colBuff = 1200
   if (['HIT', 'ACE', 'GG'].includes(grade)) hitAce = 896
+  
   playerBuffs.value[slot] = {
-    enhancementLevel: grade === 'DGN' ? 10 : 15,
-    breakthroughLevel: 0,
-    careerTeamCount: 0,
-    hitAceBuff: hitAce,
-    teamPlayerDignityBuff: 0,
-    imprintStarterPower: 0,
-    careerAllStatFlat: 0,
-    managerBuff: 0,
-    selectedSkills: [],
-    battingOrder: null
+    enhancementLevel: grade === 'DGN' ? 10 : 15, breakthroughLevel: 0,
+    careerTeamCount: 0, hitAceBuff: hitAce, teamPlayerDignityBuff: 0,
+    imprintStarterPower: 0, careerAllStatFlat: 0, managerBuff: 0,
+    selectedSkills: [], battingOrder: null
   }
 }
 
 const rightPanelTab = ref<'global' | 'player'>('global')
+
 const synergyHierarchy: Record<string, string[]> = {
-  '190안타 클럽': ['180안타 클럽', '170안타 클럽'],
-  '180안타 클럽': ['170안타 클럽'],
-  '40홈런 클럽': ['30홈런 클럽'],
-  '40도루 클럽': ['30도루 클럽'],
-  '20승 클럽': ['15승 클럽'],
-  '180탈삼진 클럽': ['150탈삼진 클럽'],
-  '200이닝 클럽': ['180이닝 클럽'],
-  '30세이브 클럽': ['20세이브 클럽'],
-  '30홀드 클럽': ['20홀드 클럽'],
-  '계투 80이닝 클럽': ['계투 70이닝 클럽'],
+  '190안타 클럽': ['180안타 클럽', '170안타 클럽'], '180안타 클럽': ['170안타 클럽'],
+  '40홈런 클럽': ['30홈런 클럽'], '40도루 클럽': ['30도루 클럽'],
+  '20승 클럽': ['15승 클럽'], '180탈삼진 클럽': ['150탈삼진 클럽'],
+  '200이닝 클럽': ['180이닝 클럽'], '30세이브 클럽': ['20세이브 클럽'],
+  '30홀드 클럽': ['20홀드 클럽'], '계투 80이닝 클럽': ['계투 70이닝 클럽'],
   '3-30-100-100 클럽': ['3-30-100 클럽', '100득점-100타점 클럽', '100타점 클럽', '30홈런 클럽'],
-  '3-30-100 클럽': ['100타점 클럽', '30홈런 클럽'],
-  '100득점-100타점 클럽': ['100타점 클럽'],
-  '통산 2000경기 클럽': ['통산 1500경기 클럽'],
-  '통산 1500경기 클럽': [],
-  '통산 700경기 클럽': ['통산 500경기 클럽'],
-  '통산 500경기 클럽': [],
-  '통산 2000안타 클럽': ['통산 1500안타 클럽'],
-  '통산 300도루 클럽': ['통산 200도루 클럽'],
+  '3-30-100 클럽': ['100타점 클럽', '30홈런 클럽'], '100득점-100타점 클럽': ['100타점 클럽'],
+  '통산 2000경기 클럽': ['통산 1500경기 클럽'], '통산 1500경기 클럽': [],
+  '통산 700경기 클럽': ['통산 500경기 클럽'], '통산 500경기 클럽': [],
+  '통산 2000안타 클럽': ['통산 1500안타 클럽'], '통산 300도루 클럽': ['통산 200도루 클럽'],
   '통산 300홈런 클럽': ['통산 200홈런 클럽']
 }
 
@@ -193,8 +137,120 @@ const isSkillActive = (skillName: string, slot: string, battingOrder: number | n
   return true
 }
 
+const toLowerCase = (s: unknown): string => String(s ?? '').toLowerCase().trim()
+const normalizeText = (text: unknown): string => String(text ?? '').normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, ' ').trim().toLowerCase()
+const getArray = (str: any) => String(str || '').split(',').map(s => s.trim()).filter(Boolean)
+const toArray = (value: any): string[] => {
+  if (Array.isArray(value)) return value.map(x => String(x).trim()).filter(Boolean)
+  return String(value ?? '').split(/[,;]+/).map(x => x.replace(/^["']|["']$/g,'').trim()).filter(Boolean)
+}
+
+const normalizePosition = (position: any): string => {
+  const str = String(position ?? '').trim()
+  if (!str) return ''
+  const lower = str.toLowerCase()
+  return POSITION_ALIASES[lower] ?? str.toUpperCase()
+}
+
+const searchOptions = computed(() => {
+  const o: Record<string, Set<string>> = { team: new Set(), position: new Set(), grade: new Set() }
+  for (const p of players.value) {
+    getArray(p.team).forEach(v => o.team.add(v))
+    getArray(p.position).forEach(v => o.position.add(v))
+    if (p.grade) o.grade.add(String(p.grade))
+  }
+  return {
+    team: [...o.team].sort(),
+    position: [...o.position].sort(),
+    grade: [...o.grade].sort((a, b) => {
+      const gradeOrder = ['SS', 'S', 'A', 'B', 'C', 'D']
+      return gradeOrder.indexOf(a) - gradeOrder.indexOf(b)
+    })
+  }
+})
+
+interface PreparedPlayer { raw: Raw; nameNormalized: string; teamLowerCase: string[]; positionLowerCase: string[]; yearsNumeric: number[]; synergyNormalizedSet: Set<string>; }
+
+const preparedPlayers = computed<PreparedPlayer[]>(() =>
+    players.value.map(player => ({
+      raw: player, nameNormalized: normalizeText(player.name),
+      teamLowerCase: toArray(player.team).map(toLowerCase), positionLowerCase: toArray(player.position).map(toLowerCase),
+      yearsNumeric: toArray(player.year).map((y:any)=>Number(y)).filter((y:any)=>!Number.isNaN(y)),
+      synergyNormalizedSet: new Set(toArray(player.synergy).map(normalizeText))
+    }))
+)
+
+const groupedTeams = [
+  { id: ['ssg', 'sk'], name: 'SSG/SK' }, { id: ['kiwoom', 'nexen'], name: '키움/히어로즈' },
+  { id: ['kia', 'haitai'], name: 'KIA/해태' }, { id: ['samsung'], name: '삼성' },
+  { id: ['doosan', 'ob'], name: '두산/OB' }, { id: ['lotte'], name: '롯데' },
+  { id: ['lg', 'mbc'], name: 'LG/MBC' }, { id: ['hanwha', 'binggrae'], name: '한화/빙그레' },
+  { id: ['nc'], name: 'NC' }, { id: ['kt'], name: 'KT' },
+  { id: ['hyundai', 'pacific', 'chungbo', 'sammi'], name: '현대/태평양/청보/삼미' }, { id: ['sbw'], name: '쌍방울' }
+]
+
+const toggleTeamGroup = (group: { id: string[], name: string }) => {
+  if (isTeamGroupSelected(group)) searchQuery.team = searchQuery.team.filter(t => !group.id.includes(t))
+  else {
+    const newTeams = [...searchQuery.team]
+    group.id.forEach(t => { if (!newTeams.includes(t)) newTeams.push(t) })
+    searchQuery.team = newTeams
+  }
+}
+const isTeamGroupSelected = (group: { id: string[], name: string }) => group.id.every(t => searchQuery.team.includes(t))
+const findTeamLogo = (teamKey: string): string | null => {
+  for (const team of teamData.value) {
+    if (!team.history) continue
+    for (const history of team.history) { if (history.key === teamKey) return history.logo }
+  }
+  return null
+}
+const findTeamName = (teamKeyOrName: string): string => {
+  const key = String(teamKeyOrName ?? '')
+  for (const team of teamData.value) {
+    if (team.key === key) return team.name
+    if (!team.history) continue
+    for (const h of team.history) { if (h.key === key || h.name === key) return h.name }
+  }
+  return key
+}
+const getTeamLogoUrl = (teamKey: string): string => findTeamLogo(teamKey) ?? '/assets/logos/teams/unknown.png'
+
+const filteredSynergyOptions = computed(() => {
+  const query = normalizeText(synergySearchText.value)
+  if (!query) return synergyOptions.value
+  return synergyOptions.value.filter(s => normalizeText(s).includes(query))
+})
+const toggleSynergyFilter = (s: string) => {
+  if (searchQuery.synergy.includes(s)) searchQuery.synergy = searchQuery.synergy.filter(x => x !== s)
+  else searchQuery.synergy.push(s)
+}
+
+const filteredPlayers = computed(() => {
+  const tokens = searchQuery.search ? searchQuery.search.split(/[\s,]+/).map(t=>t.trim()).filter(Boolean).map(normalizeText) : []
+  return preparedPlayers.value.filter(({ raw: p, nameNormalized, teamLowerCase, positionLowerCase, yearsNumeric, synergyNormalizedSet }) => {
+    if (searchQuery.team.length && !searchQuery.team.some(t => teamLowerCase.includes(toLowerCase(t)))) return false
+    if (searchQuery.rarity != null && Number(p.rarity) !== Number(searchQuery.rarity)) return false
+    if (searchQuery.grade.length && !searchQuery.grade.includes(String(p.grade || ''))) return false
+    if (searchQuery.position.length && !searchQuery.position.some(v => positionLowerCase.includes(toLowerCase(v)))) return false
+    if (searchQuery.synergy.length && !searchQuery.synergy.map(normalizeText).every(t => synergyNormalizedSet.has(t))) return false
+    if (tokens.length) {
+      const hay = new Set<string>([nameNormalized, ...teamLowerCase, ...positionLowerCase, ...Array.from(synergyNormalizedSet), ...yearsNumeric.map(String)])
+      if (!tokens.some(t => hay.has(t) || nameNormalized.includes(t))) return false
+    }
+    return true
+  }).map(pp => pp.raw)
+})
+
+const totalPlayers = computed(() => filteredPlayers.value.length)
+const totalPages = computed(() => Math.max(1, Math.ceil(totalPlayers.value / pageSize)))
+const paginatedPlayers = computed(() => filteredPlayers.value.slice((currentPage.value-1)*pageSize, (currentPage.value)*pageSize))
+const goToPage = (page:number) => { if (page>=1 && page<=totalPages.value) currentPage.value = page }
+watch(searchQuery, () => { currentPage.value = 1 }, { deep: true })
+const resetFilters = () => { searchQuery.search=''; searchQuery.team=[]; searchQuery.position=[]; searchQuery.synergy=[]; searchQuery.rarity=null; searchQuery.grade=[] }
+
 const checkSynergyInclusion = (target: string, playerSynergies: string[]) => {
-  const clean = (x:string)=>String(x??'').normalize('NFKC').replace(/​|‌|‍|⁠/g,'').replace(/[,\s클럽]/g,'').trim()
+  const clean = (x:string)=>String(x??'').normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[,\s클럽]/g,'').trim()
   const keyClean = clean(target)
   if (playerSynergies.some(s => clean(s) === keyClean)) return true
   const tm = keyClean.match(/^(\D*)(\d+)(\D*)$/)
@@ -252,6 +308,20 @@ const activeTeamSynergies = computed(() => {
   return result
 })
 
+const getEnhanceMultiplier = (p: Raw) => {
+  const grade = String(p.grade).toUpperCase()
+  const map: Record<string, number> = { 'SEA':30, 'ASG':30, 'POS':40, 'TEA':40, 'MMVP':40, 'ROY':50, 'HIT':50, 'ACE':50, 'GG':50, 'TOP':50, 'GGY':50, 'DGN':300 }
+  return map[grade] || 0
+}
+const getBreakthroughFixed = (p: Raw, level: number) => {
+  if (level === 0) return 0
+  const grade = String(p.grade).toUpperCase()
+  if (['SEA','ASG','POS'].includes(grade)) return 30 * ([0,1,3,6,10,15,21,28,36][level]||0)
+  if (['TEA','ROY','MMVP'].includes(grade)) return 50 * ([0,1,3,6,10,15,21,28,36][level]||0)
+  if (['HIT','ACE','GG','TOP','GGY'].includes(grade)) return 100 * ([0,1,2.5,4.5,7,10,15,21,28][level]||0)
+  return 0
+}
+
 const calculatePlayerPower = (p: Raw, slot: string) => {
   if (!p) return 0
   const buffs = playerBuffs.value[slot]
@@ -267,8 +337,8 @@ const calculatePlayerPower = (p: Raw, slot: string) => {
   let autoSynergyFixed = 0, autoSynergyPercent = 0, skillPowerPercent = 0, statSpecificSkillPercents: Record<string, number> = {}
   activeTeamSynergies.value.forEach((bonuses, synName) => {
     let isActiveForMe = false
-    const cleanNames = getArray(p.synergy).map(x=>x.normalize('NFKC').replace(/​|‌|‍|⁠/g,'').replace(/[,\s클럽]/g,'').trim())
-    const targetClean = synName.normalize('NFKC').replace(/​|‌|‍|⁠/g,'').replace(/[,\s클럽]/g,'').trim()
+    const cleanNames = getArray(p.synergy).map(x=>x.normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[,\s클럽]/g,'').trim())
+    const targetClean = synName.normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[,\s클럽]/g,'').trim()
     if (cleanNames.some(cn => targetClean.includes(cn) || cn.includes(targetClean))) isActiveForMe = true
     if (isActiveForMe) {
       bonuses.forEach(b => {
@@ -316,6 +386,16 @@ const teamTotalPower = computed(() => {
   return sum
 })
 
+const assignPlayerToSlot = (slot: string, p: Raw) => {
+  Object.keys(lineup.value).forEach(k => { if (lineup.value[k]?.id === p.id) lineup.value[k] = null })
+  lineup.value[slot] = p
+  initPlayerBuff(slot, p)
+  selectedSlot.value = slot
+  rightPanelTab.value = 'player'
+}
+const clearSlot = (slot: string) => { lineup.value[slot] = null; if (selectedSlot.value === slot) selectedSlot.value = null }
+const selectSlot = (slot: string) => { if (lineup.value[slot]) { selectedSlot.value = slot; rightPanelTab.value = 'player' } }
+
 const PlayerCard = defineComponent({
   name: 'PlayerCard',
   props: { pos: String, p: Object, buffs: Object, isSelected: Boolean },
@@ -323,18 +403,18 @@ const PlayerCard = defineComponent({
   setup(props, { emit }) {
     return () => {
       if (!props.p) {
-        return h('div', { class: 'h-[100px] border border-dashed border-neutral-300 dark:border-neutral-600 rounded-xl flex flex-col items-center justify-center bg-neutral-50/50 dark:bg-neutral-800/30 text-neutral-400 cursor-pointer hover:bg-neutral-100', onClick: () => emit('click') }, [h('span', { class: 'text-[10px] font-bold' }, props.pos)])
+        return h('div', { class: 'h-[100px] border border-dashed border-neutral-300 dark:border-neutral-600 rounded-xl flex flex-col items-center justify-center bg-neutral-50/50 dark:bg-neutral-800/30 text-neutral-400 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700/50', onClick: () => emit('click') }, [h('span', { class: 'text-[10px] font-bold' }, props.pos)])
       }
       return h('div', { 
-        class: ['relative h-[100px] border rounded-xl flex flex-col items-center p-2 cursor-pointer transition-all shadow-sm group', props.isSelected ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200' : 'border-neutral-200 bg-white hover:border-indigo-300'],
+        class: ['relative h-[100px] border rounded-xl flex flex-col items-center p-2 cursor-pointer transition-all shadow-sm group', props.isSelected ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200 dark:ring-indigo-800' : 'border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 hover:border-indigo-300 dark:hover:border-indigo-500'],
         onClick: () => emit('click')
       }, [
-        h('div', { class: 'absolute top-1 left-2 text-[9px] font-black text-neutral-400' }, props.pos),
-        h('button', { class: 'absolute top-1 right-1 w-4 h-4 rounded-full bg-neutral-100 text-neutral-400 hover:bg-red-500 hover:text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity', onClick: (e:Event) => { e.stopPropagation(); emit('clear') } }, '×'),
+        h('div', { class: 'absolute top-1 left-2 text-[9px] font-black text-neutral-400 dark:text-neutral-500' }, props.pos),
+        h('button', { class: 'absolute top-1 right-1 w-4 h-4 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500 hover:bg-red-500 hover:text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity', onClick: (e:Event) => { e.stopPropagation(); emit('clear') } }, '×'),
         h('img', { src: `/assets/logos/grade/${props.p.grade}.png`, class: 'w-8 h-8 object-contain mt-1 drop-shadow-sm' }),
-        h('div', { class: 'text-xs font-bold text-neutral-800 mt-1 truncate w-full text-center' }, props.p.name),
-        props.buffs?.battingOrder && (!String(props.p.position).toUpperCase().includes('P') && !props.p.movement) ? h('div', { class: 'absolute bottom-1 left-2 text-[9px] font-bold bg-orange-100 text-orange-600 px-1 rounded' }, `${props.buffs.battingOrder}번`) : null,
-        h('div', { class: 'absolute bottom-1 right-2 text-[11px] font-black text-indigo-600' }, '설정➔')
+        h('div', { class: 'text-xs font-bold text-neutral-800 dark:text-neutral-200 mt-1 truncate w-full text-center' }, props.p.name),
+        props.buffs?.battingOrder && (!String(props.p.position).toUpperCase().includes('P') && !props.p.movement) ? h('div', { class: 'absolute bottom-1 left-2 text-[9px] font-bold bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 px-1 rounded' }, `${props.buffs.battingOrder}번`) : null,
+        h('div', { class: 'absolute bottom-1 right-2 text-[11px] font-black text-indigo-600 dark:text-indigo-400' }, '설정➔')
       ])
     }
   }
@@ -343,16 +423,11 @@ const PlayerCard = defineComponent({
 onMounted(async () => {
   try {
     const [csvRes, synRes, teamRes] = await Promise.all([
-      fetch('/DB/player_sorted.csv', { cache: 'no-store' }),
-      fetch('/DB/synergys.json', { cache: 'no-store' }),
-      fetch('/DB/setting.json', { cache: 'no-store' })
+      fetch('/DB/player_sorted.csv', { cache: 'no-store' }), fetch('/DB/synergys.json', { cache: 'no-store' }), fetch('/DB/setting.json', { cache: 'no-store' })
     ])
-    
     if (teamRes.ok) teamData.value = await teamRes.json()
-    
     const text = await csvRes.text()
     Papa.parse(text, { header: true, skipEmptyLines: true, complete: ({ data }) => (players.value = data as Raw[]) })
-    
     if (synRes.ok) {
         const synJson = await synRes.json()
         synergys.value = (Array.isArray(synJson) ? synJson : []).filter((it: any) => Array.isArray(it?.conditions) && it.conditions.length > 0)
@@ -364,17 +439,31 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="bg-neutral-50 h-screen overflow-hidden flex flex-col font-sans">
-    <header class="bg-gradient-to-r from-blue-700 to-indigo-800 text-white flex-shrink-0">
+  <div class="bg-neutral-50 dark:bg-neutral-900 h-screen overflow-hidden transition-colors flex flex-col font-sans">
+    
+    <!-- 헤더 영역 -->
+    <header class="bg-gradient-to-r from-blue-700 to-indigo-800 text-white shadow-md flex-shrink-0 z-20">
       <div class="mx-auto max-w-[1800px] px-4 py-3 flex items-center justify-between">
-        <h1 class="text-xl font-bold">9UP 팀 파워 시뮬레이터</h1>
-        <div class="px-5 py-2 bg-black/20 rounded-xl text-3xl font-black text-amber-300 tabular-nums tracking-tight">{{ teamTotalPower.toLocaleString() }}</div>
+        <div class="flex items-center gap-3">
+          <Calculator class="w-6 h-6 text-blue-200" />
+          <h1 class="text-xl font-bold tracking-tight">9UP 팀 파워 시뮬레이터</h1>
+        </div>
+        <div class="flex items-center bg-black/20 rounded-xl px-5 py-2 border border-white/10 shadow-inner">
+          <span class="text-blue-200 text-sm font-semibold mr-3">우리 팀 종합 파워</span>
+          <span class="text-3xl font-black text-amber-300 tabular-nums tracking-tight">{{ teamTotalPower.toLocaleString() }}</span>
+        </div>
       </div>
     </header>
-    <div class="mx-auto max-w-[1800px] w-full p-3 flex-1 flex flex-col min-h-0">
-      <div v-if="isLoading" class="flex h-full items-center justify-center">Loading...</div>
-      <div v-else class="grid grid-cols-12 gap-4 flex-1 min-h-0">
-        <section class="col-span-3 flex flex-col rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 min-h-0 shadow-sm overflow-hidden">
+
+    <div class="mx-auto max-w-[1800px] w-full p-3 lg:p-4 flex-1 flex flex-col min-h-0">
+      <div v-if="isLoading" class="flex h-full items-center justify-center">
+        <div class="animate-spin rounded-full border-4 border-neutral-300 dark:border-neutral-600 border-t-blue-600 h-10 w-10"></div>
+      </div>
+
+      <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 min-h-0">
+        
+        <!-- 왼쪽: 선수 검색 -->
+        <section class="lg:col-span-3 flex flex-col rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 min-h-0 shadow-sm overflow-hidden">
           <header class="px-5 py-4 border-b border-neutral-100 dark:border-neutral-700 flex-shrink-0">
             <div class="flex items-center justify-between">
               <h1 class="text-base font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">선수 검색</h1>
@@ -557,28 +646,192 @@ onMounted(async () => {
             </div>
           </div>
         </section>
-        <section class="col-span-5 flex flex-col rounded-2xl bg-white border border-neutral-200 overflow-hidden">
-           <div class="p-4 overflow-y-auto">
-             <div class="grid grid-cols-3 gap-2 mb-4">
-                <PlayerCard v-for="pos in ['LF', 'CF', 'RF']" :key="pos" :pos="pos" :p="lineup[pos]" :buffs="playerBuffs[pos]" @click="selectSlot(pos)" @clear="clearSlot(pos)" />
-             </div>
-             <div class="grid grid-cols-4 gap-2 mb-4">
-                <PlayerCard v-for="pos in ['3B', 'SS', '2B', '1B']" :key="pos" :pos="pos" :p="lineup[pos]" :buffs="playerBuffs[pos]" @click="selectSlot(pos)" @clear="clearSlot(pos)" />
-             </div>
-             <div class="grid grid-cols-2 gap-2">
-                <PlayerCard v-for="pos in ['C', 'DH']" :key="pos" :pos="pos" :p="lineup[pos]" :buffs="playerBuffs[pos]" @click="selectSlot(pos)" @clear="clearSlot(pos)" />
-             </div>
-           </div>
+
+        <!-- 중앙: 라인업 보드 -->
+        <section class="lg:col-span-5 flex flex-col rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 min-h-0 shadow-sm overflow-hidden relative">
+          <div class="flex items-center bg-neutral-100 dark:bg-neutral-700/50 p-1 border-b border-neutral-200 dark:border-neutral-700 flex-shrink-0">
+            <button @click="lineupViewMode = 'batter'" :class="lineupViewMode === 'batter' ? 'bg-white dark:bg-neutral-600 shadow-sm font-bold text-blue-600' : 'text-neutral-500'" class="flex-1 py-2 text-xs rounded-lg transition-all">타자 라인업</button>
+            <button @click="lineupViewMode = 'pitcher'" :class="lineupViewMode === 'pitcher' ? 'bg-white dark:bg-neutral-600 shadow-sm font-bold text-blue-600' : 'text-neutral-500'" class="flex-1 py-2 text-xs rounded-lg transition-all">투수 라인업</button>
+            <button @click="lineupViewMode = 'bench'" :class="lineupViewMode === 'bench' ? 'bg-white dark:bg-neutral-600 shadow-sm font-bold text-blue-600' : 'text-neutral-500'" class="flex-1 py-2 text-xs rounded-lg transition-all">벤치</button>
+          </div>
+
+          <div class="flex-1 overflow-y-auto p-4 custom-scrollbar bg-neutral-50/30 dark:bg-neutral-900/30">
+            <!-- 타자 다이아몬드 UI (간략화) -->
+            <div v-if="lineupViewMode === 'batter'" class="h-full flex flex-col justify-center items-center">
+               <div class="grid grid-cols-3 gap-4 w-full max-w-lg mb-8">
+                 <div v-for="pos in ['LF', 'CF', 'RF']" :key="pos">
+                   <PlayerCard :pos="pos" :p="lineup[pos]" :buffs="playerBuffs[pos]" :is-selected="selectedSlot === pos" @click="selectSlot(pos)" @clear="clearSlot(pos)" />
+                 </div>
+               </div>
+               <div class="grid grid-cols-4 gap-4 w-full max-w-2xl mb-8">
+                 <div v-for="pos in ['3B', 'SS', '2B', '1B']" :key="pos">
+                   <PlayerCard :pos="pos" :p="lineup[pos]" :buffs="playerBuffs[pos]" :is-selected="selectedSlot === pos" @click="selectSlot(pos)" @clear="clearSlot(pos)" />
+                 </div>
+               </div>
+               <div class="grid grid-cols-2 gap-16 w-full max-w-md">
+                 <div v-for="pos in ['C', 'DH']" :key="pos">
+                   <PlayerCard :pos="pos" :p="lineup[pos]" :buffs="playerBuffs[pos]" :is-selected="selectedSlot === pos" @click="selectSlot(pos)" @clear="clearSlot(pos)" />
+                 </div>
+               </div>
+            </div>
+
+            <!-- 투수 UI -->
+            <div v-else-if="lineupViewMode === 'pitcher'" class="space-y-8">
+              <div>
+                <h3 class="text-xs font-bold text-neutral-500 mb-3 ml-1">선발 투수</h3>
+                <div class="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                  <div v-for="i in 5" :key="'SP'+i">
+                     <PlayerCard :pos="'SP'+i" :p="lineup['SP'+i]" :buffs="playerBuffs['SP'+i]" :is-selected="selectedSlot === 'SP'+i" @click="selectSlot('SP'+i)" @clear="clearSlot('SP'+i)" />
+                  </div>
+                </div>
+              </div>
+              <div>
+                <h3 class="text-xs font-bold text-neutral-500 mb-3 ml-1">계투 및 마무리</h3>
+                <div class="grid grid-cols-3 sm:grid-cols-6 gap-3">
+                  <div v-for="i in 6" :key="'RP'+i">
+                     <PlayerCard :pos="'RP'+i" :p="lineup['RP'+i]" :buffs="playerBuffs['RP'+i]" :is-selected="selectedSlot === 'RP'+i" @click="selectSlot('RP'+i)" @clear="clearSlot('RP'+i)" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 벤치 UI -->
+            <div v-else class="space-y-4">
+               <h3 class="text-xs font-bold text-neutral-500 mb-3 ml-1">벤치 멤버</h3>
+               <div class="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                  <div v-for="i in 8" :key="'BENCH'+i">
+                     <PlayerCard :pos="'BENCH'+i" :p="lineup['BENCH'+i]" :buffs="playerBuffs['BENCH'+i]" :is-selected="selectedSlot === 'BENCH'+i" @click="selectSlot('BENCH'+i)" @clear="clearSlot('BENCH'+i)" />
+                  </div>
+               </div>
+            </div>
+          </div>
         </section>
-        <section class="col-span-4 flex flex-col rounded-2xl bg-white border border-neutral-200 overflow-hidden p-5">
-           <h3 class="text-sm font-bold mb-4">설정 패널</h3>
-           <div v-if="selectedSlot && lineup[selectedSlot]" class="space-y-4">
-              <div class="text-sm font-bold">{{ lineup[selectedSlot]!.name }}</div>
-              <input type="number" v-model.number="playerBuffs[selectedSlot].enhancementLevel" placeholder="강화" class="w-full p-2 border rounded text-xs">
-              <input type="number" v-model.number="playerBuffs[selectedSlot].breakthroughLevel" placeholder="돌파" class="w-full p-2 border rounded text-xs">
-           </div>
+
+        <!-- 오른쪽: 설정 패널 -->
+        <section class="lg:col-span-4 flex flex-col rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 min-h-0 shadow-sm overflow-hidden">
+          <div class="flex items-center bg-neutral-100 dark:bg-neutral-700/50 p-1 border-b border-neutral-200 dark:border-neutral-700 flex-shrink-0">
+            <button @click="rightPanelTab = 'global'" :class="rightPanelTab === 'global' ? 'bg-white shadow-sm font-bold text-indigo-600' : 'text-neutral-500'" class="flex-1 py-2 text-xs rounded-lg transition-all flex items-center justify-center gap-1"><Users class="w-3 h-3"/> 글로벌 버프 (공통)</button>
+            <button @click="rightPanelTab = 'player'" :class="rightPanelTab === 'player' ? 'bg-white shadow-sm font-bold text-indigo-600' : 'text-neutral-500'" class="flex-1 py-2 text-xs rounded-lg transition-all flex items-center justify-center gap-1"><UserCheck class="w-3 h-3"/> 선수 개인 설정</button>
+          </div>
+
+          <div class="flex-1 overflow-y-auto p-5 custom-scrollbar">
+            
+            <!-- 글로벌 탭 -->
+            <div v-if="rightPanelTab === 'global'" class="space-y-5 animate-in fade-in">
+              <div class="bg-sky-50 dark:bg-sky-900/10 p-4 rounded-xl border border-sky-100 dark:border-sky-800">
+                <h3 class="text-sm font-bold text-sky-800 dark:text-sky-300 mb-3 flex items-center gap-1"><TrendingUp class="w-4 h-4"/> 성장 버프 (전원 적용)</h3>
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">선수 레벨</label><input type="number" v-model.number="globalBuffs.playerLevel" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
+                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">팀 레벨 파워</label><input type="number" v-model.number="globalBuffs.teamLevelBuff" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
+                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">도감 파워</label><input type="number" v-model.number="globalBuffs.collectionBuff" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
+                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">커리어 레벨 파워</label><input type="number" v-model.number="globalBuffs.careerLevelBuff" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
+                </div>
+              </div>
+              <div class="bg-fuchsia-50 dark:bg-fuchsia-900/10 p-4 rounded-xl border border-fuchsia-100 dark:border-fuchsia-800">
+                <h3 class="text-sm font-bold text-fuchsia-800 dark:text-fuchsia-300 mb-3 flex items-center gap-1"><Sparkles class="w-4 h-4"/> 특수 깡파워 (전원 적용)</h3>
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">바인더 파워</label><input type="number" v-model.number="globalBuffs.binderBuff" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
+                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">클랜 레벨 파워</label><input type="number" v-model.number="globalBuffs.clanBuff" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
+                </div>
+              </div>
+              <div class="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-800">
+                <h3 class="text-sm font-bold text-blue-800 dark:text-blue-300 mb-3 flex items-center gap-1"><Zap class="w-4 h-4"/> 얼티밋 각인</h3>
+                <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">전체 스탯 % 증가</label><input type="number" v-model.number="globalBuffs.ultimateImprintPercent" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
+              </div>
+            </div>
+
+            <!-- 플레이어 탭 -->
+            <div v-else-if="selectedSlot && lineup[selectedSlot] && playerBuffs[selectedSlot]" class="space-y-5 animate-in fade-in">
+              <div class="flex items-center gap-3 p-3 bg-neutral-100 dark:bg-neutral-700/50 rounded-xl">
+                <img :src="`/assets/logos/grade/${lineup[selectedSlot]!.grade}.png`" class="w-10 h-10 object-contain drop-shadow" />
+                <div>
+                  <div class="font-bold text-sm text-neutral-900 dark:text-neutral-100">{{ lineup[selectedSlot]!.name }}</div>
+                  <div class="text-[11px] text-neutral-500">{{ selectedSlot }} 슬롯 배치됨</div>
+                </div>
+                <div class="ml-auto text-right">
+                  <div class="text-[10px] font-bold text-indigo-500">개별 파워</div>
+                  <div class="text-xl font-black tabular-nums text-indigo-600 dark:text-indigo-400">{{ calculatePlayerPower(lineup[selectedSlot]!, selectedSlot).toLocaleString() }}</div>
+                </div>
+              </div>
+
+              <!-- 타순 설정 (타자일 경우만) -->
+              <div v-if="!String(lineup[selectedSlot]!.position).toUpperCase().includes('P') && !lineup[selectedSlot]!.movement" class="bg-orange-50 dark:bg-orange-900/10 p-4 rounded-xl border border-orange-100 dark:border-orange-900/20">
+                <h3 class="text-sm font-bold text-orange-800 dark:text-orange-300 mb-2">타순 설정</h3>
+                <select v-model.number="playerBuffs[selectedSlot].battingOrder" class="w-full p-2 rounded-lg border border-orange-200 dark:border-orange-800 bg-white dark:bg-neutral-800 text-sm outline-none focus:border-orange-500">
+                  <option :value="null">타순 미지정</option>
+                  <option v-for="i in 9" :key="i" :value="i">{{ i }}번 타자</option>
+                </select>
+                <p class="text-[10px] text-orange-600 dark:text-orange-400 mt-1">※ 타순 스킬(테이블세터, 클린업 등) 발동 조건에 사용됩니다.</p>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div class="flex flex-col gap-1">
+                  <label class="text-[10px] font-bold text-neutral-500">강화 단계</label>
+                  <select v-model.number="playerBuffs[selectedSlot].enhancementLevel" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm">
+                    <option v-for="i in 16" :key="i" :value="i-1">+{{ i-1 }}</option>
+                  </select>
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label class="text-[10px] font-bold text-neutral-500">한계 돌파</label>
+                  <select v-model.number="playerBuffs[selectedSlot].breakthroughLevel" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm">
+                    <option v-for="i in 10" :key="i" :value="i-1">{{ i-1 === 0 ? '미돌파' : (i-1) + '돌파' }}</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="bg-amber-50 dark:bg-amber-900/10 p-4 rounded-xl border border-amber-100 dark:border-amber-800">
+                <h3 class="text-sm font-bold text-amber-800 dark:text-amber-300 mb-3 flex items-center gap-1"><Zap class="w-4 h-4"/> 개별 추가 스탯</h3>
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">커리어 (자팀수)</label><input type="number" v-model.number="playerBuffs[selectedSlot].careerTeamCount" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
+                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">팀플+디그니티 합</label><input type="number" v-model.number="playerBuffs[selectedSlot].teamPlayerDignityBuff" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
+                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">특수 각인 파워</label><input type="number" v-model.number="playerBuffs[selectedSlot].imprintStarterPower" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
+                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">감독 깡스탯 합</label><input type="number" v-model.number="playerBuffs[selectedSlot].managerBuff" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
+                </div>
+              </div>
+
+              <!-- 스킬 설정 -->
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-1"><Star class="w-4 h-4 text-amber-400"/> 스킬 장착</h3>
+                  <span class="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 px-2 py-0.5 rounded font-bold">{{ playerBuffs[selectedSlot].selectedSkills.length }} / {{ Math.min(3, Math.max(1, parseInt(String(lineup[selectedSlot]!.rarity||1))-1)) }}</span>
+                </div>
+                <div class="flex flex-wrap gap-1.5">
+                  <button 
+                    v-for="sk in Array.from(new Set([...getArray(lineup[selectedSlot]!.skill), ...getArray(lineup[selectedSlot]!.enhancedSkill)].filter(s=>!['야전사령관', '인사이드 워크', '투수 리드', '친화력', '도루 저지'].includes(s))))" 
+                    :key="sk"
+                    @click="() => {
+                      const arr = playerBuffs[selectedSlot!].selectedSkills;
+                      const max = Math.min(3, Math.max(1, parseInt(String(lineup[selectedSlot!]!.rarity||1))-1));
+                      if (arr.includes(sk)) arr.splice(arr.indexOf(sk), 1);
+                      else if (arr.length < max) arr.push(sk);
+                    }"
+                    :class="[
+                      playerBuffs[selectedSlot].selectedSkills.includes(sk) ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white border-neutral-200 dark:bg-neutral-800 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300',
+                      playerBuffs[selectedSlot].selectedSkills.includes(sk) && !isSkillActive(sk, selectedSlot, playerBuffs[selectedSlot].battingOrder) ? '!bg-red-500 !border-red-600' : ''
+                    ]"
+                    class="px-2 py-1 text-[11px] font-bold border rounded-lg transition-colors relative"
+                  >
+                    {{ sk }}
+                    <span v-if="playerBuffs[selectedSlot].selectedSkills.includes(sk) && !isSkillActive(sk, selectedSlot, playerBuffs[selectedSlot].battingOrder)" class="absolute -top-2 -right-2 bg-white text-red-500 border border-red-500 text-[8px] px-1 rounded-full shadow-sm whitespace-nowrap z-10">조건불일치</span>
+                  </button>
+                </div>
+              </div>
+
+            </div>
+            <div v-else class="flex h-full items-center justify-center text-neutral-400 text-sm flex-col gap-2">
+              <UserCheck class="w-10 h-10 opacity-20"/>
+              중앙 라인업에서 선수를 클릭해주세요.
+            </div>
+          </div>
         </section>
+
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
+::-webkit-scrollbar { display: none; }
+</style>
