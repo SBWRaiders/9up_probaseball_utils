@@ -153,15 +153,14 @@ const normalizePosition = (position: any): string => {
 }
 
 const searchOptions = computed(() => {
-  const o: Record<string, Set<string>> = { team: new Set(), position: new Set(), grade: new Set() }
+  const o: Record<string, Set<string>> = { team: new Set(), grade: new Set() }
   for (const p of players.value) {
     getArray(p.team).forEach(v => o.team.add(v))
-    getArray(p.position).forEach(v => o.position.add(v))
     if (p.grade) o.grade.add(String(p.grade))
   }
   return {
     team: [...o.team].sort(),
-    position: [...o.position].sort(),
+    position: ['SP', 'RP', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH'],
     grade: [...o.grade].sort((a, b) => {
       const gradeOrder = ['SS', 'S', 'A', 'B', 'C', 'D']
       return gradeOrder.indexOf(a) - gradeOrder.indexOf(b)
@@ -174,7 +173,7 @@ interface PreparedPlayer { raw: Raw; nameNormalized: string; teamLowerCase: stri
 const preparedPlayers = computed<PreparedPlayer[]>(() =>
     players.value.map(player => ({
       raw: player, nameNormalized: normalizeText(player.name),
-      teamLowerCase: toArray(player.team).map(toLowerCase), positionLowerCase: toArray(player.position).map(toLowerCase),
+      teamLowerCase: toArray(player.team).map(toLowerCase), positionLowerCase: toArray(player.position).map(p => toLowerCase(normalizePosition(p))),
       yearsNumeric: toArray(player.year).map((y:any)=>Number(y)).filter((y:any)=>!Number.isNaN(y)),
       synergyNormalizedSet: new Set(toArray(player.synergy).map(normalizeText))
     }))
