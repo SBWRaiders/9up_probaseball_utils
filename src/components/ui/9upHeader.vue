@@ -63,13 +63,14 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleEscKey)
 })
 
-// 메뉴 목록 (disable 추가)
+// 메뉴 목록 (disable 추가 및 '팀 파워 시뮬레이터(공사중)' 탭 추가)
 const menuItems = [
   { name: '공지 사항', path: '/notice', disabled: false },
   { name: '선수 검색', path: '/players', disabled: false },
   { name: '스킬 목록', path: '/skills', disabled: false },
   { name: '라인업 생성', path: '/lineups', disabled: false },
   { name: '스탯 계산기', path: '/calculator', disabled: false },
+  { name: '팀 파워 시뮬레이터(공사중)', path: '/team-calculator', disabled: false },
   { name: '건의 게시판', path: '/feedback', disabled: false }
 ]
 
