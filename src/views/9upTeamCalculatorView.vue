@@ -17,12 +17,18 @@ interface PlayerBuff {
 }
 
 const POSITION_ALIASES: Record<string, string> = {
-  'b1': '1B', '1b': '1B', '1': '1B', '1루': '1B',
-  'b2': '2B', '2b': '2B', '2': '2B', '2루': '2B',
-  'b3': '3B', '3b': '3B', '3': '3B', '3루': '3B',
-  'c': 'C', '포': 'C', 'ss': 'SS', '유격': 'SS',
-  'lf': 'LF', '좌익': 'LF', 'cf': 'CF', '중견': 'CF', 'rf': 'RF', '우익': 'RF',
-  'sp': 'SP', '선발': 'SP', 'rp': 'RP', '불펜': 'RP', 'dh': 'DH', '지타': 'DH',
+  'b1': '1B', '1b': '1B', '1': '1B', '1루': '1B', '1루수': '1B',
+  'b2': '2B', '2b': '2B', '2': '2B', '2루': '2B', '2루수': '2B',
+  'b3': '3B', '3b': '3B', '3': '3B', '3루': '3B', '3루수': '3B',
+  'c': 'C', '포': 'C', '포수': 'C', 
+  'ss': 'SS', '유격': 'SS', '유격수': 'SS',
+  'lf': 'LF', '좌익': 'LF', '좌익수': 'LF', 
+  'cf': 'CF', '중견': 'CF', '중견수': 'CF', 
+  'rf': 'RF', '우익': 'RF', '우익수': 'RF',
+  '외야': 'LF', '외야수': 'LF', '외': 'LF',
+  'sp': 'SP', '선발': 'SP', '선발투수': 'SP', 
+  'rp': 'RP', '불펜': 'RP', '계투': 'RP', '중간': 'RP', '중간계투': 'RP', '마무리': 'RP', '구원': 'RP', '구원투수': 'RP',
+  'dh': 'DH', '지타': 'DH', '지명': 'DH', '지명타자': 'DH',
 }
 
 const isLoading = ref(true)
@@ -146,21 +152,22 @@ const toArray = (value: any): string[] => {
 }
 
 const normalizePosition = (position: any): string => {
-  const str = String(position ?? '').trim()
+  const str = String(position ?? '').replace(/\s+/g, '').trim()
   if (!str) return ''
   const lower = str.toLowerCase()
   return POSITION_ALIASES[lower] ?? str.toUpperCase()
 }
 
 const searchOptions = computed(() => {
-  const o: Record<string, Set<string>> = { team: new Set(), grade: new Set() }
+  const o: Record<string, Set<string>> = { team: new Set(), position: new Set(), grade: new Set() }
   for (const p of players.value) {
     getArray(p.team).forEach(v => o.team.add(v))
+    getArray(p.position).forEach(v => o.position.add(v))
     if (p.grade) o.grade.add(String(p.grade))
   }
   return {
     team: [...o.team].sort(),
-    position: ['SP', 'RP', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH'],
+    position: [...o.position].sort(),
     grade: [...o.grade].sort((a, b) => {
       const gradeOrder = ['SS', 'S', 'A', 'B', 'C', 'D']
       return gradeOrder.indexOf(a) - gradeOrder.indexOf(b)
@@ -173,7 +180,7 @@ interface PreparedPlayer { raw: Raw; nameNormalized: string; teamLowerCase: stri
 const preparedPlayers = computed<PreparedPlayer[]>(() =>
     players.value.map(player => ({
       raw: player, nameNormalized: normalizeText(player.name),
-      teamLowerCase: toArray(player.team).map(toLowerCase), positionLowerCase: toArray(player.position).map(p => toLowerCase(normalizePosition(p))),
+      teamLowerCase: toArray(player.team).map(toLowerCase), positionLowerCase: toArray(player.position).map(toLowerCase),
       yearsNumeric: toArray(player.year).map((y:any)=>Number(y)).filter((y:any)=>!Number.isNaN(y)),
       synergyNormalizedSet: new Set(toArray(player.synergy).map(normalizeText))
     }))
