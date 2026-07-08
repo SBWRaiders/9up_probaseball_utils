@@ -644,22 +644,22 @@ onMounted(async () => {
               <div class="bg-sky-50 dark:bg-sky-900/10 p-4 rounded-xl border border-sky-100 dark:border-sky-800">
                 <h3 class="text-sm font-bold text-sky-800 dark:text-sky-300 mb-3 flex items-center gap-1"><TrendingUp class="w-4 h-4"/> 성장 버프 (전원 적용)</h3>
                 <div class="grid grid-cols-2 gap-3">
-                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">선수 레벨</label><input type="number" v-model.number="globalBuffs.playerLevel" class="input-styled"/></div>
-                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">팀 레벨 파워</label><input type="number" v-model.number="globalBuffs.teamLevelBuff" class="input-styled"/></div>
-                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">도감 파워</label><input type="number" v-model.number="globalBuffs.collectionBuff" class="input-styled"/></div>
-                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">커리어 레벨 파워</label><input type="number" v-model.number="globalBuffs.careerLevelBuff" class="input-styled"/></div>
+                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">선수 레벨</label><input type="number" v-model.number="globalBuffs.playerLevel" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
+                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">팀 레벨 파워</label><input type="number" v-model.number="globalBuffs.teamLevelBuff" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
+                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">도감 파워</label><input type="number" v-model.number="globalBuffs.collectionBuff" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
+                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">커리어 레벨 파워</label><input type="number" v-model.number="globalBuffs.careerLevelBuff" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
                 </div>
               </div>
               <div class="bg-fuchsia-50 dark:bg-fuchsia-900/10 p-4 rounded-xl border border-fuchsia-100 dark:border-fuchsia-800">
                 <h3 class="text-sm font-bold text-fuchsia-800 dark:text-fuchsia-300 mb-3 flex items-center gap-1"><Sparkles class="w-4 h-4"/> 특수 깡파워 (전원 적용)</h3>
                 <div class="grid grid-cols-2 gap-3">
-                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">바인더 파워</label><input type="number" v-model.number="globalBuffs.binderBuff" class="input-styled"/></div>
-                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">클랜 레벨 파워</label><input type="number" v-model.number="globalBuffs.clanBuff" class="input-styled"/></div>
+                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">바인더 파워</label><input type="number" v-model.number="globalBuffs.binderBuff" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
+                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">클랜 레벨 파워</label><input type="number" v-model.number="globalBuffs.clanBuff" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
                 </div>
               </div>
               <div class="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-800">
                 <h3 class="text-sm font-bold text-blue-800 dark:text-blue-300 mb-3 flex items-center gap-1"><Zap class="w-4 h-4"/> 얼티밋 각인</h3>
-                <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">전체 스탯 % 증가</label><input type="number" v-model.number="globalBuffs.ultimateImprintPercent" class="input-styled"/></div>
+                <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">전체 스탯 % 증가</label><input type="number" v-model.number="globalBuffs.ultimateImprintPercent" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
               </div>
             </div>
 
@@ -690,13 +690,13 @@ onMounted(async () => {
               <div class="grid grid-cols-2 gap-3">
                 <div class="flex flex-col gap-1">
                   <label class="text-[10px] font-bold text-neutral-500">강화 단계</label>
-                  <select v-model.number="playerBuffs[selectedSlot].enhancementLevel" class="input-styled">
+                  <select v-model.number="playerBuffs[selectedSlot].enhancementLevel" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm">
                     <option v-for="i in 16" :key="i" :value="i-1">+{{ i-1 }}</option>
                   </select>
                 </div>
                 <div class="flex flex-col gap-1">
                   <label class="text-[10px] font-bold text-neutral-500">한계 돌파</label>
-                  <select v-model.number="playerBuffs[selectedSlot].breakthroughLevel" class="input-styled">
+                  <select v-model.number="playerBuffs[selectedSlot].breakthroughLevel" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm">
                     <option v-for="i in 10" :key="i" :value="i-1">{{ i-1 === 0 ? '미돌파' : (i-1) + '돌파' }}</option>
                   </select>
                 </div>
@@ -705,10 +705,10 @@ onMounted(async () => {
               <div class="bg-amber-50 dark:bg-amber-900/10 p-4 rounded-xl border border-amber-100 dark:border-amber-800">
                 <h3 class="text-sm font-bold text-amber-800 dark:text-amber-300 mb-3 flex items-center gap-1"><Zap class="w-4 h-4"/> 개별 추가 스탯</h3>
                 <div class="grid grid-cols-2 gap-3">
-                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">커리어 (자팀수)</label><input type="number" v-model.number="playerBuffs[selectedSlot].careerTeamCount" class="input-styled"/></div>
-                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">팀플+디그니티 합</label><input type="number" v-model.number="playerBuffs[selectedSlot].teamPlayerDignityBuff" class="input-styled"/></div>
-                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">특수 각인 파워</label><input type="number" v-model.number="playerBuffs[selectedSlot].imprintStarterPower" class="input-styled"/></div>
-                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">감독 깡스탯 합</label><input type="number" v-model.number="playerBuffs[selectedSlot].managerBuff" class="input-styled"/></div>
+                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">커리어 (자팀수)</label><input type="number" v-model.number="playerBuffs[selectedSlot].careerTeamCount" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
+                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">팀플+디그니티 합</label><input type="number" v-model.number="playerBuffs[selectedSlot].teamPlayerDignityBuff" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
+                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">특수 각인 파워</label><input type="number" v-model.number="playerBuffs[selectedSlot].imprintStarterPower" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
+                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">감독 깡스탯 합</label><input type="number" v-model.number="playerBuffs[selectedSlot].managerBuff" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
                 </div>
               </div>
 
@@ -803,9 +803,6 @@ const PlayerCard = defineComponent({
 </script>
 
 <style scoped>
-.input-styled {
-  @apply w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm;
-}
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
 ::-webkit-scrollbar { display: none; }
