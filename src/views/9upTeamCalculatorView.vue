@@ -43,7 +43,6 @@ const searchQuery = reactive({
 
 const lineupViewMode = ref('batter')
 const selectedSlot = ref<string | null>(null)
-const isManualSelection = ref(false)
 const lineup = ref({
   C: null, '1B': null, '2B': null, '3B': null, SS: null,
   LF: null, CF: null, RF: null, DH: null,
@@ -386,6 +385,7 @@ const calculatePlayerPower = (p: Raw, slot: string) => {
 const teamTotalPower = computed(() => {
   let sum = 0
   Object.keys(lineup.value).forEach(slot => {
+    if (slot.startsWith('BENCH')) return // 벤치 선수는 시너지용이므로 팀 종합 파워에서 제외
     const p = lineup.value[slot]
     if (p) sum += calculatePlayerPower(p, slot)
   })
@@ -393,7 +393,7 @@ const teamTotalPower = computed(() => {
 })
 
 const getAvailableSlot = (basePos: string): string => {
-  if (isManualSelection.value && selectedSlot.value && selectedSlot.value.startsWith(basePos)) {
+  if (selectedSlot.value && selectedSlot.value.startsWith(basePos)) {
     if (['SP', 'RP', 'BENCH'].includes(basePos)) return selectedSlot.value;
   }
   if (basePos === 'SP') {
@@ -417,26 +417,10 @@ const assignPlayerToSlot = (posOrSlot: string, p: Raw) => {
   lineup.value[targetSlot] = p
   initPlayerBuff(targetSlot, p)
   selectedSlot.value = targetSlot
-  isManualSelection.value = false // 리셋 (다음 클릭 시 자동 빈자리 찾기)
   rightPanelTab.value = 'player'
 }
-const clearSlot = (slot: string) => { 
-  lineup.value[slot] = null; 
-  if (selectedSlot.value === slot) { 
-    selectedSlot.value = null; 
-    isManualSelection.value = false;
-    rightPanelTab.value = 'global';
-  } 
-}
-const selectSlot = (slot: string) => { 
-  selectedSlot.value = slot; 
-  isManualSelection.value = true;
-  if (lineup.value[slot]) { 
-    rightPanelTab.value = 'player'; 
-  } else {
-    rightPanelTab.value = 'global';
-  }
-}
+const clearSlot = (slot: string) => { lineup.value[slot] = null; if (selectedSlot.value === slot) selectedSlot.value = null }
+const selectSlot = (slot: string) => { if (lineup.value[slot]) { selectedSlot.value = slot; rightPanelTab.value = 'player' } }
 
 const PlayerCard = defineComponent({
   name: 'PlayerCard',
