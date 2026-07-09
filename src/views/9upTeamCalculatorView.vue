@@ -139,14 +139,19 @@ const isSkillActive = (skillName: string, slot: string, battingOrder: number | n
 
 const toLowerCase = (s: unknown): string => String(s ?? '').toLowerCase().trim()
 const normalizeText = (text: unknown): string => String(text ?? '').normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, ' ').trim().toLowerCase()
-const getArray = (str: any) => String(str || '').split(',').map(s => s.trim()).filter(Boolean)
-const toArray = (value: any): string[] => {
-  if (Array.isArray(value)) return value.map(x => String(x).trim()).filter(Boolean)
-  return String(value ?? '').split(/[,;]+/).map(x => x.replace(/^["']|["']$/g,'').trim()).filter(Boolean)
+const getCleanArray = (value: any): string[] => {
+  if (!value) return []
+  let str = Array.isArray(value) ? value.join(',') : String(value)
+  // 대괄호, 따옴표, 백틱 등 불필요한 기호 완벽 제거
+  str = str.replace(/[\[\]"'`]/g, '')
+  return str.split(/[,;]+/).map(x => x.trim()).filter(Boolean)
 }
+const getArray = getCleanArray
+const toArray = getCleanArray
 
 const normalizePosition = (position: any): string => {
-  const str = String(position ?? '').trim()
+  // 포지션 문자열 내의 모든 특수기호 및 공백 완벽 제거
+  const str = String(position ?? '').replace(/[\[\]"'`\s]/g, '').trim()
   if (!str) return ''
   const lower = str.toLowerCase()
   return POSITION_ALIASES[lower] ?? str.toUpperCase()
