@@ -38,11 +38,7 @@ const STAT_LABELS: Record<string, string> = {
 
 const batterStats = ['contact', 'gapPower', 'homeRunPower', 'plateDiscipline', 'strikeoutAvoidance', 'stealing', 'baseRunning', 'defense'];
 const pitcherStats = ['movement', 'longHitSuppression', 'homeRunSuppression', 'control', 'stuff', 'defense', 'pitchLimit', 'runnerControl'];
-const isPitcher = (p: Raw | null) => {
-  if (!p) return false;
-  const pos = String(p.position || '').toUpperCase();
-  return pos.includes('SP') || pos.includes('RP') || !!p.movement;
-}
+const isPitcher = (p: Raw) => String(p.position || '').toUpperCase().includes('SP') || String(p.position || '').toUpperCase().includes('RP') || !!p.movement;
 
 const isLoading = ref(true)
 const players = ref<Raw[]>([])
@@ -580,6 +576,32 @@ const selectSlot = (slot: string) => {
   }
 }
 
+const PlayerCard = defineComponent({
+  name: 'PlayerCard',
+  props: { pos: String, p: Object, buffs: Object, isSelected: Boolean },
+  emits: ['click', 'clear'],
+  setup(props, { emit }) {
+    return () => {
+      if (!props.p) {
+        return h('div', { 
+          class: ['h-[100px] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all', props.isSelected ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30' : 'border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400'], 
+          onClick: () => emit('click') 
+        }, [h('span', { class: 'text-[10px] font-bold' }, props.pos)])
+      }
+      return h('div', { 
+        class: ['relative h-[100px] border rounded-xl flex flex-col items-center p-2 cursor-pointer transition-all shadow-sm group', props.isSelected ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200 dark:ring-indigo-800' : 'border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 hover:border-indigo-300 dark:hover:border-indigo-500'],
+        onClick: () => emit('click')
+      }, [
+        h('div', { class: 'absolute top-1 left-2 text-[9px] font-black text-neutral-400 dark:text-neutral-500' }, props.pos),
+        h('button', { class: 'absolute top-1 right-1 w-4 h-4 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500 hover:bg-red-500 hover:text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity', onClick: (e:Event) => { e.stopPropagation(); emit('clear') } }, '×'),
+        h('img', { src: `/assets/logos/grade/${props.p.grade}.png`, class: 'w-8 h-8 object-contain mt-1 drop-shadow-sm' }),
+        h('div', { class: 'text-xs font-bold text-neutral-800 dark:text-neutral-200 mt-1 truncate w-full text-center' }, props.p.name),
+        props.buffs?.battingOrder && (!String(props.p.position).toUpperCase().includes('P') && !props.p.movement) ? h('div', { class: 'absolute bottom-1 left-2 text-[9px] font-bold bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 px-1 rounded' }, `${props.buffs.battingOrder}번`) : null,
+        h('div', { class: 'absolute bottom-1 right-2 text-[11px] font-black text-indigo-600 dark:text-indigo-400' }, '설정➔')
+      ])
+    }
+  }
+})
 
 
 // === 라인업 저장/불러오기 로직 ===
@@ -650,66 +672,6 @@ const importFromFile = (event: Event) => {
     if (fileInput.value) fileInput.value.value = ''
   }
   reader.readAsText(file)
-}
-
-
-const getPlayerPositions = (p: Raw) => {
-  if (!p) return [];
-  return Array.from(new Set(getArray(p.position).map(normalizePosition))).filter(Boolean);
-}
-
-const hideImage = (e: Event) => {
-  if (e && e.target) {
-    (e.target as HTMLElement).style.display = 'none';
-  }
-}
-
-const activeFilterCount = computed(() => {
-  let count = 0;
-  count += searchQuery.position.length;
-  count += searchQuery.team.length;
-  count += searchQuery.synergy.length;
-  count += searchQuery.grade.length;
-  count += searchQuery.rarity !== null ? 1 : 0;
-  return count;
-});
-
-const getAvailableSkills = (p: Raw | null) => {
-  if (!p) return [];
-  const excluded = ['야전사령관', '인사이드 워크', '투수 리드', '친화력', '도루 저지'];
-  const rawSkills = [...getArray(p.skill), ...getArray(p.enhancedSkill)];
-  return Array.from(new Set(rawSkills.filter(s => !excluded.includes(s))));
-}
-
-const togglePlayerSkill = (sk: string) => {
-  if (!selectedSlot.value || !lineup.value[selectedSlot.value] || !playerBuffs.value[selectedSlot.value]) return;
-  const p = lineup.value[selectedSlot.value];
-  const buffs = playerBuffs.value[selectedSlot.value];
-  const arr = buffs.selectedSkills;
-  const rarity = parseInt(String(p?.rarity || 1), 10) || 1;
-  const max = Math.min(3, Math.max(1, rarity - 1));
-  
-  const idx = arr.indexOf(sk);
-  if (idx > -1) {
-    arr.splice(idx, 1);
-  } else if (arr.length < max) {
-    arr.push(sk);
-  }
-}
-
-const getMaxSkillCount = (p: Raw | null) => {
-  if (!p) return 0;
-  return Math.min(3, Math.max(1, (parseInt(String(p.rarity || 1), 10) || 1) - 1));
-}
-
-const formatBonuses = (bonuses: { stat: string, bonus: JsonBonus }[]) => {
-  if (!bonuses || !Array.isArray(bonuses)) return '';
-  return bonuses.map(b => {
-    const statName = b.stat === 'power' ? '파워' : STAT_LABELS[b.stat] || b.stat;
-    const val = b.bonus.value;
-    const unit = b.bonus.unit === 'percent' ? '%' : '';
-    return `${statName} +${val}${unit}`;
-  }).join(', ');
 }
 
 onMounted(async () => {
@@ -964,41 +926,17 @@ onMounted(async () => {
             <div v-if="lineupViewMode === 'batter'" class="h-full flex flex-col justify-center items-center">
                <div class="grid grid-cols-3 gap-4 w-full max-w-lg mb-8">
                  <div v-for="pos in ['LF', 'CF', 'RF']" :key="pos">
-                   <div v-if="!lineup[pos]" class="h-[100px] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === pos}" @click="selectSlot(pos)"><span class="text-[10px] font-bold">{{ pos }}</span></div>
-                   <div v-else class="relative h-[100px] border rounded-xl flex flex-col items-center p-2 cursor-pointer transition-all shadow-sm group bg-white dark:bg-neutral-800 hover:border-indigo-300 dark:hover:border-indigo-500" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200 dark:ring-indigo-800': selectedSlot === pos, 'border-neutral-200 dark:border-neutral-600': selectedSlot !== pos}" @click="selectSlot(pos)">
-                      <div class="absolute top-1 left-2 text-[9px] font-black text-neutral-400 dark:text-neutral-500">{{ pos }}</div>
-                      <button class="absolute top-1 right-1 w-4 h-4 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500 hover:bg-red-500 hover:text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity" @click.stop="clearSlot(pos)">×</button>
-                      <img :src="`/assets/logos/grade/${lineup[pos].grade}.png`" class="w-8 h-8 object-contain mt-1 drop-shadow-sm" @error="hideImage" />
-                      <div class="text-xs font-bold text-neutral-800 dark:text-neutral-200 mt-1 truncate w-full text-center">{{ lineup[pos].name }}</div>
-                      <div v-if="playerBuffs[pos]?.battingOrder && !isPitcher(lineup[pos])" class="absolute bottom-1 left-2 text-[9px] font-bold bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 px-1 rounded">{{ playerBuffs[pos].battingOrder }}번</div>
-                      <div class="absolute bottom-1 right-2 text-[11px] font-black text-indigo-600 dark:text-indigo-400">설정➔</div>
-                   </div>
+                   <PlayerCard :pos="pos" :p="lineup[pos]" :buffs="playerBuffs[pos]" :is-selected="selectedSlot === pos" @click="selectSlot(pos)" @clear="clearSlot(pos)" />
                  </div>
                </div>
                <div class="grid grid-cols-4 gap-4 w-full max-w-2xl mb-8">
                  <div v-for="pos in ['3B', 'SS', '2B', '1B']" :key="pos">
-                   <div v-if="!lineup[pos]" class="h-[100px] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === pos}" @click="selectSlot(pos)"><span class="text-[10px] font-bold">{{ pos }}</span></div>
-                   <div v-else class="relative h-[100px] border rounded-xl flex flex-col items-center p-2 cursor-pointer transition-all shadow-sm group bg-white dark:bg-neutral-800 hover:border-indigo-300 dark:hover:border-indigo-500" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200 dark:ring-indigo-800': selectedSlot === pos, 'border-neutral-200 dark:border-neutral-600': selectedSlot !== pos}" @click="selectSlot(pos)">
-                      <div class="absolute top-1 left-2 text-[9px] font-black text-neutral-400 dark:text-neutral-500">{{ pos }}</div>
-                      <button class="absolute top-1 right-1 w-4 h-4 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500 hover:bg-red-500 hover:text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity" @click.stop="clearSlot(pos)">×</button>
-                      <img :src="`/assets/logos/grade/${lineup[pos].grade}.png`" class="w-8 h-8 object-contain mt-1 drop-shadow-sm" @error="hideImage" />
-                      <div class="text-xs font-bold text-neutral-800 dark:text-neutral-200 mt-1 truncate w-full text-center">{{ lineup[pos].name }}</div>
-                      <div v-if="playerBuffs[pos]?.battingOrder && !isPitcher(lineup[pos])" class="absolute bottom-1 left-2 text-[9px] font-bold bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 px-1 rounded">{{ playerBuffs[pos].battingOrder }}번</div>
-                      <div class="absolute bottom-1 right-2 text-[11px] font-black text-indigo-600 dark:text-indigo-400">설정➔</div>
-                   </div>
+                   <PlayerCard :pos="pos" :p="lineup[pos]" :buffs="playerBuffs[pos]" :is-selected="selectedSlot === pos" @click="selectSlot(pos)" @clear="clearSlot(pos)" />
                  </div>
                </div>
                <div class="grid grid-cols-2 gap-16 w-full max-w-md">
                  <div v-for="pos in ['C', 'DH']" :key="pos">
-                   <div v-if="!lineup[pos]" class="h-[100px] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === pos}" @click="selectSlot(pos)"><span class="text-[10px] font-bold">{{ pos }}</span></div>
-                   <div v-else class="relative h-[100px] border rounded-xl flex flex-col items-center p-2 cursor-pointer transition-all shadow-sm group bg-white dark:bg-neutral-800 hover:border-indigo-300 dark:hover:border-indigo-500" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200 dark:ring-indigo-800': selectedSlot === pos, 'border-neutral-200 dark:border-neutral-600': selectedSlot !== pos}" @click="selectSlot(pos)">
-                      <div class="absolute top-1 left-2 text-[9px] font-black text-neutral-400 dark:text-neutral-500">{{ pos }}</div>
-                      <button class="absolute top-1 right-1 w-4 h-4 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500 hover:bg-red-500 hover:text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity" @click.stop="clearSlot(pos)">×</button>
-                      <img :src="`/assets/logos/grade/${lineup[pos].grade}.png`" class="w-8 h-8 object-contain mt-1 drop-shadow-sm" @error="hideImage" />
-                      <div class="text-xs font-bold text-neutral-800 dark:text-neutral-200 mt-1 truncate w-full text-center">{{ lineup[pos].name }}</div>
-                      <div v-if="playerBuffs[pos]?.battingOrder && !isPitcher(lineup[pos])" class="absolute bottom-1 left-2 text-[9px] font-bold bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 px-1 rounded">{{ playerBuffs[pos].battingOrder }}번</div>
-                      <div class="absolute bottom-1 right-2 text-[11px] font-black text-indigo-600 dark:text-indigo-400">설정➔</div>
-                   </div>
+                   <PlayerCard :pos="pos" :p="lineup[pos]" :buffs="playerBuffs[pos]" :is-selected="selectedSlot === pos" @click="selectSlot(pos)" @clear="clearSlot(pos)" />
                  </div>
                </div>
             </div>
@@ -1009,15 +947,7 @@ onMounted(async () => {
                 <h3 class="text-xs font-bold text-neutral-500 mb-3 ml-1">선발 투수</h3>
                 <div class="grid grid-cols-3 sm:grid-cols-5 gap-3">
                   <div v-for="i in 5" :key="'SP'+i">
-                     <div v-if="!lineup['SP'+i]" class="h-[100px] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === 'SP'+i}" @click="selectSlot('SP'+i)"><span class="text-[10px] font-bold">{{ 'SP'+i }}</span></div>
-                   <div v-else class="relative h-[100px] border rounded-xl flex flex-col items-center p-2 cursor-pointer transition-all shadow-sm group bg-white dark:bg-neutral-800 hover:border-indigo-300 dark:hover:border-indigo-500" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200 dark:ring-indigo-800': selectedSlot === 'SP'+i, 'border-neutral-200 dark:border-neutral-600': selectedSlot !== 'SP'+i}" @click="selectSlot('SP'+i)">
-                      <div class="absolute top-1 left-2 text-[9px] font-black text-neutral-400 dark:text-neutral-500">{{ 'SP'+i }}</div>
-                      <button class="absolute top-1 right-1 w-4 h-4 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500 hover:bg-red-500 hover:text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity" @click.stop="clearSlot('SP'+i)">×</button>
-                      <img :src="`/assets/logos/grade/${lineup['SP'+i].grade}.png`" class="w-8 h-8 object-contain mt-1 drop-shadow-sm" @error="hideImage" />
-                      <div class="text-xs font-bold text-neutral-800 dark:text-neutral-200 mt-1 truncate w-full text-center">{{ lineup['SP'+i].name }}</div>
-                      <div v-if="playerBuffs['SP'+i]?.battingOrder && !isPitcher(lineup['SP'+i])" class="absolute bottom-1 left-2 text-[9px] font-bold bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 px-1 rounded">{{ playerBuffs['SP'+i].battingOrder }}번</div>
-                      <div class="absolute bottom-1 right-2 text-[11px] font-black text-indigo-600 dark:text-indigo-400">설정➔</div>
-                   </div>
+                     <PlayerCard :pos="'SP'+i" :p="lineup['SP'+i]" :buffs="playerBuffs['SP'+i]" :is-selected="selectedSlot === 'SP'+i" @click="selectSlot('SP'+i)" @clear="clearSlot('SP'+i)" />
                   </div>
                 </div>
               </div>
@@ -1025,15 +955,7 @@ onMounted(async () => {
                 <h3 class="text-xs font-bold text-neutral-500 mb-3 ml-1">계투 및 마무리</h3>
                 <div class="grid grid-cols-3 sm:grid-cols-6 gap-3">
                   <div v-for="i in 6" :key="'RP'+i">
-                     <div v-if="!lineup['RP'+i]" class="h-[100px] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === 'RP'+i}" @click="selectSlot('RP'+i)"><span class="text-[10px] font-bold">{{ 'RP'+i }}</span></div>
-                   <div v-else class="relative h-[100px] border rounded-xl flex flex-col items-center p-2 cursor-pointer transition-all shadow-sm group bg-white dark:bg-neutral-800 hover:border-indigo-300 dark:hover:border-indigo-500" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200 dark:ring-indigo-800': selectedSlot === 'RP'+i, 'border-neutral-200 dark:border-neutral-600': selectedSlot !== 'RP'+i}" @click="selectSlot('RP'+i)">
-                      <div class="absolute top-1 left-2 text-[9px] font-black text-neutral-400 dark:text-neutral-500">{{ 'RP'+i }}</div>
-                      <button class="absolute top-1 right-1 w-4 h-4 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500 hover:bg-red-500 hover:text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity" @click.stop="clearSlot('RP'+i)">×</button>
-                      <img :src="`/assets/logos/grade/${lineup['RP'+i].grade}.png`" class="w-8 h-8 object-contain mt-1 drop-shadow-sm" @error="hideImage" />
-                      <div class="text-xs font-bold text-neutral-800 dark:text-neutral-200 mt-1 truncate w-full text-center">{{ lineup['RP'+i].name }}</div>
-                      <div v-if="playerBuffs['RP'+i]?.battingOrder && !isPitcher(lineup['RP'+i])" class="absolute bottom-1 left-2 text-[9px] font-bold bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 px-1 rounded">{{ playerBuffs['RP'+i].battingOrder }}번</div>
-                      <div class="absolute bottom-1 right-2 text-[11px] font-black text-indigo-600 dark:text-indigo-400">설정➔</div>
-                   </div>
+                     <PlayerCard :pos="'RP'+i" :p="lineup['RP'+i]" :buffs="playerBuffs['RP'+i]" :is-selected="selectedSlot === 'RP'+i" @click="selectSlot('RP'+i)" @clear="clearSlot('RP'+i)" />
                   </div>
                 </div>
               </div>
@@ -1044,15 +966,7 @@ onMounted(async () => {
                <h3 class="text-xs font-bold text-neutral-500 mb-3 ml-1">벤치 멤버</h3>
                <div class="grid grid-cols-3 sm:grid-cols-4 gap-3">
                   <div v-for="i in 8" :key="'BENCH'+i">
-                     <div v-if="!lineup['BENCH'+i]" class="h-[100px] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === 'BENCH'+i}" @click="selectSlot('BENCH'+i)"><span class="text-[10px] font-bold">{{ 'BENCH'+i }}</span></div>
-                   <div v-else class="relative h-[100px] border rounded-xl flex flex-col items-center p-2 cursor-pointer transition-all shadow-sm group bg-white dark:bg-neutral-800 hover:border-indigo-300 dark:hover:border-indigo-500" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200 dark:ring-indigo-800': selectedSlot === 'BENCH'+i, 'border-neutral-200 dark:border-neutral-600': selectedSlot !== 'BENCH'+i}" @click="selectSlot('BENCH'+i)">
-                      <div class="absolute top-1 left-2 text-[9px] font-black text-neutral-400 dark:text-neutral-500">{{ 'BENCH'+i }}</div>
-                      <button class="absolute top-1 right-1 w-4 h-4 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500 hover:bg-red-500 hover:text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity" @click.stop="clearSlot('BENCH'+i)">×</button>
-                      <img :src="`/assets/logos/grade/${lineup['BENCH'+i].grade}.png`" class="w-8 h-8 object-contain mt-1 drop-shadow-sm" @error="hideImage" />
-                      <div class="text-xs font-bold text-neutral-800 dark:text-neutral-200 mt-1 truncate w-full text-center">{{ lineup['BENCH'+i].name }}</div>
-                      <div v-if="playerBuffs['BENCH'+i]?.battingOrder && !isPitcher(lineup['BENCH'+i])" class="absolute bottom-1 left-2 text-[9px] font-bold bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 px-1 rounded">{{ playerBuffs['BENCH'+i].battingOrder }}번</div>
-                      <div class="absolute bottom-1 right-2 text-[11px] font-black text-indigo-600 dark:text-indigo-400">설정➔</div>
-                   </div>
+                     <PlayerCard :pos="'BENCH'+i" :p="lineup['BENCH'+i]" :buffs="playerBuffs['BENCH'+i]" :is-selected="selectedSlot === 'BENCH'+i" @click="selectSlot('BENCH'+i)" @clear="clearSlot('BENCH'+i)" />
                   </div>
                </div>
             </div>
@@ -1139,9 +1053,9 @@ onMounted(async () => {
             <!-- 플레이어 탭 -->
             <div v-else-if="selectedSlot && lineup[selectedSlot] && playerBuffs[selectedSlot]" class="space-y-4 animate-in fade-in">
               <div class="flex items-center gap-3 p-3 bg-neutral-100 dark:bg-neutral-700/50 rounded-xl">
-                <img :src="`/assets/logos/grade/${lineup[selectedSlot].grade}.png`" class="w-10 h-10 object-contain drop-shadow" />
+                <img :src="`/assets/logos/grade/${lineup[selectedSlot]!.grade}.png`" class="w-10 h-10 object-contain drop-shadow" />
                 <div>
-                  <div class="font-bold text-sm text-neutral-900 dark:text-neutral-100">{{ lineup[selectedSlot].name }}</div>
+                  <div class="font-bold text-sm text-neutral-900 dark:text-neutral-100">{{ lineup[selectedSlot]!.name }}</div>
                   <div class="text-[11px] text-neutral-500">{{ selectedSlot }} 슬롯 배치됨</div>
                 </div>
                 <div class="ml-auto text-right">
@@ -1154,25 +1068,25 @@ onMounted(async () => {
               <div v-if="computedPlayerStats[selectedSlot]" class="bg-indigo-50 dark:bg-indigo-900/10 p-3 rounded-xl border border-indigo-100 dark:border-indigo-900/20 shadow-sm">
                 <h3 class="text-[11px] font-bold text-indigo-800 dark:text-indigo-300 mb-2 flex items-center gap-1"><TrendingUp class="w-3 h-3"/> 개별 스탯 증가 (각인/커리어)</h3>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
-                   <div v-for="stat in (isPitcher(lineup[selectedSlot]) ? pitcherStats : batterStats)" :key="stat" class="flex flex-col gap-1 border border-indigo-100 dark:border-indigo-800/50 p-1.5 rounded-lg bg-white dark:bg-neutral-800 shadow-sm">
+                   <div v-for="stat in (isPitcher(lineup[selectedSlot]!) ? pitcherStats : batterStats)" :key="stat" class="flex flex-col gap-1 border border-indigo-100 dark:border-indigo-800/50 p-1.5 rounded-lg bg-white dark:bg-neutral-800 shadow-sm">
                       <label class="text-[10px] font-bold text-neutral-600 dark:text-neutral-400 text-center">{{ STAT_LABELS[stat] || stat }}</label>
                       <div class="flex items-center justify-between gap-1">
                         <span class="text-[9px] text-neutral-400 w-8">각인</span>
-                        <input type="number" v-model.number="playerBuffs[selectedSlot].imprintStats[stat]" class="w-full px-1 py-0.5 text-center bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded text-[10px] font-semibold outline-none focus:border-indigo-500" placeholder="0" />
+                        <input type="number" v-model.number="playerBuffs[selectedSlot!].imprintStats[stat]" class="w-full px-1 py-0.5 text-center bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded text-[10px] font-semibold outline-none focus:border-indigo-500" placeholder="0" />
                       </div>
                       <div class="flex items-center justify-between gap-1">
                         <span class="text-[9px] text-neutral-400 w-8">커리어</span>
-                        <input type="number" v-model.number="playerBuffs[selectedSlot].careerStats[stat]" class="w-full px-1 py-0.5 text-center bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded text-[10px] font-semibold outline-none focus:border-indigo-500" placeholder="0" />
+                        <input type="number" v-model.number="playerBuffs[selectedSlot!].careerStats[stat]" class="w-full px-1 py-0.5 text-center bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded text-[10px] font-semibold outline-none focus:border-indigo-500" placeholder="0" />
                       </div>
                       <div class="mt-1 text-center bg-indigo-50 dark:bg-indigo-900/30 rounded py-0.5 border border-indigo-100 dark:border-indigo-800">
-                        <span class="text-[11px] font-black text-indigo-700 dark:text-indigo-300">{{ computedPlayerStats[selectedSlot].stats[stat] }}</span>
+                        <span class="text-[11px] font-black text-indigo-700 dark:text-indigo-300">{{ computedPlayerStats[selectedSlot!].stats[stat] }}</span>
                       </div>
                    </div>
                 </div>
               </div>
 
               <!-- 타순 설정 (타자일 경우만) -->
-              <div v-if="!String(lineup[selectedSlot].position).toUpperCase().includes('P') && !lineup[selectedSlot].movement" class="bg-orange-50 dark:bg-orange-900/10 p-3 rounded-xl border border-orange-100 dark:border-orange-900/20">
+              <div v-if="!String(lineup[selectedSlot]!.position).toUpperCase().includes('P') && !lineup[selectedSlot]!.movement" class="bg-orange-50 dark:bg-orange-900/10 p-3 rounded-xl border border-orange-100 dark:border-orange-900/20">
                 <h3 class="text-[11px] font-bold text-orange-800 dark:text-orange-300 mb-1.5">타순 설정</h3>
                 <select v-model.number="playerBuffs[selectedSlot].battingOrder" class="w-full py-1.5 px-2 rounded-lg border border-orange-200 dark:border-orange-800 bg-white dark:bg-neutral-800 text-xs font-semibold outline-none focus:border-orange-500">
                   <option :value="null">타순 미지정</option>
@@ -1188,9 +1102,9 @@ onMounted(async () => {
                   </h3>
                 </div>
                 <div class="flex flex-wrap gap-1">
-                  <button v-for="lvl in (getMaxEnhance(lineup[selectedSlot]) + 1)" :key="'enh'+lvl"
-                    @click="playerBuffs[selectedSlot].enhancementLevel = lvl-1"
-                    :class="playerBuffs[selectedSlot].enhancementLevel === lvl-1 ? 'bg-emerald-600 text-white border-emerald-600 shadow-md' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-300 dark:border-neutral-600 hover:border-emerald-400 dark:hover:border-emerald-500'"
+                  <button v-for="lvl in (getMaxEnhance(lineup[selectedSlot]!) + 1)" :key="'enh'+lvl"
+                    @click="playerBuffs[selectedSlot!].enhancementLevel = lvl-1"
+                    :class="playerBuffs[selectedSlot!].enhancementLevel === lvl-1 ? 'bg-emerald-600 text-white border-emerald-600 shadow-md' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-300 dark:border-neutral-600 hover:border-emerald-400 dark:hover:border-emerald-500'"
                     class="w-8 h-7 flex items-center justify-center text-[10px] font-bold border rounded-md transition-colors">
                     +{{ lvl-1 }}
                   </button>
@@ -1206,8 +1120,8 @@ onMounted(async () => {
                 </div>
                 <div class="flex flex-wrap gap-1">
                   <button v-for="lvl in (getMaxBreakthrough(lineup[selectedSlot]) + 1)" :key="'brk'+lvl"
-                    @click="playerBuffs[selectedSlot].breakthroughLevel = lvl-1"
-                    :class="playerBuffs[selectedSlot].breakthroughLevel === lvl-1 ? 'bg-fuchsia-600 text-white border-fuchsia-600 shadow-md' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-300 dark:border-neutral-600 hover:border-fuchsia-400 dark:hover:border-fuchsia-500'"
+                    @click="playerBuffs[selectedSlot!].breakthroughLevel = lvl-1"
+                    :class="playerBuffs[selectedSlot!].breakthroughLevel === lvl-1 ? 'bg-fuchsia-600 text-white border-fuchsia-600 shadow-md' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-300 dark:border-neutral-600 hover:border-fuchsia-400 dark:hover:border-fuchsia-500'"
                     class="px-2 h-7 flex items-center justify-center text-[10px] font-bold border rounded-md transition-colors">
                     {{ lvl-1 === 0 ? '돌파 안함' : (lvl-1) + '돌' }}
                   </button>
@@ -1247,16 +1161,21 @@ onMounted(async () => {
               <div class="mt-4">
                 <div class="flex items-center justify-between mb-2">
                   <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-1"><Star class="w-4 h-4 text-amber-400"/> 스킬 장착</h3>
-                  <span class="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 px-2 py-0.5 rounded font-bold">{{ playerBuffs[selectedSlot].selectedSkills.length }} / {{ getMaxSkillCount(lineup[selectedSlot]) }}</span>
+                  <span class="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 px-2 py-0.5 rounded font-bold">{{ playerBuffs[selectedSlot].selectedSkills.length }} / {{ Math.min(3, Math.max(1, parseInt(String(lineup[selectedSlot]!.rarity||1))-1)) }}</span>
                 </div>
                 <div class="flex flex-wrap gap-1.5">
                   <button 
-                    v-for="sk in getAvailableSkills(lineup[selectedSlot])" 
+                    v-for="sk in Array.from(new Set([...getArray(lineup[selectedSlot]!.skill), ...getArray(lineup[selectedSlot]!.enhancedSkill)].filter(s=>!['야전사령관', '인사이드 워크', '투수 리드', '친화력', '도루 저지'].includes(s))))" 
                     :key="sk"
-                    @click="togglePlayerSkill(sk)"
+                    @click="() => {
+                      const arr = playerBuffs[selectedSlot!].selectedSkills;
+                      const max = Math.min(3, Math.max(1, parseInt(String(lineup[selectedSlot!]!.rarity||1))-1));
+                      if (arr.includes(sk)) arr.splice(arr.indexOf(sk), 1);
+                      else if (arr.length < max) arr.push(sk);
+                    }"
                     :class="[
                       playerBuffs[selectedSlot].selectedSkills.includes(sk) ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white border-neutral-200 dark:bg-neutral-800 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300',
-                      playerBuffs[selectedSlot].selectedSkills.includes(sk) && !isSkillActive(sk, selectedSlot, playerBuffs[selectedSlot].battingOrder) ? 'bg-red-500 border-red-600 text-white' : ''
+                      playerBuffs[selectedSlot].selectedSkills.includes(sk) && !isSkillActive(sk, selectedSlot, playerBuffs[selectedSlot].battingOrder) ? '!bg-red-500 !border-red-600' : ''
                     ]"
                     class="px-2 py-1 text-[11px] font-bold border rounded-lg transition-colors relative"
                   >
