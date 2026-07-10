@@ -333,6 +333,43 @@ const activeTeamSynergies = computed(() => {
   return result
 })
 
+const pendingTeamSynergies = computed(() => {
+  const lineupPlayers = Object.values(lineup.value).filter(Boolean) as Raw[]
+  const result = new Map<string, { current: number, required: number }>()
+  
+  for (const s of synergys.value) {
+    const name = String(s.synergy).trim()
+    const count = lineupPlayers.filter(p => checkSynergyInclusion(name, getArray(p.synergy))).length
+    
+    if (count > 0) {
+       const matched = (s.conditions||[]).filter(c => {
+          const op = c.count?.op as CountOp
+          return op === 'between' 
+            ? compareCondition('between', count, c.count?.min, c.count?.max) 
+            : compareCondition(op, count, c.count?.value)
+       })
+       
+       if (matched.length === 0) {
+         let minRequired = Infinity;
+         (s.conditions||[]).forEach(c => {
+           let req = 0;
+           if (c.count?.op === 'between') req = c.count?.min;
+           else if (['>=', '==', '>'].includes(c.count?.op)) req = c.count?.value;
+           
+           if (req > count && req < minRequired) {
+              minRequired = req;
+           }
+         });
+         
+         if (minRequired !== Infinity) {
+            result.set(name, { current: count, required: minRequired })
+         }
+       }
+    }
+  }
+  return result
+})
+
 
 const getSynergyType = (conditions: any[]) => {
   const pitStats = ['movement', 'longHitSuppression', 'homeRunSuppression', 'control', 'stuff', 'pitchLimit', 'runnerControl'];
@@ -951,7 +988,7 @@ onMounted(async () => {
                 💡 선수 레벨, 도감 등은 각 선수를 클릭하여 <b>[선수 개인 설정]</b> 탭에서 조절하세요.
               </div>
               
-              <!-- 팀 활성화 시너지 목록 -->
+              <!-- 팀 시너지 현황 -->
               <div class="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800 shadow-sm">
                  <h3 class="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-3 flex items-center gap-1"><Users class="w-4 h-4"/> 현재 활성화된 팀 시너지</h3>
                  <div class="flex flex-col gap-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">
@@ -961,7 +998,20 @@ onMounted(async () => {
                        {{ bonuses.map(b => (b.stat === 'power' ? '파워' : STAT_LABELS[b.stat] || b.stat) + ' +' + b.bonus.value + (b.bonus.unit === 'percent' ? '%' : '')).join(', ') }}
                      </span>
                    </div>
-                   <div v-if="activeTeamSynergies.size === 0" class="text-xs text-neutral-400 text-center py-4">활성화된 시너지가 없습니다.<br/>(라인업에 선수를 배치하면 자동으로 시너지가 집계됩니다.)</div>
+                   <div v-if="activeTeamSynergies.size === 0" class="text-xs text-neutral-400 text-center py-2">활성화된 시너지가 없습니다.</div>
+                 </div>
+                 
+                 <!-- 부족한 시너지 (발동 대기) -->
+                 <div v-if="pendingTeamSynergies.size > 0" class="mt-4 pt-3 border-t border-indigo-200 dark:border-indigo-800/50">
+                   <h3 class="text-[11px] font-bold text-neutral-500 mb-2 flex items-center gap-1"><Users class="w-3 h-3"/> 발동 대기 중인 시너지 (인원 부족)</h3>
+                   <div class="flex flex-col gap-1.5 max-h-32 overflow-y-auto custom-scrollbar pr-2">
+                     <div v-for="[synName, counts] in pendingTeamSynergies" :key="'pend'+synName" class="flex justify-between items-center text-[10px] bg-neutral-100 dark:bg-neutral-800 px-2 py-1.5 rounded border border-neutral-200 dark:border-neutral-700 shadow-sm">
+                       <span class="font-medium text-neutral-600 dark:text-neutral-400">{{ synName }}</span>
+                       <span class="text-red-500 dark:text-red-400 font-bold bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded">
+                         {{ counts.current }} / {{ counts.required }}명
+                       </span>
+                     </div>
+                   </div>
                  </div>
               </div>
             </div>
