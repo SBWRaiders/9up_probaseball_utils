@@ -313,18 +313,20 @@ const activeTeamSynergies = computed(() => {
     const name = String(s.synergy).trim()
     const count = lineupPlayers.filter(p => checkSynergyInclusion(name, getArray(p.synergy))).length
     if (count > 0) {
-       const all = (s.conditions||[]).map(c=>{
-          const isBetween = c.count.op==='between'
-          const upper = isBetween ? (c.count as any).max : (c.count as any).value
-          return { raw:c, upper:Number(upper??0) }
-       }).sort((a,b)=>a.upper-b.upper)
-       const matched = all.filter(({raw})=>{
-          const c:any = raw.count
-          return c?.op==='between' ? compareCondition('between', count, c.min, c.max) : compareCondition(c?.op as CountOp, count, c?.value)
+       const matched = (s.conditions||[]).filter(c => {
+          const op = c.count?.op as CountOp
+          return op === 'between' 
+            ? compareCondition('between', count, c.count?.min, c.count?.max) 
+            : compareCondition(op, count, c.count?.value)
        })
+       
        if (matched.length > 0) {
-         const top = matched.slice().sort((a,b)=>(b.upper-a.upper)||((b.raw.bonus.value??0)-(a.raw.bonus.value??0)))[0].raw
-         result.set(name, [{ stat: top.stat, bonus: top.bonus }])
+         // 중복되는 스탯 조건(파워, 구위, 제구 등)을 모두 합산하기 위해 최고 도달 카운트만 필터링
+         const getThreshold = (c: any) => c.count?.op === 'between' ? (c.count?.max || 0) : (c.count?.value || 0)
+         const maxThreshold = Math.max(...matched.map(getThreshold))
+         const highestTierConditions = matched.filter(c => getThreshold(c) === maxThreshold)
+         
+         result.set(name, highestTierConditions.map(c => ({ stat: c.stat, bonus: c.bonus })))
        }
     }
   }
