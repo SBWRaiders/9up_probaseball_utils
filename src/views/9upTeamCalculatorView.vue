@@ -457,7 +457,7 @@ const computedPlayerStats = computed(() => {
     nonCoreStats.forEach(s => baseSum += Number(p[s] || 0))
     
     const pTeams = toArray(p.team).map(toLowerCase);
-    const isMyTeam = globalBuffs.preferredTeam.some(t => pTeams.includes(t));
+    const isMyTeam = (globalBuffs.preferredTeam || []).some(t => pTeams.includes(t));
     const appliedTeamLevelBuff = getTeamLevelPower(globalBuffs.teamLevel, isMyTeam);
     const growthA = Number(Math.max(0, buffs.playerLevel - 1) * 10) + buffs.collectionBuff + appliedTeamLevelBuff + buffs.careerLevelBuff + (buffs.enhancementLevel * getEnhanceMultiplier(p))
     const flatC = buffs.binderBuff + globalBuffs.clanBuff + buffs.imprintStarterPower + buffs.careerAllStatFlat + getBreakthroughFixed(p, buffs.breakthroughLevel)
@@ -994,7 +994,7 @@ onMounted(async () => {
                       :key="'pref'+group.name"
                       :title="group.name"
                       @click="globalBuffs.preferredTeam = group.id"
-                      :class="globalBuffs.preferredTeam === group.id ? 'bg-indigo-200 dark:bg-indigo-800 border-indigo-500 shadow-md ring-2 ring-indigo-400' : 'bg-white dark:bg-neutral-700 border-neutral-200 dark:border-neutral-600 opacity-60 hover:opacity-100'"
+                      :class="(globalBuffs.preferredTeam && globalBuffs.preferredTeam[0] === group.id[0]) ? 'bg-indigo-200 dark:bg-indigo-800 border-indigo-500 shadow-md ring-2 ring-indigo-400' : 'bg-white dark:bg-neutral-700 border-neutral-200 dark:border-neutral-600 opacity-60 hover:opacity-100'"
                       class="p-1 flex items-center justify-center rounded-lg border transition-all"
                   >
                     <img v-if="getTeamLogoUrl(group.id[0])" :src="getTeamLogoUrl(group.id[0])" :alt="group.name" class="w-8 h-8 object-contain" @error="$event.target.style.display='none'" />
@@ -1072,14 +1072,14 @@ onMounted(async () => {
                       <label class="text-[10px] font-bold text-neutral-600 dark:text-neutral-400 text-center">{{ STAT_LABELS[stat] || stat }}</label>
                       <div class="flex items-center justify-between gap-1">
                         <span class="text-[9px] text-neutral-400 w-8">각인</span>
-                        <input type="number" v-model.number="playerBuffs[selectedSlot!].imprintStats[stat]" class="w-full px-1 py-0.5 text-center bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded text-[10px] font-semibold outline-none focus:border-indigo-500" placeholder="0" />
+                        <input type="number" v-model.number="playerBuffs[selectedSlot].imprintStats[stat]" class="w-full px-1 py-0.5 text-center bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded text-[10px] font-semibold outline-none focus:border-indigo-500" placeholder="0" />
                       </div>
                       <div class="flex items-center justify-between gap-1">
                         <span class="text-[9px] text-neutral-400 w-8">커리어</span>
-                        <input type="number" v-model.number="playerBuffs[selectedSlot!].careerStats[stat]" class="w-full px-1 py-0.5 text-center bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded text-[10px] font-semibold outline-none focus:border-indigo-500" placeholder="0" />
+                        <input type="number" v-model.number="playerBuffs[selectedSlot].careerStats[stat]" class="w-full px-1 py-0.5 text-center bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded text-[10px] font-semibold outline-none focus:border-indigo-500" placeholder="0" />
                       </div>
                       <div class="mt-1 text-center bg-indigo-50 dark:bg-indigo-900/30 rounded py-0.5 border border-indigo-100 dark:border-indigo-800">
-                        <span class="text-[11px] font-black text-indigo-700 dark:text-indigo-300">{{ computedPlayerStats[selectedSlot!].stats[stat] }}</span>
+                        <span class="text-[11px] font-black text-indigo-700 dark:text-indigo-300">{{ computedPlayerStats[selectedSlot].stats[stat] }}</span>
                       </div>
                    </div>
                 </div>
@@ -1103,8 +1103,8 @@ onMounted(async () => {
                 </div>
                 <div class="flex flex-wrap gap-1">
                   <button v-for="lvl in (getMaxEnhance(lineup[selectedSlot]!) + 1)" :key="'enh'+lvl"
-                    @click="playerBuffs[selectedSlot!].enhancementLevel = lvl-1"
-                    :class="playerBuffs[selectedSlot!].enhancementLevel === lvl-1 ? 'bg-emerald-600 text-white border-emerald-600 shadow-md' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-300 dark:border-neutral-600 hover:border-emerald-400 dark:hover:border-emerald-500'"
+                    @click="playerBuffs[selectedSlot].enhancementLevel = lvl-1"
+                    :class="playerBuffs[selectedSlot].enhancementLevel === lvl-1 ? 'bg-emerald-600 text-white border-emerald-600 shadow-md' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-300 dark:border-neutral-600 hover:border-emerald-400 dark:hover:border-emerald-500'"
                     class="w-8 h-7 flex items-center justify-center text-[10px] font-bold border rounded-md transition-colors">
                     +{{ lvl-1 }}
                   </button>
@@ -1120,8 +1120,8 @@ onMounted(async () => {
                 </div>
                 <div class="flex flex-wrap gap-1">
                   <button v-for="lvl in (getMaxBreakthrough(lineup[selectedSlot]) + 1)" :key="'brk'+lvl"
-                    @click="playerBuffs[selectedSlot!].breakthroughLevel = lvl-1"
-                    :class="playerBuffs[selectedSlot!].breakthroughLevel === lvl-1 ? 'bg-fuchsia-600 text-white border-fuchsia-600 shadow-md' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-300 dark:border-neutral-600 hover:border-fuchsia-400 dark:hover:border-fuchsia-500'"
+                    @click="playerBuffs[selectedSlot].breakthroughLevel = lvl-1"
+                    :class="playerBuffs[selectedSlot].breakthroughLevel === lvl-1 ? 'bg-fuchsia-600 text-white border-fuchsia-600 shadow-md' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-300 dark:border-neutral-600 hover:border-fuchsia-400 dark:hover:border-fuchsia-500'"
                     class="px-2 h-7 flex items-center justify-center text-[10px] font-bold border rounded-md transition-colors">
                     {{ lvl-1 === 0 ? '돌파 안함' : (lvl-1) + '돌' }}
                   </button>
@@ -1168,8 +1168,8 @@ onMounted(async () => {
                     v-for="sk in Array.from(new Set([...getArray(lineup[selectedSlot]!.skill), ...getArray(lineup[selectedSlot]!.enhancedSkill)].filter(s=>!['야전사령관', '인사이드 워크', '투수 리드', '친화력', '도루 저지'].includes(s))))" 
                     :key="sk"
                     @click="() => {
-                      const arr = playerBuffs[selectedSlot!].selectedSkills;
-                      const max = Math.min(3, Math.max(1, parseInt(String(lineup[selectedSlot!]!.rarity||1))-1));
+                      const arr = playerBuffs[selectedSlot].selectedSkills;
+                      const max = Math.min(3, Math.max(1, parseInt(String(lineup[selectedSlot]!.rarity||1))-1));
                       if (arr.includes(sk)) arr.splice(arr.indexOf(sk), 1);
                       else if (arr.length < max) arr.push(sk);
                     }"
