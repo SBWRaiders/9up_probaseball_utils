@@ -331,6 +331,42 @@ const activeTeamSynergies = computed(() => {
   return result
 })
 
+
+const getSynergyType = (conditions: any[]) => {
+  const pitStats = ['movement', 'longHitSuppression', 'homeRunSuppression', 'control', 'stuff', 'pitchLimit', 'runnerControl'];
+  const batStats = ['contact', 'gapPower', 'homeRunPower', 'plateDiscipline', 'strikeoutAvoidance', 'stealing', 'baseRunning'];
+  const isPit = conditions?.some(c => pitStats.includes(c.stat));
+  const isBat = conditions?.some(c => batStats.includes(c.stat));
+  if (isPit && !isBat) return 'pitcher';
+  if (isBat && !isPit) return 'batter';
+  return 'both';
+}
+
+const getPlayerSynergySum = (p: Raw | null, unit: 'fixed' | 'percent') => {
+  if (!p) return 0;
+  let total = 0;
+  const cleanNames = getArray(p.synergy).map(x=>x.normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[,\s클럽]/g,'').trim());
+  activeTeamSynergies.value.forEach((bonuses, synName) => {
+    const targetClean = synName.normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[,\s클럽]/g,'').trim();
+    if (cleanNames.some(cn => targetClean.includes(cn) || cn.includes(targetClean))) {
+      const synData = synergys.value.find(s => String(s.synergy).trim() === synName);
+      let isValid = true;
+      if (synData) {
+        const synType = getSynergyType(synData.conditions);
+        const playerIsPit = isPitcher(p);
+        if (playerIsPit && synType === 'batter') isValid = false;
+        if (!playerIsPit && synType === 'pitcher') isValid = false;
+      }
+      if (isValid) {
+        bonuses.forEach(b => {
+          if (b.stat === 'power' && b.bonus.unit === unit) total += b.bonus.value;
+        });
+      }
+    }
+  });
+  return total;
+}
+
 const getMaxEnhance = (p: Raw) => {
   if (!p) return 15;
   const grade = String(p.grade).toUpperCase();
@@ -912,6 +948,20 @@ onMounted(async () => {
               <div class="text-xs text-neutral-500 bg-neutral-100 dark:bg-neutral-800 p-3 rounded-lg">
                 💡 선수 레벨, 도감 등은 각 선수를 클릭하여 <b>[선수 개인 설정]</b> 탭에서 조절하세요.
               </div>
+              
+              <!-- 팀 활성화 시너지 목록 -->
+              <div class="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800 shadow-sm">
+                 <h3 class="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-3 flex items-center gap-1"><Users class="w-4 h-4"/> 현재 활성화된 팀 시너지</h3>
+                 <div class="flex flex-col gap-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">
+                   <div v-for="[synName, bonuses] in activeTeamSynergies" :key="synName" class="flex justify-between items-center text-xs bg-white dark:bg-neutral-800 px-3 py-2 rounded-lg border border-indigo-100 dark:border-indigo-800/50 shadow-sm">
+                     <span class="font-bold text-neutral-700 dark:text-neutral-300">{{ synName }}</span>
+                     <span class="text-indigo-600 dark:text-indigo-400 font-bold">
+                       {{ bonuses.map(b => (b.stat === 'power' ? '파워' : STAT_LABELS[b.stat] || b.stat) + ' +' + b.bonus.value + (b.bonus.unit === 'percent' ? '%' : '')).join(', ') }}
+                     </span>
+                   </div>
+                   <div v-if="activeTeamSynergies.size === 0" class="text-xs text-neutral-400 text-center py-4">활성화된 시너지가 없습니다.<br/>(라인업에 선수를 배치하면 자동으로 시너지가 집계됩니다.)</div>
+                 </div>
+              </div>
             </div>
 
             <!-- 플레이어 탭 -->
@@ -1006,8 +1056,23 @@ onMounted(async () => {
                 </div>
               </div>
 
+              <!-- 선수에게 적용된 시너지 -->
+              <div class="bg-indigo-50 dark:bg-indigo-900/10 p-3 rounded-xl border border-indigo-100 dark:border-indigo-900/20 shadow-sm mt-3">
+                <h3 class="text-[11px] font-bold text-indigo-800 dark:text-indigo-300 mb-2 flex items-center gap-1"><Sparkles class="w-3 h-3"/> 적용 중인 시너지 효과 (자동)</h3>
+                <div class="grid grid-cols-2 gap-2">
+                  <div class="flex flex-col gap-1">
+                    <label class="text-[9px] font-bold text-neutral-500">시너지 깡파워</label>
+                    <div class="w-full px-2 py-1 text-center bg-indigo-100 dark:bg-indigo-800/30 border border-indigo-200 dark:border-indigo-700 rounded text-xs font-bold text-indigo-700 dark:text-indigo-400">+{{ getPlayerSynergySum(lineup[selectedSlot], 'fixed') }}</div>
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <label class="text-[9px] font-bold text-neutral-500">시너지 %파워</label>
+                    <div class="w-full px-2 py-1 text-center bg-indigo-100 dark:bg-indigo-800/30 border border-indigo-200 dark:border-indigo-700 rounded text-xs font-bold text-indigo-700 dark:text-indigo-400">+{{ getPlayerSynergySum(lineup[selectedSlot], 'percent') }}%</div>
+                  </div>
+                </div>
+              </div>
+
               <!-- 스킬 설정 -->
-              <div>
+              <div class="mt-4">
                 <div class="flex items-center justify-between mb-2">
                   <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-1"><Star class="w-4 h-4 text-amber-400"/> 스킬 장착</h3>
                   <span class="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 px-2 py-0.5 rounded font-bold">{{ playerBuffs[selectedSlot].selectedSkills.length }} / {{ Math.min(3, Math.max(1, parseInt(String(lineup[selectedSlot]!.rarity||1))-1)) }}</span>
