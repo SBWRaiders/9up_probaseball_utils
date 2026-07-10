@@ -70,7 +70,7 @@ const lineup = ref({
 
 // 글로벌 버프
 const globalBuffs = reactive({
-  teamLevelBuff: 750, clanBuff: 15, teamPlayerDignityBuff: 0, managerBuff: 0
+  teamLevel: 100, preferredTeam: [] as string[], clanBuff: 15, teamPlayerDignityBuff: 0, managerBuff: 0
 })
 
 const playerBuffs = ref<Record<string, PlayerBuff>>({})
@@ -456,7 +456,10 @@ const computedPlayerStats = computed(() => {
     coreStats.forEach(s => baseSum += Number(p[s] || 0))
     nonCoreStats.forEach(s => baseSum += Number(p[s] || 0))
     
-    const growthA = Number(Math.max(0, buffs.playerLevel - 1) * 10) + buffs.collectionBuff + globalBuffs.teamLevelBuff + buffs.careerLevelBuff + (buffs.enhancementLevel * getEnhanceMultiplier(p))
+    const pTeams = toArray(p.team).map(toLowerCase);
+    const isMyTeam = globalBuffs.preferredTeam.some(t => pTeams.includes(t));
+    const appliedTeamLevelBuff = getTeamLevelPower(globalBuffs.teamLevel, isMyTeam);
+    const growthA = Number(Math.max(0, buffs.playerLevel - 1) * 10) + buffs.collectionBuff + appliedTeamLevelBuff + buffs.careerLevelBuff + (buffs.enhancementLevel * getEnhanceMultiplier(p))
     const flatC = buffs.binderBuff + globalBuffs.clanBuff + buffs.imprintStarterPower + buffs.careerAllStatFlat + getBreakthroughFixed(p, buffs.breakthroughLevel)
     
     let autoSynergyFixed = 0, autoSynergyPercent = 0, skillPowerPercent = 0, statSpecificSkillPercents: Record<string, number> = {}
@@ -617,7 +620,10 @@ const loadFromLocalStorage = () => {
       const data = JSON.parse(saved)
       lineup.value = data.lineup || lineup.value
       playerBuffs.value = data.playerBuffs || playerBuffs.value
-      Object.assign(globalBuffs, data.globalBuffs || {})
+      if (data.globalBuffs) {
+        if (data.globalBuffs.teamLevelBuff && !data.globalBuffs.teamLevel) data.globalBuffs.teamLevel = 100;
+        Object.assign(globalBuffs, data.globalBuffs)
+      }
       alert('브라우저에서 라인업을 불러왔습니다.')
     } catch (e) {
       alert('저장된 데이터를 불러오는 중 오류가 발생했습니다.')
@@ -655,7 +661,10 @@ const importFromFile = (event: Event) => {
       const data = JSON.parse(e.target?.result as string)
       lineup.value = data.lineup || lineup.value
       playerBuffs.value = data.playerBuffs || playerBuffs.value
-      Object.assign(globalBuffs, data.globalBuffs || {})
+      if (data.globalBuffs) {
+        if (data.globalBuffs.teamLevelBuff && !data.globalBuffs.teamLevel) data.globalBuffs.teamLevel = 100;
+        Object.assign(globalBuffs, data.globalBuffs)
+      }
       alert('파일에서 라인업을 성공적으로 불러왔습니다.')
     } catch (err) {
       alert('지원하지 않거나 손상된 파일 형식입니다.')
@@ -974,11 +983,36 @@ onMounted(async () => {
           <div class="flex-1 overflow-y-auto p-4 lg:p-5 custom-scrollbar">
             
             <!-- 글로벌 탭 -->
-            <div v-if="rightPanelTab === 'global'" class="space-y-5 animate-in fade-in">
+            <div v-if="rightPanelTab === 'global'" class="space-y-4 animate-in fade-in">
+              
+              <!-- 선호 구단 선택 -->
+              <div class="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800 shadow-sm">
+                <h3 class="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-3 flex items-center gap-1"><Shield class="w-4 h-4"/> 선호 구단(자팀) 설정</h3>
+                <div class="grid grid-cols-6 gap-1.5 mb-1">
+                  <button
+                      v-for="group in groupedTeams"
+                      :key="'pref'+group.name"
+                      :title="group.name"
+                      @click="globalBuffs.preferredTeam = group.id"
+                      :class="globalBuffs.preferredTeam === group.id ? 'bg-indigo-200 dark:bg-indigo-800 border-indigo-500 shadow-md ring-2 ring-indigo-400' : 'bg-white dark:bg-neutral-700 border-neutral-200 dark:border-neutral-600 opacity-60 hover:opacity-100'"
+                      class="p-1 flex items-center justify-center rounded-lg border transition-all"
+                  >
+                    <img v-if="getTeamLogoUrl(group.id[0])" :src="getTeamLogoUrl(group.id[0])" :alt="group.name" class="w-8 h-8 object-contain" @error="$event.target.style.display='none'" />
+                  </button>
+                </div>
+                <div v-if="globalBuffs.preferredTeam.length === 0" class="text-[10px] text-red-500 font-bold text-center mt-2">선호 구단을 선택해주세요! (미선택시 타팀 파워로 계산)</div>
+              </div>
+
               <div class="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800">
                 <h3 class="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-3 flex items-center gap-1"><Users class="w-4 h-4"/> 팀 공통 버프</h3>
                 <div class="grid grid-cols-2 gap-3">
-                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">팀 레벨 파워</label><input type="number" v-model.number="globalBuffs.teamLevelBuff" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
+                  <div class="flex flex-col gap-1">
+                    <label class="text-[10px] font-bold text-neutral-500">팀 레벨 (1~100)</label>
+                    <input type="number" min="1" max="100" v-model.number="globalBuffs.teamLevel" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/>
+                    <div class="mt-0.5 text-center bg-indigo-100 dark:bg-indigo-800/30 rounded py-0.5 border border-indigo-200 dark:border-indigo-700 flex flex-col">
+                       <span class="text-[9px] font-black text-indigo-700 dark:text-indigo-300">자팀 +{{ getTeamLevelPower(globalBuffs.teamLevel, true) }} / 타팀 +{{ getTeamLevelPower(globalBuffs.teamLevel, false) }}</span>
+                    </div>
+                  </div>
                   <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">클랜 레벨 파워</label><input type="number" v-model.number="globalBuffs.clanBuff" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
                   <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">팀플+디그니티 합</label><input type="number" v-model.number="globalBuffs.teamPlayerDignityBuff" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
                   <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">감독 깡스탯 합</label><input type="number" v-model.number="globalBuffs.managerBuff" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
