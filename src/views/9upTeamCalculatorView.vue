@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, reactive, watch, defineComponent, h } from 'vue'
 import Papa from 'papaparse'
-import { Search, Calculator, Star, Shield, Zap, TrendingUp, X, Users, ArrowUpCircle, Sparkles, UserCheck, Filter, ChevronRight as ChevronRightIcon, Check } from 'lucide-vue-next'
+import { Search, Calculator, Star, Shield, Zap, TrendingUp, X, Users, ArrowUpCircle, Sparkles, UserCheck, Filter, ChevronRight as ChevronRightIcon, Check, Save, FolderOpen, Download, Upload } from 'lucide-vue-next'
 
 type Raw = Record<string, any>
 type CountOp = '==' | '>=' | '<=' | '>' | '<' | 'between'
@@ -525,6 +525,71 @@ const PlayerCard = defineComponent({
   }
 })
 
+
+// === 라인업 저장/불러오기 로직 ===
+const fileInput = ref<HTMLInputElement | null>(null)
+
+const saveToLocalStorage = () => {
+  const saveData = { lineup: lineup.value, playerBuffs: playerBuffs.value, globalBuffs: globalBuffs }
+  localStorage.setItem('9up_saved_lineup', JSON.stringify(saveData))
+  alert('라인업이 브라우저에 성공적으로 저장되었습니다.')
+}
+
+const loadFromLocalStorage = () => {
+  const saved = localStorage.getItem('9up_saved_lineup')
+  if (saved) {
+    try {
+      const data = JSON.parse(saved)
+      lineup.value = data.lineup || lineup.value
+      playerBuffs.value = data.playerBuffs || playerBuffs.value
+      Object.assign(globalBuffs, data.globalBuffs || {})
+      alert('브라우저에서 라인업을 불러왔습니다.')
+    } catch (e) {
+      alert('저장된 데이터를 불러오는 중 오류가 발생했습니다.')
+    }
+  } else {
+    alert('브라우저에 저장된 라인업이 없습니다.')
+  }
+}
+
+const exportToFile = () => {
+  const saveData = { lineup: lineup.value, playerBuffs: playerBuffs.value, globalBuffs: globalBuffs }
+  const blob = new Blob([JSON.stringify(saveData, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = '9up_lineup_save.json'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
+const triggerFileInput = () => {
+  fileInput.value?.click()
+}
+
+const importFromFile = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) return
+
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target?.result as string)
+      lineup.value = data.lineup || lineup.value
+      playerBuffs.value = data.playerBuffs || playerBuffs.value
+      Object.assign(globalBuffs, data.globalBuffs || {})
+      alert('파일에서 라인업을 성공적으로 불러왔습니다.')
+    } catch (err) {
+      alert('지원하지 않거나 손상된 파일 형식입니다.')
+    }
+    if (fileInput.value) fileInput.value.value = ''
+  }
+  reader.readAsText(file)
+}
+
 onMounted(async () => {
   try {
     const [csvRes, synRes, teamRes] = await Promise.all([
@@ -553,9 +618,21 @@ onMounted(async () => {
           <Calculator class="w-6 h-6 text-blue-200" />
           <h1 class="text-xl font-bold tracking-tight">9UP 팀 파워 시뮬레이터</h1>
         </div>
-        <div class="flex items-center bg-black/20 rounded-xl px-5 py-2 border border-white/10 shadow-inner">
-          <span class="text-blue-200 text-sm font-semibold mr-3">우리 팀 종합 파워</span>
-          <span class="text-3xl font-black text-amber-300 tabular-nums tracking-tight">{{ teamTotalPower.toLocaleString() }}</span>
+        <div class="flex items-center gap-3">
+          <!-- 저장/불러오기 컨트롤 컨트롤 -->
+          <input type="file" ref="fileInput" accept=".json" class="hidden" @change="importFromFile" />
+          <div class="flex items-center bg-black/20 rounded-lg p-1 border border-white/10 shadow-inner">
+             <button @click="saveToLocalStorage" class="p-2 text-blue-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="브라우저에 현재 상태 저장"><Save class="w-4 h-4" /><span class="text-[10px] font-bold hidden sm:block">페이지 저장</span></button>
+             <button @click="loadFromLocalStorage" class="p-2 text-blue-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="브라우저에서 불러오기"><FolderOpen class="w-4 h-4" /><span class="text-[10px] font-bold hidden sm:block">불러오기</span></button>
+             <div class="w-px h-4 bg-white/20 mx-1"></div>
+             <button @click="exportToFile" class="p-2 text-emerald-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="PC에 파일로 내보내기"><Download class="w-4 h-4" /><span class="text-[10px] font-bold hidden sm:block">파일 저장</span></button>
+             <button @click="triggerFileInput" class="p-2 text-emerald-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="PC에서 파일 불러오기"><Upload class="w-4 h-4" /><span class="text-[10px] font-bold hidden sm:block">파일 열기</span></button>
+          </div>
+
+          <div class="flex items-center bg-black/20 rounded-xl px-5 py-2 border border-white/10 shadow-inner">
+            <span class="text-blue-200 text-sm font-semibold mr-3">우리 팀 종합 파워</span>
+            <span class="text-3xl font-black text-amber-300 tabular-nums tracking-tight">{{ teamTotalPower.toLocaleString() }}</span>
+          </div>
         </div>
       </div>
     </header>
