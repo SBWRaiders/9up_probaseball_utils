@@ -16,6 +16,8 @@ interface PlayerBuff {
   battingOrder: number | null;
   playerLevel: number; collectionBuff: number; careerLevelBuff: number;
   binderBuff: number; ultimateImprintPercent: number;
+  imprintStats: Record<string, number>;
+  careerStats: Record<string, number>;
 }
 
 const POSITION_ALIASES: Record<string, string> = {
@@ -33,6 +35,10 @@ const STAT_LABELS: Record<string, string> = {
   movement: '무브먼트', longHitSuppression: '장타억제', homeRunSuppression: '홈런억제', control: '제구', stuff: '구위',
   runnerControl: '주자견제', pitchLimit: '투구체력'
 }
+
+const batterStats = ['contact', 'gapPower', 'homeRunPower', 'plateDiscipline', 'strikeoutAvoidance', 'stealing', 'baseRunning', 'defense'];
+const pitcherStats = ['movement', 'longHitSuppression', 'homeRunSuppression', 'control', 'stuff', 'defense', 'pitchLimit', 'runnerControl'];
+const isPitcher = (p: Raw) => String(p.position || '').toUpperCase().includes('SP') || String(p.position || '').toUpperCase().includes('RP') || !!p.movement;
 
 const isLoading = ref(true)
 const players = ref<Raw[]>([])
@@ -84,7 +90,8 @@ const initPlayerBuff = (slot: string, p: Raw) => {
     careerTeamCount: 0, hitAceBuff: hitAce, imprintStarterPower: 0,
     careerAllStatFlat: 0, selectedSkills: [], battingOrder: null,
     playerLevel: 100, collectionBuff: colBuff || 1200, careerLevelBuff: 149,
-    binderBuff: 537, ultimateImprintPercent: 0
+    binderBuff: 537, ultimateImprintPercent: 0,
+    imprintStats: {}, careerStats: {}
   }
 }
 
@@ -367,7 +374,7 @@ const computedPlayerStats = computed(() => {
     const buffs = playerBuffs.value[slot]
     if (!buffs) return
 
-    const isPit = String(p.position || '').toUpperCase().includes('SP') || String(p.position || '').toUpperCase().includes('RP') || !!p.movement
+    const isPit = isPitcher(p);
     let baseSum = 0
     const coreStats = isPit ? ['movement', 'longHitSuppression', 'homeRunSuppression', 'control', 'stuff'] : ['contact', 'gapPower', 'homeRunPower', 'plateDiscipline', 'strikeoutAvoidance']
     const nonCoreStats = isPit ? ['defense', 'pitchLimit', 'runnerControl'] : ['stealing', 'baseRunning', 'defense']
@@ -412,14 +419,16 @@ const computedPlayerStats = computed(() => {
       const base = Number(p[s] || 0)
       let preSpec = base + (growthA/5) + (growthB/5) + (globalBonusTotal/5)
       let specBonus = preSpec * ((statSpecificSkillPercents[s] || 0) / 100)
-      const val = preSpec + specBonus + (flatC/5) + globalBuffs.managerBuff
+      let val = preSpec + specBonus + (flatC/5) + globalBuffs.managerBuff
+      val += Number(buffs.careerStats?.[s] || 0) + Number(buffs.imprintStats?.[s] || 0)
       stats[s] = Math.round(val)
       finalTotal += val
     })
     nonCoreStats.forEach(s => {
       let base = Number(p[s] || 0)
       if (statSpecificSkillPercents[s]) base += base * (statSpecificSkillPercents[s] / 100)
-      const val = base + globalBuffs.managerBuff
+      let val = base + globalBuffs.managerBuff
+      val += Number(buffs.careerStats?.[s] || 0) + Number(buffs.imprintStats?.[s] || 0)
       stats[s] = Math.round(val)
       finalTotal += val
     })
@@ -842,13 +851,23 @@ onMounted(async () => {
                 </div>
               </div>
 
-              <!-- 상세 스탯 표시 (새로 추가됨) -->
+              <!-- 상세 스탯 표시 및 개별 각인/커리어 (새로 추가됨) -->
               <div v-if="computedPlayerStats[selectedSlot]" class="bg-indigo-50 dark:bg-indigo-900/10 p-3 rounded-xl border border-indigo-100 dark:border-indigo-900/20 shadow-sm">
-                <h3 class="text-[11px] font-bold text-indigo-800 dark:text-indigo-300 mb-2 flex items-center gap-1"><TrendingUp class="w-3 h-3"/> 상세 스탯</h3>
-                <div class="grid grid-cols-4 gap-1.5">
-                   <div v-for="(val, key) in computedPlayerStats[selectedSlot].stats" :key="key" class="bg-white dark:bg-neutral-800 border border-indigo-100 dark:border-indigo-800/50 rounded-lg py-1.5 text-center shadow-sm">
-                      <div class="text-[9px] font-bold text-neutral-500 mb-0.5 whitespace-nowrap">{{ STAT_LABELS[key] || key }}</div>
-                      <div class="text-xs font-black text-indigo-700 dark:text-indigo-300 tabular-nums">{{ val }}</div>
+                <h3 class="text-[11px] font-bold text-indigo-800 dark:text-indigo-300 mb-2 flex items-center gap-1"><TrendingUp class="w-3 h-3"/> 개별 스탯 증가 (각인/커리어)</h3>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                   <div v-for="stat in (isPitcher(lineup[selectedSlot]!) ? pitcherStats : batterStats)" :key="stat" class="flex flex-col gap-1 border border-indigo-100 dark:border-indigo-800/50 p-1.5 rounded-lg bg-white dark:bg-neutral-800 shadow-sm">
+                      <label class="text-[10px] font-bold text-neutral-600 dark:text-neutral-400 text-center">{{ STAT_LABELS[stat] || stat }}</label>
+                      <div class="flex items-center justify-between gap-1">
+                        <span class="text-[9px] text-neutral-400 w-8">각인</span>
+                        <input type="number" v-model.number="playerBuffs[selectedSlot!].imprintStats[stat]" class="w-full px-1 py-0.5 text-center bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded text-[10px] font-semibold outline-none focus:border-indigo-500" placeholder="0" />
+                      </div>
+                      <div class="flex items-center justify-between gap-1">
+                        <span class="text-[9px] text-neutral-400 w-8">커리어</span>
+                        <input type="number" v-model.number="playerBuffs[selectedSlot!].careerStats[stat]" class="w-full px-1 py-0.5 text-center bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded text-[10px] font-semibold outline-none focus:border-indigo-500" placeholder="0" />
+                      </div>
+                      <div class="mt-1 text-center bg-indigo-50 dark:bg-indigo-900/30 rounded py-0.5 border border-indigo-100 dark:border-indigo-800">
+                        <span class="text-[11px] font-black text-indigo-700 dark:text-indigo-300">{{ computedPlayerStats[selectedSlot!].stats[stat] }}</span>
+                      </div>
                    </div>
                 </div>
               </div>
