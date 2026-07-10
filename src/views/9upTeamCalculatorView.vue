@@ -38,7 +38,11 @@ const STAT_LABELS: Record<string, string> = {
 
 const batterStats = ['contact', 'gapPower', 'homeRunPower', 'plateDiscipline', 'strikeoutAvoidance', 'stealing', 'baseRunning', 'defense'];
 const pitcherStats = ['movement', 'longHitSuppression', 'homeRunSuppression', 'control', 'stuff', 'defense', 'pitchLimit', 'runnerControl'];
-const isPitcher = (p: Raw) => String(p.position || '').toUpperCase().includes('SP') || String(p.position || '').toUpperCase().includes('RP') || !!p.movement;
+const isPitcher = (p: Raw | null) => {
+  if (!p) return false;
+  const pos = String(p.position || '').toUpperCase();
+  return pos.includes('SP') || pos.includes('RP') || !!p.movement;
+}
 
 const isLoading = ref(true)
 const players = ref<Raw[]>([])
@@ -646,6 +650,66 @@ const importFromFile = (event: Event) => {
     if (fileInput.value) fileInput.value.value = ''
   }
   reader.readAsText(file)
+}
+
+
+const getPlayerPositions = (p: Raw) => {
+  if (!p) return [];
+  return Array.from(new Set(getArray(p.position).map(normalizePosition))).filter(Boolean);
+}
+
+const hideImage = (e: Event) => {
+  if (e && e.target) {
+    (e.target as HTMLElement).style.display = 'none';
+  }
+}
+
+const activeFilterCount = computed(() => {
+  let count = 0;
+  count += searchQuery.position.length;
+  count += searchQuery.team.length;
+  count += searchQuery.synergy.length;
+  count += searchQuery.grade.length;
+  count += searchQuery.rarity !== null ? 1 : 0;
+  return count;
+});
+
+const getAvailableSkills = (p: Raw | null) => {
+  if (!p) return [];
+  const excluded = ['야전사령관', '인사이드 워크', '투수 리드', '친화력', '도루 저지'];
+  const rawSkills = [...getArray(p.skill), ...getArray(p.enhancedSkill)];
+  return Array.from(new Set(rawSkills.filter(s => !excluded.includes(s))));
+}
+
+const togglePlayerSkill = (sk: string) => {
+  if (!selectedSlot.value || !lineup.value[selectedSlot.value] || !playerBuffs.value[selectedSlot.value]) return;
+  const p = lineup.value[selectedSlot.value];
+  const buffs = playerBuffs.value[selectedSlot.value];
+  const arr = buffs.selectedSkills;
+  const rarity = parseInt(String(p?.rarity || 1), 10) || 1;
+  const max = Math.min(3, Math.max(1, rarity - 1));
+  
+  const idx = arr.indexOf(sk);
+  if (idx > -1) {
+    arr.splice(idx, 1);
+  } else if (arr.length < max) {
+    arr.push(sk);
+  }
+}
+
+const getMaxSkillCount = (p: Raw | null) => {
+  if (!p) return 0;
+  return Math.min(3, Math.max(1, (parseInt(String(p.rarity || 1), 10) || 1) - 1));
+}
+
+const formatBonuses = (bonuses: { stat: string, bonus: JsonBonus }[]) => {
+  if (!bonuses || !Array.isArray(bonuses)) return '';
+  return bonuses.map(b => {
+    const statName = b.stat === 'power' ? '파워' : STAT_LABELS[b.stat] || b.stat;
+    const val = b.bonus.value;
+    const unit = b.bonus.unit === 'percent' ? '%' : '';
+    return `${statName} +${val}${unit}`;
+  }).join(', ');
 }
 
 onMounted(async () => {
