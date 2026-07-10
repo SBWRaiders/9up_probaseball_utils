@@ -330,9 +330,12 @@ const getMaxEnhance = (p: Raw) => {
   return grade === 'DGN' ? 10 : 15;
 }
 
-const getMaxBreakthrough = (rarity: any) => {
-  const r = parseInt(String(rarity || 1)) || 1;
-  return Math.min(9, r + 4); 
+const getMaxBreakthrough = (p: Raw | null) => {
+  if (!p) return 0;
+  const grade = String(p.grade || '').toUpperCase();
+  if (grade === 'DGN') return 0;
+  const r = parseInt(String(p.rarity || 1), 10) || 1;
+  return r + 1;
 }
 
 const getEnhanceMultiplier = (p: Raw) => {
@@ -877,14 +880,14 @@ onMounted(async () => {
               </div>
 
               <!-- 한계 돌파 -->
-              <div v-if="getMaxBreakthrough(lineup[selectedSlot]!) > 0" class="bg-fuchsia-50 dark:bg-fuchsia-900/10 p-3 rounded-xl border border-fuchsia-100 dark:border-fuchsia-900/20 shadow-sm mt-3">
+              <div v-if="getMaxBreakthrough(lineup[selectedSlot]) > 0" class="bg-fuchsia-50 dark:bg-fuchsia-900/10 p-3 rounded-xl border border-fuchsia-100 dark:border-fuchsia-900/20 shadow-sm mt-3">
                 <div class="flex items-center justify-between mb-2">
                   <h3 class="text-[11px] font-bold text-fuchsia-800 dark:text-fuchsia-300 flex items-center gap-1">
                     <Sparkles class="w-3 h-3" /> 한계 돌파
                   </h3>
                 </div>
                 <div class="flex flex-wrap gap-1">
-                  <button v-for="lvl in (getMaxBreakthrough(lineup[selectedSlot]!) + 1)" :key="'brk'+lvl"
+                  <button v-for="lvl in (getMaxBreakthrough(lineup[selectedSlot]) + 1)" :key="'brk'+lvl"
                     @click="playerBuffs[selectedSlot!].breakthroughLevel = lvl-1"
                     :class="playerBuffs[selectedSlot!].breakthroughLevel === lvl-1 ? 'bg-fuchsia-600 text-white border-fuchsia-600 shadow-md' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-300 dark:border-neutral-600 hover:border-fuchsia-400 dark:hover:border-fuchsia-500'"
                     class="px-2 h-7 flex items-center justify-center text-[10px] font-bold border rounded-md transition-colors">
