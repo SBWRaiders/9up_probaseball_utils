@@ -324,6 +324,12 @@ const activeTeamSynergies = computed(() => {
   return result
 })
 
+const getMaxEnhance = (p: Raw) => {
+  if (!p) return 15;
+  const grade = String(p.grade).toUpperCase();
+  return grade === 'DGN' ? 10 : 15;
+}
+
 const getMaxBreakthrough = (rarity: any) => {
   const r = parseInt(String(rarity || 1)) || 1;
   return Math.min(9, r + 4); 
@@ -853,18 +859,37 @@ onMounted(async () => {
                 </select>
               </div>
 
-              <div class="grid grid-cols-2 gap-3">
-                <div class="flex flex-col gap-1">
-                  <label class="text-[10px] font-bold text-neutral-500">강화 단계</label>
-                  <select v-model.number="playerBuffs[selectedSlot].enhancementLevel" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm">
-                    <option v-for="i in 16" :key="i" :value="i-1">+{{ i-1 }}</option>
-                  </select>
+              <!-- 카드 강화 -->
+              <div class="bg-emerald-50 dark:bg-emerald-900/10 p-3 rounded-xl border border-emerald-100 dark:border-emerald-900/20 shadow-sm mt-3">
+                <div class="flex items-center justify-between mb-2">
+                  <h3 class="text-[11px] font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1">
+                    <ArrowUpCircle class="w-3 h-3" /> 카드 강화
+                  </h3>
                 </div>
-                <div class="flex flex-col gap-1">
-                  <label class="text-[10px] font-bold text-neutral-500">한계 돌파</label>
-                  <select v-model.number="playerBuffs[selectedSlot].breakthroughLevel" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm">
-                    <option v-for="i in (getMaxBreakthrough(lineup[selectedSlot]!) + 1)" :key="i" :value="i-1">{{ i-1 === 0 ? '미돌파' : (i-1) + '돌파' }}</option>
-                  </select>
+                <div class="flex flex-wrap gap-1">
+                  <button v-for="lvl in (getMaxEnhance(lineup[selectedSlot]!) + 1)" :key="'enh'+lvl"
+                    @click="playerBuffs[selectedSlot!].enhancementLevel = lvl-1"
+                    :class="playerBuffs[selectedSlot!].enhancementLevel === lvl-1 ? 'bg-emerald-600 text-white border-emerald-600 shadow-md' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-300 dark:border-neutral-600 hover:border-emerald-400 dark:hover:border-emerald-500'"
+                    class="w-8 h-7 flex items-center justify-center text-[10px] font-bold border rounded-md transition-colors">
+                    +{{ lvl-1 }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- 한계 돌파 -->
+              <div v-if="getMaxBreakthrough(lineup[selectedSlot]!) > 0" class="bg-fuchsia-50 dark:bg-fuchsia-900/10 p-3 rounded-xl border border-fuchsia-100 dark:border-fuchsia-900/20 shadow-sm mt-3">
+                <div class="flex items-center justify-between mb-2">
+                  <h3 class="text-[11px] font-bold text-fuchsia-800 dark:text-fuchsia-300 flex items-center gap-1">
+                    <Sparkles class="w-3 h-3" /> 한계 돌파
+                  </h3>
+                </div>
+                <div class="flex flex-wrap gap-1">
+                  <button v-for="lvl in (getMaxBreakthrough(lineup[selectedSlot]!) + 1)" :key="'brk'+lvl"
+                    @click="playerBuffs[selectedSlot!].breakthroughLevel = lvl-1"
+                    :class="playerBuffs[selectedSlot!].breakthroughLevel === lvl-1 ? 'bg-fuchsia-600 text-white border-fuchsia-600 shadow-md' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-300 dark:border-neutral-600 hover:border-fuchsia-400 dark:hover:border-fuchsia-500'"
+                    class="px-2 h-7 flex items-center justify-center text-[10px] font-bold border rounded-md transition-colors">
+                    {{ lvl-1 === 0 ? '돌파 안함' : (lvl-1) + '돌' }}
+                  </button>
                 </div>
               </div>
 
