@@ -457,7 +457,7 @@ const computedPlayerStats = computed(() => {
     nonCoreStats.forEach(s => baseSum += Number(p[s] || 0))
     
     const pTeams = toArray(p.team).map(toLowerCase);
-    const isMyTeam = (globalBuffs.preferredTeam || []).some(t => pTeams.includes(t));
+    const isMyTeam = globalBuffs.preferredTeam.some(t => pTeams.includes(t));
     const appliedTeamLevelBuff = getTeamLevelPower(globalBuffs.teamLevel, isMyTeam);
     const growthA = Number(Math.max(0, buffs.playerLevel - 1) * 10) + buffs.collectionBuff + appliedTeamLevelBuff + buffs.careerLevelBuff + (buffs.enhancementLevel * getEnhanceMultiplier(p))
     const flatC = buffs.binderBuff + globalBuffs.clanBuff + buffs.imprintStarterPower + buffs.careerAllStatFlat + getBreakthroughFixed(p, buffs.breakthroughLevel)
@@ -619,13 +619,7 @@ const loadFromLocalStorage = () => {
     try {
       const data = JSON.parse(saved)
       lineup.value = data.lineup || lineup.value
-      if (data.playerBuffs) {
-        Object.keys(data.playerBuffs).forEach(k => {
-          if (!data.playerBuffs[k].imprintStats) data.playerBuffs[k].imprintStats = {};
-          if (!data.playerBuffs[k].careerStats) data.playerBuffs[k].careerStats = {};
-        });
-        playerBuffs.value = data.playerBuffs;
-      }
+      playerBuffs.value = data.playerBuffs || playerBuffs.value
       if (data.globalBuffs) {
         if (data.globalBuffs.teamLevelBuff && !data.globalBuffs.teamLevel) data.globalBuffs.teamLevel = 100;
         Object.assign(globalBuffs, data.globalBuffs)
@@ -666,13 +660,7 @@ const importFromFile = (event: Event) => {
     try {
       const data = JSON.parse(e.target?.result as string)
       lineup.value = data.lineup || lineup.value
-      if (data.playerBuffs) {
-        Object.keys(data.playerBuffs).forEach(k => {
-          if (!data.playerBuffs[k].imprintStats) data.playerBuffs[k].imprintStats = {};
-          if (!data.playerBuffs[k].careerStats) data.playerBuffs[k].careerStats = {};
-        });
-        playerBuffs.value = data.playerBuffs;
-      }
+      playerBuffs.value = data.playerBuffs || playerBuffs.value
       if (data.globalBuffs) {
         if (data.globalBuffs.teamLevelBuff && !data.globalBuffs.teamLevel) data.globalBuffs.teamLevel = 100;
         Object.assign(globalBuffs, data.globalBuffs)
@@ -1006,7 +994,7 @@ onMounted(async () => {
                       :key="'pref'+group.name"
                       :title="group.name"
                       @click="globalBuffs.preferredTeam = group.id"
-                      :class="(globalBuffs.preferredTeam && globalBuffs.preferredTeam[0] === group.id[0]) ? 'bg-indigo-200 dark:bg-indigo-800 border-indigo-500 shadow-md ring-2 ring-indigo-400' : 'bg-white dark:bg-neutral-700 border-neutral-200 dark:border-neutral-600 opacity-60 hover:opacity-100'"
+                      :class="globalBuffs.preferredTeam === group.id ? 'bg-indigo-200 dark:bg-indigo-800 border-indigo-500 shadow-md ring-2 ring-indigo-400' : 'bg-white dark:bg-neutral-700 border-neutral-200 dark:border-neutral-600 opacity-60 hover:opacity-100'"
                       class="p-1 flex items-center justify-center rounded-lg border transition-all"
                   >
                     <img v-if="getTeamLogoUrl(group.id[0])" :src="getTeamLogoUrl(group.id[0])" :alt="group.name" class="w-8 h-8 object-contain" @error="$event.target.style.display='none'" />
@@ -1072,7 +1060,7 @@ onMounted(async () => {
                 </div>
                 <div class="ml-auto text-right">
                   <div class="text-[10px] font-bold text-indigo-500">개별 총 파워</div>
-                  <div class="text-xl font-black tabular-nums text-indigo-600 dark:text-indigo-400">{{ calculatePlayerPower(lineup[selectedSlot], selectedSlot).toLocaleString() }}</div>
+                  <div class="text-xl font-black tabular-nums text-indigo-600 dark:text-indigo-400">{{ calculatePlayerPower(lineup[selectedSlot]!, selectedSlot).toLocaleString() }}</div>
                 </div>
               </div>
 
@@ -1173,18 +1161,13 @@ onMounted(async () => {
               <div class="mt-4">
                 <div class="flex items-center justify-between mb-2">
                   <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-1"><Star class="w-4 h-4 text-amber-400"/> 스킬 장착</h3>
-                  <span class="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 px-2 py-0.5 rounded font-bold">{{ playerBuffs[selectedSlot].selectedSkills.length }} / {{ Math.min(3, Math.max(1, parseInt(String(lineup[selectedSlot].rarity||1))-1)) }}</span>
+                  <span class="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 px-2 py-0.5 rounded font-bold">{{ playerBuffs[selectedSlot].selectedSkills.length }} / {{ getMaxSkillCount(lineup[selectedSlot]) }}</span>
                 </div>
                 <div class="flex flex-wrap gap-1.5">
                   <button 
-                    v-for="sk in Array.from(new Set([...getArray(lineup[selectedSlot].skill), ...getArray(lineup[selectedSlot].enhancedSkill)].filter(s=>!['야전사령관', '인사이드 워크', '투수 리드', '친화력', '도루 저지'].includes(s))))" 
+                    v-for="sk in getAvailableSkills(lineup[selectedSlot])" 
                     :key="sk"
-                    @click="() => {
-                      const arr = playerBuffs[selectedSlot].selectedSkills;
-                      const max = Math.min(3, Math.max(1, parseInt(String(lineup[selectedSlot].rarity||1))-1));
-                      if (arr.includes(sk)) arr.splice(arr.indexOf(sk), 1);
-                      else if (arr.length < max) arr.push(sk);
-                    }"
+                    @click="togglePlayerSkill(sk)"
                     :class="[
                       playerBuffs[selectedSlot].selectedSkills.includes(sk) ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white border-neutral-200 dark:bg-neutral-800 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300',
                       playerBuffs[selectedSlot].selectedSkills.includes(sk) && !isSkillActive(sk, selectedSlot, playerBuffs[selectedSlot].battingOrder) ? '!bg-red-500 !border-red-600' : ''
