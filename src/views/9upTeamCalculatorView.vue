@@ -1152,7 +1152,7 @@ onMounted(async () => {
                 </div>
                 <div class="ml-auto text-right">
                   <div class="text-[10px] font-bold text-indigo-500">개별 총 파워</div>
-                  <div class="text-xl font-black tabular-nums text-indigo-600 dark:text-indigo-400">{{ calculatePlayerPower(lineup[selectedSlot]!, selectedSlot).toLocaleString() }}</div>
+                  <div class="text-xl font-black tabular-nums text-indigo-600 dark:text-indigo-400">{{ calculatePlayerPower(lineup[selectedSlot], selectedSlot).toLocaleString() }}</div>
                 </div>
               </div>
 
