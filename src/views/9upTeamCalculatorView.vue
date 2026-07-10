@@ -619,7 +619,13 @@ const loadFromLocalStorage = () => {
     try {
       const data = JSON.parse(saved)
       lineup.value = data.lineup || lineup.value
-      playerBuffs.value = data.playerBuffs || playerBuffs.value
+      if (data.playerBuffs) {
+        Object.keys(data.playerBuffs).forEach(k => {
+          if (!data.playerBuffs[k].imprintStats) data.playerBuffs[k].imprintStats = {};
+          if (!data.playerBuffs[k].careerStats) data.playerBuffs[k].careerStats = {};
+        });
+        playerBuffs.value = data.playerBuffs;
+      }
       if (data.globalBuffs) {
         if (data.globalBuffs.teamLevelBuff && !data.globalBuffs.teamLevel) data.globalBuffs.teamLevel = 100;
         Object.assign(globalBuffs, data.globalBuffs)
@@ -660,7 +666,13 @@ const importFromFile = (event: Event) => {
     try {
       const data = JSON.parse(e.target?.result as string)
       lineup.value = data.lineup || lineup.value
-      playerBuffs.value = data.playerBuffs || playerBuffs.value
+      if (data.playerBuffs) {
+        Object.keys(data.playerBuffs).forEach(k => {
+          if (!data.playerBuffs[k].imprintStats) data.playerBuffs[k].imprintStats = {};
+          if (!data.playerBuffs[k].careerStats) data.playerBuffs[k].careerStats = {};
+        });
+        playerBuffs.value = data.playerBuffs;
+      }
       if (data.globalBuffs) {
         if (data.globalBuffs.teamLevelBuff && !data.globalBuffs.teamLevel) data.globalBuffs.teamLevel = 100;
         Object.assign(globalBuffs, data.globalBuffs)
@@ -1053,14 +1065,14 @@ onMounted(async () => {
             <!-- 플레이어 탭 -->
             <div v-else-if="selectedSlot && lineup[selectedSlot] && playerBuffs[selectedSlot]" class="space-y-4 animate-in fade-in">
               <div class="flex items-center gap-3 p-3 bg-neutral-100 dark:bg-neutral-700/50 rounded-xl">
-                <img :src="`/assets/logos/grade/${lineup[selectedSlot]!.grade}.png`" class="w-10 h-10 object-contain drop-shadow" />
+                <img :src="`/assets/logos/grade/${lineup[selectedSlot].grade}.png`" class="w-10 h-10 object-contain drop-shadow" />
                 <div>
-                  <div class="font-bold text-sm text-neutral-900 dark:text-neutral-100">{{ lineup[selectedSlot]!.name }}</div>
+                  <div class="font-bold text-sm text-neutral-900 dark:text-neutral-100">{{ lineup[selectedSlot].name }}</div>
                   <div class="text-[11px] text-neutral-500">{{ selectedSlot }} 슬롯 배치됨</div>
                 </div>
                 <div class="ml-auto text-right">
                   <div class="text-[10px] font-bold text-indigo-500">개별 총 파워</div>
-                  <div class="text-xl font-black tabular-nums text-indigo-600 dark:text-indigo-400">{{ calculatePlayerPower(lineup[selectedSlot]!, selectedSlot).toLocaleString() }}</div>
+                  <div class="text-xl font-black tabular-nums text-indigo-600 dark:text-indigo-400">{{ calculatePlayerPower(lineup[selectedSlot], selectedSlot).toLocaleString() }}</div>
                 </div>
               </div>
 
@@ -1068,7 +1080,7 @@ onMounted(async () => {
               <div v-if="computedPlayerStats[selectedSlot]" class="bg-indigo-50 dark:bg-indigo-900/10 p-3 rounded-xl border border-indigo-100 dark:border-indigo-900/20 shadow-sm">
                 <h3 class="text-[11px] font-bold text-indigo-800 dark:text-indigo-300 mb-2 flex items-center gap-1"><TrendingUp class="w-3 h-3"/> 개별 스탯 증가 (각인/커리어)</h3>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
-                   <div v-for="stat in (isPitcher(lineup[selectedSlot]!) ? pitcherStats : batterStats)" :key="stat" class="flex flex-col gap-1 border border-indigo-100 dark:border-indigo-800/50 p-1.5 rounded-lg bg-white dark:bg-neutral-800 shadow-sm">
+                   <div v-for="stat in (isPitcher(lineup[selectedSlot]) ? pitcherStats : batterStats)" :key="stat" class="flex flex-col gap-1 border border-indigo-100 dark:border-indigo-800/50 p-1.5 rounded-lg bg-white dark:bg-neutral-800 shadow-sm">
                       <label class="text-[10px] font-bold text-neutral-600 dark:text-neutral-400 text-center">{{ STAT_LABELS[stat] || stat }}</label>
                       <div class="flex items-center justify-between gap-1">
                         <span class="text-[9px] text-neutral-400 w-8">각인</span>
@@ -1086,7 +1098,7 @@ onMounted(async () => {
               </div>
 
               <!-- 타순 설정 (타자일 경우만) -->
-              <div v-if="!String(lineup[selectedSlot]!.position).toUpperCase().includes('P') && !lineup[selectedSlot]!.movement" class="bg-orange-50 dark:bg-orange-900/10 p-3 rounded-xl border border-orange-100 dark:border-orange-900/20">
+              <div v-if="!String(lineup[selectedSlot].position).toUpperCase().includes('P') && !lineup[selectedSlot].movement" class="bg-orange-50 dark:bg-orange-900/10 p-3 rounded-xl border border-orange-100 dark:border-orange-900/20">
                 <h3 class="text-[11px] font-bold text-orange-800 dark:text-orange-300 mb-1.5">타순 설정</h3>
                 <select v-model.number="playerBuffs[selectedSlot].battingOrder" class="w-full py-1.5 px-2 rounded-lg border border-orange-200 dark:border-orange-800 bg-white dark:bg-neutral-800 text-xs font-semibold outline-none focus:border-orange-500">
                   <option :value="null">타순 미지정</option>
@@ -1102,7 +1114,7 @@ onMounted(async () => {
                   </h3>
                 </div>
                 <div class="flex flex-wrap gap-1">
-                  <button v-for="lvl in (getMaxEnhance(lineup[selectedSlot]!) + 1)" :key="'enh'+lvl"
+                  <button v-for="lvl in (getMaxEnhance(lineup[selectedSlot]) + 1)" :key="'enh'+lvl"
                     @click="playerBuffs[selectedSlot].enhancementLevel = lvl-1"
                     :class="playerBuffs[selectedSlot].enhancementLevel === lvl-1 ? 'bg-emerald-600 text-white border-emerald-600 shadow-md' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-300 dark:border-neutral-600 hover:border-emerald-400 dark:hover:border-emerald-500'"
                     class="w-8 h-7 flex items-center justify-center text-[10px] font-bold border rounded-md transition-colors">
@@ -1161,21 +1173,21 @@ onMounted(async () => {
               <div class="mt-4">
                 <div class="flex items-center justify-between mb-2">
                   <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-1"><Star class="w-4 h-4 text-amber-400"/> 스킬 장착</h3>
-                  <span class="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 px-2 py-0.5 rounded font-bold">{{ playerBuffs[selectedSlot].selectedSkills.length }} / {{ Math.min(3, Math.max(1, parseInt(String(lineup[selectedSlot]!.rarity||1))-1)) }}</span>
+                  <span class="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 px-2 py-0.5 rounded font-bold">{{ playerBuffs[selectedSlot].selectedSkills.length }} / {{ Math.min(3, Math.max(1, parseInt(String(lineup[selectedSlot].rarity||1))-1)) }}</span>
                 </div>
                 <div class="flex flex-wrap gap-1.5">
                   <button 
-                    v-for="sk in Array.from(new Set([...getArray(lineup[selectedSlot]!.skill), ...getArray(lineup[selectedSlot]!.enhancedSkill)].filter(s=>!['야전사령관', '인사이드 워크', '투수 리드', '친화력', '도루 저지'].includes(s))))" 
+                    v-for="sk in Array.from(new Set([...getArray(lineup[selectedSlot].skill), ...getArray(lineup[selectedSlot].enhancedSkill)].filter(s=>!['야전사령관', '인사이드 워크', '투수 리드', '친화력', '도루 저지'].includes(s))))" 
                     :key="sk"
                     @click="() => {
                       const arr = playerBuffs[selectedSlot].selectedSkills;
-                      const max = Math.min(3, Math.max(1, parseInt(String(lineup[selectedSlot]!.rarity||1))-1));
+                      const max = Math.min(3, Math.max(1, parseInt(String(lineup[selectedSlot].rarity||1))-1));
                       if (arr.includes(sk)) arr.splice(arr.indexOf(sk), 1);
                       else if (arr.length < max) arr.push(sk);
                     }"
                     :class="[
                       playerBuffs[selectedSlot].selectedSkills.includes(sk) ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white border-neutral-200 dark:bg-neutral-800 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300',
-                      playerBuffs[selectedSlot].selectedSkills.includes(sk) && !isSkillActive(sk, selectedSlot, playerBuffs[selectedSlot].battingOrder) ? '!bg-red-500 !border-red-600' : ''
+                      playerBuffs[selectedSlot].selectedSkills.includes(sk) && !isSkillActive(sk, selectedSlot, playerBuffs[selectedSlot].battingOrder) ? ''!bg-red-500 !border-red-600'' : ''
                     ]"
                     class="px-2 py-1 text-[11px] font-bold border rounded-lg transition-colors relative"
                   >
