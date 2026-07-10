@@ -265,8 +265,12 @@ const playerSynergiesData = computed(() => {
   
   // 투수/타자 시너지 구분 함수 (스탯 기준)
   const getSynergyType = (conditions: any[]) => {
-    const isPit = conditions?.some(c => ['control','movement','stuff','longHitSuppression','homeRunSuppression','runnerControl'].includes(c.stat));
-    const isBat = conditions?.some(c => ['power','contact','defense','running'].includes(c.stat));
+    const pitStats = ['movement', 'longHitSuppression', 'homeRunSuppression', 'control', 'stuff', 'pitchLimit', 'runnerControl'];
+    const batStats = ['contact', 'gapPower', 'homeRunPower', 'plateDiscipline', 'strikeoutAvoidance', 'stealing', 'baseRunning'];
+    
+    const isPit = conditions?.some(c => pitStats.includes(c.stat));
+    const isBat = conditions?.some(c => batStats.includes(c.stat));
+    
     if (isPit && !isBat) return 'pitcher';
     if (isBat && !isPit) return 'batter';
     return 'both';
