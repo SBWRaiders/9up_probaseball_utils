@@ -324,17 +324,29 @@ const activeTeamSynergies = computed(() => {
   return result
 })
 
+const getMaxBreakthrough = (rarity: any) => {
+  const r = parseInt(String(rarity || 1)) || 1;
+  return Math.min(9, r + 4); 
+}
+
 const getEnhanceMultiplier = (p: Raw) => {
   const grade = String(p.grade).toUpperCase()
   const map: Record<string, number> = { 'SEA':30, 'ASG':30, 'POS':40, 'TEA':40, 'MMVP':40, 'ROY':50, 'HIT':50, 'ACE':50, 'GG':50, 'TOP':50, 'GGY':50, 'DGN':300 }
   return map[grade] || 0
 }
 const getBreakthroughFixed = (p: Raw, level: number) => {
-  if (level === 0) return 0
+  if (level === 0 || !p) return 0
   const grade = String(p.grade).toUpperCase()
-  if (['SEA','ASG','POS'].includes(grade)) return 30 * ([0,1,3,6,10,15,21,28,36][level]||0)
-  if (['TEA','ROY','MMVP'].includes(grade)) return 50 * ([0,1,3,6,10,15,21,28,36][level]||0)
-  if (['HIT','ACE','GG','TOP','GGY'].includes(grade)) return 100 * ([0,1,2.5,4.5,7,10,15,21,28][level]||0)
+  if (['SEA','ASG','POS'].includes(grade)) {
+    const mults = [0, 1, 3, 6, 10, 15, 21, 28, 36]
+    return 30 * (mults[level] || 0)
+  } else if (['TEA','ROY','MMVP'].includes(grade)) {
+    const mults = [0, 1, 3, 6, 10, 15, 21, 28, 36]
+    return 50 * (mults[level] || 0)
+  } else if (['HIT','ACE','GG','TOP','GGY'].includes(grade)) {
+    const mults = [0, 1, 2.5, 4.5, 7, 10, 15, 21, 28] 
+    return 100 * (mults[level] || 0)
+  }
   return 0
 }
 
@@ -851,7 +863,7 @@ onMounted(async () => {
                 <div class="flex flex-col gap-1">
                   <label class="text-[10px] font-bold text-neutral-500">한계 돌파</label>
                   <select v-model.number="playerBuffs[selectedSlot].breakthroughLevel" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm">
-                    <option v-for="i in 10" :key="i" :value="i-1">{{ i-1 === 0 ? '미돌파' : (i-1) + '돌파' }}</option>
+                    <option v-for="i in (getMaxBreakthrough(lineup[selectedSlot]!) + 1)" :key="i" :value="i-1">{{ i-1 === 0 ? '미돌파' : (i-1) + '돌파' }}</option>
                   </select>
                 </div>
               </div>
