@@ -576,32 +576,6 @@ const selectSlot = (slot: string) => {
   }
 }
 
-const PlayerCard = defineComponent({
-  name: 'PlayerCard',
-  props: { pos: String, p: Object, buffs: Object, isSelected: Boolean },
-  emits: ['click', 'clear'],
-  setup(props, { emit }) {
-    return () => {
-      if (!props.p) {
-        return h('div', { 
-          class: ['h-[100px] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all', props.isSelected ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30' : 'border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400'], 
-          onClick: () => emit('click') 
-        }, [h('span', { class: 'text-[10px] font-bold' }, props.pos)])
-      }
-      return h('div', { 
-        class: ['relative h-[100px] border rounded-xl flex flex-col items-center p-2 cursor-pointer transition-all shadow-sm group', props.isSelected ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200 dark:ring-indigo-800' : 'border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 hover:border-indigo-300 dark:hover:border-indigo-500'],
-        onClick: () => emit('click')
-      }, [
-        h('div', { class: 'absolute top-1 left-2 text-[9px] font-black text-neutral-400 dark:text-neutral-500' }, props.pos),
-        h('button', { class: 'absolute top-1 right-1 w-4 h-4 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500 hover:bg-red-500 hover:text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity', onClick: (e:Event) => { e.stopPropagation(); emit('clear') } }, '×'),
-        h('img', { src: `/assets/logos/grade/${props.p.grade}.png`, class: 'w-8 h-8 object-contain mt-1 drop-shadow-sm' }),
-        h('div', { class: 'text-xs font-bold text-neutral-800 dark:text-neutral-200 mt-1 truncate w-full text-center' }, props.p.name),
-        props.buffs?.battingOrder && (!String(props.p.position).toUpperCase().includes('P') && !props.p.movement) ? h('div', { class: 'absolute bottom-1 left-2 text-[9px] font-bold bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 px-1 rounded' }, `${props.buffs.battingOrder}번`) : null,
-        h('div', { class: 'absolute bottom-1 right-2 text-[11px] font-black text-indigo-600 dark:text-indigo-400' }, '설정➔')
-      ])
-    }
-  }
-})
 
 
 // === 라인업 저장/불러오기 로직 ===
@@ -926,17 +900,41 @@ onMounted(async () => {
             <div v-if="lineupViewMode === 'batter'" class="h-full flex flex-col justify-center items-center">
                <div class="grid grid-cols-3 gap-4 w-full max-w-lg mb-8">
                  <div v-for="pos in ['LF', 'CF', 'RF']" :key="pos">
-                   <PlayerCard :pos="pos" :p="lineup[pos]" :buffs="playerBuffs[pos]" :is-selected="selectedSlot === pos" @click="selectSlot(pos)" @clear="clearSlot(pos)" />
+                   <div v-if="!lineup[pos]" class="h-[100px] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === pos}" @click="selectSlot(pos)"><span class="text-[10px] font-bold">{{ pos }}</span></div>
+                   <div v-else class="relative h-[100px] border rounded-xl flex flex-col items-center p-2 cursor-pointer transition-all shadow-sm group bg-white dark:bg-neutral-800 hover:border-indigo-300 dark:hover:border-indigo-500" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200 dark:ring-indigo-800': selectedSlot === pos, 'border-neutral-200 dark:border-neutral-600': selectedSlot !== pos}" @click="selectSlot(pos)">
+                      <div class="absolute top-1 left-2 text-[9px] font-black text-neutral-400 dark:text-neutral-500">{{ pos }}</div>
+                      <button class="absolute top-1 right-1 w-4 h-4 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500 hover:bg-red-500 hover:text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity" @click.stop="clearSlot(pos)">×</button>
+                      <img :src="`/assets/logos/grade/${lineup[pos].grade}.png`" class="w-8 h-8 object-contain mt-1 drop-shadow-sm" @error="hideImage" />
+                      <div class="text-xs font-bold text-neutral-800 dark:text-neutral-200 mt-1 truncate w-full text-center">{{ lineup[pos].name }}</div>
+                      <div v-if="playerBuffs[pos]?.battingOrder && !isPitcher(lineup[pos])" class="absolute bottom-1 left-2 text-[9px] font-bold bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 px-1 rounded">{{ playerBuffs[pos].battingOrder }}번</div>
+                      <div class="absolute bottom-1 right-2 text-[11px] font-black text-indigo-600 dark:text-indigo-400">설정➔</div>
+                   </div>
                  </div>
                </div>
                <div class="grid grid-cols-4 gap-4 w-full max-w-2xl mb-8">
                  <div v-for="pos in ['3B', 'SS', '2B', '1B']" :key="pos">
-                   <PlayerCard :pos="pos" :p="lineup[pos]" :buffs="playerBuffs[pos]" :is-selected="selectedSlot === pos" @click="selectSlot(pos)" @clear="clearSlot(pos)" />
+                   <div v-if="!lineup[pos]" class="h-[100px] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === pos}" @click="selectSlot(pos)"><span class="text-[10px] font-bold">{{ pos }}</span></div>
+                   <div v-else class="relative h-[100px] border rounded-xl flex flex-col items-center p-2 cursor-pointer transition-all shadow-sm group bg-white dark:bg-neutral-800 hover:border-indigo-300 dark:hover:border-indigo-500" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200 dark:ring-indigo-800': selectedSlot === pos, 'border-neutral-200 dark:border-neutral-600': selectedSlot !== pos}" @click="selectSlot(pos)">
+                      <div class="absolute top-1 left-2 text-[9px] font-black text-neutral-400 dark:text-neutral-500">{{ pos }}</div>
+                      <button class="absolute top-1 right-1 w-4 h-4 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500 hover:bg-red-500 hover:text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity" @click.stop="clearSlot(pos)">×</button>
+                      <img :src="`/assets/logos/grade/${lineup[pos].grade}.png`" class="w-8 h-8 object-contain mt-1 drop-shadow-sm" @error="hideImage" />
+                      <div class="text-xs font-bold text-neutral-800 dark:text-neutral-200 mt-1 truncate w-full text-center">{{ lineup[pos].name }}</div>
+                      <div v-if="playerBuffs[pos]?.battingOrder && !isPitcher(lineup[pos])" class="absolute bottom-1 left-2 text-[9px] font-bold bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 px-1 rounded">{{ playerBuffs[pos].battingOrder }}번</div>
+                      <div class="absolute bottom-1 right-2 text-[11px] font-black text-indigo-600 dark:text-indigo-400">설정➔</div>
+                   </div>
                  </div>
                </div>
                <div class="grid grid-cols-2 gap-16 w-full max-w-md">
                  <div v-for="pos in ['C', 'DH']" :key="pos">
-                   <PlayerCard :pos="pos" :p="lineup[pos]" :buffs="playerBuffs[pos]" :is-selected="selectedSlot === pos" @click="selectSlot(pos)" @clear="clearSlot(pos)" />
+                   <div v-if="!lineup[pos]" class="h-[100px] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === pos}" @click="selectSlot(pos)"><span class="text-[10px] font-bold">{{ pos }}</span></div>
+                   <div v-else class="relative h-[100px] border rounded-xl flex flex-col items-center p-2 cursor-pointer transition-all shadow-sm group bg-white dark:bg-neutral-800 hover:border-indigo-300 dark:hover:border-indigo-500" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200 dark:ring-indigo-800': selectedSlot === pos, 'border-neutral-200 dark:border-neutral-600': selectedSlot !== pos}" @click="selectSlot(pos)">
+                      <div class="absolute top-1 left-2 text-[9px] font-black text-neutral-400 dark:text-neutral-500">{{ pos }}</div>
+                      <button class="absolute top-1 right-1 w-4 h-4 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500 hover:bg-red-500 hover:text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity" @click.stop="clearSlot(pos)">×</button>
+                      <img :src="`/assets/logos/grade/${lineup[pos].grade}.png`" class="w-8 h-8 object-contain mt-1 drop-shadow-sm" @error="hideImage" />
+                      <div class="text-xs font-bold text-neutral-800 dark:text-neutral-200 mt-1 truncate w-full text-center">{{ lineup[pos].name }}</div>
+                      <div v-if="playerBuffs[pos]?.battingOrder && !isPitcher(lineup[pos])" class="absolute bottom-1 left-2 text-[9px] font-bold bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 px-1 rounded">{{ playerBuffs[pos].battingOrder }}번</div>
+                      <div class="absolute bottom-1 right-2 text-[11px] font-black text-indigo-600 dark:text-indigo-400">설정➔</div>
+                   </div>
                  </div>
                </div>
             </div>
@@ -947,7 +945,15 @@ onMounted(async () => {
                 <h3 class="text-xs font-bold text-neutral-500 mb-3 ml-1">선발 투수</h3>
                 <div class="grid grid-cols-3 sm:grid-cols-5 gap-3">
                   <div v-for="i in 5" :key="'SP'+i">
-                     <PlayerCard :pos="'SP'+i" :p="lineup['SP'+i]" :buffs="playerBuffs['SP'+i]" :is-selected="selectedSlot === 'SP'+i" @click="selectSlot('SP'+i)" @clear="clearSlot('SP'+i)" />
+                     <div v-if="!lineup['SP'+i]" class="h-[100px] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === 'SP'+i}" @click="selectSlot('SP'+i)"><span class="text-[10px] font-bold">{{ 'SP'+i }}</span></div>
+                   <div v-else class="relative h-[100px] border rounded-xl flex flex-col items-center p-2 cursor-pointer transition-all shadow-sm group bg-white dark:bg-neutral-800 hover:border-indigo-300 dark:hover:border-indigo-500" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200 dark:ring-indigo-800': selectedSlot === 'SP'+i, 'border-neutral-200 dark:border-neutral-600': selectedSlot !== 'SP'+i}" @click="selectSlot('SP'+i)">
+                      <div class="absolute top-1 left-2 text-[9px] font-black text-neutral-400 dark:text-neutral-500">{{ 'SP'+i }}</div>
+                      <button class="absolute top-1 right-1 w-4 h-4 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500 hover:bg-red-500 hover:text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity" @click.stop="clearSlot('SP'+i)">×</button>
+                      <img :src="`/assets/logos/grade/${lineup['SP'+i].grade}.png`" class="w-8 h-8 object-contain mt-1 drop-shadow-sm" @error="hideImage" />
+                      <div class="text-xs font-bold text-neutral-800 dark:text-neutral-200 mt-1 truncate w-full text-center">{{ lineup['SP'+i].name }}</div>
+                      <div v-if="playerBuffs['SP'+i]?.battingOrder && !isPitcher(lineup['SP'+i])" class="absolute bottom-1 left-2 text-[9px] font-bold bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 px-1 rounded">{{ playerBuffs['SP'+i].battingOrder }}번</div>
+                      <div class="absolute bottom-1 right-2 text-[11px] font-black text-indigo-600 dark:text-indigo-400">설정➔</div>
+                   </div>
                   </div>
                 </div>
               </div>
@@ -955,7 +961,15 @@ onMounted(async () => {
                 <h3 class="text-xs font-bold text-neutral-500 mb-3 ml-1">계투 및 마무리</h3>
                 <div class="grid grid-cols-3 sm:grid-cols-6 gap-3">
                   <div v-for="i in 6" :key="'RP'+i">
-                     <PlayerCard :pos="'RP'+i" :p="lineup['RP'+i]" :buffs="playerBuffs['RP'+i]" :is-selected="selectedSlot === 'RP'+i" @click="selectSlot('RP'+i)" @clear="clearSlot('RP'+i)" />
+                     <div v-if="!lineup['RP'+i]" class="h-[100px] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === 'RP'+i}" @click="selectSlot('RP'+i)"><span class="text-[10px] font-bold">{{ 'RP'+i }}</span></div>
+                   <div v-else class="relative h-[100px] border rounded-xl flex flex-col items-center p-2 cursor-pointer transition-all shadow-sm group bg-white dark:bg-neutral-800 hover:border-indigo-300 dark:hover:border-indigo-500" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200 dark:ring-indigo-800': selectedSlot === 'RP'+i, 'border-neutral-200 dark:border-neutral-600': selectedSlot !== 'RP'+i}" @click="selectSlot('RP'+i)">
+                      <div class="absolute top-1 left-2 text-[9px] font-black text-neutral-400 dark:text-neutral-500">{{ 'RP'+i }}</div>
+                      <button class="absolute top-1 right-1 w-4 h-4 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500 hover:bg-red-500 hover:text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity" @click.stop="clearSlot('RP'+i)">×</button>
+                      <img :src="`/assets/logos/grade/${lineup['RP'+i].grade}.png`" class="w-8 h-8 object-contain mt-1 drop-shadow-sm" @error="hideImage" />
+                      <div class="text-xs font-bold text-neutral-800 dark:text-neutral-200 mt-1 truncate w-full text-center">{{ lineup['RP'+i].name }}</div>
+                      <div v-if="playerBuffs['RP'+i]?.battingOrder && !isPitcher(lineup['RP'+i])" class="absolute bottom-1 left-2 text-[9px] font-bold bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 px-1 rounded">{{ playerBuffs['RP'+i].battingOrder }}번</div>
+                      <div class="absolute bottom-1 right-2 text-[11px] font-black text-indigo-600 dark:text-indigo-400">설정➔</div>
+                   </div>
                   </div>
                 </div>
               </div>
@@ -966,7 +980,15 @@ onMounted(async () => {
                <h3 class="text-xs font-bold text-neutral-500 mb-3 ml-1">벤치 멤버</h3>
                <div class="grid grid-cols-3 sm:grid-cols-4 gap-3">
                   <div v-for="i in 8" :key="'BENCH'+i">
-                     <PlayerCard :pos="'BENCH'+i" :p="lineup['BENCH'+i]" :buffs="playerBuffs['BENCH'+i]" :is-selected="selectedSlot === 'BENCH'+i" @click="selectSlot('BENCH'+i)" @clear="clearSlot('BENCH'+i)" />
+                     <div v-if="!lineup['BENCH'+i]" class="h-[100px] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === 'BENCH'+i}" @click="selectSlot('BENCH'+i)"><span class="text-[10px] font-bold">{{ 'BENCH'+i }}</span></div>
+                   <div v-else class="relative h-[100px] border rounded-xl flex flex-col items-center p-2 cursor-pointer transition-all shadow-sm group bg-white dark:bg-neutral-800 hover:border-indigo-300 dark:hover:border-indigo-500" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200 dark:ring-indigo-800': selectedSlot === 'BENCH'+i, 'border-neutral-200 dark:border-neutral-600': selectedSlot !== 'BENCH'+i}" @click="selectSlot('BENCH'+i)">
+                      <div class="absolute top-1 left-2 text-[9px] font-black text-neutral-400 dark:text-neutral-500">{{ 'BENCH'+i }}</div>
+                      <button class="absolute top-1 right-1 w-4 h-4 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500 hover:bg-red-500 hover:text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity" @click.stop="clearSlot('BENCH'+i)">×</button>
+                      <img :src="`/assets/logos/grade/${lineup['BENCH'+i].grade}.png`" class="w-8 h-8 object-contain mt-1 drop-shadow-sm" @error="hideImage" />
+                      <div class="text-xs font-bold text-neutral-800 dark:text-neutral-200 mt-1 truncate w-full text-center">{{ lineup['BENCH'+i].name }}</div>
+                      <div v-if="playerBuffs['BENCH'+i]?.battingOrder && !isPitcher(lineup['BENCH'+i])" class="absolute bottom-1 left-2 text-[9px] font-bold bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 px-1 rounded">{{ playerBuffs['BENCH'+i].battingOrder }}번</div>
+                      <div class="absolute bottom-1 right-2 text-[11px] font-black text-indigo-600 dark:text-indigo-400">설정➔</div>
+                   </div>
                   </div>
                </div>
             </div>
