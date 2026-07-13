@@ -1175,7 +1175,7 @@ onMounted(async () => {
                       :key="'pref'+group.name"
                       :title="group.name"
                       @click="globalBuffs.preferredTeam = group.id"
-                      :class="globalBuffs.preferredTeam === group.id ? 'bg-indigo-200 dark:bg-indigo-800 border-indigo-500 shadow-md ring-2 ring-indigo-400' : 'bg-white dark:bg-neutral-700 border-neutral-200 dark:border-neutral-600 opacity-60 hover:opacity-100'"
+                      :class="globalBuffs.preferredTeam[0] === group.id[0] ? 'bg-indigo-200 dark:bg-indigo-800 border-indigo-500 shadow-md ring-2 ring-indigo-400' : 'bg-white dark:bg-neutral-700 border-neutral-200 dark:border-neutral-600 opacity-60 hover:opacity-100'"
                       class="p-1 flex items-center justify-center rounded-lg border transition-all"
                   >
                     <img v-if="getTeamLogoUrl(group.id[0])" :src="getTeamLogoUrl(group.id[0])" :alt="group.name" class="w-8 h-8 object-contain" @error="hideImage" />
