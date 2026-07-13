@@ -1433,7 +1433,7 @@ onMounted(async () => {
               <button @click="goToPage(currentPage+1)" :disabled="currentPage>=totalPages" class="rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 px-2 py-1 disabled:opacity-40 hover:bg-neutral-50 dark:hover:bg-neutral-600 transition-colors">다음</button>
             </div>
           </div>
-<div class="flex-1 overflow-y-auto min-h-0 custom-scrollbar">
+          <div class="flex-1 overflow-y-auto min-h-0 custom-scrollbar">
             <div
                 v-for="(player, i) in paginatedPlayers"
                 :key="i"
@@ -1643,8 +1643,7 @@ onMounted(async () => {
               </div>
               <div class="text-xs text-neutral-500 bg-neutral-100 dark:bg-neutral-800 p-3 rounded-lg">
                 💡 선수 레벨, 도감 등은 각 선수를 클릭하여 <b>[선수 개인 설정]</b> 탭에서 조절하세요.
-              </div>
-              <!-- 감독 카드 설정 -->
+              </div> <!-- 감독 카드 설정 -->
               <div class="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800 shadow-sm">
                  <h3 class="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-3 flex items-center gap-1"><UserCheck class="w-4 h-4"/> 감독 카드 설정</h3>
                  <div class="grid grid-cols-2 gap-3">
@@ -1856,3 +1855,5 @@ onMounted(async () => {
 .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
 ::-webkit-scrollbar { display: none; }
 </style>
+              
+              
