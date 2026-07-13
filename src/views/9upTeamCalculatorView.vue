@@ -480,17 +480,13 @@ const getSynergyType = (conditions: any[]) => {
   return 'both';
 }
 
+// 각 선수가 특정 시너지를 받고 있는지 확인 (개인설정 탭 용도)
 const isPlayerReceivingSynergy = (p: Raw, synName: string) => {
   if (!p) return false;
-  const cleanNames = getArray(p.synergy).map(x=>x.normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[,\s클럽]/g,'').trim());
-  const targetClean = synName.normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[,\s클럽]/g,'').trim();
-  
-  let hasSynergy = false;
-  if (targetClean === '신') {
-     hasSynergy = cleanNames.includes('신');
-  } else {
-     hasSynergy = cleanNames.some(cn => targetClean.includes(cn) || cn.includes(targetClean));
-  }
+
+  // 🌟 버그 수정: '신' 한 글자 때문에 '출신', '신인' 등이 들어간 모든 시너지를 흡수하던 블랙홀 현상 차단!
+  // 이미 안전하게 구현된 checkSynergyInclusion 함수를 100% 재사용하여 정확하게 일치할 때만 적용합니다.
+  const hasSynergy = checkSynergyInclusion(synName, getArray(p.synergy));
 
   if (!hasSynergy) return false;
 
