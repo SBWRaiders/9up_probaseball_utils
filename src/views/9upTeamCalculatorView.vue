@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, reactive, watch, defineComponent, h } from 'vue'
+import { ref, computed, onMounted, reactive, watch } from 'vue'
 import Papa from 'papaparse'
 import { Search, Calculator, Star, Shield, Zap, TrendingUp, X, Users, ArrowUpCircle, Sparkles, UserCheck, Filter, ChevronRight as ChevronRightIcon, Check, Save, FolderOpen, Download, Upload } from 'lucide-vue-next'
 
@@ -38,6 +38,7 @@ const STAT_LABELS: Record<string, string> = {
 
 const batterStats = ['contact', 'gapPower', 'homeRunPower', 'plateDiscipline', 'strikeoutAvoidance', 'stealing', 'baseRunning', 'defense'];
 const pitcherStats = ['movement', 'longHitSuppression', 'homeRunSuppression', 'control', 'stuff', 'defense', 'pitchLimit', 'runnerControl'];
+
 const isPitcher = (p: Raw | null) => {
   if (!p) return false;
   const pos = String(p.position || '').toUpperCase();
@@ -161,11 +162,10 @@ const isSkillActive = (skillName: string, slot: string, battingOrder: number | n
 }
 
 const toLowerCase = (s: unknown): string => String(s ?? '').toLowerCase().trim()
-const normalizeText = (text: unknown): string => String(text ?? '').normalize('NFKC').replace(/[​-‍﻿]/g, '').replace(/\s+/g, ' ').trim().toLowerCase()
+const normalizeText = (text: unknown): string => String(text ?? '').normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, ' ').trim().toLowerCase()
 const getCleanArray = (value: any): string[] => {
   if (!value) return []
   let str = Array.isArray(value) ? value.join(',') : String(value)
-  // 대괄호, 따옴표, 백틱 등 불필요한 기호 완벽 제거
   str = str.replace(/[\[\]"'`]/g, '')
   return str.split(/[,;]+/).map(x => x.trim()).filter(Boolean)
 }
@@ -173,631 +173,10 @@ const getArray = getCleanArray
 const toArray = getCleanArray
 
 const normalizePosition = (position: any): string => {
-  // 포지션 문자열 내의 모든 특수기호 및 공백 완벽 제거
   const str = String(position ?? '').replace(/[\[\]"'`\s]/g, '').trim()
   if (!str) return ''
   const lower = str.toLowerCase()
   return POSITION_ALIASES[lower] ?? str.toUpperCase()
-}
-
-const searchOptions = computed(() => {
-  const o: Record<string, Set<string>> = { team: new Set(), position: new Set(), grade: new Set() }
-  for (const p of players.value) {
-    getArray(p.team).forEach(v => o.team.add(v))
-    getArray(p.position).forEach(v => o.position.add(v))
-    if (p.grade) o.grade.add(String(p.grade))
-  }
-  return {
-    team: [...o.team].sort(),
-    position: [...o.position].sort(),
-    grade: [...o.grade].sort((a, b) => {
-      const gradeOrder = ['SS', 'S', 'A', 'B', 'C', 'D']
-      return gradeOrder.indexOf(a) - gradeOrder.indexOf(b)
-    })
-  }
-})
-
-interface PreparedPlayer { raw: Raw; nameNormalized: string; teamLowerCase: string[]; positionLowerCase: string[]; yearsNumeric: number[]; synergyNormalizedSet: Set<string>; }
-
-const preparedPlayers = computed<PreparedPlayer[]>(() =>
-    players.value.map(player => ({
-      raw: player, nameNormalized: normalizeText(player.name),
-      teamLowerCase: toArray(player.team).map(toLowerCase), positionLowerCase: toArray(player.position).map(normalizePosition).map(toLowerCase),
-      yearsNumeric: toArray(player.year).map((y:any)=>Number(y)).filter((y:any)=>!Number.isNaN(y)),
-      synergyNormalizedSet: new Set(toArray(player.synergy).map(normalizeText))
-    }))
-)
-
-const groupedTeams = [
-  { id: ['ssg', 'sk'], name: 'SSG/SK' }, { id: ['kiwoom', 'nexen'], name: '키움/히어로즈' },
-  { id: ['kia', 'haitai'], name: 'KIA/해태' }, { id: ['samsung'], name: '삼성' },
-  { id: ['doosan', 'ob'], name: '두산/OB' }, { id: ['lotte'], name: '롯데' },
-  { id: ['lg', 'mbc'], name: 'LG/MBC' }, { id: ['hanwha', 'binggrae'], name: '한화/빙그레' },
-  { id: ['nc'], name: 'NC' }, { id: ['kt'], name: 'KT' },
-  { id: ['hyundai', 'pacific', 'chungbo', 'sammi'], name: '현대/태평양/청보/삼미' }, { id: ['sbw'], name: '쌍방울' }
-]
-
-const toggleTeamGroup = (group: { id: string[], name: string }) => {
-  if (isTeamGroupSelected(group)) searchQuery.team = searchQuery.team.filter(t => !group.id.includes(t))
-  else {
-    const newTeams = [...searchQuery.team]
-    group.id.forEach(t => { if (!newTeams.includes(t)) newTeams.push(t) })
-    searchQuery.team = newTeams
-  }
-}
-const isTeamGroupSelected = (group: { id: string[], name: string }) => group.id.every(t => searchQuery.team.includes(t))
-const findTeamLogo = (teamKey: string): string | null => {
-  for (const team of teamData.value) {
-    if (!team.history) continue
-    for (const history of team.history) { if (history.key === teamKey) return history.logo }
-  }
-  return null
-}
-const findTeamName = (teamKeyOrName: string): string => {
-  const key = String(teamKeyOrName ?? '')
-  for (const team of teamData.value) {
-    if (team.key === key) return team.name
-    if (!team.history) continue
-    for (const h of team.history) { if (h.key === key || h.name === key) return h.name }
-  }
-  return key
-}
-const getTeamLogoUrl = (teamKey: string): string => findTeamLogo(teamKey) ?? '/assets/logos/teams/unknown.png'
-
-const filteredSynergyOptions = computed(() => {
-  const query = normalizeText(synergySearchText.value)
-  if (!query) return synergyOptions.value
-  return synergyOptions.value.filter(s => normalizeText(s).includes(query))
-})
-const toggleSynergyFilter = (s: string) => {
-  if (searchQuery.synergy.includes(s)) searchQuery.synergy = searchQuery.synergy.filter(x => x !== s)
-  else searchQuery.synergy.push(s)
-}
-
-const filteredPlayers = computed(() => {
-  const tokens = searchQuery.search ? searchQuery.search.split(/[\s,]+/).map(t=>t.trim()).filter(Boolean).map(normalizeText) : []
-  return preparedPlayers.value.filter(({ raw: p, nameNormalized, teamLowerCase, positionLowerCase, yearsNumeric, synergyNormalizedSet }) => {
-    if (searchQuery.team.length && !searchQuery.team.some(t => teamLowerCase.includes(toLowerCase(t)))) return false
-    if (searchQuery.rarity != null && Number(p.rarity) !== Number(searchQuery.rarity)) return false
-    if (searchQuery.grade.length && !searchQuery.grade.includes(String(p.grade || ''))) return false
-    if (searchQuery.position.length && !searchQuery.position.some(v => positionLowerCase.includes(toLowerCase(v)))) return false
-    if (searchQuery.synergy.length && !searchQuery.synergy.map(normalizeText).every(t => synergyNormalizedSet.has(t))) return false
-    if (tokens.length) {
-      const hay = new Set<string>([nameNormalized, ...teamLowerCase, ...positionLowerCase, ...Array.from(synergyNormalizedSet), ...yearsNumeric.map(String)])
-      if (!tokens.some(t => hay.has(t) || nameNormalized.includes(t))) return false
-    }
-    return true
-  }).map(pp => pp.raw)
-})
-
-const totalPlayers = computed(() => filteredPlayers.value.length)
-const totalPages = computed(() => Math.max(1, Math.ceil(totalPlayers.value / pageSize)))
-const paginatedPlayers = computed(() => filteredPlayers.value.slice((currentPage.value-1)*pageSize, (currentPage.value)*pageSize))
-const goToPage = (page:number) => { if (page>=1 && page<=totalPages.value) currentPage.value = page }
-watch(searchQuery, () => { currentPage.value = 1 }, { deep: true })
-const resetFilters = () => { searchQuery.search=''; searchQuery.team=[]; searchQuery.position=[]; searchQuery.synergy=[]; searchQuery.rarity=null; searchQuery.grade=[] }
-
-const checkSynergyInclusion = (target: string, playerSynergies: string[]) => {
-  const clean = (x:string)=>String(x??'').normalize('NFKC').replace(/[​-‍﻿]/g,'').replace(/[,\s클럽]/g,'').trim()
-  const keyClean = clean(target)
-  if (playerSynergies.some(s => clean(s) === keyClean)) return true
-  const tm = keyClean.match(/^(\D*)(\d+)(\D*)$/)
-  if (!tm) return playerSynergies.some(s => clean(s).includes(keyClean))
-  const [,tp,tn,ts] = tm
-  if (tn.length===4 || tp.includes('동명이인') || ts.includes('동명이인')) return false
-  const tnum = parseInt(tn,10)
-  return playerSynergies.some(s => {
-    const sClean = clean(s)
-    if (sClean.includes(keyClean)) return true
-    const parts = sClean.split('-')
-    for (const part of parts) {
-      const sm = part.match(/^(\D*)(\d+)(\D*)$/)
-      if (!sm) continue
-      const [,pp,pn,ps] = sm
-      if (pn.length===4 || pp.includes('동명이인') || ps.includes('동명이인')) continue
-      if (pp===tp && ps===ts && parseInt(pn,10)>=tnum) return true
-    }
-    return false
-  })
-}
-
-const compareCondition = (op: CountOp, lhs: number, rhs?: number, max?: number): boolean => {
-  if (op==='==') return lhs === (rhs ?? 0)
-  if (op=== '>=') return lhs >= (rhs ?? 0)
-  if (op=== '<=') return lhs <= (rhs ?? 0)
-  if (op===  '>') return lhs >  (rhs ?? 0)
-  if (op===  '<') return lhs <  (rhs ?? 0)
-  if (op==='between') return lhs >= (rhs ?? 0) && lhs <= (max ?? Number.POSITIVE_INFINITY)
-  return false
-}
-
-const activeTeamSynergies = computed(() => {
-  const lineupPlayers = Object.values(lineup.value).filter(Boolean) as Raw[]
-  const result: { name: string, bonuses: { stat: string, bonus: JsonBonus }[] }[] = []
-  for (const s of synergys.value) {
-    const name = String(s.synergy).trim()
-    const count = lineupPlayers.filter(p => checkSynergyInclusion(name, getArray(p.synergy))).length
-    if (count > 0) {
-       const matched = (s.conditions||[]).filter(c => {
-          const op = c.count?.op as CountOp
-          return op === 'between' 
-            ? compareCondition('between', count, c.count?.min, c.count?.max) 
-            : compareCondition(op, count, c.count?.value)
-       })
-       
-       if (matched.length > 0) {
-         const getThreshold = (c: any) => c.count?.op === 'between' ? (c.count?.max || 0) : (c.count?.value || 0)
-         const maxThreshold = Math.max(...matched.map(getThreshold))
-         const highestTierConditions = matched.filter(c => getThreshold(c) === maxThreshold)
-         
-         result.push({ name, bonuses: highestTierConditions.map(c => ({ stat: c.stat, bonus: c.bonus })) })
-       }
-    }
-  }
-  return result
-})
-
-const pendingTeamSynergies = computed(() => {
-  const lineupPlayers = Object.values(lineup.value).filter(Boolean) as Raw[]
-  const result: { name: string, current: number, required: number }[] = []
-  
-  for (const s of synergys.value) {
-    const name = String(s.synergy).trim()
-    const count = lineupPlayers.filter(p => checkSynergyInclusion(name, getArray(p.synergy))).length
-    
-    if (count > 0) {
-       const matched = (s.conditions||[]).filter(c => {
-          const op = c.count?.op as CountOp
-          return op === 'between' 
-            ? compareCondition('between', count, c.count?.min, c.count?.max) 
-            : compareCondition(op, count, c.count?.value)
-       })
-       
-       if (matched.length === 0) {
-         let minRequired = Infinity;
-         (s.conditions||[]).forEach(c => {
-           let req = 0;
-           if (c.count?.op === 'between') req = c.count?.min;
-           else if (['>=', '==', '>'].includes(c.count?.op)) req = c.count?.value;
-           
-           if (req > count && req < minRequired) {
-              minRequired = req;
-           }
-         });
-         
-         if (minRequired !== Infinity) {
-            result.push({ name, current: count, required: minRequired })
-         }
-       }
-    }
-  }
-  return result
-})
-
-const getTeamLevelPower = (level: number, isPref: boolean) => {
-  const l = Math.min(100, Math.max(0, level || 0));
-  let prefPwr = 0;
-  let otherPwr = 0;
-  if (l > 0) prefPwr += Math.min(l, 25) * 10;
-  if (l > 25) otherPwr += Math.min(l - 25, 25) * 10;
-  if (l > 50) prefPwr += Math.min(l - 50, 25) * 10;
-  if (l > 75) {
-    prefPwr += (l - 75) * 10;
-    otherPwr += (l - 75) * 10;
-  }
-  return isPref ? prefPwr : otherPwr;
-};
-
-const getSameTeamCount = (p: Raw | null) => {
-  if (!p) return 0;
-  const myTeams = toArray(p.team).map(toLowerCase);
-  let validTeamIds = new Set<string>(myTeams);
-  groupedTeams.filter(g => g.id.some(id => myTeams.includes(id))).forEach(g => g.id.forEach(id => validTeamIds.add(id)));
-
-  let count = 0;
-  Object.values(lineup.value).forEach(other => {
-     if (other) {
-        const otherTeams = toArray(other.team).map(toLowerCase);
-        if (otherTeams.some(t => validTeamIds.has(t))) count++;
-     }
-  });
-  return count;
-}
-
-const getCareerTeamMultiplier = (slots: number) => {
-  const s = Number(slots) || 0;
-  if (s === 1) return 1;
-  if (s === 2) return 2;
-  if (s === 3) return 6;
-  if (s === 4) return 8;
-  if (s === 5) return 10;
-  if (s >= 6) return 12;
-  return 0;
-}
-
-const getSynergyType = (conditions: any[]) => {
-  const pitStats = ['movement', 'longHitSuppression', 'homeRunSuppression', 'control', 'stuff', 'pitchLimit', 'runnerControl'];
-  const batStats = ['contact', 'gapPower', 'homeRunPower', 'plateDiscipline', 'strikeoutAvoidance', 'stealing', 'baseRunning'];
-  const isPit = conditions?.some(c => pitStats.includes(c.stat));
-  const isBat = conditions?.some(c => batStats.includes(c.stat));
-  if (isPit && !isBat) return 'pitcher';
-  if (isBat && !isPit) return 'batter';
-  return 'both';
-}
-
-const getPlayerSynergySum = (p: Raw | null, unit: 'fixed' | 'percent') => {
-  if (!p) return 0;
-  let total = 0;
-  const cleanNames = getArray(p.synergy).map(x=>x.normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[,\s클럽]/g,'').trim());
-  activeTeamSynergies.value.forEach(syn => {
-    const targetClean = syn.name.normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[,\s클럽]/g,'').trim();
-    if (cleanNames.some(cn => targetClean.includes(cn) || cn.includes(targetClean))) {
-      const synData = synergys.value.find(s => String(s.synergy).trim() === syn.name);
-      let isValid = true;
-      if (synData) {
-        const synType = getSynergyType(synData.conditions);
-        const playerIsPit = isPitcher(p);
-        if (playerIsPit && synType === 'batter') isValid = false;
-        if (!playerIsPit && synType === 'pitcher') isValid = false;
-      }
-      if (isValid) {
-        syn.bonuses.forEach(b => {
-          if (b.stat === 'power' && b.bonus.unit === unit) total += b.bonus.value;
-        });
-      }
-    }
-  });
-  return total;
-}
-
-const getMaxEnhance = (p: Raw) => {
-  if (!p) return 15;
-  const grade = String(p.grade).toUpperCase();
-  return grade === 'DGN' ? 10 : 15;
-}
-
-const getMaxBreakthrough = (p: Raw | null) => {
-  if (!p) return 0;
-  const grade = String(p.grade || '').toUpperCase();
-  if (grade === 'DGN') return 0;
-  const r = parseInt(String(p.rarity || 1), 10) || 1;
-  return r + 1;
-}
-
-const getEnhanceMultiplier = (p: Raw) => {
-  const grade = String(p.grade).toUpperCase()
-  const map: Record<string, number> = { 'SEA':30, 'ASG':30, 'POS':40, 'TEA':40, 'MMVP':40, 'ROY':50, 'HIT':50, 'ACE':50, 'GG':50, 'TOP':50, 'GGY':50, 'DGN':300 }
-  return map[grade] || 0
-}
-const getBreakthroughFixed = (p: Raw, level: number) => {
-  if (level === 0 || !p) return 0
-  const grade = String(p.grade).toUpperCase()
-  if (['SEA','ASG','POS'].includes(grade)) {
-    const mults = [0, 1, 3, 6, 10, 15, 21, 28, 36]
-    return 30 * (mults[level] || 0)
-  } else if (['TEA','ROY','MMVP'].includes(grade)) {
-    const mults = [0, 1, 3, 6, 10, 15, 21, 28, 36]
-    return 50 * (mults[level] || 0)
-  } else if (['HIT','ACE','GG','TOP','GGY'].includes(grade)) {
-    const mults = [0, 1, 2.5, 4.5, 7, 10, 15, 21, 28] 
-    return 100 * (mults[level] || 0)
-  }
-  return 0
-}
-
-const MANAGER_STATS_MY = [
-  { main: 2, sub: 1 }, { main: 5, sub: 2 }, { main: 10, sub: 5 }, { main: 15, sub: 7 }, { main: 20, sub: 10 },
-  { main: 50, sub: 25 }, { main: 55, sub: 27 }, { main: 60, sub: 30 }, { main: 65, sub: 32 }, { main: 70, sub: 35 },
-  { main: 100, sub: 50 }, { main: 105, sub: 52 }, { main: 110, sub: 55 }, { main: 115, sub: 57 }, { main: 120, sub: 60 },
-  { main: 150, sub: 75 }
-];
-
-const MANAGER_STATS_COM = [
-  { main: 2, sub: 1 }, { main: 5, sub: 2 }, { main: 10, sub: 5 }, { main: 15, sub: 7 }, { main: 20, sub: 10 },
-  { main: 45, sub: 20 }, { main: 50, sub: 22 }, { main: 55, sub: 25 }, { main: 60, sub: 27 }, { main: 65, sub: 30 },
-  { main: 90, sub: 40 }, { main: 95, sub: 42 }, { main: 100, sub: 45 }, { main: 105, sub: 47 }, { main: 110, sub: 50 },
-  { main: 135, sub: 60 }
-];
-
-const MANAGER_TYPES: Record<string, { main: string, sub: string }> = {
-  '1st': { main: 'contact', sub: 'strikeoutAvoidance' },
-  '2nd': { main: 'homeRunPower', sub: 'gapPower' },
-  '3rd': { main: 'movement', sub: 'stuff' },
-  '4th': { main: 'homeRunSuppression', sub: 'longHitSuppression' }
-};
-
-const getManagerBonusText = (typeKey: string, enhance: number) => {
-  if (!typeKey) return '';
-  const isMy = typeKey.startsWith('my_');
-  const t = typeKey.split('_')[1];
-  const table = isMy ? MANAGER_STATS_MY : MANAGER_STATS_COM;
-  const level = Math.min(15, Math.max(0, enhance || 0));
-  const stats = table[level];
-  const mainName = STAT_LABELS[MANAGER_TYPES[t].main] || MANAGER_TYPES[t].main;
-  const subName = STAT_LABELS[MANAGER_TYPES[t].sub] || MANAGER_TYPES[t].sub;
-  return `${mainName} +${stats.main}, ${subName} +${stats.sub}`;
-};
-
-const computedPlayerStats = computed(() => {
-  const result: Record<string, { power: number, stats: Record<string, number> }> = {}
-  Object.keys(lineup.value).forEach(slot => {
-    const p = lineup.value[slot]
-    if (!p) return
-    const buffs = playerBuffs.value[slot]
-    if (!buffs) return
-
-    const isPit = isPitcher(p);
-    let baseSum = 0
-    const coreStats = isPit ? ['movement', 'longHitSuppression', 'homeRunSuppression', 'control', 'stuff'] : ['contact', 'gapPower', 'homeRunPower', 'plateDiscipline', 'strikeoutAvoidance']
-    const nonCoreStats = isPit ? ['defense', 'pitchLimit', 'runnerControl'] : ['stealing', 'baseRunning', 'defense']
-    coreStats.forEach(s => baseSum += Number(p[s] || 0))
-    nonCoreStats.forEach(s => baseSum += Number(p[s] || 0))
-    
-    const pTeams = toArray(p.team).map(toLowerCase);
-    const isMyTeam = globalBuffs.preferredTeam.some(t => pTeams.includes(t));
-    const appliedTeamLevelBuff = getTeamLevelPower(globalBuffs.teamLevel, isMyTeam);
-    const growthA = Number(Math.max(0, buffs.playerLevel - 1) * 10) + buffs.collectionBuff + appliedTeamLevelBuff + buffs.careerLevelBuff + (buffs.enhancementLevel * getEnhanceMultiplier(p))
-    const flatC = buffs.binderBuff + globalBuffs.clanBuff + buffs.imprintStarterPower + buffs.careerAllStatFlat + getBreakthroughFixed(p, buffs.breakthroughLevel)
-    
-    let autoSynergyFixed = 0, autoSynergyPercent = 0, skillPowerPercent = 0, statSpecificSkillPercents: Record<string, number> = {}
-    activeTeamSynergies.value.forEach(syn => {
-      let isActiveForMe = false
-      const cleanNames = getArray(p.synergy).map(x=>x.normalize('NFKC').replace(/[​-‍﻿]/g,'').replace(/[,\s클럽]/g,'').trim())
-      const targetClean = syn.name.normalize('NFKC').replace(/[​-‍﻿]/g,'').replace(/[,\s클럽]/g,'').trim()
-      if (cleanNames.some(cn => targetClean.includes(cn) || cn.includes(targetClean))) isActiveForMe = true
-      if (isActiveForMe) {
-        syn.bonuses.forEach(b => {
-           if (b.stat === 'power') {
-            if (b.bonus.unit === 'fixed') autoSynergyFixed += b.bonus.value
-            else if (b.bonus.unit === 'percent') autoSynergyPercent += b.bonus.value
-          }
-        })
-      }
-    })
-    const careerTeamPower = getSameTeamCount(p) * 2 * getCareerTeamMultiplier(buffs.careerTeamCount);
-    const growthB = careerTeamPower + buffs.hitAceBuff + globalBuffs.teamPlayerDignityBuff + autoSynergyFixed
-    buffs.selectedSkills.forEach(s => {
-      if (isSkillActive(s, slot, buffs.battingOrder)) {
-         const eff = SKILL_EFFECTS[s]
-         if (eff) {
-           skillPowerPercent += eff.powerPercent || 0
-           for (const [k, v] of Object.entries(eff.stats || {})) statSpecificSkillPercents[k] = (statSpecificSkillPercents[k] || 0) + Number(v)
-         }
-      }
-    })
-    const globalPercent = skillPowerPercent + autoSynergyPercent + buffs.ultimateImprintPercent
-    const globalPercentPool = coreStats.reduce((acc, s) => acc + Number(p[s]||0), 0) + nonCoreStats.reduce((acc, s) => acc + Number(p[s]||0), 0) + growthA
-    const globalBonusTotal = globalPercentPool * (globalPercent / 100)
-    
-    let managerMainStat = 0;
-    let managerSubStat = 0;
-    let managerMainName = '';
-    let managerSubName = '';
-    
-    if (globalBuffs.managerType) {
-      const isMy = globalBuffs.managerType.startsWith('my_');
-      const typeStr = globalBuffs.managerType.split('_')[1];
-      const table = isMy ? MANAGER_STATS_MY : MANAGER_STATS_COM;
-      const level = Math.min(15, Math.max(0, globalBuffs.managerEnhance || 0));
-      managerMainStat = table[level].main;
-      managerSubStat = table[level].sub;
-      managerMainName = MANAGER_TYPES[typeStr].main;
-      managerSubName = MANAGER_TYPES[typeStr].sub;
-    }
-
-    let finalTotal = 0
-    const stats: Record<string, number> = {}
-    coreStats.forEach(s => {
-      const base = Number(p[s] || 0)
-      let preSpec = base + (growthA/5) + (growthB/5) + (globalBonusTotal/5)
-      let specBonus = preSpec * ((statSpecificSkillPercents[s] || 0) / 100)
-      let val = preSpec + specBonus + (flatC/5) + globalBuffs.managerBuff
-      if (s === managerMainName) val += managerMainStat;
-      if (s === managerSubName) val += managerSubStat;
-      val += Number(buffs.careerStats?.[s] || 0) + Number(buffs.imprintStats?.[s] || 0)
-      stats[s] = Math.round(val)
-      finalTotal += val
-    })
-    nonCoreStats.forEach(s => {
-      let base = Number(p[s] || 0)
-      if (statSpecificSkillPercents[s]) base += base * (statSpecificSkillPercents[s] / 100)
-      let val = base + globalBuffs.managerBuff
-      if (s === managerMainName) val += managerMainStat;
-      if (s === managerSubName) val += managerSubStat;
-      val += Number(buffs.careerStats?.[s] || 0) + Number(buffs.imprintStats?.[s] || 0)
-      stats[s] = Math.round(val)
-      finalTotal += val
-    })
-    result[slot] = { power: Math.round(finalTotal), stats }
-  })
-  return result
-})
-
-const calculatePlayerPower = (p: Raw, slot: string) => computedPlayerStats.value[slot]?.power || 0
-
-const teamTotalPower = computed(() => {
-  let sum = 0
-  Object.keys(lineup.value).forEach(slot => {
-    if (slot.startsWith('BENCH')) return // 벤치 파워 제외!
-    sum += computedPlayerStats.value[slot]?.power || 0
-  })
-  return sum
-})
-
-const getAvailableSlot = (basePos: string): string => {
-  if (isManualSelection.value && selectedSlot.value && selectedSlot.value.startsWith(basePos)) {
-    if (['SP', 'RP', 'BENCH'].includes(basePos)) return selectedSlot.value;
-  }
-  if (basePos === 'SP') {
-    for (let i = 1; i <= 5; i++) if (!lineup.value[`SP${i}` as keyof typeof lineup.value]) return `SP${i}`
-    return 'SP1'
-  }
-  if (basePos === 'RP') {
-    for (let i = 1; i <= 6; i++) if (!lineup.value[`RP${i}` as keyof typeof lineup.value]) return `RP${i}`
-    return 'RP1'
-  }
-  if (basePos === 'BENCH') {
-    for (let i = 1; i <= 8; i++) if (!lineup.value[`BENCH${i}` as keyof typeof lineup.value]) return `BENCH${i}`
-    return 'BENCH1'
-  }
-  return basePos
-}
-
-const assignPlayerToSlot = (posOrSlot: string, p: Raw) => {
-  Object.keys(lineup.value).forEach(k => { if (lineup.value[k]?.id === p.id) lineup.value[k] = null })
-  const targetSlot = getAvailableSlot(posOrSlot)
-  lineup.value[targetSlot] = p
-  initPlayerBuff(targetSlot, p)
-  selectedSlot.value = targetSlot
-  isManualSelection.value = false 
-  rightPanelTab.value = 'player'
-}
-
-const clearSlot = (slot: string) => { 
-  lineup.value[slot] = null; 
-  if (selectedSlot.value === slot) { 
-    selectedSlot.value = null; 
-    isManualSelection.value = false;
-    rightPanelTab.value = 'global';
-  } 
-}
-
-const selectSlot = (slot: string) => { 
-  selectedSlot.value = slot; 
-  isManualSelection.value = true;
-  if (lineup.value[slot]) { 
-    rightPanelTab.value = 'player'; 
-  } else {
-    rightPanelTab.value = 'global';
-  }
-}
-
-// === 라인업 저장/불러오기 로직 ===
-const fileInput = ref<HTMLInputElement | null>(null)
-
-const saveToLocalStorage = () => {
-  const saveData = { lineup: lineup.value, playerBuffs: playerBuffs.value, globalBuffs: globalBuffs }
-  localStorage.setItem('9up_saved_lineup', JSON.stringify(saveData))
-  alert('라인업이 브라우저에 성공적으로 저장되었습니다.')
-}
-
-const loadFromLocalStorage = () => {
-  const saved = localStorage.getItem('9up_saved_lineup')
-  if (saved) {
-    try {
-      const data = JSON.parse(saved)
-      lineup.value = data.lineup || lineup.value
-      playerBuffs.value = data.playerBuffs || playerBuffs.value
-      if (data.globalBuffs) {
-        if (data.globalBuffs.teamLevelBuff && !data.globalBuffs.teamLevel) data.globalBuffs.teamLevel = 100;
-        Object.assign(globalBuffs, data.globalBuffs)
-      }
-      alert('브라우저에서 라인업을 불러왔습니다.')
-    } catch (e) {
-      alert('저장된 데이터를 불러오는 중 오류가 발생했습니다.')
-    }
-  } else {
-    alert('브라우저에 저장된 라인업이 없습니다.')
-  }
-}
-
-const exportToFile = () => {
-  const saveData = { lineup: lineup.value, playerBuffs: playerBuffs.value, globalBuffs: globalBuffs }
-  const blob = new Blob([JSON.stringify(saveData, null, 2)], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = '9up_lineup_save.json'
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
-}
-
-const triggerFileInput = () => {
-  fileInput.value?.click()
-}
-
-const importFromFile = (event: Event) => {
-  const target = event.target as HTMLInputElement
-  const file = target.files?.[0]
-  if (!file) return
-
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    try {
-      const data = JSON.parse(e.target?.result as string)
-      lineup.value = data.lineup || lineup.value
-      playerBuffs.value = data.playerBuffs || playerBuffs.value
-      if (data.globalBuffs) {
-        if (data.globalBuffs.teamLevelBuff && !data.globalBuffs.teamLevel) data.globalBuffs.teamLevel = 100;
-        Object.assign(globalBuffs, data.globalBuffs)
-      }
-      alert('파일에서 라인업을 성공적으로 불러왔습니다.')
-    } catch (err) {
-      alert('지원하지 않거나 손상된 파일 형식입니다.')
-    }
-    if (fileInput.value) fileInput.value.value = ''
-  }
-  reader.readAsText(file)
-}
-const getPlayerPositions = (p: Raw) => {
-  if (!p) return [];
-  return Array.from(new Set(getArray(p.position).map(normalizePosition))).filter(Boolean);
-}
-
-const hideImage = (e: Event) => {
-  if (e && e.target) {
-    (e.target as HTMLElement).style.display = 'none';
-  }
-}
-
-const activeFilterCount = computed(() => {
-  let count = 0;
-  count += searchQuery.position.length;
-  count += searchQuery.team.length;
-  count += searchQuery.synergy.length;
-  count += searchQuery.grade.length;
-  count += searchQuery.rarity !== null ? 1 : 0;
-  return count;
-});
-
-const getAvailableSkills = (p: Raw | null) => {
-  if (!p) return [];
-  const excluded = ['야전사령관', '인사이드 워크', '투수 리드', '친화력', '도루 저지'];
-  const rawSkills = [...getArray(p.skill), ...getArray(p.enhancedSkill)];
-  return Array.from(new Set(rawSkills.filter(s => !excluded.includes(s))));
-}
-
-const togglePlayerSkill = (sk: string) => {
-  if (!selectedSlot.value || !lineup.value[selectedSlot.value] || !playerBuffs.value[selectedSlot.value]) return;
-  const p = lineup.value[selectedSlot.value];
-  const buffs = playerBuffs.value[selectedSlot.value];
-  const arr = buffs.selectedSkills;
-  const rarity = parseInt(String(p?.rarity || 1), 10) || 1;
-  const max = Math.min(3, Math.max(1, rarity - 1));
-  
-  const idx = arr.indexOf(sk);
-  if (idx > -1) {
-    arr.splice(idx, 1);
-  } else if (arr.length < max) {
-    arr.push(sk);
-  }
-}
-
-const getMaxSkillCount = (p: Raw | null) => {
-  if (!p) return 0;
-  return Math.min(3, Math.max(1, (parseInt(String(p?.rarity || 1), 10) || 1) - 1));
-}
-
-const formatBonuses = (bonuses: { stat: string, bonus: JsonBonus }[]) => {
-  if (!bonuses || !Array.isArray(bonuses)) return '';
-  return bonuses.map(b => {
-    const statName = b.stat === 'power' ? '파워' : STAT_LABELS[b.stat] || b.stat;
-    const val = b.bonus.value;
-    const unit = b.bonus.unit === 'percent' ? '%' : '';
-    return `${statName} +${val}${unit}`;
-  }).join(', ');
 }
 
 const searchOptions = computed(() => {
@@ -1104,7 +483,6 @@ const getBreakthroughFixed = (p: Raw, level: number) => {
   }
   return 0
 }
-
 const MANAGER_STATS_MY = [
   { main: 2, sub: 1 }, { main: 5, sub: 2 }, { main: 10, sub: 5 }, { main: 15, sub: 7 }, { main: 20, sub: 10 },
   { main: 50, sub: 25 }, { main: 55, sub: 27 }, { main: 60, sub: 30 }, { main: 65, sub: 32 }, { main: 70, sub: 35 },
@@ -1160,13 +538,13 @@ const computedPlayerStats = computed(() => {
     const flatC = buffs.binderBuff + globalBuffs.clanBuff + buffs.imprintStarterPower + buffs.careerAllStatFlat + getBreakthroughFixed(p, buffs.breakthroughLevel)
     
     let autoSynergyFixed = 0, autoSynergyPercent = 0, skillPowerPercent = 0, statSpecificSkillPercents: Record<string, number> = {}
-    activeTeamSynergies.value.forEach(syn => {
+    activeTeamSynergies.value.forEach((bonuses, synName) => {
       let isActiveForMe = false
-      const cleanNames = getArray(p.synergy).map(x=>x.normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[,\s클럽]/g,'').trim())
-      const targetClean = syn.name.normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[,\s클럽]/g,'').trim()
+      const cleanNames = getArray(p.synergy).map(x=>x.normalize('NFKC').replace(/[​-‍﻿]/g,'').replace(/[,\s클럽]/g,'').trim())
+      const targetClean = synName.normalize('NFKC').replace(/[​-‍﻿]/g,'').replace(/[,\s클럽]/g,'').trim()
       if (cleanNames.some(cn => targetClean.includes(cn) || cn.includes(targetClean))) isActiveForMe = true
       if (isActiveForMe) {
-        syn.bonuses.forEach(b => {
+        bonuses.forEach(b => {
            if (b.stat === 'power') {
             if (b.bonus.unit === 'fixed') autoSynergyFixed += b.bonus.value
             else if (b.bonus.unit === 'percent') autoSynergyPercent += b.bonus.value
@@ -1174,7 +552,6 @@ const computedPlayerStats = computed(() => {
         })
       }
     })
-    const careerTeamPower = getSameTeamCount(p) * 2 * getCareerTeamMultiplier(buffs.careerTeamCount);
     const growthB = (buffs.careerTeamCount * 112) + buffs.hitAceBuff + globalBuffs.teamPlayerDignityBuff + autoSynergyFixed
     buffs.selectedSkills.forEach(s => {
       if (isSkillActive(s, slot, buffs.battingOrder)) {
@@ -1243,6 +620,188 @@ const teamTotalPower = computed(() => {
   })
   return sum
 })
+
+const getAvailableSlot = (basePos: string): string => {
+  // 수동 선택 기능
+  if (isManualSelection.value && selectedSlot.value && selectedSlot.value.startsWith(basePos)) {
+    if (['SP', 'RP', 'BENCH'].includes(basePos)) return selectedSlot.value;
+  }
+  // 자동 빈자리 찾기 기능
+  if (basePos === 'SP') {
+    for (let i = 1; i <= 5; i++) if (!lineup.value[`SP${i}` as keyof typeof lineup.value]) return `SP${i}`
+    return 'SP1'
+  }
+  if (basePos === 'RP') {
+    for (let i = 1; i <= 6; i++) if (!lineup.value[`RP${i}` as keyof typeof lineup.value]) return `RP${i}`
+    return 'RP1'
+  }
+  if (basePos === 'BENCH') {
+    for (let i = 1; i <= 8; i++) if (!lineup.value[`BENCH${i}` as keyof typeof lineup.value]) return `BENCH${i}`
+    return 'BENCH1'
+  }
+  return basePos
+}
+
+const assignPlayerToSlot = (posOrSlot: string, p: Raw) => {
+  Object.keys(lineup.value).forEach(k => { if (lineup.value[k]?.id === p.id) lineup.value[k] = null })
+  const targetSlot = getAvailableSlot(posOrSlot)
+  lineup.value[targetSlot] = p
+  initPlayerBuff(targetSlot, p)
+  selectedSlot.value = targetSlot
+  isManualSelection.value = false // 클릭 시 초기화하여 다음번엔 자동 배치되게 설정
+  rightPanelTab.value = 'player'
+}
+
+const clearSlot = (slot: string) => { 
+  lineup.value[slot] = null; 
+  if (selectedSlot.value === slot) { 
+    selectedSlot.value = null; 
+    isManualSelection.value = false;
+    rightPanelTab.value = 'global';
+  } 
+}
+
+const selectSlot = (slot: string) => { 
+  selectedSlot.value = slot; 
+  isManualSelection.value = true;
+  if (lineup.value[slot]) { 
+    rightPanelTab.value = 'player'; 
+  } else {
+    rightPanelTab.value = 'global';
+  }
+}
+
+
+
+// === 라인업 저장/불러오기 로직 ===
+const fileInput = ref<HTMLInputElement | null>(null)
+
+const saveToLocalStorage = () => {
+  const saveData = { lineup: lineup.value, playerBuffs: playerBuffs.value, globalBuffs: globalBuffs }
+  localStorage.setItem('9up_saved_lineup', JSON.stringify(saveData))
+  alert('라인업이 브라우저에 성공적으로 저장되었습니다.')
+}
+
+const loadFromLocalStorage = () => {
+  const saved = localStorage.getItem('9up_saved_lineup')
+  if (saved) {
+    try {
+      const data = JSON.parse(saved)
+      lineup.value = data.lineup || lineup.value
+      playerBuffs.value = data.playerBuffs || playerBuffs.value
+      if (data.globalBuffs) {
+        if (data.globalBuffs.teamLevelBuff && !data.globalBuffs.teamLevel) data.globalBuffs.teamLevel = 100;
+        Object.assign(globalBuffs, data.globalBuffs)
+      }
+      alert('브라우저에서 라인업을 불러왔습니다.')
+    } catch (e) {
+      alert('저장된 데이터를 불러오는 중 오류가 발생했습니다.')
+    }
+  } else {
+    alert('브라우저에 저장된 라인업이 없습니다.')
+  }
+}
+
+const exportToFile = () => {
+  const saveData = { lineup: lineup.value, playerBuffs: playerBuffs.value, globalBuffs: globalBuffs }
+  const blob = new Blob([JSON.stringify(saveData, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = '9up_lineup_save.json'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
+const triggerFileInput = () => {
+  fileInput.value?.click()
+}
+
+const importFromFile = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) return
+
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target?.result as string)
+      lineup.value = data.lineup || lineup.value
+      playerBuffs.value = data.playerBuffs || playerBuffs.value
+      if (data.globalBuffs) {
+        if (data.globalBuffs.teamLevelBuff && !data.globalBuffs.teamLevel) data.globalBuffs.teamLevel = 100;
+        Object.assign(globalBuffs, data.globalBuffs)
+      }
+      alert('파일에서 라인업을 성공적으로 불러왔습니다.')
+    } catch (err) {
+      alert('지원하지 않거나 손상된 파일 형식입니다.')
+    }
+    if (fileInput.value) fileInput.value.value = ''
+  }
+  reader.readAsText(file)
+}
+
+
+const getPlayerPositions = (p: Raw) => {
+  if (!p) return [];
+  return Array.from(new Set(getArray(p.position).map(normalizePosition))).filter(Boolean);
+}
+
+const hideImage = (e: Event) => {
+  if (e && e.target) {
+    (e.target as HTMLElement).style.display = 'none';
+  }
+}
+
+const activeFilterCount = computed(() => {
+  let count = 0;
+  count += searchQuery.position.length;
+  count += searchQuery.team.length;
+  count += searchQuery.synergy.length;
+  count += searchQuery.grade.length;
+  count += searchQuery.rarity !== null ? 1 : 0;
+  return count;
+});
+
+const getAvailableSkills = (p: Raw | null) => {
+  if (!p) return [];
+  const excluded = ['야전사령관', '인사이드 워크', '투수 리드', '친화력', '도루 저지'];
+  const rawSkills = [...getArray(p.skill), ...getArray(p.enhancedSkill)];
+  return Array.from(new Set(rawSkills.filter(s => !excluded.includes(s))));
+}
+
+const togglePlayerSkill = (sk: string) => {
+  if (!selectedSlot.value || !lineup.value[selectedSlot.value] || !playerBuffs.value[selectedSlot.value]) return;
+  const p = lineup.value[selectedSlot.value];
+  const buffs = playerBuffs.value[selectedSlot.value];
+  const arr = buffs.selectedSkills;
+  const rarity = parseInt(String(p?.rarity || 1), 10) || 1;
+  const max = Math.min(3, Math.max(1, rarity - 1));
+  
+  const idx = arr.indexOf(sk);
+  if (idx > -1) {
+    arr.splice(idx, 1);
+  } else if (arr.length < max) {
+    arr.push(sk);
+  }
+}
+
+const getMaxSkillCount = (p: Raw | null) => {
+  if (!p) return 0;
+  return Math.min(3, Math.max(1, (parseInt(String(p.rarity || 1), 10) || 1) - 1));
+}
+
+const formatBonuses = (bonuses: { stat: string, bonus: JsonBonus }[]) => {
+  if (!bonuses || !Array.isArray(bonuses)) return '';
+  return bonuses.map(b => {
+    const statName = b.stat === 'power' ? '파워' : STAT_LABELS[b.stat] || b.stat;
+    const val = b.bonus.value;
+    const unit = b.bonus.unit === 'percent' ? '%' : '';
+    return `${statName} +${val}${unit}`;
+  }).join(', ');
+}
 
 onMounted(async () => {
   try {
@@ -1351,7 +910,6 @@ onMounted(async () => {
                   </button>
                 </div>
               </div>
-
               <div>
                 <label class="mb-2 block text-xs font-medium text-neutral-500 dark:text-neutral-400">포지션</label>
                 <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2">
@@ -1378,7 +936,7 @@ onMounted(async () => {
                       :class="isTeamGroupSelected(group) ? 'bg-indigo-100 dark:bg-indigo-900 border-indigo-400 dark:border-indigo-500 shadow-sm' : 'bg-white dark:bg-neutral-700 border-neutral-200 dark:border-neutral-600'"
                       class="p-1 flex items-center justify-center rounded-lg border transition-colors hover:bg-indigo-50 dark:hover:bg-indigo-800"
                   >
-                    <img v-if="getTeamLogoUrl(group.id[0])" :src="getTeamLogoUrl(group.id[0])" :alt="group.name" class="w-8 h-8 object-contain" @error="$event.target.style.display='none'" />
+                    <img v-if="getTeamLogoUrl(group.id[0])" :src="getTeamLogoUrl(group.id[0])" :alt="group.name" class="w-8 h-8 object-contain" @error="hideImage" />
                   </button>
                 </div>
               </div>
@@ -1433,6 +991,7 @@ onMounted(async () => {
               <button @click="goToPage(currentPage+1)" :disabled="currentPage>=totalPages" class="rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 px-2 py-1 disabled:opacity-40 hover:bg-neutral-50 dark:hover:bg-neutral-600 transition-colors">다음</button>
             </div>
           </div>
+
           <div class="flex-1 overflow-y-auto min-h-0 custom-scrollbar">
             <div
                 v-for="(player, i) in paginatedPlayers"
@@ -1491,7 +1050,7 @@ onMounted(async () => {
           </div>
 
           <div class="flex-1 overflow-y-auto p-4 custom-scrollbar bg-neutral-50/30 dark:bg-neutral-900/30">
-            <!-- 타자 다이아몬드 UI -->
+            <!-- 타자 다이아몬드 UI (간략화) -->
             <div v-if="lineupViewMode === 'batter'" class="h-full flex flex-col justify-center items-center">
                <div class="grid grid-cols-3 gap-4 w-full max-w-lg mb-8">
                  <div v-for="pos in ['LF', 'CF', 'RF']" :key="pos">
@@ -1595,7 +1154,6 @@ onMounted(async () => {
             </div>
           </div>
         </section>
-
         <!-- 오른쪽: 설정 패널 -->
         <section class="lg:col-span-4 flex flex-col rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 min-h-0 shadow-sm overflow-hidden">
           <div class="flex items-center bg-neutral-100 dark:bg-neutral-700/50 p-1 border-b border-neutral-200 dark:border-neutral-700 flex-shrink-0">
@@ -1643,7 +1201,9 @@ onMounted(async () => {
               </div>
               <div class="text-xs text-neutral-500 bg-neutral-100 dark:bg-neutral-800 p-3 rounded-lg">
                 💡 선수 레벨, 도감 등은 각 선수를 클릭하여 <b>[선수 개인 설정]</b> 탭에서 조절하세요.
-              </div> <!-- 감독 카드 설정 -->
+              </div>
+              
+              <!-- 감독 카드 설정 -->
               <div class="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800 shadow-sm">
                  <h3 class="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-3 flex items-center gap-1"><UserCheck class="w-4 h-4"/> 감독 카드 설정</h3>
                  <div class="grid grid-cols-2 gap-3">
@@ -1736,7 +1296,7 @@ onMounted(async () => {
                 </div>
               </div>
 
-              <!-- 타순 설정 -->
+              <!-- 타순 설정 (타자일 경우만) -->
               <div v-if="!isPitcher(lineup[selectedSlot])" class="bg-orange-50 dark:bg-orange-900/10 p-3 rounded-xl border border-orange-100 dark:border-orange-900/20">
                 <h3 class="text-[11px] font-bold text-orange-800 dark:text-orange-300 mb-1.5">타순 설정</h3>
                 <select v-model.number="playerBuffs[selectedSlot].battingOrder" class="w-full py-1.5 px-2 rounded-lg border border-orange-200 dark:border-orange-800 bg-white dark:bg-neutral-800 text-xs font-semibold outline-none focus:border-orange-500">
@@ -1855,5 +1415,3 @@ onMounted(async () => {
 .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
 ::-webkit-scrollbar { display: none; }
 </style>
-              
-              
