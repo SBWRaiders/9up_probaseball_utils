@@ -32,7 +32,7 @@ const POSITION_ALIASES: Record<string, string> = {
 const STAT_LABELS: Record<string, string> = {
   contact: '컨택', gapPower: '갭파워', homeRunPower: '홈런파워', plateDiscipline: '선구안', strikeoutAvoidance: '삼진회피',
   stealing: '도루', baseRunning: '주루', defense: '수비',
-  movement: '무브먼트', longHitSuppression: '장타억제', homeRunSuppression: '홈런억제', control: '제구', stuff: '구위',
+  movement: '무브먼트', longHitSuppression: '장타억제', homeRunSuppression: '홈런억제', control: '컨트롤', stuff: '스터프',
   runnerControl: '주자견제', pitchLimit: '투구체력'
 }
 
