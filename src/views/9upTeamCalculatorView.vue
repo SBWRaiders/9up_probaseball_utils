@@ -56,7 +56,6 @@ const pageSize = 50
 const synergySearchText = ref('')
 const synergyOptions = ref<string[]>([])
 
-// 시너지 아코디언 상태 관리 (선수 리스트 표시용)
 const expandedSynergy = ref<string | null>(null)
 const expandedPendingSynergy = ref<string | null>(null)
 
@@ -77,6 +76,7 @@ const lineup = ref({
   BENCH5: null, BENCH6: null, BENCH7: null, BENCH8: null
 } as Record<string, Raw | null>)
 
+// 버그수정: 감독 깡스탯 제거 (managerBuff 제거됨)
 const globalBuffs = reactive({
   teamLevel: 100, preferredTeam: [] as string[], clanBuff: 15, managerType: '', managerEnhance: 0
 })
@@ -198,7 +198,6 @@ const searchOptions = computed(() => {
     })
   }
 })
-
 interface PreparedPlayer { raw: Raw; nameNormalized: string; teamLowerCase: string[]; positionLowerCase: string[]; yearsNumeric: number[]; synergyNormalizedSet: Set<string>; }
 
 const preparedPlayers = computed<PreparedPlayer[]>(() =>
@@ -282,6 +281,12 @@ const resetFilters = () => { searchQuery.search=''; searchQuery.team=[]; searchQ
 const checkSynergyInclusion = (target: string, playerSynergies: string[]) => {
   const clean = (x:string)=>String(x??'').normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[,\s클럽]/g,'').trim()
   const keyClean = clean(target)
+  
+  // "신" 버그 픽스: '신' 시너지일 경우 정확히 일치하는 단어만 찾음
+  if (keyClean === '신') {
+     return playerSynergies.some(s => clean(s) === '신');
+  }
+
   if (playerSynergies.some(s => clean(s) === keyClean)) return true
   const tm = keyClean.match(/^(\D*)(\d+)(\D*)$/)
   if (!tm) return playerSynergies.some(s => clean(s).includes(keyClean))
@@ -302,6 +307,7 @@ const checkSynergyInclusion = (target: string, playerSynergies: string[]) => {
     return false
   })
 }
+
 const compareCondition = (op: CountOp, lhs: number, rhs?: number, max?: number): boolean => {
   if (op==='==') return lhs === (rhs ?? 0)
   if (op=== '>=') return lhs >= (rhs ?? 0)
@@ -442,7 +448,16 @@ const isPlayerReceivingSynergy = (p: Raw, synName: string) => {
   if (!p) return false;
   const cleanNames = getArray(p.synergy).map(x=>x.normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[,\s클럽]/g,'').trim());
   const targetClean = synName.normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[,\s클럽]/g,'').trim();
-  if (!cleanNames.some(cn => targetClean.includes(cn) || cn.includes(targetClean))) return false;
+  
+  // "신" 시너지 하드코딩 예외처리
+  let hasSynergy = false;
+  if (targetClean === '신') {
+     hasSynergy = cleanNames.includes('신');
+  } else {
+     hasSynergy = cleanNames.some(cn => targetClean.includes(cn) || cn.includes(targetClean));
+  }
+
+  if (!hasSynergy) return false;
 
   const synData = synergys.value.find(s => String(s.synergy).trim() === synName);
   if (!synData) return false;
@@ -468,7 +483,7 @@ const getPlayerSynergySum = (p: Raw | null, unit: 'fixed' | 'percent') => {
   return total;
 }
 
-// 자동 계산: 팀플+디그니티 합 (같은 팀 구단 선수에게만 적용)
+// 팀플+디그니티 자동 계산 로직
 const calculateTeamPlayerDignityBuff = (p: Raw) => {
   if (!p) return 0;
   const pTeams = toArray(p.team).map(toLowerCase);
@@ -488,11 +503,9 @@ const calculateTeamPlayerDignityBuff = (p: Raw) => {
            const enhanceLvl = oBuffs?.enhancementLevel || 0;
 
            if (oGrade === 'TEA') {
-             // 팀플: 가장 높은 한 명만 적용 (0~15강 시 8~23)
              const power = 8 + Math.min(15, Math.max(0, enhanceLvl));
              if (power > maxTeamPlayerPower) maxTeamPlayerPower = power;
            } else if (oGrade === 'DGN') {
-             // 디그니티: 중첩 허용 (0강=5, 1강부터는 강화당 10 추가. 예: 1강=10, 2강=20, 10강=100)
              const safeEnhance = Math.min(10, Math.max(0, enhanceLvl));
              const power = safeEnhance === 0 ? 5 : (safeEnhance * 10);
              totalDignityPower += power;
@@ -523,6 +536,7 @@ const getEnhanceMultiplier = (p: Raw) => {
   const map: Record<string, number> = { 'SEA':30, 'ASG':30, 'POS':40, 'TEA':40, 'MMVP':40, 'ROY':50, 'HIT':50, 'ACE':50, 'GG':50, 'TOP':50, 'GGY':50, 'DGN':300 }
   return map[grade] || 0
 }
+
 const getBreakthroughFixed = (p: Raw, level: number) => {
   if (level === 0 || !p) return 0
   const grade = String(p.grade).toUpperCase()
@@ -538,7 +552,6 @@ const getBreakthroughFixed = (p: Raw, level: number) => {
   }
   return 0
 }
-
 const MANAGER_STATS_MY = [
   { main: 2, sub: 1 }, { main: 5, sub: 2 }, { main: 10, sub: 5 }, { main: 15, sub: 7 }, { main: 20, sub: 10 },
   { main: 50, sub: 25 }, { main: 55, sub: 27 }, { main: 60, sub: 30 }, { main: 65, sub: 32 }, { main: 70, sub: 35 },
@@ -593,7 +606,6 @@ const computedPlayerStats = computed(() => {
     const growthA = Number(Math.max(0, buffs.playerLevel - 1) * 10) + buffs.collectionBuff + appliedTeamLevelBuff + buffs.careerLevelBuff + (buffs.enhancementLevel * getEnhanceMultiplier(p))
     const flatC = buffs.binderBuff + globalBuffs.clanBuff + buffs.careerAllStatFlat + getBreakthroughFixed(p, buffs.breakthroughLevel)
     
-    // 특수 각인 파워 (1,2선발시 파워증가 로직)
     const is1st2ndSP = slot === 'SP1' || slot === 'SP2';
     const imprintStarterAddedPower = is1st2ndSP ? buffs.imprintStarterPower : 0;
     
@@ -609,7 +621,6 @@ const computedPlayerStats = computed(() => {
       }
     })
     const careerTeamPower = getSameTeamCount(p) * 2 * getCareerTeamMultiplier(buffs.careerTeamCount);
-    // 수정됨: 팀플+디그니티 자동 계산
     const autoTeamDignityBuff = calculateTeamPlayerDignityBuff(p);
     const growthB = careerTeamPower + buffs.hitAceBuff + autoTeamDignityBuff + autoSynergyFixed + imprintStarterAddedPower;
     
@@ -648,8 +659,7 @@ const computedPlayerStats = computed(() => {
       const base = Number(p[s] || 0)
       let preSpec = base + (growthA/5) + (growthB/5) + (globalBonusTotal/5)
       let specBonus = preSpec * ((statSpecificSkillPercents[s] || 0) / 100)
-      // 매니저 깡스탯(managerBuff)는 삭제 요청에 따라 제외함. 대신 매니저 유형 버프만 남김.
-      let val = preSpec + specBonus + (flatC/5) 
+      let val = preSpec + specBonus + (flatC/5)
       if (s === managerMainName) val += managerMainStat;
       if (s === managerSubName) val += managerSubStat;
       val += Number(buffs.careerStats?.[s] || 0) + Number(buffs.imprintStats?.[s] || 0)
@@ -682,8 +692,9 @@ const teamTotalPower = computed(() => {
   return sum
 })
 
+// 🌟 동명이인 버그 수정 완료 (고유 ID만으로 비교)
 const isSamePlayer = (p1: Raw, p2: Raw) => {
-  return p1.name === p2.name && p1.year === p2.year && p1.team === p2.team;
+  return p1.id === p2.id;
 }
 
 const getAvailableSlot = (basePos: string): string => {
@@ -763,6 +774,7 @@ const loadFromLocalStorage = () => {
     alert('브라우저에 저장된 라인업이 없습니다.')
   }
 }
+
 const exportToFile = () => {
   const saveData = { lineup: lineup.value, playerBuffs: playerBuffs.value, globalBuffs: globalBuffs }
   const blob = new Blob([JSON.stringify(saveData, null, 2)], { type: 'application/json' })
@@ -892,7 +904,7 @@ onMounted(async () => {
           <h1 class="text-xl font-bold tracking-tight">9UP 팀 파워 시뮬레이터</h1>
         </div>
         <div class="flex items-center gap-3">
-          <!-- 저장/불러오기 컨트롤 컨트롤 -->
+          <!-- 저장/불러오기 컨트롤 -->
           <input type="file" ref="fileInput" accept=".json" class="hidden" @change="importFromFile" />
           <div class="flex items-center bg-black/20 rounded-lg p-1 border border-white/10 shadow-inner">
              <button @click="saveToLocalStorage" class="p-2 text-blue-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="브라우저에 현재 상태 저장"><Save class="w-4 h-4" /><span class="text-[10px] font-bold hidden sm:block">페이지 저장</span></button>
@@ -919,7 +931,7 @@ onMounted(async () => {
         
         <!-- 왼쪽: 선수 검색 -->
         <section class="lg:col-span-3 flex flex-col rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 min-h-0 shadow-sm overflow-hidden">
-          <header class="px-5 py-4 border-b border-neutral-100 dark:border-neutral-700 flex-shrink-0">
+<header class="px-5 py-4 border-b border-neutral-100 dark:border-neutral-700 flex-shrink-0">
             <div class="flex items-center justify-between">
               <h1 class="text-base font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">선수 검색</h1>
               <div class="flex items-center gap-3">
@@ -1215,7 +1227,8 @@ onMounted(async () => {
             </div>
           </div>
         </section>
-<!-- 오른쪽: 설정 패널 -->
+
+        <!-- 오른쪽: 설정 패널 -->
         <section class="lg:col-span-4 flex flex-col rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 min-h-0 shadow-sm overflow-hidden">
           <div class="flex items-center bg-neutral-100 dark:bg-neutral-700/50 p-1 border-b border-neutral-200 dark:border-neutral-700 flex-shrink-0">
             <button @click="rightPanelTab = 'global'" :class="rightPanelTab === 'global' ? 'bg-white shadow-sm font-bold text-indigo-600' : 'text-neutral-500'" class="flex-1 py-2 text-xs rounded-lg transition-all flex items-center justify-center gap-1"><Users class="w-3 h-3"/> 공통 버프 설정</button>
@@ -1245,6 +1258,7 @@ onMounted(async () => {
                 <div v-if="globalBuffs.preferredTeam.length === 0" class="text-[10px] text-red-500 font-bold text-center mt-2">선호 구단을 선택해주세요! (미선택시 타팀 파워로 계산)</div>
               </div>
 
+              <!-- 공통 버프 입력 -->
               <div class="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800">
                 <h3 class="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-3 flex items-center gap-1"><Users class="w-4 h-4"/> 팀 공통 버프</h3>
                 <div class="grid grid-cols-2 gap-3">
@@ -1258,8 +1272,21 @@ onMounted(async () => {
                   <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">클랜 레벨 파워</label><input type="number" v-model.number="globalBuffs.clanBuff" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
                 </div>
               </div>
-              <div class="text-xs text-neutral-500 bg-neutral-100 dark:bg-neutral-800 p-3 rounded-lg">
-                💡 선수 레벨, 도감, 팀플/디그니티 합 등은 각 선수를 클릭하여 <b>[선수 개인 설정]</b> 탭에서 조절하세요.
+              
+              <!-- 🌟 팀플+디그니티 합계 자동 표시 UI 🌟 -->
+              <div class="bg-indigo-50 dark:bg-indigo-900/10 p-3 rounded-xl border border-indigo-100 dark:border-indigo-800 shadow-sm mt-3">
+                <h3 class="text-[11px] font-bold text-indigo-800 dark:text-indigo-300 mb-2 flex items-center gap-1"><Zap class="w-3 h-3"/> 라인업 내 팀플/디그니티 버프 (자동 적용)</h3>
+                <div class="grid grid-cols-2 gap-2">
+                  <template v-for="teamId in Array.from(new Set(Object.values(lineup).filter(Boolean).flatMap(p => toArray(p.team).map(toLowerCase))))">
+                     <div v-if="calculateTeamPlayerDignityBuff({ team: teamId }) > 0" class="flex justify-between items-center text-[10px] bg-white dark:bg-neutral-800 px-2 py-1.5 rounded border border-indigo-100 dark:border-indigo-800/50 shadow-sm">
+                       <span class="font-bold text-neutral-700 dark:text-neutral-300">{{ findTeamName(teamId) }}</span>
+                       <span class="text-indigo-600 font-black">+{{ calculateTeamPlayerDignityBuff({ team: teamId }) }}</span>
+                     </div>
+                  </template>
+                </div>
+                <div v-if="!Array.from(new Set(Object.values(lineup).filter(Boolean).flatMap(p => toArray(p.team).map(toLowerCase)))).some(t => calculateTeamPlayerDignityBuff({ team: t }) > 0)" class="text-[10px] text-neutral-400 text-center py-1">
+                   활성화된 팀플/디그니티 버프가 없습니다.
+                </div>
               </div>
               
               <!-- 감독 카드 설정 -->
@@ -1320,10 +1347,10 @@ onMounted(async () => {
                    <div v-if="activeTeamSynergies.length === 0" class="text-xs text-neutral-400 text-center py-2">활성화된 시너지가 없습니다.</div>
                  </div>
                  
-                 <!-- 부족한 시너지 (발동 대기) -->
+                 <!-- 🌟 부족한 시너지 영역 높이 확장 🌟 -->
                  <div v-if="pendingTeamSynergies.length > 0" class="mt-4 pt-3 border-t border-indigo-200 dark:border-indigo-800/50">
                    <h3 class="text-[11px] font-bold text-neutral-500 mb-2 flex items-center gap-1"><Users class="w-3 h-3"/> 발동 대기 중인 시너지 (인원 부족)</h3>
-                   <div class="flex flex-col gap-1.5 max-h-32 overflow-y-auto custom-scrollbar pr-2">
+                   <div class="flex flex-col gap-1.5 max-h-60 overflow-y-auto custom-scrollbar pr-2">
                      <div v-for="syn in pendingTeamSynergies" :key="'pend'+syn.name" class="flex flex-col text-[10px] bg-neutral-100 dark:bg-neutral-800 rounded border border-neutral-200 dark:border-neutral-700 shadow-sm overflow-hidden">
                        <div 
                          class="flex justify-between items-center px-2 py-1.5 cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
@@ -1337,7 +1364,7 @@ onMounted(async () => {
                            <ChevronRightIcon :class="expandedPendingSynergy === syn.name ? 'rotate-90' : ''" class="w-3 h-3 text-neutral-400 transition-transform" />
                          </div>
                        </div>
-                       <!-- 클릭 시 펼쳐지는 해당 시너지 선수 리스트 -->
+                       <!-- 클릭 시 펼쳐지는 보유 선수 리스트 -->
                        <div v-if="expandedPendingSynergy === syn.name" class="px-2 py-1.5 bg-neutral-50 dark:bg-neutral-900 border-t border-neutral-200 dark:border-neutral-700">
                           <div class="text-[9px] text-neutral-500 mb-1">현재 보유 선수:</div>
                           <div class="flex flex-wrap gap-1">
@@ -1350,7 +1377,7 @@ onMounted(async () => {
               </div>
             </div>
 
-            <!-- 플레이어 탭 -->
+            <!-- 플레이어 개인 설정 탭 -->
             <div v-else-if="selectedSlot && lineup[selectedSlot] && playerBuffs[selectedSlot]" class="space-y-4 animate-in fade-in flex flex-col h-full">
               <!-- 선수 프로필 영역 -->
               <div class="flex items-center gap-3 p-3 bg-neutral-100 dark:bg-neutral-700/50 rounded-xl flex-shrink-0">
@@ -1440,7 +1467,7 @@ onMounted(async () => {
                     </div>
                   </div>
 
-                  <!-- 선수 개인 버프 입력란들 -->
+                  <!-- 선수 개인 성장 버프 -->
                   <div class="bg-sky-50 dark:bg-sky-900/10 p-4 rounded-xl border border-sky-100 dark:border-sky-800 mt-3">
                     <h3 class="text-sm font-bold text-sky-800 dark:text-sky-300 mb-3 flex items-center gap-1"><Zap class="w-4 h-4"/> 선수 성장 및 깡스탯</h3>
                     <div class="grid grid-cols-2 gap-3">
@@ -1456,31 +1483,35 @@ onMounted(async () => {
                         </div>
                       </div>
                       
-                      <!-- 1, 2선발시에만 보이는 입력칸 (기존 특수 각인 파워) -->
+                      <!-- 🌟 1, 2선발 전용 파워 증가 🌟 -->
                       <div v-if="selectedSlot === 'SP1' || selectedSlot === 'SP2'" class="flex flex-col gap-1">
                         <label class="text-[10px] font-bold text-indigo-500">1,2선발시 파워증가</label>
                         <input type="number" v-model.number="playerBuffs[selectedSlot].imprintStarterPower" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-indigo-200 dark:border-indigo-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/>
                       </div>
 
-                      <div class="flex flex-col gap-1 col-span-2"><label class="text-[10px] font-bold text-neutral-500">얼티밋 각인 (% 증가)</label><input type="number" v-model.number="playerBuffs[selectedSlot].ultimateImprintPercent" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
+                      <div class="flex flex-col gap-1" :class="selectedSlot === 'SP1' || selectedSlot === 'SP2' ? 'col-span-2' : 'col-span-1'">
+                        <label class="text-[10px] font-bold text-neutral-500">얼티밋 각인 (% 증가)</label>
+                        <input type="number" v-model.number="playerBuffs[selectedSlot].ultimateImprintPercent" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/>
+                      </div>
                     </div>
                   </div>
 
-                  <!-- 선수에게 적용된 시너지 상세 안내 -->
+                  <!-- 🌟 선수 보유 시너지 (내 시너지만) 🌟 -->
                   <div class="bg-indigo-50 dark:bg-indigo-900/10 p-3 rounded-xl border border-indigo-100 dark:border-indigo-900/20 shadow-sm mt-3">
-                    <h3 class="text-[11px] font-bold text-indigo-800 dark:text-indigo-300 mb-2 flex items-center gap-1"><Sparkles class="w-3 h-3"/> 적용 중인 시너지 효과 (자동)</h3>
+                    <h3 class="text-[11px] font-bold text-indigo-800 dark:text-indigo-300 mb-2 flex items-center gap-1"><Sparkles class="w-3 h-3"/> 보유 시너지 현황 (켜짐/꺼짐)</h3>
                     
-                    <div class="flex flex-col gap-1 mb-2">
-                       <div v-for="syn in activeTeamSynergies" :key="'psyn'+syn.name">
-                         <div v-if="isPlayerReceivingSynergy(lineup[selectedSlot], syn.name)" class="flex justify-between items-center text-[10px] bg-white dark:bg-neutral-800 px-2 py-1 rounded border border-indigo-50 dark:border-indigo-900/30">
-                            <span class="font-bold text-indigo-700 dark:text-indigo-300">{{ syn.name }}</span>
-                            <span class="text-neutral-500">적용중</span>
+                    <div class="flex flex-col gap-1 mb-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
+                       <div v-for="(rawSyn, idx) in Array.from(new Set(getArray(lineup[selectedSlot].synergy).filter(Boolean)))" :key="'psyn'+idx">
+                         <div v-if="isPlayerReceivingSynergy(lineup[selectedSlot], rawSyn) || activeTeamSynergies.some(s => s.name.replace(/[,\s클럽]/g,'').trim().includes(rawSyn.replace(/[,\s클럽]/g,'').trim()) || rawSyn.replace(/[,\s클럽]/g,'').trim().includes(s.name.replace(/[,\s클럽]/g,'').trim()))" class="flex justify-between items-center text-[10px] bg-white dark:bg-neutral-800 px-2 py-1.5 rounded border border-indigo-200 dark:border-indigo-700/50 shadow-sm">
+                            <span class="font-bold text-indigo-700 dark:text-indigo-300">{{ rawSyn }}</span>
+                            <span class="text-indigo-500 font-black">적용중</span>
                          </div>
-                         <div v-else class="flex justify-between items-center text-[10px] bg-neutral-100 dark:bg-neutral-800/50 px-2 py-1 rounded border border-neutral-200 dark:border-neutral-700 opacity-60">
-                            <span class="text-neutral-500">{{ syn.name }}</span>
-                            <span class="text-red-400">조건미달(미적용)</span>
+                         <div v-else class="flex justify-between items-center text-[10px] bg-neutral-100 dark:bg-neutral-800/50 px-2 py-1.5 rounded border border-neutral-200 dark:border-neutral-700 opacity-60">
+                            <span class="text-neutral-500">{{ rawSyn }}</span>
+                            <span class="text-red-400 font-medium">조건미달</span>
                          </div>
                        </div>
+                       <div v-if="getArray(lineup[selectedSlot].synergy).length === 0" class="text-[10px] text-neutral-400 text-center">이 선수가 가진 시너지가 없습니다.</div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-indigo-100 dark:border-indigo-800">
