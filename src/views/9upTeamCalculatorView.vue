@@ -312,7 +312,7 @@ const compareCondition = (op: CountOp, lhs: number, rhs?: number, max?: number):
 
 const activeTeamSynergies = computed(() => {
   const lineupPlayers = Object.values(lineup.value).filter(Boolean) as Raw[]
-  const result = new Map<string, { stat: string, bonus: JsonBonus }[]>()
+  const result: { name: string, bonuses: { stat: string, bonus: JsonBonus }[] }[] = []
   for (const s of synergys.value) {
     const name = String(s.synergy).trim()
     const count = lineupPlayers.filter(p => checkSynergyInclusion(name, getArray(p.synergy))).length
@@ -330,7 +330,7 @@ const activeTeamSynergies = computed(() => {
          const maxThreshold = Math.max(...matched.map(getThreshold))
          const highestTierConditions = matched.filter(c => getThreshold(c) === maxThreshold)
          
-         result.set(name, highestTierConditions.map(c => ({ stat: c.stat, bonus: c.bonus })))
+         result.push({ name, bonuses: highestTierConditions.map(c => ({ stat: c.stat, bonus: c.bonus })) })
        }
     }
   }
@@ -339,7 +339,7 @@ const activeTeamSynergies = computed(() => {
 
 const pendingTeamSynergies = computed(() => {
   const lineupPlayers = Object.values(lineup.value).filter(Boolean) as Raw[]
-  const result = new Map<string, { current: number, required: number }>()
+  const result: { name: string, current: number, required: number }[] = []
   
   for (const s of synergys.value) {
     const name = String(s.synergy).trim()
@@ -366,7 +366,7 @@ const pendingTeamSynergies = computed(() => {
          });
          
          if (minRequired !== Infinity) {
-            result.set(name, { current: count, required: minRequired })
+            result.push({ name, current: count, required: minRequired })
          }
        }
     }
@@ -389,10 +389,10 @@ const getPlayerSynergySum = (p: Raw | null, unit: 'fixed' | 'percent') => {
   if (!p) return 0;
   let total = 0;
   const cleanNames = getArray(p.synergy).map(x=>x.normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[,\s클럽]/g,'').trim());
-  activeTeamSynergies.value.forEach((bonuses, synName) => {
-    const targetClean = synName.normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[,\s클럽]/g,'').trim();
+  activeTeamSynergies.value.forEach(syn => {
+    const targetClean = syn.name.normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[,\s클럽]/g,'').trim();
     if (cleanNames.some(cn => targetClean.includes(cn) || cn.includes(targetClean))) {
-      const synData = synergys.value.find(s => String(s.synergy).trim() === synName);
+      const synData = synergys.value.find(s => String(s.synergy).trim() === syn.name);
       let isValid = true;
       if (synData) {
         const synType = getSynergyType(synData.conditions);
@@ -401,7 +401,7 @@ const getPlayerSynergySum = (p: Raw | null, unit: 'fixed' | 'percent') => {
         if (!playerIsPit && synType === 'pitcher') isValid = false;
       }
       if (isValid) {
-        bonuses.forEach(b => {
+        syn.bonuses.forEach(b => {
           if (b.stat === 'power' && b.bonus.unit === unit) total += b.bonus.value;
         });
       }
@@ -798,7 +798,7 @@ onMounted(async () => {
               </span>
               <span class="inline-flex items-center gap-2">
                 <span class="rounded-full bg-neutral-100 dark:bg-neutral-600 px-2 py-0.5 text-[11px] text-neutral-700 dark:text-neutral-300">
-                  {{ [searchQuery.position.length, searchQuery.team.length, searchQuery.synergy.length, searchQuery.grade.length, searchQuery.rarity ? 1 : 0].reduce((a,b)=>a+b,0) }}
+                  {{ activeFilterCount }}
                 </span>
                 <ChevronRightIcon :class="advancedFilterOpen ? 'rotate-90' : ''" class="h-4 w-4 transition-transform" />
               </span>
@@ -914,7 +914,7 @@ onMounted(async () => {
                   <div class="mb-1 flex items-center gap-2">
                     <h3 class="truncate text-base font-semibold text-neutral-900 dark:text-neutral-100">{{ player.name }}</h3>
                     <div class="flex">
-                      <Star v-for="k in Number(player.rarity)" :key="k" class="h-3 w-3 text-amber-400" fill="currentColor" />
+                      <Star v-for="k in (parseInt(String(player.rarity)) || 1)" :key="k" class="h-3 w-3 text-amber-400" fill="currentColor" />
                     </div>
                   </div>
                   <div class="mb-3 flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
@@ -925,7 +925,7 @@ onMounted(async () => {
                   </div>
                   <div class="flex flex-wrap gap-1.5">
                     <button
-                        v-for="pos in Array.from(new Set(getArray(player.position).map(normalizePosition))).filter(Boolean)"
+                        v-for="pos in getPlayerPositions(player)"
                         :key="pos"
                         @click="assignPlayerToSlot(pos, player)"
                         class="rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 px-3 py-1 text-[11px] hover:bg-indigo-50 dark:hover:bg-indigo-900/40 hover:text-indigo-600 hover:border-indigo-300 transition-colors"
@@ -1118,23 +1118,23 @@ onMounted(async () => {
               <div class="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800 shadow-sm">
                  <h3 class="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-3 flex items-center gap-1"><Users class="w-4 h-4"/> 현재 활성화된 팀 시너지</h3>
                  <div class="flex flex-col gap-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">
-                   <div v-for="[synName, bonuses] in activeTeamSynergies" :key="synName" class="flex justify-between items-center text-xs bg-white dark:bg-neutral-800 px-3 py-2 rounded-lg border border-indigo-100 dark:border-indigo-800/50 shadow-sm">
-                     <span class="font-bold text-neutral-700 dark:text-neutral-300">{{ synName }}</span>
+                   <div v-for="syn in activeTeamSynergies" :key="syn.name" class="flex justify-between items-center text-xs bg-white dark:bg-neutral-800 px-3 py-2 rounded-lg border border-indigo-100 dark:border-indigo-800/50 shadow-sm">
+                     <span class="font-bold text-neutral-700 dark:text-neutral-300">{{ syn.name }}</span>
                      <span class="text-indigo-600 dark:text-indigo-400 font-bold">
-                       {{ bonuses.map(b => (b.stat === 'power' ? '파워' : STAT_LABELS[b.stat] || b.stat) + ' +' + b.bonus.value + (b.bonus.unit === 'percent' ? '%' : '')).join(', ') }}
+                       {{ formatBonuses(syn.bonuses) }}
                      </span>
                    </div>
-                   <div v-if="activeTeamSynergies.size === 0" class="text-xs text-neutral-400 text-center py-2">활성화된 시너지가 없습니다.</div>
+                   <div v-if="activeTeamSynergies.length === 0" class="text-xs text-neutral-400 text-center py-2">활성화된 시너지가 없습니다.</div>
                  </div>
                  
                  <!-- 부족한 시너지 (발동 대기) -->
-                 <div v-if="pendingTeamSynergies.size > 0" class="mt-4 pt-3 border-t border-indigo-200 dark:border-indigo-800/50">
+                 <div v-if="pendingTeamSynergies.length > 0" class="mt-4 pt-3 border-t border-indigo-200 dark:border-indigo-800/50">
                    <h3 class="text-[11px] font-bold text-neutral-500 mb-2 flex items-center gap-1"><Users class="w-3 h-3"/> 발동 대기 중인 시너지 (인원 부족)</h3>
                    <div class="flex flex-col gap-1.5 max-h-32 overflow-y-auto custom-scrollbar pr-2">
-                     <div v-for="[synName, counts] in pendingTeamSynergies" :key="'pend'+synName" class="flex justify-between items-center text-[10px] bg-neutral-100 dark:bg-neutral-800 px-2 py-1.5 rounded border border-neutral-200 dark:border-neutral-700 shadow-sm">
-                       <span class="font-medium text-neutral-600 dark:text-neutral-400">{{ synName }}</span>
+                     <div v-for="syn in pendingTeamSynergies" :key="'pend'+syn.name" class="flex justify-between items-center text-[10px] bg-neutral-100 dark:bg-neutral-800 px-2 py-1.5 rounded border border-neutral-200 dark:border-neutral-700 shadow-sm">
+                       <span class="font-medium text-neutral-600 dark:text-neutral-400">{{ syn.name }}</span>
                        <span class="text-red-500 dark:text-red-400 font-bold bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded">
-                         {{ counts.current }} / {{ counts.required }}명
+                         {{ syn.current }} / {{ syn.required }}명
                        </span>
                      </div>
                    </div>
