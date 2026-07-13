@@ -505,6 +505,20 @@ const isPlayerReceivingSynergy = (p: Raw, synName: string) => {
   return true;
 }
 
+const isSynergyActiveForPlayer = (p: Raw, rawSyn: string) => {
+  if (!p) return false;
+  return activeTeamSynergies.value.some(activeSyn => {
+    if (!checkSynergyInclusion(activeSyn.name, [rawSyn])) return false;
+    const synData = synergys.value.find(s => String(s.synergy).trim() === activeSyn.name);
+    if (!synData) return false;
+    const synType = getSynergyType(synData.conditions);
+    const isPit = isPitcher(p);
+    if (isPit && synType === 'batter') return false;
+    if (!isPit && synType === 'pitcher') return false;
+    return true;
+  });
+}
+
 const getPlayerSynergySum = (p: Raw | null, unit: 'fixed' | 'percent') => {
   if (!p) return 0;
   let total = 0;
@@ -1287,7 +1301,7 @@ onMounted(async () => {
                 </div>
               </div>
 
-              <!-- 🌟 시너지 마스터리 설정 (검색 기능 포함) 🌟 -->
+              <!-- 시너지 마스터리 설정 -->
               <div class="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800 flex-shrink-0">
                 <h3 class="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-2 flex items-center gap-1"><Sparkles class="w-4 h-4"/> 시너지 마스터리 설정</h3>
                 <datalist id="synergy-list">
@@ -1303,37 +1317,98 @@ onMounted(async () => {
                 </div>
               </div>
 
+              <!-- 공통 버프 입력 -->
+              <div class="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800 flex-shrink-0">
+                <h3 class="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-3 flex items-center gap-1"><Users class="w-4 h-4"/> 팀 공통 버프</h3>
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="flex flex-col gap-1">
+                    <label class="text-[10px] font-bold text-neutral-500">팀 레벨 (1~100)</label>
+                    <input type="number" min="1" max="100" v-model.number="globalBuffs.teamLevel" class="w-full px-2 py-1.5 text-center bg-white border rounded-lg text-xs"/>
+                  </div>
+                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">클랜 레벨 파워</label><input type="number" v-model.number="globalBuffs.clanBuff" class="w-full px-2 py-1.5 text-center bg-white border rounded-lg text-xs"/></div>
+                </div>
+              </div>
+              
               <!-- 자동 계산된 팀플/디그니티 합계 -->
               <div class="bg-indigo-50 dark:bg-indigo-900/10 p-3 rounded-xl border border-indigo-100 dark:border-indigo-800 shadow-sm flex-shrink-0">
                 <h3 class="text-[11px] font-bold text-indigo-800 dark:text-indigo-300 mb-2 flex items-center gap-1"><Zap class="w-3 h-3"/> 팀플/디그니티 버프 자동 적용</h3>
                 <div class="grid grid-cols-2 gap-2">
                   <template v-for="teamId in Array.from(new Set(Object.values(lineup).filter(Boolean).flatMap(p => toArray(p.team).map(toLowerCase))))">
-                     <div v-if="calculateTeamPlayerDignityBuff({ team: teamId }) > 0" class="flex justify-between items-center text-[10px] bg-white dark:bg-neutral-800 px-2 py-1.5 rounded border border-indigo-100 dark:border-indigo-800/50 shadow-sm flex-shrink-0">
-                       <span class="font-bold text-neutral-700 dark:text-neutral-300">{{ findTeamName(teamId) }}</span>
+                     <div v-if="calculateTeamPlayerDignityBuff({ team: teamId }) > 0" class="flex justify-between items-center text-[10px] bg-white dark:bg-neutral-800 px-2 py-1.5 rounded border shadow-sm flex-shrink-0">
+                       <span class="font-bold text-neutral-700">{{ findTeamName(teamId) }}</span>
                        <span class="text-indigo-600 font-black">+{{ calculateTeamPlayerDignityBuff({ team: teamId }) }}</span>
                      </div>
                   </template>
                 </div>
               </div>
-
-              <!-- 활성화/대기 시너지 -->
+              
+              <!-- 감독 카드 설정 -->
               <div class="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800 shadow-sm flex-shrink-0">
-                 <h3 class="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-3 flex items-center gap-1"><Users class="w-4 h-4"/> 현재 활성화된 팀 시너지</h3>
+                 <h3 class="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-3 flex items-center gap-1"><UserCheck class="w-4 h-4"/> 감독 카드 설정</h3>
+                 <div class="grid grid-cols-2 gap-3">
+                   <div class="flex flex-col gap-1">
+                     <label class="text-[10px] font-bold text-neutral-500">감독 유형</label>
+                     <select v-model="globalBuffs.managerType" class="w-full px-2 py-1.5 bg-white border rounded-lg text-xs">
+                       <option value="">미장착</option>
+                       <option value="my_1st">자팀 1st</option><option value="com_1st">공통 1st</option>
+                       <option value="my_2nd">자팀 2nd</option><option value="com_2nd">공통 2nd</option>
+                       <option value="my_3rd">자팀 3rd</option><option value="com_3rd">공통 3rd</option>
+                       <option value="my_4th">자팀 4th</option><option value="com_4th">공통 4th</option>
+                     </select>
+                   </div>
+                   <div class="flex flex-col gap-1">
+                     <label class="text-[10px] font-bold text-neutral-500">강화 레벨 (0~15)</label>
+                     <input type="number" min="0" max="15" v-model.number="globalBuffs.managerEnhance" class="w-full px-2 py-1.5 text-center bg-white border rounded-lg text-xs"/>
+                   </div>
+                 </div>
+              </div>
+
+              <!-- 활성화된 팀 시너지 및 발동 대기 시너지 영역 -->
+              <div class="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800 shadow-sm flex-shrink-0">
+                 <h3 class="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-3 flex items-center gap-1">
+                    <Users class="w-4 h-4"/> 현재 활성화된 팀 시너지 ({{ activeTeamSynergies.length }}개)
+                 </h3>
                  <div class="flex flex-col gap-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">
-                   <div v-for="syn in activeTeamSynergies" :key="syn.name" class="flex flex-col text-xs bg-white dark:bg-neutral-800 rounded-lg border border-indigo-100 dark:border-indigo-800/50 shadow-sm overflow-hidden flex-shrink-0">
+                   <div v-for="syn in activeTeamSynergies" :key="syn.name" class="flex flex-col text-xs bg-white dark:bg-neutral-800 rounded-lg border border-indigo-100 shadow-sm overflow-hidden flex-shrink-0">
                      <div class="flex justify-between items-center px-3 py-2 cursor-pointer hover:bg-neutral-50 transition-colors" @click="expandedSynergy = expandedSynergy === syn.name ? null : syn.name">
                        <span class="font-bold text-neutral-700">{{ syn.name }}</span>
-                       <div class="flex items-center gap-2 flex-shrink-0"><span class="text-indigo-600 font-bold">{{ formatBonuses(syn.bonuses) }}</span><ChevronRightIcon class="w-4 h-4" /></div>
+                       <div class="flex items-center gap-2 flex-shrink-0 whitespace-nowrap"><span class="text-indigo-600 font-bold">{{ formatBonuses(syn.bonuses) }}</span><ChevronRightIcon class="w-4 h-4" /></div>
                      </div>
                      <div v-if="expandedSynergy === syn.name" class="px-3 py-2 bg-neutral-50 border-t">
                         <div class="text-[10px] text-neutral-500 mb-1">적용 선수 ({{ syn.matchedPlayers.length }}명):</div>
                         <div class="flex flex-wrap gap-1"><span v-for="pName in syn.matchedPlayers" :key="pName" class="text-[10px] bg-indigo-100 px-1.5 py-0.5 rounded">{{ pName }}</span></div>
                      </div>
                    </div>
+                   <div v-if="activeTeamSynergies.length === 0" class="text-xs text-neutral-400 text-center py-2">활성화된 시너지가 없습니다.</div>
+                 </div>
+
+                 <!-- 🌟 발동 대기 시너지 추가 🌟 -->
+                 <div v-if="pendingTeamSynergies.length > 0" class="mt-4 pt-3 border-t border-indigo-200 dark:border-indigo-800/50 flex-shrink-0">
+                   <h3 class="text-[11px] font-bold text-neutral-500 mb-2 flex items-center gap-1">
+                      <Users class="w-3 h-3"/> 발동 대기 중인 시너지 ({{ pendingTeamSynergies.length }}개)
+                   </h3>
+                   <div class="flex flex-col gap-1.5 max-h-60 overflow-y-auto custom-scrollbar pr-2">
+                     <div v-for="syn in pendingTeamSynergies" :key="'pend'+syn.name" class="flex flex-col text-[10px] bg-neutral-100 rounded border shadow-sm overflow-hidden flex-shrink-0">
+                       <div class="flex justify-between items-center px-2 py-1.5 cursor-pointer hover:bg-neutral-200 transition-colors" @click="expandedPendingSynergy = expandedPendingSynergy === syn.name ? null : syn.name">
+                         <span class="font-medium text-neutral-600">{{ syn.name }}</span>
+                         <div class="flex items-center gap-1 flex-shrink-0 whitespace-nowrap">
+                           <span class="text-red-500 font-bold bg-red-50 px-1.5 py-0.5 rounded">{{ syn.current }} / {{ syn.required }}명</span>
+                           <ChevronRightIcon class="w-3 h-3" />
+                         </div>
+                       </div>
+                       <div v-if="expandedPendingSynergy === syn.name" class="px-2 py-1.5 bg-neutral-50 border-t">
+                          <div class="text-[9px] text-neutral-500 mb-1">현재 보유 선수:</div>
+                          <div class="flex flex-wrap gap-1">
+                            <span v-for="pName in syn.matchedPlayers" :key="pName" class="text-[9px] bg-red-100 text-red-700 px-1 py-0.5 rounded">{{ pName }}</span>
+                          </div>
+                       </div>
+                     </div>
+                   </div>
                  </div>
               </div>
             </div>
-<!-- 플레이어 탭 -->
+
+            <!-- 플레이어 탭 -->
             <div v-else-if="selectedSlot && lineup[selectedSlot] && playerBuffs[selectedSlot]" class="space-y-4 animate-in fade-in flex flex-col h-full">
               <!-- 선수 프로필 영역 -->
               <div class="flex items-center gap-3 p-3 bg-neutral-100 dark:bg-neutral-700/50 rounded-xl flex-shrink-0">
@@ -1357,21 +1432,21 @@ onMounted(async () => {
               <div class="flex-1 overflow-y-auto custom-scrollbar pr-1 pb-2">
                 <!-- 세부 능력치 내용 -->
                 <div v-if="playerTab === 'stats' && computedPlayerStats[selectedSlot]" class="space-y-4 animate-in fade-in">
-                  <div class="bg-indigo-50 dark:bg-indigo-900/10 p-3 rounded-xl border border-indigo-100 dark:border-indigo-900/20 shadow-sm flex-shrink-0">
+                  <div class="bg-indigo-50 dark:bg-indigo-900/10 p-3 rounded-xl border border-indigo-100 shadow-sm flex-shrink-0">
                     <h3 class="text-[11px] font-bold text-indigo-800 dark:text-indigo-300 mb-2 flex items-center gap-1"><TrendingUp class="w-3 h-3"/> 개별 스탯 증가 (각인/커리어) 및 최종 스탯</h3>
                     <div class="grid grid-cols-2 lg:grid-cols-4 gap-2">
-                       <div v-for="stat in (isPitcher(lineup[selectedSlot]) ? pitcherStats : batterStats)" :key="stat" class="flex flex-col gap-1 border border-indigo-100 dark:border-indigo-800/50 p-1.5 rounded-lg bg-white dark:bg-neutral-800 shadow-sm flex-shrink-0">
-                          <label class="text-[10px] font-bold text-neutral-600 dark:text-neutral-400 text-center">{{ STAT_LABELS[stat] || stat }}</label>
+                       <div v-for="stat in (isPitcher(lineup[selectedSlot]) ? pitcherStats : batterStats)" :key="stat" class="flex flex-col gap-1 border border-indigo-100 p-1.5 rounded-lg bg-white shadow-sm flex-shrink-0">
+                          <label class="text-[10px] font-bold text-neutral-600 text-center">{{ STAT_LABELS[stat] || stat }}</label>
                           <div class="flex items-center justify-between gap-1">
                             <span class="text-[9px] text-neutral-400 w-8">각인</span>
-                            <input type="number" v-model.number="playerBuffs[selectedSlot].imprintStats[stat]" class="w-full px-1 py-0.5 text-center bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded text-[10px] font-semibold outline-none focus:border-indigo-500" placeholder="0" />
+                            <input type="number" v-model.number="playerBuffs[selectedSlot].imprintStats[stat]" class="w-full px-1 py-0.5 text-center bg-neutral-50 border rounded text-[10px]" placeholder="0" />
                           </div>
                           <div class="flex items-center justify-between gap-1">
                             <span class="text-[9px] text-neutral-400 w-8">커리어</span>
-                            <input type="number" v-model.number="playerBuffs[selectedSlot].careerStats[stat]" class="w-full px-1 py-0.5 text-center bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded text-[10px] font-semibold outline-none focus:border-indigo-500" placeholder="0" />
+                            <input type="number" v-model.number="playerBuffs[selectedSlot].careerStats[stat]" class="w-full px-1 py-0.5 text-center bg-neutral-50 border rounded text-[10px]" placeholder="0" />
                           </div>
-                          <div class="mt-1 text-center bg-indigo-50 dark:bg-indigo-900/30 rounded py-0.5 border border-indigo-100 dark:border-indigo-800">
-                            <span class="text-[11px] font-black text-indigo-700 dark:text-indigo-300">{{ computedPlayerStats[selectedSlot].stats[stat] }}</span>
+                          <div class="mt-1 text-center bg-indigo-50 rounded py-0.5 border border-indigo-100">
+                            <span class="text-[11px] font-black text-indigo-700">{{ computedPlayerStats[selectedSlot].stats[stat] }}</span>
                           </div>
                        </div>
                     </div>
@@ -1381,84 +1456,72 @@ onMounted(async () => {
                 <!-- 성장/스킬 설정 내용 -->
                 <div v-else-if="playerTab === 'synergy'" class="space-y-4 animate-in fade-in">
                   <!-- 타순 설정 (타자일 경우만) -->
-                  <div v-if="!isPitcher(lineup[selectedSlot])" class="bg-orange-50 dark:bg-orange-900/10 p-3 rounded-xl border border-orange-100 dark:border-orange-900/20 flex-shrink-0">
-                    <h3 class="text-[11px] font-bold text-orange-800 dark:text-orange-300 mb-1.5">타순 설정</h3>
-                    <select v-model.number="playerBuffs[selectedSlot].battingOrder" class="w-full py-1.5 px-2 rounded-lg border border-orange-200 dark:border-orange-800 bg-white dark:bg-neutral-800 text-xs font-semibold outline-none focus:border-orange-500">
+                  <div v-if="!isPitcher(lineup[selectedSlot])" class="bg-orange-50 p-3 rounded-xl border border-orange-100 flex-shrink-0">
+                    <h3 class="text-[11px] font-bold text-orange-800 mb-1.5">타순 설정</h3>
+                    <select v-model.number="playerBuffs[selectedSlot].battingOrder" class="w-full py-1.5 px-2 rounded-lg border border-orange-200 bg-white text-xs">
                       <option :value="null">타순 미지정</option>
                       <option v-for="i in 9" :key="i" :value="i">{{ i }}번 타자</option>
                     </select>
                   </div>
 
                   <!-- 카드 강화 -->
-                  <div class="bg-emerald-50 dark:bg-emerald-900/10 p-3 rounded-xl border border-emerald-100 dark:border-emerald-900/20 shadow-sm mt-3 flex-shrink-0">
+                  <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-100 shadow-sm mt-3 flex-shrink-0">
                     <div class="flex items-center justify-between mb-2">
-                      <h3 class="text-[11px] font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1">
-                        <ArrowUpCircle class="w-3 h-3"/> 카드 강화
-                      </h3>
+                      <h3 class="text-[11px] font-bold text-emerald-800 flex items-center gap-1"><ArrowUpCircle class="w-3 h-3"/> 카드 강화</h3>
                     </div>
                     <div class="flex flex-wrap gap-1">
                       <button v-for="lvl in (getMaxEnhance(lineup[selectedSlot]) + 1)" :key="'enh'+lvl"
                         @click="playerBuffs[selectedSlot].enhancementLevel = lvl-1"
-                        :class="playerBuffs[selectedSlot].enhancementLevel === lvl-1 ? 'bg-emerald-600 text-white border-emerald-600 shadow-md' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-300 dark:border-neutral-600 hover:border-emerald-400 dark:hover:border-emerald-500'"
-                        class="w-8 h-7 flex items-center justify-center text-[10px] font-bold border rounded-md transition-colors flex-shrink-0">
-                        +{{ lvl-1 }}
-                      </button>
+                        :class="playerBuffs[selectedSlot].enhancementLevel === lvl-1 ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-neutral-600 border-neutral-300'"
+                        class="w-8 h-7 flex items-center justify-center text-[10px] font-bold border rounded-md flex-shrink-0">+{{ lvl-1 }}</button>
                     </div>
                   </div>
 
                   <!-- 한계 돌파 -->
-                  <div v-if="getMaxBreakthrough(lineup[selectedSlot]) > 0" class="bg-fuchsia-50 dark:bg-fuchsia-900/10 p-3 rounded-xl border border-fuchsia-100 dark:border-fuchsia-900/20 shadow-sm mt-3 flex-shrink-0">
+                  <div v-if="getMaxBreakthrough(lineup[selectedSlot]) > 0" class="bg-fuchsia-50 p-3 rounded-xl border border-fuchsia-100 shadow-sm mt-3 flex-shrink-0">
                     <div class="flex items-center justify-between mb-2">
-                      <h3 class="text-[11px] font-bold text-fuchsia-800 dark:text-fuchsia-300 flex items-center gap-1">
-                        <Sparkles class="w-3 h-3"/> 한계 돌파
-                      </h3>
+                      <h3 class="text-[11px] font-bold text-fuchsia-800 flex items-center gap-1"><Sparkles class="w-3 h-3"/> 한계 돌파</h3>
                     </div>
                     <div class="flex flex-wrap gap-1">
                       <button v-for="lvl in (getMaxBreakthrough(lineup[selectedSlot]) + 1)" :key="'brk'+lvl"
                         @click="playerBuffs[selectedSlot].breakthroughLevel = lvl-1"
-                        :class="playerBuffs[selectedSlot].breakthroughLevel === lvl-1 ? 'bg-fuchsia-600 text-white border-fuchsia-600 shadow-md' : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-300 dark:border-neutral-600 hover:border-fuchsia-400 dark:hover:border-fuchsia-500'"
-                        class="px-2 h-7 flex items-center justify-center text-[10px] font-bold border rounded-md transition-colors flex-shrink-0">
-                        {{ lvl-1 === 0 ? '돌파 안함' : (lvl-1) + '돌' }}
-                      </button>
+                        :class="playerBuffs[selectedSlot].breakthroughLevel === lvl-1 ? 'bg-fuchsia-600 text-white border-fuchsia-600' : 'bg-white text-neutral-600 border-neutral-300'"
+                        class="px-2 h-7 flex items-center justify-center text-[10px] font-bold border rounded-md flex-shrink-0">{{ lvl-1 === 0 ? '돌파 안함' : (lvl-1) + '돌' }}</button>
                     </div>
                   </div>
 
                   <!-- 선수 개인 성장 버프 -->
-                  <div class="bg-sky-50 dark:bg-sky-900/10 p-4 rounded-xl border border-sky-100 dark:border-sky-800 mt-3 flex-shrink-0">
-                    <h3 class="text-sm font-bold text-sky-800 dark:text-sky-300 mb-3 flex items-center gap-1"><Zap class="w-4 h-4"/> 선수 성장 및 깡스탯</h3>
+                  <div class="bg-sky-50 p-4 rounded-xl border border-sky-100 mt-3 flex-shrink-0">
+                    <h3 class="text-sm font-bold text-sky-800 mb-3 flex items-center gap-1"><Zap class="w-4 h-4"/> 선수 성장 및 깡스탯</h3>
                     <div class="grid grid-cols-2 gap-3">
-                      <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">선수 레벨</label><input type="number" v-model.number="playerBuffs[selectedSlot].playerLevel" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
-                      <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">도감 파워</label><input type="number" v-model.number="playerBuffs[selectedSlot].collectionBuff" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
-                      <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">커리어 레벨 파워</label><input type="number" v-model.number="playerBuffs[selectedSlot].careerLevelBuff" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
-                      <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">바인더 파워</label><input type="number" v-model.number="playerBuffs[selectedSlot].binderBuff" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/></div>
+                      <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">선수 레벨</label><input type="number" v-model.number="playerBuffs[selectedSlot].playerLevel" class="w-full px-2 py-1.5 text-center bg-white border rounded-lg text-xs"/></div>
+                      <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">도감 파워</label><input type="number" v-model.number="playerBuffs[selectedSlot].collectionBuff" class="w-full px-2 py-1.5 text-center bg-white border rounded-lg text-xs"/></div>
+                      <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">커리어 레벨 파워</label><input type="number" v-model.number="playerBuffs[selectedSlot].careerLevelBuff" class="w-full px-2 py-1.5 text-center bg-white border rounded-lg text-xs"/></div>
+                      <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">바인더 파워</label><input type="number" v-model.number="playerBuffs[selectedSlot].binderBuff" class="w-full px-2 py-1.5 text-center bg-white border rounded-lg text-xs"/></div>
                       <div class="flex flex-col gap-1">
                         <label class="text-[10px] font-bold text-neutral-500">커리어 자팀 칸수 (0~6)</label>
-                        <input type="number" min="0" max="6" v-model.number="playerBuffs[selectedSlot].careerTeamCount" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/>
-                        <div class="mt-0.5 text-center bg-indigo-50 dark:bg-indigo-900/30 rounded py-0.5 border border-indigo-100 dark:border-indigo-800">
-                          <span class="text-[9px] font-black text-indigo-700 dark:text-indigo-300">자팀 {{ getSameTeamCount(lineup[selectedSlot]) }}명 ➔ 파워 +{{ getSameTeamCount(lineup[selectedSlot]) * 2 * getCareerTeamMultiplier(playerBuffs[selectedSlot].careerTeamCount) }}</span>
-                        </div>
+                        <input type="number" min="0" max="6" v-model.number="playerBuffs[selectedSlot].careerTeamCount" class="w-full px-2 py-1.5 text-center bg-white border rounded-lg text-xs"/>
                       </div>
                       
-                      <!-- 1, 2선발 전용 파워 증가 -->
                       <div v-if="selectedSlot === 'SP1' || selectedSlot === 'SP2'" class="flex flex-col gap-1">
                         <label class="text-[10px] font-bold text-indigo-500">1,2선발시 파워증가</label>
-                        <input type="number" v-model.number="playerBuffs[selectedSlot].imprintStarterPower" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-indigo-200 dark:border-indigo-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/>
+                        <input type="number" v-model.number="playerBuffs[selectedSlot].imprintStarterPower" class="w-full px-2 py-1.5 text-center bg-white border border-indigo-200 rounded-lg text-xs"/>
                       </div>
 
                       <div class="flex flex-col gap-1" :class="selectedSlot === 'SP1' || selectedSlot === 'SP2' ? 'col-span-2' : 'col-span-1'">
                         <label class="text-[10px] font-bold text-neutral-500">얼티밋 각인 (% 증가)</label>
-                        <input type="number" v-model.number="playerBuffs[selectedSlot].ultimateImprintPercent" class="w-full px-2 py-1.5 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-semibold outline-none focus:border-indigo-500 transition-colors shadow-sm"/>
+                        <input type="number" v-model.number="playerBuffs[selectedSlot].ultimateImprintPercent" class="w-full px-2 py-1.5 text-center bg-white border rounded-lg text-xs"/>
                       </div>
                     </div>
                   </div>
 
-                  <!-- 🌟 선수 보유 시너지 (내 시너지만) 🌟 -->
+                  <!-- 🌟 수정된 보유 시너지 현황 (진짜 켜진 것만 적용중 표시) 🌟 -->
                   <div class="bg-indigo-50 dark:bg-indigo-900/10 p-3 rounded-xl border border-indigo-100 dark:border-indigo-900/20 shadow-sm mt-3 flex-shrink-0">
                     <h3 class="text-[11px] font-bold text-indigo-800 dark:text-indigo-300 mb-2 flex items-center gap-1"><Sparkles class="w-3 h-3"/> 보유 시너지 현황 (켜짐/꺼짐)</h3>
                     
                     <div class="flex flex-col gap-1 mb-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
                        <div v-for="(rawSyn, idx) in Array.from(new Set(getArray(lineup[selectedSlot].synergy).filter(Boolean)))" :key="'psyn'+idx">
-                         <div v-if="isPlayerReceivingSynergy(lineup[selectedSlot], rawSyn) || activeTeamSynergies.some(s => s.name.replace(/[,\s클럽]/g,'').trim().includes(rawSyn.replace(/[,\s클럽]/g,'').trim()) || rawSyn.replace(/[,\s클럽]/g,'').trim().includes(s.name.replace(/[,\s클럽]/g,'').trim()))" class="flex justify-between items-center text-[10px] bg-white dark:bg-neutral-800 px-2 py-1.5 rounded border border-indigo-200 dark:border-indigo-700/50 shadow-sm flex-shrink-0">
+                         <div v-if="isSynergyActiveForPlayer(lineup[selectedSlot], rawSyn)" class="flex justify-between items-center text-[10px] bg-white dark:bg-neutral-800 px-2 py-1.5 rounded border border-indigo-200 dark:border-indigo-700/50 shadow-sm flex-shrink-0">
                             <span class="font-bold text-indigo-700 dark:text-indigo-300">{{ rawSyn }}</span>
                             <span class="text-indigo-500 font-black whitespace-nowrap ml-2">적용중</span>
                          </div>
