@@ -123,7 +123,6 @@ const synergyHierarchy: Record<string, string[]> = {
 }
 
 const SKILL_EFFECTS: Record<string, any> = {
-const SKILL_EFFECTS: Record<string, any> = {
   "1번": {"powerPercent": 10.0, "stats": {}}, "2번": {"powerPercent": 10.0, "stats": {}}, 
   "3번": {"powerPercent": 10.0, "stats": {}}, "4번": {"powerPercent": 10.0, "stats": {}}, 
   "5번": {"powerPercent": 10.0, "stats": {}}, "6번": {"powerPercent": 10.0, "stats": {}}, 
