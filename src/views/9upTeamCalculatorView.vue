@@ -87,26 +87,24 @@ const playerBuffs = ref<Record<string, PlayerBuff>>({})
 
 const initPlayerBuff = (slot: string, p: Raw) => {
   const grade = String(p.grade || '').toUpperCase()
-  // 🌟 기본 도감 파워를 1200으로 설정하되, 등급에 따라 수치를 정확히 덮어씌웁니다.
-  let colBuff = 1200, hitAce = 0
+  let colBuff = 1200
   
   if (['SEA', 'ASG'].includes(grade)) colBuff = 800
   else if (['POS', 'TEA', 'MMVP', 'HIT', 'ACE', 'GGY'].includes(grade)) colBuff = 900
   else if (['GG', 'ROY'].includes(grade)) colBuff = 1000
   else if (grade === 'TOP') colBuff = 1200
-  else if (grade === 'DGN') colBuff = 0 // 🌟 디그니티(DGN)는 도감 파워 0 적용!
+  else if (grade === 'DGN') colBuff = 0
 
-  if (['HIT', 'ACE', 'GG'].includes(grade)) hitAce = 896
-  
   playerBuffs.value[slot] = {
     enhancementLevel: grade === 'DGN' ? 10 : 15, breakthroughLevel: 0,
-    careerTeamCount: 0, hitAceBuff: hitAce, imprintStarterPower: 0,
+    careerTeamCount: 0, hitAceBuff: 0, imprintStarterPower: 0, // 896 고정 삭제 (아래에서 자동계산)
     careerAllStatFlat: 0, selectedSkills: [], battingOrder: null,
     playerLevel: 100, collectionBuff: colBuff, careerLevelBuff: 149,
     binderBuff: 537, ultimateImprintPercent: 0,
     imprintStats: {}, careerStats: {}
   }
 }
+
 const rightPanelTab = ref<'global' | 'player'>('global')
 const playerTab = ref<'stats' | 'synergy'>('stats')
 
@@ -667,7 +665,12 @@ const computedPlayerStats = computed(() => {
     })
     const careerTeamPower = getSameTeamCount(p) * 2 * getCareerTeamMultiplier(buffs.careerTeamCount);
     const autoTeamDignityBuff = calculateTeamPlayerDignityBuff(p);
-    const growthB = careerTeamPower + buffs.hitAceBuff + autoTeamDignityBuff + autoSynergyFixed + imprintStarterAddedPower;
+
+    // 🌟 히트/에이스/골글 카드 자팀 인원 비례 파워 자동 계산 🌟
+    const pGrade = String(p.grade || '').toUpperCase();
+    const dynamicHitAceBuff = ['HIT', 'ACE', 'GG'].includes(pGrade) ? getSameTeamCount(p) * 32 : 0;
+    
+    const growthB = careerTeamPower + dynamicHitAceBuff + autoTeamDignityBuff + autoSynergyFixed + imprintStarterAddedPower;
     
     buffs.selectedSkills.forEach(s => {
       if (isSkillActive(s, slot, buffs.battingOrder)) {
@@ -1488,7 +1491,7 @@ onMounted(async () => {
                     </div>
                   </div>
 
-                  <!-- 선수 개인 성장 버프 -->
+<!-- 선수 개인 성장 버프 -->
                   <div class="bg-sky-50 p-4 rounded-xl border border-sky-100 mt-3 flex-shrink-0">
                     <h3 class="text-sm font-bold text-sky-800 mb-3 flex items-center gap-1"><Zap class="w-4 h-4"/> 선수 성장 및 깡스탯</h3>
                     <div class="grid grid-cols-2 gap-3">
@@ -1497,87 +1500,36 @@ onMounted(async () => {
                       <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">커리어 레벨 파워</label><input type="number" v-model.number="playerBuffs[selectedSlot].careerLevelBuff" class="w-full px-2 py-1.5 text-center bg-white border rounded-lg text-xs"/></div>
                       <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">바인더 파워</label><input type="number" v-model.number="playerBuffs[selectedSlot].binderBuff" class="w-full px-2 py-1.5 text-center bg-white border rounded-lg text-xs"/></div>
                       <div class="flex flex-col gap-1">
-                        <label class="text-[10px] font-bold text-neutral-500">커리어 자팀 칸수 (0~6)</label>
+                        <label class="text-[10px] font-bold text-neutral-500">커리어 동일팀 칸수 (0~6)</label>
                         <input type="number" min="0" max="6" v-model.number="playerBuffs[selectedSlot].careerTeamCount" class="w-full px-2 py-1.5 text-center bg-white border rounded-lg text-xs"/>
+                        <div class="mt-0.5 text-center bg-indigo-50 rounded py-0.5 border border-indigo-100">
+                          <span class="text-[9px] font-black text-indigo-700">동일팀 {{ getSameTeamCount(lineup[selectedSlot]) }}명 ➔ 파워 +{{ getSameTeamCount(lineup[selectedSlot]) * 2 * getCareerTeamMultiplier(playerBuffs[selectedSlot].careerTeamCount) }}</span>
+                        </div>
                       </div>
                       
-                      <div v-if="selectedSlot === 'SP1' || selectedSlot === 'SP2'" class="flex flex-col gap-1">
+                      <!-- 🌟 수정됨: HIT/ACE/GG 전용 동일팀 시너지 파워 알림 UI 🌟 -->
+                      <div v-if="['HIT', 'ACE', 'GG'].includes(String(lineup[selectedSlot]?.grade || '').toUpperCase())" class="flex flex-col gap-1">
+                        <label class="text-[10px] font-bold text-rose-500">HIT/ACE/GG 동일팀 시너지</label>
+                        <div class="w-full px-2 py-1.5 text-center bg-rose-50 border border-rose-200 rounded-lg text-xs font-black text-rose-600 flex items-center justify-center">
+                          자동 적용중
+                        </div>
+                        <div class="mt-0.5 text-center bg-rose-100 rounded py-0.5 border border-rose-200">
+                          <span class="text-[9px] font-black text-rose-700">동일팀 {{ getSameTeamCount(lineup[selectedSlot]) }}명 ➔ 파워 +{{ getSameTeamCount(lineup[selectedSlot]) * 32 }}</span>
+                        </div>
+                      </div>
+
+                      <div v-if="selectedSlot === 'SP1' || selectedSlot === 'SP2'" class="flex flex-col gap-1" :class="['HIT', 'ACE', 'GG'].includes(String(lineup[selectedSlot]?.grade || '').toUpperCase()) ? 'col-span-2' : ''">
                         <label class="text-[10px] font-bold text-indigo-500">1,2선발시 파워증가</label>
                         <input type="number" v-model.number="playerBuffs[selectedSlot].imprintStarterPower" class="w-full px-2 py-1.5 text-center bg-white border border-indigo-200 rounded-lg text-xs"/>
                       </div>
 
-                      <div class="flex flex-col gap-1" :class="selectedSlot === 'SP1' || selectedSlot === 'SP2' ? 'col-span-2' : 'col-span-1'">
+                      <div class="flex flex-col gap-1 col-span-2">
                         <label class="text-[10px] font-bold text-neutral-500">얼티밋 각인 (% 증가)</label>
                         <input type="number" v-model.number="playerBuffs[selectedSlot].ultimateImprintPercent" class="w-full px-2 py-1.5 text-center bg-white border rounded-lg text-xs"/>
                       </div>
                     </div>
                   </div>
 
-                  <!-- 🌟 수정된 보유 시너지 현황 (진짜 켜진 것만 적용중 표시) 🌟 -->
-                  <div class="bg-indigo-50 dark:bg-indigo-900/10 p-3 rounded-xl border border-indigo-100 dark:border-indigo-900/20 shadow-sm mt-3 flex-shrink-0">
-                    <h3 class="text-[11px] font-bold text-indigo-800 dark:text-indigo-300 mb-2 flex items-center gap-1"><Sparkles class="w-3 h-3"/> 보유 시너지 현황 (켜짐/꺼짐)</h3>
-                    
-                    <div class="flex flex-col gap-1 mb-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
-                       <div v-for="(rawSyn, idx) in Array.from(new Set(getArray(lineup[selectedSlot].synergy).filter(Boolean)))" :key="'psyn'+idx">
-                         <div v-if="isSynergyActiveForPlayer(lineup[selectedSlot], rawSyn)" class="flex justify-between items-center text-[10px] bg-white dark:bg-neutral-800 px-2 py-1.5 rounded border border-indigo-200 dark:border-indigo-700/50 shadow-sm flex-shrink-0">
-                            <span class="font-bold text-indigo-700 dark:text-indigo-300">{{ rawSyn }}</span>
-                            <span class="text-indigo-500 font-black whitespace-nowrap ml-2">적용중</span>
-                         </div>
-                         <div v-else class="flex justify-between items-center text-[10px] bg-neutral-100 dark:bg-neutral-800/50 px-2 py-1.5 rounded border border-neutral-200 dark:border-neutral-700 opacity-60 flex-shrink-0">
-                            <span class="text-neutral-500">{{ rawSyn }}</span>
-                            <span class="text-red-400 font-medium whitespace-nowrap ml-2">조건미달</span>
-                         </div>
-                       </div>
-                       <div v-if="getArray(lineup[selectedSlot].synergy).length === 0" class="text-[10px] text-neutral-400 text-center">이 선수가 가진 시너지가 없습니다.</div>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-indigo-100 dark:border-indigo-800">
-                      <div class="flex flex-col gap-1">
-                        <label class="text-[9px] font-bold text-neutral-500">총 시너지 깡파워</label>
-                        <div class="w-full px-2 py-1 text-center bg-indigo-100 dark:bg-indigo-800/30 border border-indigo-200 dark:border-indigo-700 rounded text-xs font-bold text-indigo-700 dark:text-indigo-400">+{{ getPlayerSynergySum(lineup[selectedSlot], 'fixed') }}</div>
-                      </div>
-                      <div class="flex flex-col gap-1">
-                        <label class="text-[9px] font-bold text-neutral-500">총 시너지 %파워</label>
-                        <div class="w-full px-2 py-1 text-center bg-indigo-100 dark:bg-indigo-800/30 border border-indigo-200 dark:border-indigo-700 rounded text-xs font-bold text-indigo-700 dark:text-indigo-400">+{{ getPlayerSynergySum(lineup[selectedSlot], 'percent') }}%</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- 스킬 설정 -->
-                  <div class="mt-4 flex-shrink-0">
-                    <div class="flex items-center justify-between mb-2">
-                      <h3 class="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-1"><Star class="w-4 h-4 text-amber-400"/> 스킬 장착</h3>
-                      <span class="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 px-2 py-0.5 rounded font-bold">{{ playerBuffs[selectedSlot].selectedSkills.length }} / {{ getMaxSkillCount(lineup[selectedSlot]) }}</span>
-                    </div>
-                    <div class="flex flex-wrap gap-1.5">
-                      <button 
-                        v-for="sk in getAvailableSkills(lineup[selectedSlot])" 
-                        :key="sk"
-                        @click="togglePlayerSkill(sk)"
-                        :class="[
-                          playerBuffs[selectedSlot].selectedSkills.includes(sk) ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white border-neutral-200 dark:bg-neutral-800 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300',
-                          playerBuffs[selectedSlot].selectedSkills.includes(sk) && !isSkillActive(sk, selectedSlot, playerBuffs[selectedSlot].battingOrder) ? 'bg-red-500 border-red-600 text-white' : ''
-                        ]"
-                        class="px-2 py-1 text-[11px] font-bold border rounded-lg transition-colors relative flex-shrink-0"
-                      >
-                        {{ sk }}
-                        <span v-if="playerBuffs[selectedSlot].selectedSkills.includes(sk) && !isSkillActive(sk, selectedSlot, playerBuffs[selectedSlot].battingOrder)" class="absolute -top-2 -right-2 bg-white text-red-500 border border-red-500 text-[8px] px-1 rounded-full shadow-sm whitespace-nowrap z-10">조건불일치</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div v-else class="flex h-full items-center justify-center text-neutral-400 text-sm flex-col gap-2">
-              <UserCheck class="w-10 h-10 opacity-20"/>
-              중앙 라인업에서 선수를 클릭해주세요.
-            </div>
-          </div>
-        </section>
-
-      </div>
-    </div>
-  </div>
 </template>
 
 <style scoped>
