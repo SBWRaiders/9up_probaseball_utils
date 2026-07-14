@@ -12,7 +12,10 @@ interface JsonSynergy { id: number | string; synergy: string; conditions: JsonCo
 interface PlayerBuff {
   enhancementLevel: number; breakthroughLevel: number; careerTeamCount: number;
   hitAceBuff: number; imprintStarterPower: number;
-  careerAllStatFlat: number; selectedSkills: string[];
+  careerAllStatFlat: number; 
+  imprintCoreStat: number; // 🌟 추가: 각인 전체 능력치 (5대 스탯)
+  careerCoreStat: number;  // 🌟 추가: 커리어 전체 능력치 (5대 스탯)
+  selectedSkills: string[];
   battingOrder: number | null;
   playerLevel: number; collectionBuff: number; careerLevelBuff: number;
   binderBuff: number; ultimateImprintPercent: number;
@@ -97,14 +100,15 @@ const initPlayerBuff = (slot: string, p: Raw) => {
 
   playerBuffs.value[slot] = {
     enhancementLevel: grade === 'DGN' ? 10 : 15, breakthroughLevel: 0,
-    careerTeamCount: 0, hitAceBuff: 0, imprintStarterPower: 0, // 896 고정 삭제 (아래에서 자동계산)
-    careerAllStatFlat: 0, selectedSkills: [], battingOrder: null,
+    careerTeamCount: 0, hitAceBuff: 0, imprintStarterPower: 0,
+    careerAllStatFlat: 0, imprintCoreStat: 0, careerCoreStat: 0, // 🌟 0으로 초기화
+    selectedSkills: [], battingOrder: null,
     playerLevel: 100, collectionBuff: colBuff, careerLevelBuff: 149,
     binderBuff: 537, ultimateImprintPercent: 0,
     imprintStats: {}, careerStats: {}
   }
 }
-
+  
 const rightPanelTab = ref<'global' | 'player'>('global')
 const playerTab = ref<'stats' | 'synergy'>('stats')
 
@@ -703,14 +707,18 @@ const computedPlayerStats = computed(() => {
 
     let finalTotal = 0
     const stats: Record<string, number> = {}
-    coreStats.forEach(s => {
+coreStats.forEach(s => {
       const base = Number(p[s] || 0)
       let preSpec = base + (growthA/5) + (growthB/5) + (globalBonusTotal/5)
       let specBonus = preSpec * ((statSpecificSkillPercents[s] || 0) / 100)
       let val = preSpec + specBonus + (flatC/5)
       if (s === managerMainName) val += managerMainStat;
       if (s === managerSubName) val += managerSubStat;
+      
+      // 🌟 개별 스탯 증가분 + '전체 능력치 증가분'을 모두 더해줌
       val += Number(buffs.careerStats?.[s] || 0) + Number(buffs.imprintStats?.[s] || 0)
+      val += Number(buffs.imprintCoreStat || 0) + Number(buffs.careerCoreStat || 0)
+
       stats[s] = Math.round(val)
       finalTotal += val
     })
@@ -1432,10 +1440,30 @@ onMounted(async () => {
               </div>
 
               <div class="flex-1 overflow-y-auto custom-scrollbar pr-1 pb-2">
-                <!-- 세부 능력치 내용 -->
+<!-- 세부 능력치 내용 -->
                 <div v-if="playerTab === 'stats' && computedPlayerStats[selectedSlot]" class="space-y-4 animate-in fade-in">
                   <div class="bg-indigo-50 dark:bg-indigo-900/10 p-3 rounded-xl border border-indigo-100 shadow-sm flex-shrink-0">
-                    <h3 class="text-[11px] font-bold text-indigo-800 dark:text-indigo-300 mb-2 flex items-center gap-1"><TrendingUp class="w-3 h-3"/> 개별 스탯 증가 (각인/커리어) 및 최종 스탯</h3>
+                    <h3 class="text-[11px] font-bold text-indigo-800 dark:text-indigo-300 mb-2 flex items-center gap-1"><TrendingUp class="w-3 h-3"/> 개별 및 전체 스탯 증가 (각인/커리어)</h3>
+                    
+                    <!-- 🌟 추가된 전체 능력치 증가 (5대 스탯) 입력칸 🌟 -->
+                    <div class="grid grid-cols-2 gap-2 mb-3 bg-white p-2 rounded-lg border border-indigo-100 shadow-sm">
+                      <div class="flex flex-col gap-1 items-center">
+                        <label class="text-[10px] font-bold text-indigo-600">전체 능력치 증가 (각인)</label>
+                        <div class="flex items-center justify-center gap-1">
+                          <span class="text-[10px] font-black text-neutral-400">+</span>
+                          <input type="number" v-model.number="playerBuffs[selectedSlot].imprintCoreStat" class="w-20 px-2 py-1 text-center bg-indigo-50 border border-indigo-200 rounded text-xs font-bold outline-none focus:border-indigo-500" placeholder="0" />
+                        </div>
+                      </div>
+                      <div class="flex flex-col gap-1 items-center">
+                        <label class="text-[10px] font-bold text-indigo-600">전체 능력치 증가 (커리어)</label>
+                        <div class="flex items-center justify-center gap-1">
+                          <span class="text-[10px] font-black text-neutral-400">+</span>
+                          <input type="number" v-model.number="playerBuffs[selectedSlot].careerCoreStat" class="w-20 px-2 py-1 text-center bg-indigo-50 border border-indigo-200 rounded text-xs font-bold outline-none focus:border-indigo-500" placeholder="0" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 기존 개별 스탯 입력칸 -->
                     <div class="grid grid-cols-2 lg:grid-cols-4 gap-2">
                        <div v-for="stat in (isPitcher(lineup[selectedSlot]) ? pitcherStats : batterStats)" :key="stat" class="flex flex-col gap-1 border border-indigo-100 p-1.5 rounded-lg bg-white shadow-sm flex-shrink-0">
                           <label class="text-[10px] font-bold text-neutral-600 text-center">{{ STAT_LABELS[stat] || stat }}</label>
