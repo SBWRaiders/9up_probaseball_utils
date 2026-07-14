@@ -70,7 +70,7 @@ const menuItems = [
   { name: '스킬 목록', path: '/skills', disabled: false },
   { name: '라인업 생성', path: '/lineups', disabled: false },
   { name: '스탯 계산기', path: '/calculator', disabled: false },
-  { name: '팀 파워 시뮬레이터(공사중)', path: '/team-calculator', disabled: false },
+  { name: '팀 파워 시뮬레이터', path: '/team-calculator', disabled: false },
   { name: '건의 게시판', path: '/feedback', disabled: false }
 ]
 
