@@ -87,24 +87,26 @@ const playerBuffs = ref<Record<string, PlayerBuff>>({})
 
 const initPlayerBuff = (slot: string, p: Raw) => {
   const grade = String(p.grade || '').toUpperCase()
-  let colBuff = 0, hitAce = 0
+  // 🌟 기본 도감 파워를 1200으로 설정하되, 등급에 따라 수치를 정확히 덮어씌웁니다.
+  let colBuff = 1200, hitAce = 0
+  
   if (['SEA', 'ASG'].includes(grade)) colBuff = 800
-  else if (['POS', 'TEA', 'MMVP', 'HIT', 'ACE'].includes(grade)) colBuff = 900
-  else if (grade === 'GGY') colBuff = 900
-  else if (grade === 'GG' || grade === 'ROY') colBuff = 1000
+  else if (['POS', 'TEA', 'MMVP', 'HIT', 'ACE', 'GGY'].includes(grade)) colBuff = 900
+  else if (['GG', 'ROY'].includes(grade)) colBuff = 1000
   else if (grade === 'TOP') colBuff = 1200
+  else if (grade === 'DGN') colBuff = 0 // 🌟 디그니티(DGN)는 도감 파워 0 적용!
+
   if (['HIT', 'ACE', 'GG'].includes(grade)) hitAce = 896
   
   playerBuffs.value[slot] = {
     enhancementLevel: grade === 'DGN' ? 10 : 15, breakthroughLevel: 0,
     careerTeamCount: 0, hitAceBuff: hitAce, imprintStarterPower: 0,
     careerAllStatFlat: 0, selectedSkills: [], battingOrder: null,
-    playerLevel: 100, collectionBuff: colBuff || 1200, careerLevelBuff: 149,
+    playerLevel: 100, collectionBuff: colBuff, careerLevelBuff: 149,
     binderBuff: 537, ultimateImprintPercent: 0,
     imprintStats: {}, careerStats: {}
   }
 }
-
 const rightPanelTab = ref<'global' | 'player'>('global')
 const playerTab = ref<'stats' | 'synergy'>('stats')
 
