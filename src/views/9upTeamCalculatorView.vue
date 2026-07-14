@@ -98,14 +98,26 @@ const initPlayerBuff = (slot: string, p: Raw) => {
   else if (grade === 'TOP') colBuff = 1200
   else if (grade === 'DGN') colBuff = 0
 
+  // 🌟 기존 슬롯(장비칸)에 있던 각인 데이터를 백업 (없으면 0으로 초기화)
+  const existing = playerBuffs.value[slot]
+  const savedImprintStats = existing ? { ...existing.imprintStats } : {}
+  const savedImprintCoreStat = existing ? existing.imprintCoreStat : 0
+  const savedUltimateImprintPercent = existing ? existing.ultimateImprintPercent : 0
+  const savedImprintStarterPower = existing ? existing.imprintStarterPower : 0
+
   playerBuffs.value[slot] = {
     enhancementLevel: grade === 'DGN' ? 10 : 15, breakthroughLevel: 0,
-    careerTeamCount: 0, hitAceBuff: 0, imprintStarterPower: 0,
-    careerAllStatFlat: 0, imprintCoreStat: 0, careerCoreStat: 0, // 🌟 0으로 초기화
+    careerTeamCount: 0, hitAceBuff: 0, 
+    imprintStarterPower: savedImprintStarterPower, // 🌟 1,2선발 각인 파워 유지
+    careerAllStatFlat: 0, 
+    imprintCoreStat: savedImprintCoreStat, // 🌟 전체 능력치 각인 유지
+    careerCoreStat: 0, // 커리어는 선수 고유의 능력이므로 초기화
     selectedSkills: [], battingOrder: null,
     playerLevel: 100, collectionBuff: colBuff, careerLevelBuff: 149,
-    binderBuff: 537, ultimateImprintPercent: 0,
-    imprintStats: {}, careerStats: {}
+    binderBuff: 537, 
+    ultimateImprintPercent: savedUltimateImprintPercent, // 🌟 얼티밋 각인 % 유지
+    imprintStats: savedImprintStats, // 🌟 개별 스탯 각인 유지
+    careerStats: {} // 커리어 스탯은 초기화
   }
 }
   
