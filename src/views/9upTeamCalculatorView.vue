@@ -962,13 +962,11 @@ onMounted(async () => {
           <!-- 저장/불러오기 컨트롤 -->
           <input type="file" ref="fileInput" accept=".json" class="hidden" @change="importFromFile" />
           <div class="flex items-center bg-black/20 rounded-lg p-1 border border-white/10 shadow-inner">
-             <button @click="saveToLocalStorage" class="p-2 text-blue-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="브라우저에 이름 지정하여 저장"><Save class="w-4 h-4" /><span class="text-[10px] font-bold hidden sm:block">다중 저장</span></button>
-             <button @click="loadFromLocalStorage" class="p-2 text-blue-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="브라우저에서 선택하여 불러오기"><FolderOpen class="w-4 h-4" /><span class="text-[10px] font-bold hidden sm:block">불러오기</span></button>
+             <button @click="saveToLocalStorage" class="p-2 text-blue-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="브라우저에 현재 상태 저장"><Save class="w-4 h-4" /><span class="text-[10px] font-bold hidden sm:block">페이지 저장</span></button>
+             <button @click="loadFromLocalStorage" class="p-2 text-blue-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="브라우저에서 불러오기"><FolderOpen class="w-4 h-4" /><span class="text-[10px] font-bold hidden sm:block">불러오기</span></button>
              <div class="w-px h-4 bg-white/20 mx-1"></div>
              <button @click="exportToFile" class="p-2 text-emerald-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="PC에 파일로 내보내기"><Download class="w-4 h-4" /><span class="text-[10px] font-bold hidden sm:block">파일 저장</span></button>
              <button @click="triggerFileInput" class="p-2 text-emerald-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="PC에서 파일 불러오기"><Upload class="w-4 h-4" /><span class="text-[10px] font-bold hidden sm:block">파일 열기</span></button>
-             <div class="w-px h-4 bg-white/20 mx-1"></div>
-             <button @click="resetLineup" class="p-2 text-rose-300 hover:text-white hover:bg-rose-500/50 rounded-md transition-colors flex items-center gap-1" title="각인 유지하고 라인업 초기화"><X class="w-4 h-4" /><span class="text-[10px] font-bold hidden sm:block">초기화</span></button>
           </div>
 
           <div class="flex items-center bg-black/20 rounded-xl px-5 py-2 border border-white/10 shadow-inner">
@@ -1350,13 +1348,13 @@ onMounted(async () => {
                 </div>
               </div>
               
-              <!-- 감독 카드 설정 (안전한 버전) -->
+              <!-- 감독 카드 설정 -->
               <div class="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800 shadow-sm flex-shrink-0">
                  <h3 class="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-3 flex items-center gap-1"><UserCheck class="w-4 h-4"/> 감독 카드 설정</h3>
                  <div class="grid grid-cols-2 gap-3">
                    <div class="flex flex-col gap-1">
                      <label class="text-[10px] font-bold text-neutral-500">감독 유형</label>
-                     <select v-model="globalBuffs.managerType" class="w-full px-2 py-1.5 bg-white border rounded-lg text-xs font-medium">
+                     <select v-model="globalBuffs.managerType" class="w-full px-2 py-1.5 bg-white border rounded-lg text-xs">
                        <option value="">미장착</option>
                        <option value="my_1st">자팀 1st</option><option value="com_1st">공통 1st</option>
                        <option value="my_2nd">자팀 2nd</option><option value="com_2nd">공통 2nd</option>
