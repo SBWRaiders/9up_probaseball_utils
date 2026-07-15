@@ -1373,14 +1373,27 @@ onMounted(async () => {
                 </datalist>
                 <div class="space-y-2">
                   <div v-for="i in 5" :key="i" class="flex items-center gap-2">
-                    <span class="text-[10px] w-6 text-neutral-500">칸 {{ i }}</span>
+                    <span class="text-[10px] font-bold text-neutral-500 w-6">칸 {{ i }}</span>
                     <input list="synergy-list" v-model="globalBuffs.synergyMasteries[i-1]" placeholder="시너지 검색..." class="w-full px-2 py-1 bg-white border rounded text-xs"/>
-                    <input type="radio" :value="i-1" v-model="globalBuffs.amplifiedMasteryIndex" title="증폭 선택" class="cursor-pointer" />
+                    
+                    <!-- 🌟 직관적인 증폭 On/Off 버튼 (오직 1개만 활성화) 🌟 -->
+                    <label class="flex items-center justify-center cursor-pointer bg-white px-2 py-1.5 rounded border transition-colors shrink-0 select-none"
+                           :class="globalBuffs.amplifiedMasteryIndex === i - 1 ? 'border-indigo-500 bg-indigo-100 dark:bg-indigo-900/50 shadow-inner' : 'border-neutral-200 hover:bg-neutral-50'">
+                      <!-- 실제 동작은 체크박스처럼 하되 한 개만 켜지도록 제어 -->
+                      <input type="checkbox" 
+                             :checked="globalBuffs.amplifiedMasteryIndex === i - 1" 
+                             @change="globalBuffs.amplifiedMasteryIndex = $event.target.checked ? i - 1 : -1" 
+                             class="hidden" />
+                      <span class="text-[10px] font-black tracking-tight" 
+                            :class="globalBuffs.amplifiedMasteryIndex === i - 1 ? 'text-indigo-700 dark:text-indigo-300' : 'text-neutral-400'">
+                        증폭
+                      </span>
+                    </label>
                   </div>
-                  <div class="text-[10px] text-indigo-600 font-bold mt-1">※ 라디오 버튼을 체크하면 해당 시너지 증폭(+0.5% / +50)</div>
+                  <div class="text-[10px] text-indigo-600 font-bold mt-1">※ '증폭' 버튼을 누르면 해당 시너지가 증폭됩니다. (최대 1개 지정, 다시 누르면 해제)</div>
                 </div>
               </div>
-
+              
               <!-- 공통 버프 입력 -->
               <div class="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800 flex-shrink-0">
                 <h3 class="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-3 flex items-center gap-1"><Users class="w-4 h-4"/> 팀 공통 버프</h3>
