@@ -816,77 +816,113 @@ const selectSlot = (slot: string) => {
 
 const fileInput = ref<HTMLInputElement | null>(null)
 
-const saveToLocalStorage = () => {
-  const saveData = { lineup: lineup.value, playerBuffs: playerBuffs.value, globalBuffs: globalBuffs }
-  localStorage.setItem('9up_saved_lineup', JSON.stringify(saveData))
-  alert('라인업이 브라우저에 성공적으로 저장되었습니다.')
-}
-
-const loadFromLocalStorage = () => {
-  const saved = localStorage.getItem('9up_saved_lineup')
-  if (saved) {
-    try {
-      const data = JSON.parse(saved)
-      lineup.value = data.lineup || lineup.value
-      playerBuffs.value = data.playerBuffs || playerBuffs.value
-      if (data.globalBuffs) {
-        if (data.globalBuffs.teamLevelBuff && !data.globalBuffs.teamLevel) data.globalBuffs.teamLevel = 100;
-        if (!data.globalBuffs.synergyMasteries) data.globalBuffs.synergyMasteries = ['', '', '', '', ''];
-        if (data.globalBuffs.amplifiedMasteryIndex === undefined) data.globalBuffs.amplifiedMasteryIndex = -1;
-        Object.assign(globalBuffs, data.globalBuffs)
-      }
-      alert('브라우저에서 라인업을 불러왔습니다.')
-    } catch (e) {
-      alert('저장된 데이터를 불러오는 중 오류가 발생했습니다.')
-    }
-  } else {
-    alert('브라우저에 저장된 라인업이 없습니다.')
+// 🌟 공통 데이터 불러오기 함수 🌟
+const applyLoadedData = (data: any) => {
+  lineup.value = data.lineup || lineup.value
+  playerBuffs.value = data.playerBuffs || playerBuffs.value
+  if (data.globalBuffs) {
+    if (data.globalBuffs.teamLevelBuff && !data.globalBuffs.teamLevel) data.globalBuffs.teamLevel = 100;
+    if (!data.globalBuffs.synergyMasteries) data.globalBuffs.synergyMasteries = ['', '', '', '', ''];
+    if (data.globalBuffs.amplifiedMasteryIndex === undefined) data.globalBuffs.amplifiedMasteryIndex = -1;
+    Object.assign(globalBuffs, data.globalBuffs)
   }
 }
 
+// 🌟 라인업 초기화 (각인 장비는 무조건 유지!) 🌟
+const resetLineup = () => {
+  if(!confirm('라인업의 모든 선수를 비우시겠습니까?\n(포지션에 장착된 각인 수치는 그대로 유지됩니다)')) return;
+  Object.keys(lineup.value).forEach(slot => {
+    lineup.value[slot] = null;
+    if (playerBuffs.value[slot]) {
+      const b = playerBuffs.value[slot];
+      const savedImprintStats = { ...b.imprintStats }
+      playerBuffs.value[slot] = {
+        enhancementLevel: 15, breakthroughLevel: 0, careerTeamCount: 0, hitAceBuff: 0,
+        imprintStarterPower: b.imprintStarterPower, careerAllStatFlat: 0, 
+        imprintCoreStat: b.imprintCoreStat, careerCoreStat: 0,
+        selectedSkills: [], battingOrder: null, playerLevel: 100, collectionBuff: 1200, careerLevelBuff: 149,
+        binderBuff: 537, ultimateImprintPercent: b.ultimateImprintPercent,
+        imprintStats: savedImprintStats, careerStats: {}
+      }
+    }
+  })
+  selectedSlot.value = null;
+  isManualSelection.value = false;
+  rightPanelTab.value = 'global';
+}
+
+// 🌟 다중 페이지 저장 (이름 지정) 🌟
+const saveToLocalStorage = () => {
+  const saveName = prompt('저장할 라인업 이름을 입력하세요:\n(예: 국대전용, 홈런타자세팅 등)');
+  if (!saveName) return;
+  const saveData = { lineup: lineup.value, playerBuffs: playerBuffs.value, globalBuffs: globalBuffs }
+  let saves = JSON.parse(localStorage.getItem('9up_multi_saves') || '{}')
+  saves[saveName] = saveData
+  localStorage.setItem('9up_multi_saves', JSON.stringify(saves))
+  alert(`'${saveName}' 라인업이 브라우저에 저장되었습니다.`)
+}
+
+// 🌟 다중 페이지 불러오기 (목록에서 선택) 🌟
+const loadFromLocalStorage = () => {
+  const saves = JSON.parse(localStorage.getItem('9up_multi_saves') || '{}')
+  const saveNames = Object.keys(saves)
+  if (saveNames.length === 0) {
+    alert('브라우저에 저장된 라인업이 없습니다.'); return;
+  }
+  const msg = '불러올 라인업 번호를 입력하세요:\n\n' + saveNames.map((n, i) => `${i + 1}. ${n}`).join('\n')
+  const choice = prompt(msg)
+  if (!choice) return;
+  const idx = parseInt(choice) - 1
+  if (idx >= 0 && idx < saveNames.length) {
+    applyLoadedData(saves[saveNames[idx]])
+    alert(`'${saveNames[idx]}' 라인업을 불러왔습니다.`)
+  } else {
+    alert('잘못된 번호입니다.')
+  }
+}
+
+// 🌟 파일 내보내기 (파일 이름 설정) 🌟
 const exportToFile = () => {
+  const defaultName = `9up_lineup_${new Date().toISOString().slice(0,10)}`
+  const fileName = prompt('저장할 파일 이름을 입력하세요:', defaultName)
+  if (!fileName) return; 
+  
   const saveData = { lineup: lineup.value, playerBuffs: playerBuffs.value, globalBuffs: globalBuffs }
   const blob = new Blob([JSON.stringify(saveData, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = '9up_lineup_save.json'
+  a.download = fileName.endsWith('.json') ? fileName : `${fileName}.json`
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
 }
 
-const triggerFileInput = () => {
-  fileInput.value?.click()
-}
+const triggerFileInput = () => { fileInput.value?.click() }
 
 const importFromFile = (event: Event) => {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
   if (!file) return
-
   const reader = new FileReader()
   reader.onload = (e) => {
     try {
       const data = JSON.parse(e.target?.result as string)
-      lineup.value = data.lineup || lineup.value
-      playerBuffs.value = data.playerBuffs || playerBuffs.value
-      if (data.globalBuffs) {
-        if (data.globalBuffs.teamLevelBuff && !data.globalBuffs.teamLevel) data.globalBuffs.teamLevel = 100;
-        if (!data.globalBuffs.synergyMasteries) data.globalBuffs.synergyMasteries = ['', '', '', '', ''];
-        if (data.globalBuffs.amplifiedMasteryIndex === undefined) data.globalBuffs.amplifiedMasteryIndex = -1;
-        Object.assign(globalBuffs, data.globalBuffs)
-      }
+      applyLoadedData(data)
       alert('파일에서 라인업을 성공적으로 불러왔습니다.')
-    } catch (err) {
-      alert('지원하지 않거나 손상된 파일 형식입니다.')
-    }
+    } catch (err) { alert('지원하지 않거나 손상된 파일 형식입니다.') }
     if (fileInput.value) fileInput.value.value = ''
   }
   reader.readAsText(file)
 }
 
+// 🌟 새로고침/재접속 시 데이터가 날아가지 않도록 실시간 백업 🌟
+watch([lineup, playerBuffs, globalBuffs], () => {
+  const autoSaveData = { lineup: lineup.value, playerBuffs: playerBuffs.value, globalBuffs: globalBuffs }
+  localStorage.setItem('9up_auto_save', JSON.stringify(autoSaveData))
+}, { deep: true })
+  
 const getPlayerPositions = (p: Raw) => {
   if (!p) return [];
   return Array.from(new Set(getArray(p.position).map(normalizePosition))).filter(Boolean);
@@ -947,6 +983,11 @@ const formatBonuses = (bonuses: { stat: string, bonus: JsonBonus }[]) => {
 }
 
 onMounted(async () => {
+  // 🌟 사이트 켜자마자 자동 백업된 데이터 복구 🌟
+  const saved = localStorage.getItem('9up_auto_save')
+  if (saved) {
+    try { applyLoadedData(JSON.parse(saved)) } catch(e) {}
+  }
   try {
     const [csvRes, synRes, teamRes] = await Promise.all([
       fetch('/DB/player_sorted.csv', { cache: 'no-store' }), fetch('/DB/synergys.json', { cache: 'no-store' }), fetch('/DB/setting.json', { cache: 'no-store' })
@@ -976,13 +1017,14 @@ onMounted(async () => {
         </div>
         <div class="flex items-center gap-3">
           <!-- 저장/불러오기 컨트롤 -->
-          <input type="file" ref="fileInput" accept=".json" class="hidden" @change="importFromFile" />
           <div class="flex items-center bg-black/20 rounded-lg p-1 border border-white/10 shadow-inner">
-             <button @click="saveToLocalStorage" class="p-2 text-blue-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="브라우저에 현재 상태 저장"><Save class="w-4 h-4" /><span class="text-[10px] font-bold hidden sm:block">페이지 저장</span></button>
-             <button @click="loadFromLocalStorage" class="p-2 text-blue-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="브라우저에서 불러오기"><FolderOpen class="w-4 h-4" /><span class="text-[10px] font-bold hidden sm:block">불러오기</span></button>
+             <button @click="saveToLocalStorage" class="p-2 text-blue-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="브라우저에 이름 지정하여 저장"><Save class="w-4 h-4" /><span class="text-[10px] font-bold hidden sm:block">다중 저장</span></button>
+             <button @click="loadFromLocalStorage" class="p-2 text-blue-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="브라우저에서 선택하여 불러오기"><FolderOpen class="w-4 h-4" /><span class="text-[10px] font-bold hidden sm:block">불러오기</span></button>
              <div class="w-px h-4 bg-white/20 mx-1"></div>
              <button @click="exportToFile" class="p-2 text-emerald-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="PC에 파일로 내보내기"><Download class="w-4 h-4" /><span class="text-[10px] font-bold hidden sm:block">파일 저장</span></button>
              <button @click="triggerFileInput" class="p-2 text-emerald-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="PC에서 파일 불러오기"><Upload class="w-4 h-4" /><span class="text-[10px] font-bold hidden sm:block">파일 열기</span></button>
+             <div class="w-px h-4 bg-white/20 mx-1"></div>
+             <button @click="resetLineup" class="p-2 text-rose-300 hover:text-white hover:bg-rose-500/50 rounded-md transition-colors flex items-center gap-1" title="각인 유지하고 라인업 초기화"><X class="w-4 h-4" /><span class="text-[10px] font-bold hidden sm:block">초기화</span></button>
           </div>
 
           <div class="flex items-center bg-black/20 rounded-xl px-5 py-2 border border-white/10 shadow-inner">
