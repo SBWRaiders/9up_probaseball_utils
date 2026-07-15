@@ -816,120 +816,137 @@ const selectSlot = (slot: string) => {
 
 const fileInput = ref<HTMLInputElement | null>(null)
 
-// 🌟 공통 데이터 불러오기 함수 (중복 제거) 🌟
-const applyLoadedData = (data: any) => {
-  lineup.value = data.lineup || lineup.value
-  playerBuffs.value = data.playerBuffs || playerBuffs.value
-  if (data.globalBuffs) {
-    if (data.globalBuffs.teamLevelBuff && !data.globalBuffs.teamLevel) data.globalBuffs.teamLevel = 100;
-    if (!data.globalBuffs.synergyMasteries) data.globalBuffs.synergyMasteries = ['', '', '', '', ''];
-    if (data.globalBuffs.amplifiedMasteryIndex === undefined) data.globalBuffs.amplifiedMasteryIndex = -1;
-    Object.assign(globalBuffs, data.globalBuffs)
-  }
-}
-
-// 🌟 라인업 초기화 (각인 장비는 유지!) 🌟
-const resetLineup = () => {
-  if(!confirm('라인업의 모든 선수를 비우시겠습니까?\n(포지션에 장착된 각인 수치는 그대로 유지됩니다)')) return;
-  Object.keys(lineup.value).forEach(slot => {
-    lineup.value[slot] = null;
-    if (playerBuffs.value[slot]) {
-      const b = playerBuffs.value[slot];
-      const savedImprintStats = { ...b.imprintStats }
-      playerBuffs.value[slot] = {
-        enhancementLevel: 15, breakthroughLevel: 0, careerTeamCount: 0, hitAceBuff: 0,
-        imprintStarterPower: b.imprintStarterPower, careerAllStatFlat: 0, 
-        imprintCoreStat: b.imprintCoreStat, careerCoreStat: 0,
-        selectedSkills: [], battingOrder: null, playerLevel: 100, collectionBuff: 1200, careerLevelBuff: 149,
-        binderBuff: 537, ultimateImprintPercent: b.ultimateImprintPercent,
-        imprintStats: savedImprintStats, careerStats: {}
-      }
-    }
-  })
-  selectedSlot.value = null;
-  isManualSelection.value = false;
-  rightPanelTab.value = 'global';
-}
-
-// 🌟 다중 페이지 저장 (이름 지정) 🌟
 const saveToLocalStorage = () => {
-  const saveName = prompt('저장할 라인업 이름을 입력하세요:\n(예: 국대전용, 홈런타자세팅 등)');
-  if (!saveName) return;
   const saveData = { lineup: lineup.value, playerBuffs: playerBuffs.value, globalBuffs: globalBuffs }
-  let saves = JSON.parse(localStorage.getItem('9up_multi_saves') || '{}')
-  saves[saveName] = saveData
-  localStorage.setItem('9up_multi_saves', JSON.stringify(saves))
-  alert(`'${saveName}' 라인업이 브라우저에 저장되었습니다.`)
+  localStorage.setItem('9up_saved_lineup', JSON.stringify(saveData))
+  alert('라인업이 브라우저에 성공적으로 저장되었습니다.')
 }
 
-// 🌟 다중 페이지 불러오기 (선택 기능) 🌟
 const loadFromLocalStorage = () => {
-  const saves = JSON.parse(localStorage.getItem('9up_multi_saves') || '{}')
-  const saveNames = Object.keys(saves)
-  if (saveNames.length === 0) {
-    alert('브라우저에 저장된 라인업이 없습니다.'); return;
-  }
-  const msg = '불러올 라인업 번호를 입력하세요:\n\n' + saveNames.map((n, i) => `${i + 1}. ${n}`).join('\n')
-  const choice = prompt(msg)
-  if (!choice) return;
-  const idx = parseInt(choice) - 1
-  if (idx >= 0 && idx < saveNames.length) {
-    applyLoadedData(saves[saveNames[idx]])
-    alert(`'${saveNames[idx]}' 라인업을 불러왔습니다.`)
+  const saved = localStorage.getItem('9up_saved_lineup')
+  if (saved) {
+    try {
+      const data = JSON.parse(saved)
+      lineup.value = data.lineup || lineup.value
+      playerBuffs.value = data.playerBuffs || playerBuffs.value
+      if (data.globalBuffs) {
+        if (data.globalBuffs.teamLevelBuff && !data.globalBuffs.teamLevel) data.globalBuffs.teamLevel = 100;
+        if (!data.globalBuffs.synergyMasteries) data.globalBuffs.synergyMasteries = ['', '', '', '', ''];
+        if (data.globalBuffs.amplifiedMasteryIndex === undefined) data.globalBuffs.amplifiedMasteryIndex = -1;
+        Object.assign(globalBuffs, data.globalBuffs)
+      }
+      alert('브라우저에서 라인업을 불러왔습니다.')
+    } catch (e) {
+      alert('저장된 데이터를 불러오는 중 오류가 발생했습니다.')
+    }
   } else {
-    alert('잘못된 번호입니다.')
+    alert('브라우저에 저장된 라인업이 없습니다.')
   }
 }
 
-// 🌟 파일 저장 (이름 지정) 🌟
 const exportToFile = () => {
-  const defaultName = `9up_lineup_${new Date().toISOString().slice(0,10)}`
-  const fileName = prompt('저장할 파일 이름을 입력하세요:', defaultName)
-  if (!fileName) return; 
-  
   const saveData = { lineup: lineup.value, playerBuffs: playerBuffs.value, globalBuffs: globalBuffs }
   const blob = new Blob([JSON.stringify(saveData, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = fileName.endsWith('.json') ? fileName : `${fileName}.json`
+  a.download = '9up_lineup_save.json'
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
 }
 
-const triggerFileInput = () => { fileInput.value?.click() }
+const triggerFileInput = () => {
+  fileInput.value?.click()
+}
 
 const importFromFile = (event: Event) => {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
   if (!file) return
+
   const reader = new FileReader()
   reader.onload = (e) => {
     try {
       const data = JSON.parse(e.target?.result as string)
-      applyLoadedData(data)
+      lineup.value = data.lineup || lineup.value
+      playerBuffs.value = data.playerBuffs || playerBuffs.value
+      if (data.globalBuffs) {
+        if (data.globalBuffs.teamLevelBuff && !data.globalBuffs.teamLevel) data.globalBuffs.teamLevel = 100;
+        if (!data.globalBuffs.synergyMasteries) data.globalBuffs.synergyMasteries = ['', '', '', '', ''];
+        if (data.globalBuffs.amplifiedMasteryIndex === undefined) data.globalBuffs.amplifiedMasteryIndex = -1;
+        Object.assign(globalBuffs, data.globalBuffs)
+      }
       alert('파일에서 라인업을 성공적으로 불러왔습니다.')
-    } catch (err) { alert('지원하지 않거나 손상된 파일 형식입니다.') }
+    } catch (err) {
+      alert('지원하지 않거나 손상된 파일 형식입니다.')
+    }
     if (fileInput.value) fileInput.value.value = ''
   }
   reader.readAsText(file)
 }
 
-// 🌟 새로고침 시 날아가지 않도록 실시간 자동 저장 🌟
-watch([lineup, playerBuffs, globalBuffs], () => {
-  const autoSaveData = { lineup: lineup.value, playerBuffs: playerBuffs.value, globalBuffs: globalBuffs }
-  localStorage.setItem('9up_auto_save', JSON.stringify(autoSaveData))
-}, { deep: true })
+const getPlayerPositions = (p: Raw) => {
+  if (!p) return [];
+  return Array.from(new Set(getArray(p.position).map(normalizePosition))).filter(Boolean);
+}
+
+const hideImage = (e: Event) => {
+  if (e && e.target) {
+    (e.target as HTMLElement).style.display = 'none';
+  }
+}
+
+const activeFilterCount = computed(() => {
+  let count = 0;
+  count += searchQuery.position.length;
+  count += searchQuery.team.length;
+  count += searchQuery.synergy.length;
+  count += searchQuery.grade.length;
+  count += searchQuery.rarity !== null ? 1 : 0;
+  return count;
+});
+
+const getAvailableSkills = (p: Raw | null) => {
+  if (!p) return [];
+  const excluded = ['야전사령관', '인사이드 워크', '투수 리드', '친화력', '도루 저지'];
+  const rawSkills = [...getArray(p.skill), ...getArray(p.enhancedSkill)];
+  return Array.from(new Set(rawSkills.filter(s => !excluded.includes(s))));
+}
+
+const togglePlayerSkill = (sk: string) => {
+  if (!selectedSlot.value || !lineup.value[selectedSlot.value] || !playerBuffs.value[selectedSlot.value]) return;
+  const p = lineup.value[selectedSlot.value];
+  const buffs = playerBuffs.value[selectedSlot.value];
+  const arr = buffs.selectedSkills;
+  const rarity = parseInt(String(p?.rarity || 1), 10) || 1;
+  const max = Math.min(3, Math.max(1, rarity - 1));
+  
+  const idx = arr.indexOf(sk);
+  if (idx > -1) {
+    arr.splice(idx, 1);
+  } else if (arr.length < max) {
+    arr.push(sk);
+  }
+}
+
+const getMaxSkillCount = (p: Raw | null) => {
+  if (!p) return 0;
+  return Math.min(3, Math.max(1, (parseInt(String(p?.rarity || 1), 10) || 1) - 1));
+}
+
+const formatBonuses = (bonuses: { stat: string, bonus: JsonBonus }[]) => {
+  if (!bonuses || !Array.isArray(bonuses)) return '';
+  return bonuses.map(b => {
+    const statName = b.stat === 'power' ? '파워' : STAT_LABELS[b.stat] || b.stat;
+    const val = b.bonus.value;
+    const unit = b.bonus.unit === 'percent' ? '%' : '';
+    return `${statName} +${val}${unit}`;
+  }).join(', ');
+}
 
 onMounted(async () => {
-  // 🌟 사이트 켜자마자 자동 저장된 데이터 복구 🌟
-  const saved = localStorage.getItem('9up_auto_save')
-  if (saved) {
-    try { applyLoadedData(JSON.parse(saved)) } catch(e) {}
-  }
-
   try {
     const [csvRes, synRes, teamRes] = await Promise.all([
       fetch('/DB/player_sorted.csv', { cache: 'no-store' }), fetch('/DB/synergys.json', { cache: 'no-store' }), fetch('/DB/setting.json', { cache: 'no-store' })
@@ -945,7 +962,6 @@ onMounted(async () => {
     }
   } catch(e) { console.error(e) } finally { isLoading.value = false }
 })
-  
 </script>
 
 <template>
