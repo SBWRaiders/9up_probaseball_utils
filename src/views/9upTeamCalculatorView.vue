@@ -1350,7 +1350,7 @@ onMounted(async () => {
                 </div>
               </div>
               
-              <!-- 감독 카드 설정 -->
+              <!-- 감독 카드 설정 (안전한 버전) -->
               <div class="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800 shadow-sm flex-shrink-0">
                  <h3 class="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-3 flex items-center gap-1"><UserCheck class="w-4 h-4"/> 감독 카드 설정</h3>
                  <div class="grid grid-cols-2 gap-3">
@@ -1358,14 +1358,10 @@ onMounted(async () => {
                      <label class="text-[10px] font-bold text-neutral-500">감독 유형</label>
                      <select v-model="globalBuffs.managerType" class="w-full px-2 py-1.5 bg-white border rounded-lg text-xs font-medium">
                        <option value="">미장착</option>
-                       <option value="my_1st">자팀 1st ({{ STAT_LABELS[MANAGER_TYPES['1st'].main] }} / {{ STAT_LABELS[MANAGER_TYPES['1st'].sub] }})</option>
-                       <option value="com_1st">공통 1st ({{ STAT_LABELS[MANAGER_TYPES['1st'].main] }} / {{ STAT_LABELS[MANAGER_TYPES['1st'].sub] }})</option>
-                       <option value="my_2nd">자팀 2nd ({{ STAT_LABELS[MANAGER_TYPES['2nd'].main] }} / {{ STAT_LABELS[MANAGER_TYPES['2nd'].sub] }})</option>
-                       <option value="com_2nd">공통 2nd ({{ STAT_LABELS[MANAGER_TYPES['2nd'].main] }} / {{ STAT_LABELS[MANAGER_TYPES['2nd'].sub] }})</option>
-                       <option value="my_3rd">자팀 3rd ({{ STAT_LABELS[MANAGER_TYPES['3rd'].main] }} / {{ STAT_LABELS[MANAGER_TYPES['3rd'].sub] }})</option>
-                       <option value="com_3rd">공통 3rd ({{ STAT_LABELS[MANAGER_TYPES['3rd'].main] }} / {{ STAT_LABELS[MANAGER_TYPES['3rd'].sub] }})</option>
-                       <option value="my_4th">자팀 4th ({{ STAT_LABELS[MANAGER_TYPES['4th'].main] }} / {{ STAT_LABELS[MANAGER_TYPES['4th'].sub] }})</option>
-                       <option value="com_4th">공통 4th ({{ STAT_LABELS[MANAGER_TYPES['4th'].main] }} / {{ STAT_LABELS[MANAGER_TYPES['4th'].sub] }})</option>
+                       <option value="my_1st">자팀 1st</option><option value="com_1st">공통 1st</option>
+                       <option value="my_2nd">자팀 2nd</option><option value="com_2nd">공통 2nd</option>
+                       <option value="my_3rd">자팀 3rd</option><option value="com_3rd">공통 3rd</option>
+                       <option value="my_4th">자팀 4th</option><option value="com_4th">공통 4th</option>
                      </select>
                    </div>
                    <div class="flex flex-col gap-1">
