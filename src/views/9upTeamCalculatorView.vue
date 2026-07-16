@@ -795,13 +795,18 @@ const assignPlayerToSlot = (posOrSlot: string, p: Raw) => {
   rightPanelTab.value = 'player'
 }
 
-const clearSlot = (slot: string) => { 
-  lineup.value[slot] = null; 
-  if (selectedSlot.value === slot) { 
-    selectedSlot.value = null; 
-    isManualSelection.value = false;
-    rightPanelTab.value = 'global';
-  } 
+const clearSlot = (pos: string) => {
+  // 1. 라인업에서 선수 이름표만 뗍니다.
+  lineup.value[pos] = null
+  
+  // 🌟 핵심: 기존에는 여기에 delete playerBuffs.value[pos] 같은 코드가 있어서 장비까지 날아갔습니다.
+  // 이제 선수를 빼더라도 playerBuffs(각인 장비 데이터)는 절대 삭제하지 않고 칸에 그대로 남겨둡니다!
+
+  // 2. 화면 초기화 (선택된 선수 화면 닫기)
+  if (selectedSlot.value === pos) {
+    selectedSlot.value = null
+    rightPanelTab.value = 'global'
+  }
 }
 
 const selectSlot = (slot: string) => { 
