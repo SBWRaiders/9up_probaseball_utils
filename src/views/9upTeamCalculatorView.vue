@@ -111,7 +111,7 @@ const initPlayerBuff = (slot: string, p: Raw) => {
     imprintStarterPower: savedImprintStarterPower, // 🌟 1,2선발 각인 파워 유지
     careerAllStatFlat: 0, 
     imprintCoreStat: savedImprintCoreStat, // 🌟 전체 능력치 각인 유지
-    careerCoreStat: 0, // 커리어는 선수 고유의 능력이므로 초기화
+    careerCoreStat: 0, // 커리어는 선수 고유의 성장이므로 0으로 초기화
     selectedSkills: [], battingOrder: null,
     playerLevel: 100, collectionBuff: colBuff, careerLevelBuff: 149,
     binderBuff: 537, 
