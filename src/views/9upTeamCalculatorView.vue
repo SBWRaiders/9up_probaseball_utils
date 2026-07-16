@@ -322,6 +322,15 @@ const checkSynergyInclusion = (target: string, playerSynergies: string[]) => {
   if (isYearTarget || tp.includes('동명이인') || ts.includes('동명이인')) return false
   
   const tnum = parseInt(tn,10)
+
+  // 🌟 핵심: 일반(단일 시즌) 기록과 통산 기록을 완벽히 나누는 수치 기준선
+  // 이 숫자 이상이면 "아, 이건 무조건 통산 기록이구나!" 라고 판별합니다.
+  const careerThresholds: Record<string, number> = {
+    '경기': 200, '안타': 250, '홈런': 100, '도루': 100, '타점': 200, '득점': 200,
+    '승': 40, '세이브': 80, '홀드': 80, '탈삼진': 350, '이닝': 350
+  };
+  const isCareer = (val: number, type: string) => val >= (careerThresholds[type] || 9999);
+
   return playerSynergies.some(s => {
     const sClean = clean(s)
     if (sClean.includes(keyClean)) return true
@@ -334,9 +343,18 @@ const checkSynergyInclusion = (target: string, playerSynergies: string[]) => {
       const isYearPlayer = pn.length === 4 && (ps === '' || ps === '년' || ps === '년도');
       if (isYearPlayer || pp.includes('동명이인') || ps.includes('동명이인')) continue
       
-      // 🌟 핵심 패치: '통산', '투수', '타자' 같은 수식어가 달라도 '경기'만 같으면 통과하도록 융통성 부여!
       const cleanPrefix = (str: string) => str.replace(/통산|투수|타자/g, '').trim();
-      if (cleanPrefix(pp) === cleanPrefix(tp) && ps === ts && parseInt(pn,10) >= tnum) return true
+      
+      // 숫자와 조건이 맞더라도...
+      if (cleanPrefix(pp) === cleanPrefix(tp) && ps === ts && parseInt(pn,10) >= tnum) {
+        
+        // 🌟 철벽 방어: 요구하는 건 '일반(180안타)'인데 선수가 가진 게 '통산(1500안타)'이면 교차 발동 차단!
+        if (!isCareer(tnum, ts) && isCareer(parseInt(pn,10), ps)) {
+          continue; // "어딜 통산이 일반에 끼어들어!" 하고 무시함
+        }
+        
+        return true; // 180안타 >= 170안타, 혹은 2000안타 >= 1500안타 등 같은 물에서 놀 때만 합격!
+      }
     }
     return false
   })
