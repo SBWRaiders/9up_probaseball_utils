@@ -359,7 +359,16 @@ const activeTeamSynergies = computed(() => {
   const result: { name: string, bonuses: { stat: string, bonus: JsonBonus }[], matchedPlayers: string[] }[] = []
   for (const s of synergys.value) {
     const name = String(s.synergy).trim()
-    const matchedPlayers = lineupPlayers.filter(p => checkSynergyInclusion(name, getArray(p.synergy)))
+    
+    // 🌟 타자/투수 교차 발동(예: 타자 2000경기가 투수 500경기를 켜는 현상) 완벽 차단!
+    const synType = getSynergyType(s.conditions)
+    const matchedPlayers = lineupPlayers.filter(p => {
+      if (!checkSynergyInclusion(name, getArray(p.synergy))) return false;
+      const pIsPit = isPitcher(p);
+      if (pIsPit && synType === 'batter') return false;
+      if (!pIsPit && synType === 'pitcher') return false;
+      return true;
+    })
     const count = matchedPlayers.length
 
     // 마스터리 인원 보정 및 증폭 확인
@@ -411,7 +420,16 @@ const pendingTeamSynergies = computed(() => {
   
   for (const s of synergys.value) {
     const name = String(s.synergy).trim()
-    const matchedPlayers = lineupPlayers.filter(p => checkSynergyInclusion(name, getArray(p.synergy)))
+    
+    // 🌟 발동 대기 시너지에도 교차 발동 차단 로직 똑같이 적용!
+    const synType = getSynergyType(s.conditions)
+    const matchedPlayers = lineupPlayers.filter(p => {
+      if (!checkSynergyInclusion(name, getArray(p.synergy))) return false;
+      const pIsPit = isPitcher(p);
+      if (pIsPit && synType === 'batter') return false;
+      if (!pIsPit && synType === 'pitcher') return false;
+      return true;
+    })
     const count = matchedPlayers.length
     
     let masteryCount = 0;
