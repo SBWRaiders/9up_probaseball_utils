@@ -1027,7 +1027,9 @@ onMounted(async () => {
           <h1 class="text-xl font-bold tracking-tight">9UP 팀 파워 시뮬레이터</h1>
         </div>
         <div class="flex items-center gap-3">
-<!-- 버튼 묶음 영역 -->
+<!-- 🌟 핵심 투명 파일 입력기 (절대 지우면 안 됨!) 🌟 -->
+          <input type="file" ref="fileInput" accept=".json" class="hidden" @change="importFromFile" />
+          
           <div class="flex items-center bg-black/20 rounded-lg p-1 border border-white/10 shadow-inner">
              <button @click="saveToLocalStorage" class="p-2 text-blue-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="브라우저에 이름 지정하여 저장"><Save class="w-4 h-4" /><span class="text-[10px] font-bold hidden sm:block">다중 저장</span></button>
              <button @click="loadFromLocalStorage" class="p-2 text-blue-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="브라우저에서 선택하여 불러오기"><FolderOpen class="w-4 h-4" /><span class="text-[10px] font-bold hidden sm:block">불러오기</span></button>
