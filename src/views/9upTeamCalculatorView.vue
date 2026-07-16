@@ -354,14 +354,13 @@ const compareCondition = (op: CountOp, lhs: number, rhs?: number, max?: number):
 }
 
 // 🌟 시너지 마스터리 증폭 및 인원수 차감 계산 적용 🌟
-// 🌟 시너지 마스터리 증폭 및 인원수 차감 계산 적용 🌟
 const activeTeamSynergies = computed(() => {
   const lineupPlayers = Object.values(lineup.value).filter(Boolean) as Raw[]
   const result: { name: string, bonuses: { stat: string, bonus: JsonBonus }[], matchedPlayers: string[] }[] = []
   for (const s of synergys.value) {
     const name = String(s.synergy).trim()
     
-    // 🌟 타자/투수 교차 발동 완벽 차단! (name 파라미터 추가)
+    // 🌟 타자/투수 교차 발동 완벽 차단!
     const synType = getSynergyType(name, s.conditions)
     const matchedPlayers = lineupPlayers.filter(p => {
       if (!checkSynergyInclusion(name, getArray(p.synergy))) return false;
@@ -422,7 +421,7 @@ const pendingTeamSynergies = computed(() => {
   for (const s of synergys.value) {
     const name = String(s.synergy).trim()
     
-    // 🌟 대기 시너지에도 동일하게 적용
+    // 🌟 대기 시너지에도 교차 발동 차단 로직 똑같이 적용!
     const synType = getSynergyType(name, s.conditions)
     const matchedPlayers = lineupPlayers.filter(p => {
       if (!checkSynergyInclusion(name, getArray(p.synergy))) return false;
@@ -463,64 +462,6 @@ const pendingTeamSynergies = computed(() => {
             result.push({ 
               name, 
               current: effectiveCount,
-              required: minRequired,
-              matchedPlayers: matchedPlayers.map(p => p.name)
-            })
-         }
-       }
-    }
-  }
-  return result
-})
-
-const pendingTeamSynergies = computed(() => {
-  const lineupPlayers = Object.values(lineup.value).filter(Boolean) as Raw[]
-  const result: { name: string, current: number, required: number, matchedPlayers: string[] }[] = []
-  
-  for (const s of synergys.value) {
-    const name = String(s.synergy).trim()
-    
-    // 🌟 발동 대기 시너지에도 교차 발동 차단 로직 똑같이 적용!
-    const synType = getSynergyType(s.conditions)
-    const matchedPlayers = lineupPlayers.filter(p => {
-      if (!checkSynergyInclusion(name, getArray(p.synergy))) return false;
-      const pIsPit = isPitcher(p);
-      if (pIsPit && synType === 'batter') return false;
-      if (!pIsPit && synType === 'pitcher') return false;
-      return true;
-    })
-    const count = matchedPlayers.length
-    
-    let masteryCount = 0;
-    globalBuffs.synergyMasteries.forEach(m => {
-      if (m === name) masteryCount++;
-    });
-    const effectiveCount = count + masteryCount;
-
-    if (effectiveCount > 0) {
-       const matched = (s.conditions||[]).filter(c => {
-          const op = c.count?.op as CountOp
-          return op === 'between' 
-            ? compareCondition('between', effectiveCount, c.count?.min, c.count?.max) 
-            : compareCondition(op, effectiveCount, c.count?.value)
-       })
-       
-       if (matched.length === 0) {
-         let minRequired = Infinity;
-         (s.conditions||[]).forEach(c => {
-           let req = 0;
-           if (c.count?.op === 'between') req = c.count?.min;
-           else if (['>=', '==', '>'].includes(c.count?.op)) req = c.count?.value;
-           
-           if (req > effectiveCount && req < minRequired) {
-              minRequired = req;
-           }
-         });
-         
-         if (minRequired !== Infinity) {
-            result.push({ 
-              name, 
-              current: effectiveCount, // 마스터리 보정된 인원수로 표기
               required: minRequired,
               matchedPlayers: matchedPlayers.map(p => p.name)
             })
