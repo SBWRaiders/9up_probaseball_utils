@@ -1004,49 +1004,56 @@ onMounted(async () => {
   if (saved) {
     try { applyLoadedData(JSON.parse(saved)) } catch(e) {}
   }
+
   try {
     const [csvRes, synRes, teamRes] = await Promise.all([
       fetch('/DB/player_sorted.csv', { cache: 'no-store' }), fetch('/DB/synergys.json', { cache: 'no-store' }), fetch('/DB/setting.json', { cache: 'no-store' })
     ])
     if (teamRes.ok) teamData.value = await teamRes.json()
     const text = await csvRes.text()
-// (기존)
-    // Papa.parse(text, { header: true, skipEmptyLines: true, complete: ({ data }) => (players.value = data as Raw[]) })
-
-    // 🌟 (변경 후) 🌟
+    
+    // 🌟 통산 기록 하위 시너지 자동 포함 로직 🌟
     Papa.parse(text, { 
       header: true, 
       skipEmptyLines: true, 
       complete: ({ data }) => {
         players.value = (data as Raw[]).map(p => {
           if (p.synergy) {
-            // 기존 시너지를 배열로 분리
             const synList = typeof p.synergy === 'string' ? p.synergy.split(',').map(s => s.trim()) : (p.synergy || []);
             const expanded = new Set(synList);
 
-            // 각 시너지 단어를 분석해서 통산 기록이면 하위 기록을 전부 추가
             synList.forEach((syn: any) => {
               const match = String(syn).match(/^(\d+)(경기|안타|홈런|도루|타점|득점|승|세이브|홀드|탈삼진|이닝)$/);
               if (match) {
                 const num = parseInt(match[1], 10);
                 const type = match[2];
-                
-                // 9UP 프로야구의 주요 통산 기록 마일스톤 단위
-                const milestones = [50, 100, 150, 200, 250, 300, 400, 500, 1000, 1500, 2000, 2500, 3000];
+                // 실제 시너지 요구 수치들 (필요시 추가/수정 가능)
+                const milestones = [100, 150, 200, 250, 300, 400, 500, 1500, 2000, 2500, 3000];
 
                 milestones.forEach(m => {
                   if (num >= m) expanded.add(`${m}${type}`);
                 });
               }
             });
-            
-            // 하위 호환 시너지가 모두 숨겨져 포함된 상태로 저장!
             p.synergy = Array.from(expanded).join(',');
           }
           return p;
         });
       }
     })
+
+    if (synRes.ok) {
+        const synJson = await synRes.json()
+        synergys.value = (Array.isArray(synJson) ? synJson : []).filter((it: any) => Array.isArray(it?.conditions) && it.conditions.length > 0)
+        const options: string[] = Array.isArray(synJson) ? synJson.map((item: any) => (typeof item === 'string' ? item : item?.synergy)).filter(Boolean) : []
+        synergyOptions.value = Array.from(new Set(options.map(s => String(s).trim()))).sort((a,b)=>a.localeCompare(b))
+    }
+  } catch(e) { 
+    console.error(e) 
+  } finally { 
+    isLoading.value = false 
+  }
+})
 </script>
 
 <template>
