@@ -515,11 +515,14 @@ const getCareerTeamMultiplier = (slots: number) => {
 
 // 🌟 1. 이름 + 스탯 이중 검사로 타자/투수를 완벽히 판별하는 엔진
 const getSynergyType = (synName: string, conditions: any[]) => {
-  const name = String(synName || '').trim();
+  // 쉼표와 공백을 모두 제거하여 정확도 100% 보장 (예: "1,500 경기" -> "1500경기")
+  const name = String(synName || '').replace(/,/g, '').replace(/\s+/g, '').trim();
   
-  // 이름표에 적힌 글자로 타자/투수 전용 확실히 갈라치기!
+  // 🌟 타자 전용을 무조건 먼저 검사!!! ("1500" 안에 "500"이 포함되어 오작동하는 억울한 버그 완벽 차단)
+  if (name.includes('1000경기') || name.includes('1500경기') || name.includes('2000경기') || name.includes('2500경기') || name.includes('3000경기') || name.includes('안타') || name.includes('홈런') || name.includes('도루') || name.includes('타점') || name.includes('득점')) return 'batter';
+
+  // 그 다음 투수 전용 검사
   if (name.includes('500경기') || name.includes('700경기') || name.includes('승') || name.includes('세이브') || name.includes('홀드') || name.includes('탈삼진') || name.includes('이닝')) return 'pitcher';
-  if (name.includes('1000경기') || name.includes('1500경기') || name.includes('2000경기') || name.includes('2500경기') || name.includes('안타') || name.includes('홈런') || name.includes('도루') || name.includes('타점') || name.includes('득점')) return 'batter';
 
   // 기존 스탯 기반 판별 로직
   const pitStats = ['movement', 'longHitSuppression', 'homeRunSuppression', 'control', 'stuff', 'pitchLimit', 'runnerControl'];
