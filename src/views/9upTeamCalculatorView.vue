@@ -354,14 +354,15 @@ const compareCondition = (op: CountOp, lhs: number, rhs?: number, max?: number):
 }
 
 // 🌟 시너지 마스터리 증폭 및 인원수 차감 계산 적용 🌟
+// 🌟 시너지 마스터리 증폭 및 인원수 차감 계산 적용 🌟
 const activeTeamSynergies = computed(() => {
   const lineupPlayers = Object.values(lineup.value).filter(Boolean) as Raw[]
   const result: { name: string, bonuses: { stat: string, bonus: JsonBonus }[], matchedPlayers: string[] }[] = []
   for (const s of synergys.value) {
     const name = String(s.synergy).trim()
     
-    // 🌟 타자/투수 교차 발동(예: 타자 2000경기가 투수 500경기를 켜는 현상) 완벽 차단!
-    const synType = getSynergyType(s.conditions)
+    // 🌟 타자/투수 교차 발동 완벽 차단! (name 파라미터 추가)
+    const synType = getSynergyType(name, s.conditions)
     const matchedPlayers = lineupPlayers.filter(p => {
       if (!checkSynergyInclusion(name, getArray(p.synergy))) return false;
       const pIsPit = isPitcher(p);
@@ -408,6 +409,64 @@ const activeTeamSynergies = computed(() => {
            }),
            matchedPlayers: matchedPlayers.map(p => p.name)
          })
+       }
+    }
+  }
+  return result
+})
+
+const pendingTeamSynergies = computed(() => {
+  const lineupPlayers = Object.values(lineup.value).filter(Boolean) as Raw[]
+  const result: { name: string, current: number, required: number, matchedPlayers: string[] }[] = []
+  
+  for (const s of synergys.value) {
+    const name = String(s.synergy).trim()
+    
+    // 🌟 대기 시너지에도 동일하게 적용
+    const synType = getSynergyType(name, s.conditions)
+    const matchedPlayers = lineupPlayers.filter(p => {
+      if (!checkSynergyInclusion(name, getArray(p.synergy))) return false;
+      const pIsPit = isPitcher(p);
+      if (pIsPit && synType === 'batter') return false;
+      if (!pIsPit && synType === 'pitcher') return false;
+      return true;
+    })
+    const count = matchedPlayers.length
+    
+    let masteryCount = 0;
+    globalBuffs.synergyMasteries.forEach(m => {
+      if (m === name) masteryCount++;
+    });
+    const effectiveCount = count + masteryCount;
+
+    if (effectiveCount > 0) {
+       const matched = (s.conditions||[]).filter(c => {
+          const op = c.count?.op as CountOp
+          return op === 'between' 
+            ? compareCondition('between', effectiveCount, c.count?.min, c.count?.max) 
+            : compareCondition(op, effectiveCount, c.count?.value)
+       })
+       
+       if (matched.length === 0) {
+         let minRequired = Infinity;
+         (s.conditions||[]).forEach(c => {
+           let req = 0;
+           if (c.count?.op === 'between') req = c.count?.min;
+           else if (['>=', '==', '>'].includes(c.count?.op)) req = c.count?.value;
+           
+           if (req > effectiveCount && req < minRequired) {
+              minRequired = req;
+           }
+         });
+         
+         if (minRequired !== Infinity) {
+            result.push({ 
+              name, 
+              current: effectiveCount,
+              required: minRequired,
+              matchedPlayers: matchedPlayers.map(p => p.name)
+            })
+         }
        }
     }
   }
@@ -513,7 +572,15 @@ const getCareerTeamMultiplier = (slots: number) => {
   return 0;
 }
 
-const getSynergyType = (conditions: any[]) => {
+// 🌟 1. 이름 + 스탯 이중 검사로 타자/투수를 완벽히 판별하는 엔진
+const getSynergyType = (synName: string, conditions: any[]) => {
+  const name = String(synName || '').trim();
+  
+  // 이름표에 적힌 글자로 타자/투수 전용 확실히 갈라치기!
+  if (name.includes('500경기') || name.includes('700경기') || name.includes('승') || name.includes('세이브') || name.includes('홀드') || name.includes('탈삼진') || name.includes('이닝')) return 'pitcher';
+  if (name.includes('1000경기') || name.includes('1500경기') || name.includes('2000경기') || name.includes('2500경기') || name.includes('안타') || name.includes('홈런') || name.includes('도루') || name.includes('타점') || name.includes('득점')) return 'batter';
+
+  // 기존 스탯 기반 판별 로직
   const pitStats = ['movement', 'longHitSuppression', 'homeRunSuppression', 'control', 'stuff', 'pitchLimit', 'runnerControl'];
   const batStats = ['contact', 'gapPower', 'homeRunPower', 'plateDiscipline', 'strikeoutAvoidance', 'stealing', 'baseRunning'];
   const isPit = conditions?.some(c => pitStats.includes(c.stat));
@@ -526,21 +593,14 @@ const getSynergyType = (conditions: any[]) => {
 // 각 선수가 특정 시너지를 받고 있는지 확인 (개인설정 탭 용도)
 const isPlayerReceivingSynergy = (p: Raw, synName: string) => {
   if (!p) return false;
-
-  // 🌟 버그 수정: '신' 한 글자 때문에 '출신', '신인' 등이 들어간 모든 시너지를 흡수하던 블랙홀 현상 차단!
-  // 이미 안전하게 구현된 checkSynergyInclusion 함수를 100% 재사용하여 정확하게 일치할 때만 적용합니다.
   const hasSynergy = checkSynergyInclusion(synName, getArray(p.synergy));
-
   if (!hasSynergy) return false;
-
   const synData = synergys.value.find(s => String(s.synergy).trim() === synName);
   if (!synData) return false;
-
-  const synType = getSynergyType(synData.conditions);
+  const synType = getSynergyType(synName, synData.conditions); // 🌟 변경
   const playerIsPit = isPitcher(p);
   if (playerIsPit && synType === 'batter') return false;
   if (!playerIsPit && synType === 'pitcher') return false;
-  
   return true;
 }
 
@@ -550,7 +610,7 @@ const isSynergyActiveForPlayer = (p: Raw, rawSyn: string) => {
     if (!checkSynergyInclusion(activeSyn.name, [rawSyn])) return false;
     const synData = synergys.value.find(s => String(s.synergy).trim() === activeSyn.name);
     if (!synData) return false;
-    const synType = getSynergyType(synData.conditions);
+    const synType = getSynergyType(activeSyn.name, synData.conditions); // 🌟 변경
     const isPit = isPitcher(p);
     if (isPit && synType === 'batter') return false;
     if (!isPit && synType === 'pitcher') return false;
@@ -568,7 +628,7 @@ const getExpandedPlayerSynergies = (p: Raw) => {
   // 게임에 존재하는 모든 시너지를 한 바퀴 돌면서, 이 선수가 조건을 만족하는지 검사
   synergys.value.forEach(s => {
     const name = String(s.synergy).trim();
-    const synType = getSynergyType(s.conditions);
+    const synType = getSynergyType(name, s.conditions); // 🌟 name 파라미터 추가
     
     // 🌟 여기서도 타자/투수가 서로의 시너지를 빼앗아 입는 것을 원천 봉쇄!
     if (isPit && synType === 'batter') return;
