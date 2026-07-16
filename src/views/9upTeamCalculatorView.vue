@@ -1028,8 +1028,21 @@ onMounted(async () => {
     if (teamRes.ok) teamData.value = await teamRes.json()
     const text = await csvRes.text()
     
-// 원본 코드로 깔끔하게 복구
+    // 원본 코드로 깔끔하게 복구
     Papa.parse(text, { header: true, skipEmptyLines: true, complete: ({ data }) => (players.value = data as Raw[]) })
+
+    if (synRes.ok) {
+        const synJson = await synRes.json()
+        synergys.value = (Array.isArray(synJson) ? synJson : []).filter((it: any) => Array.isArray(it?.conditions) && it.conditions.length > 0)
+        const options: string[] = Array.isArray(synJson) ? synJson.map((item: any) => (typeof item === 'string' ? item : item?.synergy)).filter(Boolean) : []
+        synergyOptions.value = Array.from(new Set(options.map(s => String(s).trim()))).sort((a,b)=>a.localeCompare(b))
+    }
+  } catch(e) { 
+    console.error(e) 
+  } finally { 
+    isLoading.value = false 
+  }
+})
     
 </script>
 
