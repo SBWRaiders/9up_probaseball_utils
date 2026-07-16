@@ -540,6 +540,23 @@ const isSynergyActiveForPlayer = (p: Raw, rawSyn: string) => {
   });
 }
 
+// 🌟 개인 시너지 화면에 하위 호환 시너지를 모두 찾아서 표시해 주는 함수
+const getExpandedPlayerSynergies = (p: Raw) => {
+  if (!p) return [];
+  const rawSyns = getArray(p.synergy);
+  const expanded = new Set<string>(rawSyns);
+  
+  // 게임에 존재하는 모든 시너지를 한 바퀴 돌면서, 이 선수가 조건을 만족하는지 검사
+  synergys.value.forEach(s => {
+    const name = String(s.synergy).trim();
+    if (checkSynergyInclusion(name, rawSyns)) {
+      expanded.add(name);
+    }
+  });
+  
+  return Array.from(expanded);
+}
+  
 // 🌟 기존 코드: 절대 지우지 말고 그대로 두세요! (파워 계산기 엔진)
 const getPlayerSynergySum = (p: Raw | null, unit: 'fixed' | 'percent') => {
   if (!p) return 0;
