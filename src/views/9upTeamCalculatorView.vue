@@ -816,16 +816,17 @@ const selectSlot = (slot: string) => {
 
 const fileInput = ref<HTMLInputElement | null>(null)
 
-// 🌟 공통 데이터 불러오기 함수 🌟
+// 🌟 1. 공통 데이터 불러오기 (데이터 꼬임 방지 강력 버전) 🌟
 const applyLoadedData = (data: any) => {
-  lineup.value = data.lineup || lineup.value
-  playerBuffs.value = data.playerBuffs || playerBuffs.value
+  if (data.lineup) lineup.value = JSON.parse(JSON.stringify(data.lineup));
+  if (data.playerBuffs) playerBuffs.value = JSON.parse(JSON.stringify(data.playerBuffs));
   if (data.globalBuffs) {
-    if (data.globalBuffs.teamLevelBuff && !data.globalBuffs.teamLevel) data.globalBuffs.teamLevel = 100;
     if (!data.globalBuffs.synergyMasteries) data.globalBuffs.synergyMasteries = ['', '', '', '', ''];
     if (data.globalBuffs.amplifiedMasteryIndex === undefined) data.globalBuffs.amplifiedMasteryIndex = -1;
-    Object.assign(globalBuffs, data.globalBuffs)
+    Object.assign(globalBuffs, JSON.parse(JSON.stringify(data.globalBuffs)));
   }
+  // 불러올 때 화면 충돌 방지를 위해 빈 화면으로 깔끔하게 초기화
+  selectedSlot.value = null; 
 }
 
 // 🌟 라인업 초기화 (각인 장비는 무조건 유지!) 🌟
@@ -901,18 +902,28 @@ const exportToFile = () => {
 
 const triggerFileInput = () => { fileInput.value?.click() }
 
+// 🌟 2. 파일 불러오기 기능 (에러 추적 알림 추가) 🌟
 const importFromFile = (event: Event) => {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
   if (!file) return
+  
   const reader = new FileReader()
   reader.onload = (e) => {
     try {
-      const data = JSON.parse(e.target?.result as string)
+      const result = e.target?.result as string
+      if (!result) throw new Error("파일이 비어있습니다.");
+      
+      const data = JSON.parse(result)
       applyLoadedData(data)
-      alert('파일에서 라인업을 성공적으로 불러왔습니다.')
-    } catch (err) { alert('지원하지 않거나 손상된 파일 형식입니다.') }
-    if (fileInput.value) fileInput.value.value = ''
+      alert('✅ 파일에서 라인업을 성공적으로 불러왔습니다!')
+    } catch (err: any) {
+      console.error("파일 파싱 에러:", err)
+      alert('❌ 파일 불러오기 실패: 형식이 맞지 않거나 손상된 파일입니다.\n(' + err.message + ')')
+    } finally {
+      // 같은 파일을 다시 불러올 수 있도록 찌꺼기 비우기
+      if (fileInput.value) fileInput.value.value = ''
+    }
   }
   reader.readAsText(file)
 }
@@ -1016,7 +1027,7 @@ onMounted(async () => {
           <h1 class="text-xl font-bold tracking-tight">9UP 팀 파워 시뮬레이터</h1>
         </div>
         <div class="flex items-center gap-3">
-          <!-- 저장/불러오기 컨트롤 -->
+<!-- 버튼 묶음 영역 -->
           <div class="flex items-center bg-black/20 rounded-lg p-1 border border-white/10 shadow-inner">
              <button @click="saveToLocalStorage" class="p-2 text-blue-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="브라우저에 이름 지정하여 저장"><Save class="w-4 h-4" /><span class="text-[10px] font-bold hidden sm:block">다중 저장</span></button>
              <button @click="loadFromLocalStorage" class="p-2 text-blue-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="브라우저에서 선택하여 불러오기"><FolderOpen class="w-4 h-4" /><span class="text-[10px] font-bold hidden sm:block">불러오기</span></button>
