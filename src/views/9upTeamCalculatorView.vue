@@ -1689,12 +1689,13 @@ onMounted(async () => {
                     </div>
                   </div>
 
-                  <!-- 보유 시너지 현황 -->
+<!-- 보유 시너지 현황 -->
                   <div class="bg-indigo-50 dark:bg-indigo-900/10 p-3 rounded-xl border border-indigo-100 dark:border-indigo-900/20 shadow-sm mt-3 flex-shrink-0">
                     <h3 class="text-[11px] font-bold text-indigo-800 dark:text-indigo-300 mb-2 flex items-center gap-1"><Sparkles class="w-3 h-3"/> 보유 시너지 현황 (켜짐/꺼짐)</h3>
                     
                     <div class="flex flex-col gap-1 mb-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
-                       <div v-for="(rawSyn, idx) in Array.from(new Set(getArray(lineup[selectedSlot].synergy).filter(Boolean)))" :key="'psyn'+idx">
+                       <!-- 🌟 원래 있던 getArray(lineup[...]) 대신 방금 만든 확장 함수 적용! 🌟 -->
+                       <div v-for="(rawSyn, idx) in getExpandedPlayerSynergies(lineup[selectedSlot])" :key="'psyn'+idx">
                          <div v-if="isSynergyActiveForPlayer(lineup[selectedSlot], rawSyn)" class="flex justify-between items-center text-[10px] bg-white dark:bg-neutral-800 px-2 py-1.5 rounded border border-indigo-200 dark:border-indigo-700/50 shadow-sm flex-shrink-0">
                             <span class="font-bold text-indigo-700 dark:text-indigo-300">{{ rawSyn }}</span>
                             <span class="text-indigo-500 font-black whitespace-nowrap ml-2">적용중</span>
@@ -1704,10 +1705,12 @@ onMounted(async () => {
                             <span class="text-red-400 font-medium whitespace-nowrap ml-2">조건미달</span>
                          </div>
                        </div>
-                       <div v-if="getArray(lineup[selectedSlot].synergy).length === 0" class="text-[10px] text-neutral-400 text-center">이 선수가 가진 시너지가 없습니다.</div>
+                       <!-- 선수가 시너지가 아예 없을 때 -->
+                       <div v-if="getExpandedPlayerSynergies(lineup[selectedSlot]).length === 0" class="text-[10px] text-neutral-400 text-center">이 선수가 가진 시너지가 없습니다.</div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-indigo-100 dark:border-indigo-800">
+                      <!-- 파워 표기 구역은 그대로 유지 -->
                       <div class="flex flex-col gap-1">
                         <label class="text-[9px] font-bold text-neutral-500">총 시너지 깡파워</label>
                         <div class="w-full px-2 py-1 text-center bg-indigo-100 dark:bg-indigo-800/30 border border-indigo-200 dark:border-indigo-700 rounded text-xs font-bold text-indigo-700 dark:text-indigo-400">+{{ getPlayerSynergySum(lineup[selectedSlot], 'fixed') }}</div>
