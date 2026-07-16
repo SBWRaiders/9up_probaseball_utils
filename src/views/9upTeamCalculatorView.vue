@@ -318,7 +318,6 @@ const checkSynergyInclusion = (target: string, playerSynergies: string[]) => {
   if (!tm) return playerSynergies.some(s => clean(s).includes(keyClean))
   const [,tp,tn,ts] = tm
   
-  // 🌟 핵심 버그 수정: 무조건 4자리 숫자(1500, 2000)를 막던 것을 오직 '연도(년)'일 때만 막도록 변경!
   const isYearTarget = tn.length === 4 && (ts === '' || ts === '년' || ts === '년도');
   if (isYearTarget || tp.includes('동명이인') || ts.includes('동명이인')) return false
   
@@ -332,12 +331,12 @@ const checkSynergyInclusion = (target: string, playerSynergies: string[]) => {
       if (!sm) continue
       const [,pp,pn,ps] = sm
       
-      // 🌟 여기도 마찬가지로 4자리 숫자 차단 해제!
       const isYearPlayer = pn.length === 4 && (ps === '' || ps === '년' || ps === '년도');
       if (isYearPlayer || pp.includes('동명이인') || ps.includes('동명이인')) continue
       
-      // 드디어 2000 >= 1500 계산이 정상 작동합니다!
-      if (pp===tp && ps===ts && parseInt(pn,10)>=tnum) return true
+      // 🌟 핵심 패치: '통산', '투수', '타자' 같은 수식어가 달라도 '경기'만 같으면 통과하도록 융통성 부여!
+      const cleanPrefix = (str: string) => str.replace(/통산|투수|타자/g, '').trim();
+      if (cleanPrefix(pp) === cleanPrefix(tp) && ps === ts && parseInt(pn,10) >= tnum) return true
     }
     return false
   })
