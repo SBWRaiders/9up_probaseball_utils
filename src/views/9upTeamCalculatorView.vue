@@ -563,10 +563,17 @@ const getExpandedPlayerSynergies = (p: Raw) => {
   if (!p) return [];
   const rawSyns = getArray(p.synergy);
   const expanded = new Set<string>(rawSyns);
+  const isPit = isPitcher(p);
   
   // 게임에 존재하는 모든 시너지를 한 바퀴 돌면서, 이 선수가 조건을 만족하는지 검사
   synergys.value.forEach(s => {
     const name = String(s.synergy).trim();
+    const synType = getSynergyType(s.conditions);
+    
+    // 🌟 여기서도 타자/투수가 서로의 시너지를 빼앗아 입는 것을 원천 봉쇄!
+    if (isPit && synType === 'batter') return;
+    if (!isPit && synType === 'pitcher') return;
+
     if (checkSynergyInclusion(name, rawSyns)) {
       expanded.add(name);
     }
