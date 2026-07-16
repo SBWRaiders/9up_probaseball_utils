@@ -531,6 +531,7 @@ const isSynergyActiveForPlayer = (p: Raw, rawSyn: string) => {
   });
 }
 
+// 🌟 기존 코드: 절대 지우지 말고 그대로 두세요! (파워 계산기 엔진)
 const getPlayerSynergySum = (p: Raw | null, unit: 'fixed' | 'percent') => {
   if (!p) return 0;
   let total = 0;
@@ -542,6 +543,12 @@ const getPlayerSynergySum = (p: Raw | null, unit: 'fixed' | 'percent') => {
     }
   });
   return total;
+}
+
+// 🌟 1단계 코드: 기존 코드 바로 밑에 "새로 추가" 해주세요! (화면 표시용)
+const getPlayerSynergies = (p: Raw) => {
+  if (!p || !p.synergy) return []
+  return p.synergy.split(',').map(s => s.trim()).filter(Boolean)
 }
 
 const calculateTeamPlayerDignityBuff = (p: Raw) => {
@@ -1012,7 +1019,7 @@ onMounted(async () => {
     if (teamRes.ok) teamData.value = await teamRes.json()
     const text = await csvRes.text()
     
-    // 🌟 통산 기록 하위 시너지 자동 포함 로직 🌟
+// 🌟 통산 기록 하위 시너지 자동 포함 로직 (쉼표/공백 무적 버전) 🌟
     Papa.parse(text, { 
       header: true, 
       skipEmptyLines: true, 
@@ -1023,25 +1030,38 @@ onMounted(async () => {
             const expanded = new Set(synList);
 
             synList.forEach((syn: any) => {
-              const match = String(syn).match(/^(\d+)(경기|안타|홈런|도루|타점|득점|승|세이브|홀드|탈삼진|이닝)$/);
+              // 1. 쉼표(,)와 공백을 모두 제거한 깨끗한 문자열로 변환 (예: "2,000 경기" -> "2000경기")
+              const cleanSyn = String(syn).replace(/,/g, '').replace(/\s+/g, '');
+              
+              // 2. 숫자가 정상적으로 뽑히는지 확인
+              const match = cleanSyn.match(/^(\d+)(경기|안타|홈런|도루|타점|득점|승|세이브|홀드|탈삼진|이닝)$/);
               if (match) {
                 const num = parseInt(match[1], 10);
                 const type = match[2];
-                // 실제 시너지 요구 수치들 (필요시 추가/수정 가능)
-                const milestones = [100, 150, 200, 250, 300, 400, 500, 1500, 2000, 2500, 3000];
+                // 실제 시너지 요구 수치들
+                const milestones = [50, 100, 150, 200, 250, 300, 400, 500, 1000, 1500, 2000, 2500, 3000];
 
                 milestones.forEach(m => {
-                  if (num >= m) expanded.add(`${m}${type}`);
+                  if (num >= m) {
+                    // 🌟 핵심: DB에 어떤 형태로 적혀있을지 모르니, 모든 형태를 다 주머니에 때려 넣습니다!
+                    expanded.add(`${m}${type}`); // 예: 1500경기
+                    expanded.add(`${m} ${type}`); // 예: 1500 경기
+                    if (m >= 1000) {
+                      const mStr = m.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                      expanded.add(`${mStr}${type}`); // 예: 1,500경기
+                      expanded.add(`${mStr} ${type}`); // 예: 1,500 경기
+                    }
+                  }
                 });
               }
             });
+            // 생성된 모든 하위 시너지를 선수의 시너지 데이터에 합체!
             p.synergy = Array.from(expanded).join(',');
           }
           return p;
         });
       }
     })
-
     if (synRes.ok) {
         const synJson = await synRes.json()
         synergys.value = (Array.isArray(synJson) ? synJson : []).filter((it: any) => Array.isArray(it?.conditions) && it.conditions.length > 0)
