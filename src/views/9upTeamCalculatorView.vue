@@ -313,18 +313,23 @@ const checkSynergyInclusion = (target: string, playerSynergies: string[]) => {
      return playerSynergies.some(s => clean(s) === '신');
   }
 
+  // 🌟 핵심: '시즌'과 '포스트시즌' 글자 겹침으로 인한 교차 발동 완벽 차단 함수!
+  const isIncludesSafe = (sClean: string, kClean: string) => {
+    if (kClean.includes('시즌') && !kClean.includes('포스트') && sClean.includes('포스트시즌')) return false;
+    return sClean.includes(kClean);
+  }
+
   if (playerSynergies.some(s => clean(s) === keyClean)) return true
   const tm = keyClean.match(/^(\D*)(\d+)(\D*)$/)
-  if (!tm) return playerSynergies.some(s => clean(s).includes(keyClean))
-  const [,tp,tn,ts] = tm
   
+  if (!tm) return playerSynergies.some(s => isIncludesSafe(clean(s), keyClean))
+  
+  const [,tp,tn,ts] = tm
   const isYearTarget = tn.length === 4 && (ts === '' || ts === '년' || ts === '년도');
   if (isYearTarget || tp.includes('동명이인') || ts.includes('동명이인')) return false
   
   const tnum = parseInt(tn,10)
 
-  // 🌟 핵심: 일반(단일 시즌) 기록과 통산 기록을 완벽히 나누는 수치 기준선
-  // 이 숫자 이상이면 "아, 이건 무조건 통산 기록이구나!" 라고 판별합니다.
   const careerThresholds: Record<string, number> = {
     '경기': 200, '안타': 250, '홈런': 100, '도루': 100, '타점': 200, '득점': 200,
     '승': 40, '세이브': 80, '홀드': 80, '탈삼진': 350, '이닝': 350
@@ -333,7 +338,8 @@ const checkSynergyInclusion = (target: string, playerSynergies: string[]) => {
 
   return playerSynergies.some(s => {
     const sClean = clean(s)
-    if (sClean.includes(keyClean)) return true
+    if (isIncludesSafe(sClean, keyClean)) return true;
+    
     const parts = sClean.split('-')
     for (const part of parts) {
       const sm = part.match(/^(\D*)(\d+)(\D*)$/)
@@ -345,15 +351,13 @@ const checkSynergyInclusion = (target: string, playerSynergies: string[]) => {
       
       const cleanPrefix = (str: string) => str.replace(/통산|투수|타자/g, '').trim();
       
-      // 숫자와 조건이 맞더라도...
       if (cleanPrefix(pp) === cleanPrefix(tp) && ps === ts && parseInt(pn,10) >= tnum) {
+        if (!isCareer(tnum, ts) && isCareer(parseInt(pn,10), ps)) continue; 
         
-        // 🌟 철벽 방어: 요구하는 건 '일반(180안타)'인데 선수가 가진 게 '통산(1500안타)'이면 교차 발동 차단!
-        if (!isCareer(tnum, ts) && isCareer(parseInt(pn,10), ps)) {
-          continue; // "어딜 통산이 일반에 끼어들어!" 하고 무시함
-        }
+        // 🌟 혹시 연도(숫자)가 포함된 시즌/포스트시즌일 경우의 방어막
+        if (ts.includes('시즌') && !ts.includes('포스트') && ps.includes('포스트시즌')) continue;
         
-        return true; // 180안타 >= 170안타, 혹은 2000안타 >= 1500안타 등 같은 물에서 놀 때만 합격!
+        return true; 
       }
     }
     return false
@@ -601,6 +605,11 @@ const getExpandedPlayerSynergies = (p: Raw) => {
   });
   
   return Array.from(expanded);
+}
+// 🌟 개인 시너지 '조건 미달' 시 필요 인원수 텍스트 반환 도우미 함수
+const getPendingSynergyText = (synName: string) => {
+  const found = pendingTeamSynergies.value.find(s => s.name === synName);
+  return found ? `${found.current} / ${found.required}명` : '조건미달';
 }
   
 // 🌟 기존 코드: 절대 지우지 말고 그대로 두세요! (파워 계산기 엔진)
@@ -1789,12 +1798,13 @@ onMounted(async () => {
                          </div>
                        </div>
                        
-                       <!-- 🔴 조건 미달 시너지 그룹 -->
+<!-- 🔴 조건 미달 시너지 그룹 -->
                        <div v-if="getExpandedPlayerSynergies(lineup[selectedSlot]).filter(s => !isSynergyActiveForPlayer(lineup[selectedSlot], s)).length > 0" class="flex flex-col gap-1 mt-1">
-                         <div class="text-[10px] font-black text-neutral-500 dark:text-neutral-400 mb-0.5 border-t border-indigo-100 dark:border-indigo-800/50 pt-2">🔴 발동 대기 (조건 미달)</div>
+                         <div class="text-[10px] font-black text-neutral-500 dark:text-neutral-400 mb-0.5 border-t border-indigo-100 dark:border-indigo-800/50 pt-2">🔴 발동 대기 (필요 인원)</div>
                          <div v-for="(rawSyn, idx) in getExpandedPlayerSynergies(lineup[selectedSlot]).filter(s => !isSynergyActiveForPlayer(lineup[selectedSlot], s))" :key="'inact_'+idx" class="flex justify-between items-center text-[10px] bg-neutral-100 dark:bg-neutral-800/50 px-2 py-1.5 rounded border border-neutral-200 dark:border-neutral-700 opacity-60 flex-shrink-0">
                             <span class="text-neutral-500">{{ rawSyn }}</span>
-                            <span class="text-red-400 font-medium whitespace-nowrap ml-2">조건미달</span>
+                            <!-- 🌟 도우미 함수를 호출해서 n / n명 형태로 출력되게 변경 -->
+                            <span class="text-red-500 font-bold bg-red-50 px-1.5 py-0.5 rounded whitespace-nowrap ml-2 border border-red-100">{{ getPendingSynergyText(rawSyn) }}</span>
                          </div>
                        </div>
 
