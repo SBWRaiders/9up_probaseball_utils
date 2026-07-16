@@ -888,6 +888,45 @@ const clearSlot = (pos: string) => {
   }
 }
 
+// 🌟 드래그 앤 드롭으로 자리 맞바꾸기 로직 🌟
+const onDragStart = (e: DragEvent, slot: string) => {
+  if (!lineup.value[slot]) {
+    e.preventDefault();
+    return;
+  }
+  e.dataTransfer?.setData('text/plain', slot);
+  if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+}
+
+const onDrop = (e: DragEvent, targetSlot: string) => {
+  const sourceSlot = e.dataTransfer?.getData('text/plain');
+  if (!sourceSlot || sourceSlot === targetSlot) return;
+
+  // 타자/투수 칸끼리 억지로 맞바꾸는 것 방지 (벤치는 자유롭게 이동 가능)
+  const getGroup = (s: string) => s.startsWith('SP') || s.startsWith('RP') ? 'PITCHER' : s.startsWith('BENCH') ? 'BENCH' : 'BATTER';
+  const sourceGroup = getGroup(sourceSlot);
+  const targetGroup = getGroup(targetSlot);
+  
+  if (sourceGroup !== targetGroup && sourceGroup !== 'BENCH' && targetGroup !== 'BENCH') {
+    alert('타자와 투수 칸은 서로 직접 바꿀 수 없습니다.');
+    return;
+  }
+
+  // 1. 라인업 데이터(선수 본체) 맞교환
+  const tempPlayer = lineup.value[targetSlot];
+  lineup.value[targetSlot] = lineup.value[sourceSlot];
+  lineup.value[sourceSlot] = tempPlayer;
+
+  // 2. 장비(각인, 스킬, 성장 수치 등) 데이터 통째로 맞교환
+  const tempBuff = playerBuffs.value[targetSlot];
+  playerBuffs.value[targetSlot] = playerBuffs.value[sourceSlot];
+  playerBuffs.value[sourceSlot] = tempBuff;
+
+  // 3. 만약 화면에 띄워둔(선택된) 선수였다면, 바뀐 자리로 포커스 따라가기
+  if (selectedSlot.value === sourceSlot) selectedSlot.value = targetSlot;
+  else if (selectedSlot.value === targetSlot) selectedSlot.value = sourceSlot;
+}  
+
 const selectSlot = (slot: string) => { 
   selectedSlot.value = slot; 
   isManualSelection.value = true;
@@ -1341,13 +1380,13 @@ onMounted(async () => {
             <button @click="lineupViewMode = 'bench'" :class="lineupViewMode === 'bench' ? 'bg-white dark:bg-neutral-600 shadow-sm font-bold text-blue-600' : 'text-neutral-500'" class="flex-1 py-2 text-xs rounded-lg transition-all">벤치</button>
           </div>
 
-          <div class="flex-1 overflow-y-auto p-4 custom-scrollbar bg-neutral-50/30 dark:bg-neutral-900/30">
+<div class="flex-1 overflow-y-auto p-4 custom-scrollbar bg-neutral-50/30 dark:bg-neutral-900/30">
             <!-- 타자 다이아몬드 UI -->
             <div v-if="lineupViewMode === 'batter'" class="h-full flex flex-col justify-center items-center">
                <div class="grid grid-cols-3 gap-4 w-full max-w-lg mb-8">
-                 <div v-for="pos in ['LF', 'CF', 'RF']" :key="pos">
+                 <div v-for="pos in ['LF', 'CF', 'RF']" :key="pos" @dragover.prevent @drop="onDrop($event, pos)">
                    <div v-if="!lineup[pos]" class="h-[100px] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === pos}" @click="selectSlot(pos)"><span class="text-[10px] font-bold">{{ pos }}</span></div>
-                   <div v-else class="relative h-[100px] border rounded-xl flex flex-col items-center p-2 cursor-pointer transition-all shadow-sm group bg-white dark:bg-neutral-800 hover:border-indigo-300 dark:hover:border-indigo-500" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200 dark:ring-indigo-800': selectedSlot === pos, 'border-neutral-200 dark:border-neutral-600': selectedSlot !== pos}" @click="selectSlot(pos)">
+                   <div v-else draggable="true" @dragstart="onDragStart($event, pos)" class="relative h-[100px] border rounded-xl flex flex-col items-center p-2 cursor-pointer transition-all shadow-sm group bg-white dark:bg-neutral-800 hover:border-indigo-300 dark:hover:border-indigo-500" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200 dark:ring-indigo-800': selectedSlot === pos, 'border-neutral-200 dark:border-neutral-600': selectedSlot !== pos}" @click="selectSlot(pos)">
                       <div class="absolute top-1 left-2 text-[9px] font-black text-neutral-400 dark:text-neutral-500">{{ pos }}</div>
                       <button class="absolute top-1 right-1 w-4 h-4 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500 hover:bg-red-500 hover:text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity" @click.stop="clearSlot(pos)">×</button>
                       <img :src="`/assets/logos/grade/${lineup[pos].grade}.png`" class="w-8 h-8 object-contain mt-1 drop-shadow-sm" @error="hideImage" />
@@ -1359,9 +1398,9 @@ onMounted(async () => {
                  </div>
                </div>
                <div class="grid grid-cols-4 gap-4 w-full max-w-2xl mb-8">
-                 <div v-for="pos in ['3B', 'SS', '2B', '1B']" :key="pos">
+                 <div v-for="pos in ['3B', 'SS', '2B', '1B']" :key="pos" @dragover.prevent @drop="onDrop($event, pos)">
                    <div v-if="!lineup[pos]" class="h-[100px] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === pos}" @click="selectSlot(pos)"><span class="text-[10px] font-bold">{{ pos }}</span></div>
-                   <div v-else class="relative h-[100px] border rounded-xl flex flex-col items-center p-2 cursor-pointer transition-all shadow-sm group bg-white dark:bg-neutral-800 hover:border-indigo-300 dark:hover:border-indigo-500" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200 dark:ring-indigo-800': selectedSlot === pos, 'border-neutral-200 dark:border-neutral-600': selectedSlot !== pos}" @click="selectSlot(pos)">
+                   <div v-else draggable="true" @dragstart="onDragStart($event, pos)" class="relative h-[100px] border rounded-xl flex flex-col items-center p-2 cursor-pointer transition-all shadow-sm group bg-white dark:bg-neutral-800 hover:border-indigo-300 dark:hover:border-indigo-500" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200 dark:ring-indigo-800': selectedSlot === pos, 'border-neutral-200 dark:border-neutral-600': selectedSlot !== pos}" @click="selectSlot(pos)">
                       <div class="absolute top-1 left-2 text-[9px] font-black text-neutral-400 dark:text-neutral-500">{{ pos }}</div>
                       <button class="absolute top-1 right-1 w-4 h-4 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500 hover:bg-red-500 hover:text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity" @click.stop="clearSlot(pos)">×</button>
                       <img :src="`/assets/logos/grade/${lineup[pos].grade}.png`" class="w-8 h-8 object-contain mt-1 drop-shadow-sm" @error="hideImage" />
@@ -1373,9 +1412,9 @@ onMounted(async () => {
                  </div>
                </div>
                <div class="grid grid-cols-2 gap-16 w-full max-w-md">
-                 <div v-for="pos in ['C', 'DH']" :key="pos">
+                 <div v-for="pos in ['C', 'DH']" :key="pos" @dragover.prevent @drop="onDrop($event, pos)">
                    <div v-if="!lineup[pos]" class="h-[100px] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === pos}" @click="selectSlot(pos)"><span class="text-[10px] font-bold">{{ pos }}</span></div>
-                   <div v-else class="relative h-[100px] border rounded-xl flex flex-col items-center p-2 cursor-pointer transition-all shadow-sm group bg-white dark:bg-neutral-800 hover:border-indigo-300 dark:hover:border-indigo-500" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200 dark:ring-indigo-800': selectedSlot === pos, 'border-neutral-200 dark:border-neutral-600': selectedSlot !== pos}" @click="selectSlot(pos)">
+                   <div v-else draggable="true" @dragstart="onDragStart($event, pos)" class="relative h-[100px] border rounded-xl flex flex-col items-center p-2 cursor-pointer transition-all shadow-sm group bg-white dark:bg-neutral-800 hover:border-indigo-300 dark:hover:border-indigo-500" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200 dark:ring-indigo-800': selectedSlot === pos, 'border-neutral-200 dark:border-neutral-600': selectedSlot !== pos}" @click="selectSlot(pos)">
                       <div class="absolute top-1 left-2 text-[9px] font-black text-neutral-400 dark:text-neutral-500">{{ pos }}</div>
                       <button class="absolute top-1 right-1 w-4 h-4 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500 hover:bg-red-500 hover:text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity" @click.stop="clearSlot(pos)">×</button>
                       <img :src="`/assets/logos/grade/${lineup[pos].grade}.png`" class="w-8 h-8 object-contain mt-1 drop-shadow-sm" @error="hideImage" />
@@ -1393,9 +1432,9 @@ onMounted(async () => {
               <div>
                 <h3 class="text-xs font-bold text-neutral-500 mb-3 ml-1">선발 투수</h3>
                 <div class="grid grid-cols-3 sm:grid-cols-5 gap-3">
-                  <div v-for="i in 5" :key="'SP'+i">
+                  <div v-for="i in 5" :key="'SP'+i" @dragover.prevent @drop="onDrop($event, 'SP'+i)">
                      <div v-if="!lineup['SP'+i]" class="h-[100px] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === 'SP'+i}" @click="selectSlot('SP'+i)"><span class="text-[10px] font-bold">{{ 'SP'+i }}</span></div>
-                   <div v-else class="relative h-[100px] border rounded-xl flex flex-col items-center p-2 cursor-pointer transition-all shadow-sm group bg-white dark:bg-neutral-800 hover:border-indigo-300 dark:hover:border-indigo-500" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200 dark:ring-indigo-800': selectedSlot === 'SP'+i, 'border-neutral-200 dark:border-neutral-600': selectedSlot !== 'SP'+i}" @click="selectSlot('SP'+i)">
+                   <div v-else draggable="true" @dragstart="onDragStart($event, 'SP'+i)" class="relative h-[100px] border rounded-xl flex flex-col items-center p-2 cursor-pointer transition-all shadow-sm group bg-white dark:bg-neutral-800 hover:border-indigo-300 dark:hover:border-indigo-500" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200 dark:ring-indigo-800': selectedSlot === 'SP'+i, 'border-neutral-200 dark:border-neutral-600': selectedSlot !== 'SP'+i}" @click="selectSlot('SP'+i)">
                       <div class="absolute top-1 left-2 text-[9px] font-black text-neutral-400 dark:text-neutral-500">{{ 'SP'+i }}</div>
                       <button class="absolute top-1 right-1 w-4 h-4 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500 hover:bg-red-500 hover:text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity" @click.stop="clearSlot('SP'+i)">×</button>
                       <img :src="`/assets/logos/grade/${lineup['SP'+i].grade}.png`" class="w-8 h-8 object-contain mt-1 drop-shadow-sm" @error="hideImage" />
@@ -1410,9 +1449,9 @@ onMounted(async () => {
               <div>
                 <h3 class="text-xs font-bold text-neutral-500 mb-3 ml-1">계투 및 마무리</h3>
                 <div class="grid grid-cols-3 sm:grid-cols-6 gap-3">
-                  <div v-for="i in 6" :key="'RP'+i">
+                  <div v-for="i in 6" :key="'RP'+i" @dragover.prevent @drop="onDrop($event, 'RP'+i)">
                      <div v-if="!lineup['RP'+i]" class="h-[100px] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === 'RP'+i}" @click="selectSlot('RP'+i)"><span class="text-[10px] font-bold">{{ 'RP'+i }}</span></div>
-                   <div v-else class="relative h-[100px] border rounded-xl flex flex-col items-center p-2 cursor-pointer transition-all shadow-sm group bg-white dark:bg-neutral-800 hover:border-indigo-300 dark:hover:border-indigo-500" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200 dark:ring-indigo-800': selectedSlot === 'RP'+i, 'border-neutral-200 dark:border-neutral-600': selectedSlot !== 'RP'+i}" @click="selectSlot('RP'+i)">
+                   <div v-else draggable="true" @dragstart="onDragStart($event, 'RP'+i)" class="relative h-[100px] border rounded-xl flex flex-col items-center p-2 cursor-pointer transition-all shadow-sm group bg-white dark:bg-neutral-800 hover:border-indigo-300 dark:hover:border-indigo-500" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200 dark:ring-indigo-800': selectedSlot === 'RP'+i, 'border-neutral-200 dark:border-neutral-600': selectedSlot !== 'RP'+i}" @click="selectSlot('RP'+i)">
                       <div class="absolute top-1 left-2 text-[9px] font-black text-neutral-400 dark:text-neutral-500">{{ 'RP'+i }}</div>
                       <button class="absolute top-1 right-1 w-4 h-4 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500 hover:bg-red-500 hover:text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity" @click.stop="clearSlot('RP'+i)">×</button>
                       <img :src="`/assets/logos/grade/${lineup['RP'+i].grade}.png`" class="w-8 h-8 object-contain mt-1 drop-shadow-sm" @error="hideImage" />
@@ -1430,9 +1469,9 @@ onMounted(async () => {
             <div v-else class="space-y-4">
                <h3 class="text-xs font-bold text-neutral-500 mb-3 ml-1">벤치 멤버</h3>
                <div class="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                  <div v-for="i in 8" :key="'BENCH'+i">
+                  <div v-for="i in 8" :key="'BENCH'+i" @dragover.prevent @drop="onDrop($event, 'BENCH'+i)">
                      <div v-if="!lineup['BENCH'+i]" class="h-[100px] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === 'BENCH'+i}" @click="selectSlot('BENCH'+i)"><span class="text-[10px] font-bold">{{ 'BENCH'+i }}</span></div>
-                   <div v-else class="relative h-[100px] border rounded-xl flex flex-col items-center p-2 cursor-pointer transition-all shadow-sm group bg-white dark:bg-neutral-800 hover:border-indigo-300 dark:hover:border-indigo-500" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200 dark:ring-indigo-800': selectedSlot === 'BENCH'+i, 'border-neutral-200 dark:border-neutral-600': selectedSlot !== 'BENCH'+i}" @click="selectSlot('BENCH'+i)">
+                   <div v-else draggable="true" @dragstart="onDragStart($event, 'BENCH'+i)" class="relative h-[100px] border rounded-xl flex flex-col items-center p-2 cursor-pointer transition-all shadow-sm group bg-white dark:bg-neutral-800 hover:border-indigo-300 dark:hover:border-indigo-500" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200 dark:ring-indigo-800': selectedSlot === 'BENCH'+i, 'border-neutral-200 dark:border-neutral-600': selectedSlot !== 'BENCH'+i}" @click="selectSlot('BENCH'+i)">
                       <div class="absolute top-1 left-2 text-[9px] font-black text-neutral-400 dark:text-neutral-500">{{ 'BENCH'+i }}</div>
                       <button class="absolute top-1 right-1 w-4 h-4 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500 hover:bg-red-500 hover:text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity" @click.stop="clearSlot('BENCH'+i)">×</button>
                       <img :src="`/assets/logos/grade/${lineup['BENCH'+i].grade}.png`" class="w-8 h-8 object-contain mt-1 drop-shadow-sm" @error="hideImage" />
