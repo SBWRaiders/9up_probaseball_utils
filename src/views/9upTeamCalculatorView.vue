@@ -2054,10 +2054,10 @@ onMounted(async () => {
                       <div v-for="slotNum in [1, 2]" :key="'imp_slot_'+slotNum" 
                            class="border rounded-lg p-2 min-h-[70px] flex flex-col justify-center cursor-pointer transition-colors relative"
                            :class="playerBuffs[selectedSlot]?.[`imprint${slotNum}`] ? 'border-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20' : 'border-dashed border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-700'"
-                           @click="openEquipModal(selectedSlot, slotNum as 1|2)">
+                           @click="openEquipModal(selectedSlot, slotNum)">
                          
                          <div v-if="playerBuffs[selectedSlot]?.[`imprint${slotNum}`]" class="w-full relative">
-                           <button @click.stop="unequipImprint(selectedSlot, slotNum as 1|2)" class="absolute -top-2 -right-2 w-5 h-5 bg-red-100 text-red-500 rounded-full flex items-center justify-center text-[10px] hover:bg-red-500 hover:text-white transition-colors z-10 shadow-sm">×</button>
+                           <button @click.stop="unequipImprint(selectedSlot, slotNum)" class="absolute -top-2 -right-2 w-5 h-5 bg-red-100 text-red-500 rounded-full flex items-center justify-center text-[10px] hover:bg-red-500 hover:text-white transition-colors z-10 shadow-sm">×</button>
                            
                            <div class="flex items-center gap-1 mb-1">
                              <div class="text-[8px] font-black px-1.5 py-0.5 rounded border" :class="getGradeColor(playerBuffs[selectedSlot][`imprint${slotNum}`].grade)">{{ playerBuffs[selectedSlot][`imprint${slotNum}`].grade }}</div>
@@ -2209,18 +2209,18 @@ onMounted(async () => {
     </div>
   </div>
 
-  <!-- 🌟 각인 장착 모달 (해당 선수의 포지션에 맞는 각인만 보여줌!) 🌟 -->
+<!-- 🌟 각인 장착 모달 (해당 선수의 포지션에 맞는 각인만 보여줌!) 🌟 -->
   <div v-if="showImprintEquipper" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
     <div class="bg-white dark:bg-neutral-900 w-full max-w-sm rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[70vh]">
       <div class="flex justify-between items-center p-4 border-b bg-neutral-50">
         <h2 class="text-sm font-bold text-neutral-800">
-          각인 선택 ({{ equipTarget?.pos.startsWith('SP') || equipTarget?.pos.startsWith('RP') ? '투수' : '타자' }}용 슬롯 {{ equipTarget?.slot }})
+          각인 선택 ({{ equipTarget?.pos?.startsWith('SP') || equipTarget?.pos?.startsWith('RP') ? '투수' : '타자' }}용 슬롯 {{ equipTarget?.slot }})
         </h2>
         <button @click="showImprintEquipper = false" class="text-neutral-500 text-2xl font-bold">&times;</button>
       </div>
       <div class="p-4 overflow-y-auto flex-1 custom-scrollbar">
-        <!-- 🌟 타자는 타자 각인만, 투수는 투수 각인만 목록에 뜨도록 필터링! -->
-        <div v-for="imp in imprintInventory.filter(i => i.role === (equipTarget?.pos.startsWith('SP') || equipTarget?.pos.startsWith('RP') ? '투수' : '타자'))" 
+        <!-- 🌟 타자는 타자 각인만, 투수는 투수 각인만 목록에 뜨도록 안전하게 필터링! -->
+        <div v-for="imp in imprintInventory.filter(i => i.role === (equipTarget?.pos?.startsWith('SP') || equipTarget?.pos?.startsWith('RP') ? '투수' : '타자'))" 
              :key="'eq_'+imp.id" @click="equipImprint(imp)" 
              class="flex justify-between items-center border rounded-lg p-2.5 mb-2 bg-white shadow-sm cursor-pointer hover:border-indigo-500 transition-all">
           <div class="flex flex-col">
@@ -2234,8 +2234,8 @@ onMounted(async () => {
         </div>
         
         <!-- 장착 가능한 각인이 없을 때 안내 문구 -->
-        <div v-if="imprintInventory.filter(i => i.role === (equipTarget?.pos.startsWith('SP') || equipTarget?.pos.startsWith('RP') ? '투수' : '타자')).length === 0" class="text-center text-neutral-400 text-xs py-6">
-          이 선수에게 장착할 수 있는 [{{ equipTarget?.pos.startsWith('SP') || equipTarget?.pos.startsWith('RP') ? '투수' : '타자' }}용] 각인이 없습니다.<br>대장간에서 생성해 주세요!
+        <div v-if="imprintInventory.filter(i => i.role === (equipTarget?.pos?.startsWith('SP') || equipTarget?.pos?.startsWith('RP') ? '투수' : '타자')).length === 0" class="text-center text-neutral-400 text-xs py-6">
+          이 선수에게 장착할 수 있는 [{{ equipTarget?.pos?.startsWith('SP') || equipTarget?.pos?.startsWith('RP') ? '투수' : '타자' }}용] 각인이 없습니다.<br>대장간에서 생성해 주세요!
         </div>
       </div>
     </div>
