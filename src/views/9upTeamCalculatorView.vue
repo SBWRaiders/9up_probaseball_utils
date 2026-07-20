@@ -89,9 +89,10 @@ const globalBuffs = reactive({
 const playerBuffs = ref<Record<string, PlayerBuff>>({})
 
 // 🌟 9up 인게임 고증: 각인(Imprint) 시스템 상태 및 로직 🌟
-type ImprintRole = '타자' | '투수'; // 🌟 타자/투수 구분 추가!
+type ImprintRole = '타자' | '투수'; 
 type ImprintGrade = '노말' | '고급' | '특별' | '레전드' | '얼티밋';
-type SubOptType = '무브(컨택)' | '장억(갭파워)' | '홈억(홈런파워)' | '컨트롤(선구)' | '스터프(삼진회피)' | '수비' | '한계투구증가' | '1~2선발시파워증가' | '전체 능력치(%)' | '수익 증가' | '기타 조건부 파워';
+// 🌟 타자/투수 스탯 완벽 분리 및 '전체 능력치' 퍼센트 삭제 🌟
+type SubOptType = '컨택' | '갭파워' | '홈런파워' | '선구' | '삼진회피' | '무브먼트' | '장타억제' | '홈런억제' | '컨트롤' | '스터프' | '수비' | '한계투구 증가' | '1~2선발시 파워증가' | '전체 능력치' | '조건부 파워' | '수익 증가';
 
 interface ImprintSubOption {
   type: SubOptType;
@@ -101,7 +102,7 @@ interface ImprintSubOption {
 interface Imprint {
   id: string;
   name: string;
-  role: ImprintRole; // 🌟 각인의 소속 (타자용/투수용)
+  role: ImprintRole;
   grade: ImprintGrade;
   mainPower: number; 
   subOptions: ImprintSubOption[]; 
@@ -114,12 +115,20 @@ const showImprintManager = ref(false);
 const newImprint = ref({ 
   name: '', role: '타자' as ImprintRole, grade: '레전드' as ImprintGrade, mainPower: 270,
   subOptions: [
-    { type: '무브(컨택)' as SubOptType, value: 0 },
-    { type: '장억(갭파워)' as SubOptType, value: 0 },
-    { type: '전체 능력치(%)' as SubOptType, value: 0 }
+    { type: '컨택' as SubOptType, value: 0 },
+    { type: '갭파워' as SubOptType, value: 0 },
+    { type: '전체 능력치' as SubOptType, value: 0 }
   ],
-  ultimateBonus: { targetGrade: 'Dignity', power: 0 }
+  ultimateBonus: { targetGrade: 'DGN', power: 0 } // 기본값을 실제 내부 등급코드(DGN)로 변경
 });
+
+// 🌟 타자 <-> 투수 변경 시 스탯 옵션 꼬임 방지 🌟
+const handleRoleChange = () => {
+  newImprint.value.subOptions.forEach(opt => {
+    opt.type = newImprint.value.role === '타자' ? '컨택' : '무브먼트';
+    opt.value = 0;
+  });
+};
 
 const updateSubOptionsCount = () => {
   let count = 3; 
@@ -128,7 +137,7 @@ const updateSubOptionsCount = () => {
   if (newImprint.value.grade === '특별') count = 2;
   
   while (newImprint.value.subOptions.length < count) {
-    newImprint.value.subOptions.push({ type: '무브(컨택)', value: 0 });
+    newImprint.value.subOptions.push({ type: newImprint.value.role === '타자' ? '컨택' : '무브먼트', value: 0 });
   }
   if (newImprint.value.subOptions.length > count) {
     newImprint.value.subOptions.splice(count);
@@ -140,7 +149,7 @@ const createImprint = () => {
   const imp: Imprint = {
     id: Date.now().toString(),
     name: newImprint.value.name.trim(),
-    role: newImprint.value.role, // 🌟 타자/투수 속성 저장
+    role: newImprint.value.role,
     grade: newImprint.value.grade,
     mainPower: Number(newImprint.value.mainPower) || 0,
     subOptions: newImprint.value.subOptions.map(o => ({ type: o.type, value: Number(o.value) || 0 }))
@@ -1012,24 +1021,23 @@ nonCoreStats.forEach(s => {
       finalTotal += val
     })
 
-    // --- 🌟 여기서부터 각인 파워 계산 로직 (올바른 위치!) 🌟 ---
+// --- 🌟 여기서부터 각인 파워 계산 로직 (올바른 위치!) 🌟 ---
     let imprintExtraPower = 0;
-    let imprintPercentBonus = 0;
 
     const applyImprint = (imp: Imprint) => {
       if (!imp) return;
       imprintExtraPower += imp.mainPower; // 주옵션 합산
       
       imp.subOptions.forEach(opt => {
-        if (opt.type === '전체 능력치(%)') {
-          imprintPercentBonus += opt.value; // 퍼센트는 따로 모아두기
-        } else if (opt.type !== '수익 증가') {
-          imprintExtraPower += opt.value; // 수익증가 빼고 깡스탯은 전부 합산
+        // 🌟 '전체 능력치'를 포함해 '수익 증가'를 제외한 모든 부가 효과를 '깡파워'로 정직하게 합산!
+        if (opt.type !== '수익 증가') {
+          imprintExtraPower += opt.value; 
         }
       });
 
-      // 얼티밋 전용 등급 효과: 선수의 등급과 맞을 때만 파워 합산
-      if (imp.ultimateBonus && p.grade === imp.ultimateBonus.targetGrade) {
+      // 🌟 얼티밋 전용 등급 효과: 선수의 실제 내부 등급(영문 코드)과 일치할 때만 파워 합산!
+      const pGrade = String(p.grade || '').toUpperCase();
+      if (imp.ultimateBonus && pGrade === imp.ultimateBonus.targetGrade) {
         imprintExtraPower += imp.ultimateBonus.power;
       }
     };
@@ -1037,8 +1045,8 @@ nonCoreStats.forEach(s => {
     applyImprint(buffs.imprint1);
     applyImprint(buffs.imprint2);
 
-    // 선수의 최종 기본 파워에 각인 깡파워를 더하고, 전체 능력치(%) 퍼센트를 뻥튀기 반영!
-    finalTotal = (finalTotal + imprintExtraPower) * (1 + (imprintPercentBonus / 100));
+    // 선수의 최종 기본 파워에 각인 깡파워를 더함 (퍼센트 뻥튀기 로직 완전 삭제!)
+    finalTotal += imprintExtraPower;
     // --- 🌟 여기까지 🌟 ---
 
     result[slot] = { power: Math.round(finalTotal), stats }
@@ -2127,8 +2135,8 @@ onMounted(async () => {
       <!-- 각인 생성 폼 -->
       <div class="p-4 border-b dark:border-neutral-800 flex flex-col gap-3 bg-white dark:bg-neutral-800/80">
         <div class="flex gap-2 items-center">
-          <!-- 🌟 타자용 / 투수용 선택 추가! -->
-          <select v-model="newImprint.role" class="text-xs border rounded p-2 font-bold bg-neutral-100 text-neutral-700 outline-none">
+          <!-- 🌟 역할 변경 시 handleRoleChange 호출로 옵션 꼬임 방지! -->
+          <select v-model="newImprint.role" @change="handleRoleChange" class="text-xs border rounded p-2 font-bold bg-neutral-100 text-neutral-700 outline-none">
             <option value="타자">⚾ 타자용</option>
             <option value="투수">⚾ 투수용</option>
           </select>
@@ -2151,16 +2159,31 @@ onMounted(async () => {
           <div class="text-[10px] font-bold text-neutral-600 mb-1">부가 효과 설정 (레전드/얼티밋 기본 3줄)</div>
           <div v-for="(opt, idx) in newImprint.subOptions" :key="idx" class="flex gap-2">
             <select v-model="opt.type" class="text-xs border rounded p-1.5 flex-1 text-neutral-700 font-medium">
-              <option value="무브(컨택)">무브 (컨택)</option>
-              <option value="장억(갭파워)">장억 (갭파워)</option>
-              <option value="홈억(홈런파워)">홈억 (홈런파워)</option>
-              <option value="컨트롤(선구)">컨트롤 (선구)</option>
-              <option value="스터프(삼진회피)">스터프 (삼진회피)</option>
+              
+              <!-- 🌟 타자일 때만 보여주는 스탯 -->
+              <template v-if="newImprint.role === '타자'">
+                <option value="컨택">컨택</option>
+                <option value="갭파워">갭파워</option>
+                <option value="홈런파워">홈런파워</option>
+                <option value="선구">선구</option>
+                <option value="삼진회피">삼진회피</option>
+              </template>
+              
+              <!-- 🌟 투수일 때만 보여주는 스탯 -->
+              <template v-else>
+                <option value="무브먼트">무브먼트</option>
+                <option value="장타억제">장타억제</option>
+                <option value="홈런억제">홈런억제</option>
+                <option value="컨트롤">컨트롤</option>
+                <option value="스터프">스터프</option>
+                <option value="한계투구 증가">한계투구 증가</option>
+                <option value="1~2선발시 파워증가">1~2선발시 파워증가</option>
+              </template>
+              
+              <!-- 타자/투수 공통 스탯 -->
               <option value="수비">수비</option>
-              <option value="한계투구증가">한계투구 증가</option>
-              <option value="1~2선발시파워증가">1~2선발시 파워증가</option>
-              <option value="전체 능력치(%)">전체 능력치 상승(%)</option>
-              <option value="기타 조건부 파워">조건부 파워 (박빙/주자 등)</option>
+              <option value="전체 능력치">전체 능력치</option>
+              <option value="조건부 파워">조건부 파워 (박빙/주자 등)</option>
               <option value="수익 증가">경기 총 수익 증가</option>
             </select>
             <input v-model="opt.value" type="number" placeholder="수치" class="w-20 text-xs border rounded p-1.5 text-center">
@@ -2169,13 +2192,20 @@ onMounted(async () => {
 
         <!-- 얼티밋 전용 4번째 부가 효과 -->
         <div v-if="newImprint.grade === '얼티밋'" class="flex items-center gap-2 bg-red-50 border border-red-200 p-2 rounded">
-          <span class="text-[10px] font-bold text-red-600 shrink-0">등급 효과(얼티밋 전용)</span>
+          <span class="text-[10px] font-bold text-red-600 shrink-0">등급 효과(얼티밋)</span>
+          <!-- 🌟 얼티밋 적용 등급 대거 추가! (실제 시스템 코드 사용) 🌟 -->
           <select v-model="newImprint.ultimateBonus.targetGrade" class="text-xs border rounded p-1 text-red-800">
-            <option value="Dignity">디그니티 (Dignity)</option>
-            <option value="Top Class">탑클래스 (Top Class)</option>
-            <option value="Ace">에이스 (Ace)</option>
+            <option value="DGN">디그니티 (DGN)</option>
+            <option value="TOP">탑클래스 (TOP)</option>
+            <option value="ACE">에이스 (ACE)</option>
+            <option value="HIT">히트 (HIT)</option>
+            <option value="TEA">팀플 (TEA)</option>
+            <option value="MMVP">월간MVP (MMVP)</option>
+            <option value="ROY">신인왕 (ROY)</option>
+            <option value="GGY">연도골글 (GGY)</option>
+            <option value="GG">골글 (GG)</option>
           </select>
-          <span class="text-[10px] text-neutral-500">장착시 파워 +</span>
+          <span class="text-[10px] text-neutral-500">+</span>
           <input v-model="newImprint.ultimateBonus.power" type="number" class="w-16 text-xs border rounded p-1 text-center font-bold text-red-600">
         </div>
 
@@ -2189,15 +2219,14 @@ onMounted(async () => {
           <div v-for="imp in imprintInventory" :key="imp.id" class="flex justify-between items-center border border-neutral-200 rounded-lg p-3 bg-white shadow-sm">
             <div class="flex flex-col">
               <div class="flex items-center gap-1.5 mb-1">
-                <!-- 🌟 타자/투수 뱃지 추가 -->
                 <span class="text-[9px] font-black px-1.5 py-0.5 rounded" :class="imp.role === '타자' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'">{{ imp.role }}</span>
                 <span class="text-[9px] font-black px-1.5 py-0.5 rounded border" :class="getGradeColor(imp.grade)">{{ imp.grade }}</span>
                 <span class="font-bold text-sm">{{ imp.name }}</span>
                 <span class="text-xs text-indigo-600 font-bold ml-1">주옵+{{ imp.mainPower }}</span>
               </div>
               <div class="text-[10px] text-neutral-500 flex flex-wrap gap-x-2">
-                <span v-for="(opt, idx) in imp.subOptions" :key="idx" :class="{'text-orange-500 font-bold': opt.type.includes('%')}">
-                  {{ opt.type }}+{{ opt.value }}{{ opt.type.includes('%') ? '%' : '' }}
+                <span v-for="(opt, idx) in imp.subOptions" :key="idx" :class="{'text-orange-500 font-bold': opt.type === '전체 능력치'}">
+                  {{ opt.type }}+{{ opt.value }}
                 </span>
                 <span v-if="imp.ultimateBonus" class="text-red-500 font-bold">
                   [등급효과] {{ imp.ultimateBonus.targetGrade }}+{{ imp.ultimateBonus.power }}
