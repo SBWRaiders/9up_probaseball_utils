@@ -279,8 +279,8 @@ const playerSynergyCategory = ref('전체');
 const getSynergyCategory = (synName: string) => {
   const name = String(synName || '').replace(/\s+/g, '').trim();
   
-  // 🌟 예외 처리 VIP: '라이벌' 키워드 추가! (중간에 '-' 기호가 있어도 기록 탭에 안 뺏기고 무조건 인물로 직행!)
-  if (name.match(/대통령배MVP|봉황대기MVP|청룡기MVP|고춧가루|왕조주역|돌격대|황금세대|\d{4}국가대표팀|실업야구|라이벌/)) {
+  // 🌟 예외 처리 VIP: '원투펀치' 키워드 추가! (무조건 인물 탭으로 직행!)
+  if (name.match(/대통령배MVP|봉황대기MVP|청룡기MVP|고춧가루|왕조주역|돌격대|황금세대|\d{4}국가대표팀|실업야구|라이벌|원투펀치/)) {
     return '인물';
   }
 
@@ -290,7 +290,7 @@ const getSynergyCategory = (synName: string) => {
   // 2. 출신 (학교, 외국인 등)
   if (name.match(/출신|외국인|용병|해외파|고등학교|대학교|중학교|초등학교/) || name.endsWith('고') || name.endsWith('대') || name.endsWith('상고') || name.endsWith('공고')) return '출신';
   
-  // 3. 기록 (통산, 한시즌, 경기 등) - 🌟 '1위' 키워드 추가! (장타율1위, 평균자책점1위 등을 기록 탭으로!)
+  // 3. 기록 (통산, 한시즌, 경기 등)
   if (name.match(/경기|안타|홈런|도루|타점|득점|승|세이브|홀드|탈삼진|이닝|클럽|철인|기록|-|1위/)) return '기록';
   
   // 4. 인물 (나머지 특수 시너지들)
