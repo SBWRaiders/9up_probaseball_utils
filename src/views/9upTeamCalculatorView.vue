@@ -926,82 +926,51 @@ const getManagerBonusText = (typeKey: string, enhance: number) => {
   return `${mainName} +${stats.main}, ${subName} +${stats.sub}`;
 };
 
-const computedPlayerStats = computed(() => {
-  const result: Record<string, { power: number, stats: Record<string, number> }> = {}
-  Object.keys(lineup.value).forEach(slot => {
-    const p = lineup.value[slot]
-    if (!p) return
-    const buffs = playerBuffs.value[slot]
-    if (!buffs) return
+let finalTotal = 0
+    const stats: Record<string, number> = {}
 
-    const isPit = isPitcher(p);
-    let baseSum = 0
-    const coreStats = isPit ? ['movement', 'longHitSuppression', 'homeRunSuppression', 'control', 'stuff'] : ['contact', 'gapPower', 'homeRunPower', 'plateDiscipline', 'strikeoutAvoidance']
-    const nonCoreStats = isPit ? ['defense', 'pitchLimit', 'runnerControl'] : ['stealing', 'baseRunning', 'defense']
-    coreStats.forEach(s => baseSum += Number(p[s] || 0))
-    nonCoreStats.forEach(s => baseSum += Number(p[s] || 0))
+    // 🌟 1. 각인 스탯 미리 계산 (주옵/부옵을 5대 스탯에 정확히 분배) 🌟
+    let imprintStatBonus: Record<string, number> = {};
+    let imprintGeneralPower = 0; // 스탯 외의 파워 (조건부 등)
     
-    const pTeams = toArray(p.team).map(toLowerCase);
-    const isMyTeam = (globalBuffs.preferredTeam || []).some(t => pTeams.includes(t));
-    const appliedTeamLevelBuff = getTeamLevelPower(globalBuffs.teamLevel, isMyTeam);
-    const growthA = Number(Math.max(0, buffs.playerLevel - 1) * 10) + buffs.collectionBuff + appliedTeamLevelBuff + buffs.careerLevelBuff + (buffs.enhancementLevel * getEnhanceMultiplier(p))
-    const flatC = buffs.binderBuff + globalBuffs.clanBuff + buffs.careerAllStatFlat + getBreakthroughFixed(p, buffs.breakthroughLevel)
-    
-    const is1st2ndSP = slot === 'SP1' || slot === 'SP2';
-    const imprintStarterAddedPower = is1st2ndSP ? buffs.imprintStarterPower : 0;
-    
-    let autoSynergyFixed = 0, autoSynergyPercent = 0, skillPowerPercent = 0, statSpecificSkillPercents: Record<string, number> = {}
-    activeTeamSynergies.value.forEach(syn => {
-      if (isPlayerReceivingSynergy(p, syn.name)) {
-        syn.bonuses.forEach(b => {
-           if (b.stat === 'power') {
-            if (b.bonus.unit === 'fixed') autoSynergyFixed += b.bonus.value
-            else if (b.bonus.unit === 'percent') autoSynergyPercent += b.bonus.value
-          }
-        })
-      }
-    })
-    const careerTeamPower = getSameTeamCount(p) * 2 * getCareerTeamMultiplier(buffs.careerTeamCount);
-    const autoTeamDignityBuff = calculateTeamPlayerDignityBuff(p);
+    if (buffs) {
+      const applyImp = (imp: Imprint) => {
+         if(!imp) return;
+         
+         const statKeyMap: Record<string, string> = {
+           '컨택': 'contact', '갭파워': 'gapPower', '홈런파워': 'homeRunPower', '선구': 'plateDiscipline', '삼진회피': 'strikeoutAvoidance',
+           '무브먼트': 'movement', '장타억제': 'longHitSuppression', '홈런억제': 'homeRunSuppression', '컨트롤': 'control', '스터프': 'stuff',
+           '수비': 'defense', '한계투구 증가': 'pitchLimit'
+         };
+         
+         // 🎯 주옵션: 해당 스탯에 직접 수치만큼 더해줌!
+         const mainKey = statKeyMap[imp.mainStat];
+         if (mainKey) imprintStatBonus[mainKey] = (imprintStatBonus[mainKey] || 0) + imp.mainPower;
+         else imprintGeneralPower += imp.mainPower;
 
-    // 🌟 히트/에이스/골글 카드 자팀 인원 비례 파워 자동 계산 🌟
-    const pGrade = String(p.grade || '').toUpperCase();
-    const dynamicHitAceBuff = ['HIT', 'ACE', 'GG'].includes(pGrade) ? getSameTeamCount(p) * 32 : 0;
-    
-    const growthB = careerTeamPower + dynamicHitAceBuff + autoTeamDignityBuff + autoSynergyFixed + imprintStarterAddedPower;
-    
-    buffs.selectedSkills.forEach(s => {
-      if (isSkillActive(s, slot, buffs.battingOrder)) {
-         const eff = SKILL_EFFECTS[s]
-         if (eff) {
-           skillPowerPercent += eff.powerPercent || 0
-           for (const [k, v] of Object.entries(eff.stats || {})) statSpecificSkillPercents[k] = (statSpecificSkillPercents[k] || 0) + Number(v)
+         // 🎯 부옵션 처리
+         imp.subOptions.forEach(opt => {
+           if (opt.type === '전체 능력치') {
+             // '전체 능력치'는 %가 아니라 코어 5대 스탯 각각에 수치(깡스탯)만큼 평등하게 더해줌!
+             coreStats.forEach(c => imprintStatBonus[c] = (imprintStatBonus[c] || 0) + opt.value);
+           } else if (opt.type !== '수익 증가') {
+             const subKey = statKeyMap[opt.type];
+             if (subKey) imprintStatBonus[subKey] = (imprintStatBonus[subKey] || 0) + opt.value;
+             else imprintGeneralPower += opt.value;
+           }
+         });
+
+         const pGrade = String(p.grade || '').toUpperCase();
+         if (imp.ultimateBonus && pGrade === imp.ultimateBonus.targetGrade) {
+           imprintGeneralPower += imp.ultimateBonus.power;
          }
-      }
-    })
-    const globalPercent = skillPowerPercent + autoSynergyPercent + buffs.ultimateImprintPercent
-    const globalPercentPool = coreStats.reduce((acc, s) => acc + Number(p[s]||0), 0) + nonCoreStats.reduce((acc, s) => acc + Number(p[s]||0), 0) + growthA
-    const globalBonusTotal = globalPercentPool * (globalPercent / 100)
-    
-    let managerMainStat = 0;
-    let managerSubStat = 0;
-    let managerMainName = '';
-    let managerSubName = '';
-    
-    if (globalBuffs.managerType) {
-      const isMy = globalBuffs.managerType.startsWith('my_');
-      const typeStr = globalBuffs.managerType.split('_')[1];
-      const table = isMy ? MANAGER_STATS_MY : MANAGER_STATS_COM;
-      const level = Math.min(15, Math.max(0, globalBuffs.managerEnhance || 0));
-      managerMainStat = table[level].main;
-      managerSubStat = table[level].sub;
-      managerMainName = MANAGER_TYPES[typeStr].main;
-      managerSubName = MANAGER_TYPES[typeStr].sub;
+      };
+      applyImp(buffs.imprint1);
+      applyImp(buffs.imprint2);
     }
 
-    let finalTotal = 0
-    const stats: Record<string, number> = {}
-coreStats.forEach(s => {
+    // 🌟 2. 세부 스탯 및 최종 파워 계산 🌟
+    coreStats.forEach(s => {
       const base = Number(p[s] || 0)
       let preSpec = base + (growthA/5) + (growthB/5) + (globalBonusTotal/5)
       let specBonus = preSpec * ((statSpecificSkillPercents[s] || 0) / 100)
@@ -1009,51 +978,33 @@ coreStats.forEach(s => {
       if (s === managerMainName) val += managerMainStat;
       if (s === managerSubName) val += managerSubStat;
       
-      // 🌟 개별 스탯 증가분 + '전체 능력치 증가분'을 모두 더해줌
       val += Number(buffs.careerStats?.[s] || 0) + Number(buffs.imprintStats?.[s] || 0)
       val += Number(buffs.imprintCoreStat || 0) + Number(buffs.careerCoreStat || 0)
+      
+      // 🎯 각인에서 분류된 스탯 보너스를 각 항목에 정직하게 합산
+      val += Number(imprintStatBonus[s] || 0)
 
       stats[s] = Math.round(val)
       finalTotal += val
     })
-nonCoreStats.forEach(s => {
+    
+    nonCoreStats.forEach(s => {
       let base = Number(p[s] || 0)
       if (statSpecificSkillPercents[s]) base += base * (statSpecificSkillPercents[s] / 100)
       let val = base
       if (s === managerMainName) val += managerMainStat;
       if (s === managerSubName) val += managerSubStat;
       val += Number(buffs.careerStats?.[s] || 0) + Number(buffs.imprintStats?.[s] || 0)
+      
+      // 🎯 수비, 한계투구 등도 정확히 합산
+      val += Number(imprintStatBonus[s] || 0)
+
       stats[s] = Math.round(val)
       finalTotal += val
     })
 
-// --- 🌟 여기서부터 각인 파워 계산 로직 (올바른 위치!) 🌟 ---
-    let imprintExtraPower = 0;
-
-    const applyImprint = (imp: Imprint) => {
-      if (!imp) return;
-      imprintExtraPower += imp.mainPower; // 주옵션 합산
-      
-      imp.subOptions.forEach(opt => {
-        // 🌟 '전체 능력치'를 포함해 '수익 증가'를 제외한 모든 부가 효과를 '깡파워'로 정직하게 합산!
-        if (opt.type !== '수익 증가') {
-          imprintExtraPower += opt.value; 
-        }
-      });
-
-      // 🌟 얼티밋 전용 등급 효과: 선수의 실제 내부 등급(영문 코드)과 일치할 때만 파워 합산!
-      const pGrade = String(p.grade || '').toUpperCase();
-      if (imp.ultimateBonus && pGrade === imp.ultimateBonus.targetGrade) {
-        imprintExtraPower += imp.ultimateBonus.power;
-      }
-    };
-
-    applyImprint(buffs.imprint1);
-    applyImprint(buffs.imprint2);
-
-    // 선수의 최종 기본 파워에 각인 깡파워를 더함 (퍼센트 뻥튀기 로직 완전 삭제!)
-    finalTotal += imprintExtraPower;
-    // --- 🌟 여기까지 🌟 ---
+    // 스탯 외에 더해지는 기타 각인 파워 합산
+    finalTotal += imprintGeneralPower;
 
     result[slot] = { power: Math.round(finalTotal), stats }
   })
@@ -2088,7 +2039,7 @@ onMounted(async () => {
 <!-- 🌟 각인 장착 슬롯 (고증 완벽 반영 버전) 🌟 -->
                   <div class="mt-3 bg-white dark:bg-neutral-800 p-3 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-sm flex-shrink-0">
                     <div class="flex justify-between items-center mb-2">
-                      <h3 class="text-[11px] font-bold text-neutral-700 dark:text-neutral-300 flex items-center gap-1">🛡️ 각인 장착 (최대 2개)</h3>
+                      <h3 class="text-[11px] font-bold text-neutral-700 dark:text-neutral-300 flex items-center gap-1">🛡️ 각인 장착 (최대 2개 / 주옵 중복불가)</h3>
                       <button @click="showImprintManager = true" class="text-[9px] bg-indigo-100 text-indigo-700 px-2 py-1 rounded hover:bg-indigo-200 transition-colors font-bold">대장간(보관함)</button>
                     </div>
                     
@@ -2107,9 +2058,10 @@ onMounted(async () => {
                            </div>
                            
                            <div class="flex flex-col gap-0.5 text-[8px] text-neutral-500">
-                             <div class="font-bold text-indigo-600">주옵: +{{ playerBuffs[selectedSlot][`imprint${slotNum}`].mainPower }}</div>
+                             <!-- 🌟 주옵션 스탯명 표시! -->
+                             <div class="font-bold text-indigo-600">주옵({{ playerBuffs[selectedSlot][`imprint${slotNum}`].mainStat }}): +{{ playerBuffs[selectedSlot][`imprint${slotNum}`].mainPower }}</div>
                              <div v-for="(opt, idx) in playerBuffs[selectedSlot][`imprint${slotNum}`].subOptions" :key="idx">
-                               - {{ opt.type }} +{{ opt.value }}{{ opt.type.includes('%') ? '%' : '' }}
+                               - {{ opt.type }} +{{ opt.value }}
                              </div>
                              <div v-if="playerBuffs[selectedSlot][`imprint${slotNum}`].ultimateBonus" class="text-red-500 font-bold mt-0.5">
                                [등급효과] {{ playerBuffs[selectedSlot][`imprint${slotNum}`].ultimateBonus.targetGrade }} 장착시 +{{ playerBuffs[selectedSlot][`imprint${slotNum}`].ultimateBonus.power }}
@@ -2167,7 +2119,6 @@ onMounted(async () => {
       <!-- 각인 생성 폼 -->
       <div class="p-4 border-b dark:border-neutral-800 flex flex-col gap-3 bg-white dark:bg-neutral-800/80">
         <div class="flex gap-2 items-center">
-          <!-- 🌟 역할 변경 시 handleRoleChange 호출로 옵션 꼬임 방지! -->
           <select v-model="newImprint.role" @change="handleRoleChange" class="text-xs border rounded p-2 font-bold bg-neutral-100 text-neutral-700 outline-none">
             <option value="타자">⚾ 타자용</option>
             <option value="투수">⚾ 투수용</option>
@@ -2180,19 +2131,36 @@ onMounted(async () => {
             <option value="얼티밋">얼티밋</option>
           </select>
           <input v-model="newImprint.name" type="text" placeholder="각인 이름" class="flex-1 text-xs border rounded p-2">
-          <div class="flex items-center gap-1 border rounded p-1 px-2 bg-neutral-50">
-            <span class="text-[10px] text-neutral-500 font-bold">주옵(파워)</span>
-            <input v-model="newImprint.mainPower" type="number" class="w-14 text-xs bg-transparent outline-none text-right font-bold text-indigo-600">
-          </div>
         </div>
         
+        <!-- 🌟 주옵션 스탯 종류 선택 추가 🌟 -->
+        <div class="flex items-center gap-2 border rounded p-2 bg-indigo-50/50 border-indigo-100">
+          <span class="text-[10px] text-indigo-700 font-bold shrink-0">주옵션 설정 :</span>
+          <select v-model="newImprint.mainStat" class="text-xs font-bold bg-white border rounded p-1 text-indigo-700 outline-none flex-1">
+             <template v-if="newImprint.role === '타자'">
+               <option value="컨택">컨택</option>
+               <option value="갭파워">갭파워</option>
+               <option value="홈런파워">홈런파워</option>
+               <option value="선구">선구</option>
+               <option value="삼진회피">삼진회피</option>
+             </template>
+             <template v-else>
+               <option value="무브먼트">무브먼트</option>
+               <option value="장타억제">장타억제</option>
+               <option value="홈런억제">홈런억제</option>
+               <option value="컨트롤">컨트롤</option>
+               <option value="스터프">스터프</option>
+             </template>
+          </select>
+          <span class="text-[11px] text-neutral-400 font-black">+</span>
+          <input v-model="newImprint.mainPower" type="number" class="w-16 text-xs bg-white border rounded p-1 outline-none text-right font-black text-indigo-600">
+        </div>
+
         <!-- 부가 효과 슬롯 -->
         <div v-if="newImprint.subOptions.length > 0" class="flex flex-col gap-1.5 bg-neutral-50 p-2 rounded border">
           <div class="text-[10px] font-bold text-neutral-600 mb-1">부가 효과 설정 (레전드/얼티밋 기본 3줄)</div>
           <div v-for="(opt, idx) in newImprint.subOptions" :key="idx" class="flex gap-2">
             <select v-model="opt.type" class="text-xs border rounded p-1.5 flex-1 text-neutral-700 font-medium">
-              
-              <!-- 🌟 타자일 때만 보여주는 스탯 -->
               <template v-if="newImprint.role === '타자'">
                 <option value="컨택">컨택</option>
                 <option value="갭파워">갭파워</option>
@@ -2200,8 +2168,6 @@ onMounted(async () => {
                 <option value="선구">선구</option>
                 <option value="삼진회피">삼진회피</option>
               </template>
-              
-              <!-- 🌟 투수일 때만 보여주는 스탯 -->
               <template v-else>
                 <option value="무브먼트">무브먼트</option>
                 <option value="장타억제">장타억제</option>
@@ -2211,10 +2177,8 @@ onMounted(async () => {
                 <option value="한계투구 증가">한계투구 증가</option>
                 <option value="1~2선발시 파워증가">1~2선발시 파워증가</option>
               </template>
-              
-              <!-- 타자/투수 공통 스탯 -->
               <option value="수비">수비</option>
-              <option value="전체 능력치">전체 능력치</option>
+              <option value="전체 능력치">전체 능력치 (코어 5종 +수치)</option>
               <option value="조건부 파워">조건부 파워 (박빙/주자 등)</option>
               <option value="수익 증가">경기 총 수익 증가</option>
             </select>
@@ -2222,10 +2186,9 @@ onMounted(async () => {
           </div>
         </div>
 
-        <!-- 얼티밋 전용 4번째 부가 효과 -->
+        <!-- 🌟 얼티밋 전용 4번째 부가 효과 (9개 등급 전체 추가) 🌟 -->
         <div v-if="newImprint.grade === '얼티밋'" class="flex items-center gap-2 bg-red-50 border border-red-200 p-2 rounded">
           <span class="text-[10px] font-bold text-red-600 shrink-0">등급 효과(얼티밋)</span>
-          <!-- 🌟 얼티밋 적용 등급 대거 추가! (실제 시스템 코드 사용) 🌟 -->
           <select v-model="newImprint.ultimateBonus.targetGrade" class="text-xs border rounded p-1 text-red-800">
             <option value="DGN">디그니티 (DGN)</option>
             <option value="TOP">탑클래스 (TOP)</option>
@@ -2241,7 +2204,7 @@ onMounted(async () => {
           <input v-model="newImprint.ultimateBonus.power" type="number" class="w-16 text-xs border rounded p-1 text-center font-bold text-red-600">
         </div>
 
-        <button @click="createImprint" class="w-full bg-indigo-600 text-white px-4 py-2 rounded font-bold hover:bg-indigo-700 text-sm mt-1">이 설정으로 각인 만들기</button>
+        <button @click="createImprint" class="w-full bg-indigo-600 text-white px-4 py-2 rounded font-bold hover:bg-indigo-700 text-sm mt-1 transition-colors">이 설정으로 각인 만들기</button>
       </div>
 
       <!-- 보관함 목록 -->
@@ -2254,7 +2217,8 @@ onMounted(async () => {
                 <span class="text-[9px] font-black px-1.5 py-0.5 rounded" :class="imp.role === '타자' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'">{{ imp.role }}</span>
                 <span class="text-[9px] font-black px-1.5 py-0.5 rounded border" :class="getGradeColor(imp.grade)">{{ imp.grade }}</span>
                 <span class="font-bold text-sm">{{ imp.name }}</span>
-                <span class="text-xs text-indigo-600 font-bold ml-1">주옵+{{ imp.mainPower }}</span>
+                <!-- 🌟 주옵션 종류 표시 -->
+                <span class="text-[10px] text-indigo-600 font-bold ml-1">주옵({{ imp.mainStat }})+{{ imp.mainPower }}</span>
               </div>
               <div class="text-[10px] text-neutral-500 flex flex-wrap gap-x-2">
                 <span v-for="(opt, idx) in imp.subOptions" :key="idx" :class="{'text-orange-500 font-bold': opt.type === '전체 능력치'}">
@@ -2265,14 +2229,14 @@ onMounted(async () => {
                 </span>
               </div>
             </div>
-            <button @click="deleteImprint(imp.id)" class="text-xs bg-red-100 text-red-600 px-3 py-1.5 rounded font-bold">삭제</button>
+            <button @click="deleteImprint(imp.id)" class="text-[10px] bg-red-100 text-red-600 px-3 py-1.5 rounded font-bold hover:bg-red-200 transition-colors">삭제</button>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-<!-- 🌟 각인 장착 모달 (해당 선수의 포지션에 맞는 각인만 보여줌!) 🌟 -->
+  <!-- 🌟 각인 장착 모달 -->
   <div v-if="showImprintEquipper" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
     <div class="bg-white dark:bg-neutral-900 w-full max-w-sm rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[70vh]">
       <div class="flex justify-between items-center p-4 border-b bg-neutral-50">
@@ -2282,21 +2246,20 @@ onMounted(async () => {
         <button @click="showImprintEquipper = false" class="text-neutral-500 text-2xl font-bold">&times;</button>
       </div>
       <div class="p-4 overflow-y-auto flex-1 custom-scrollbar">
-        <!-- 🌟 타자는 타자 각인만, 투수는 투수 각인만 목록에 뜨도록 안전하게 필터링! -->
         <div v-for="imp in imprintInventory.filter(i => i.role === (equipTarget?.pos?.startsWith('SP') || equipTarget?.pos?.startsWith('RP') ? '투수' : '타자'))" 
              :key="'eq_'+imp.id" @click="equipImprint(imp)" 
-             class="flex justify-between items-center border rounded-lg p-2.5 mb-2 bg-white shadow-sm cursor-pointer hover:border-indigo-500 transition-all">
+             class="flex justify-between items-center border rounded-lg p-2.5 mb-2 bg-white shadow-sm cursor-pointer hover:border-indigo-500 hover:bg-indigo-50 transition-all">
           <div class="flex flex-col">
             <div class="flex items-center gap-1.5 mb-1">
               <span class="text-[8px] font-black px-1.5 py-0.5 rounded border" :class="getGradeColor(imp.grade)">{{ imp.grade }}</span>
               <span class="font-bold text-xs">{{ imp.name }}</span>
             </div>
-            <span class="text-indigo-600 text-[10px] font-bold">주옵+{{ imp.mainPower }} 외 부옵 {{ imp.subOptions.length }}개</span>
+            <!-- 🌟 주옵션 종류 표시 -->
+            <span class="text-indigo-600 text-[10px] font-bold">주옵({{ imp.mainStat }})+{{ imp.mainPower }} / 부옵 {{ imp.subOptions.length }}개</span>
           </div>
           <span class="text-[10px] bg-indigo-600 text-white px-2.5 py-1 rounded font-bold">장착</span>
         </div>
         
-        <!-- 장착 가능한 각인이 없을 때 안내 문구 -->
         <div v-if="imprintInventory.filter(i => i.role === (equipTarget?.pos?.startsWith('SP') || equipTarget?.pos?.startsWith('RP') ? '투수' : '타자')).length === 0" class="text-center text-neutral-400 text-xs py-6">
           이 선수에게 장착할 수 있는 [{{ equipTarget?.pos?.startsWith('SP') || equipTarget?.pos?.startsWith('RP') ? '투수' : '타자' }}용] 각인이 없습니다.<br>대장간에서 생성해 주세요!
         </div>
