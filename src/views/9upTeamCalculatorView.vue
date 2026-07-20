@@ -1001,7 +1001,7 @@ coreStats.forEach(s => {
       stats[s] = Math.round(val)
       finalTotal += val
     })
-    nonCoreStats.forEach(s => {
+nonCoreStats.forEach(s => {
       let base = Number(p[s] || 0)
       if (statSpecificSkillPercents[s]) base += base * (statSpecificSkillPercents[s] / 100)
       let val = base
@@ -1011,6 +1011,36 @@ coreStats.forEach(s => {
       stats[s] = Math.round(val)
       finalTotal += val
     })
+
+    // --- 🌟 여기서부터 각인 파워 계산 로직 (올바른 위치!) 🌟 ---
+    let imprintExtraPower = 0;
+    let imprintPercentBonus = 0;
+
+    const applyImprint = (imp: Imprint) => {
+      if (!imp) return;
+      imprintExtraPower += imp.mainPower; // 주옵션 합산
+      
+      imp.subOptions.forEach(opt => {
+        if (opt.type === '전체 능력치(%)') {
+          imprintPercentBonus += opt.value; // 퍼센트는 따로 모아두기
+        } else if (opt.type !== '수익 증가') {
+          imprintExtraPower += opt.value; // 수익증가 빼고 깡스탯은 전부 합산
+        }
+      });
+
+      // 얼티밋 전용 등급 효과: 선수의 등급과 맞을 때만 파워 합산
+      if (imp.ultimateBonus && p.grade === imp.ultimateBonus.targetGrade) {
+        imprintExtraPower += imp.ultimateBonus.power;
+      }
+    };
+
+    applyImprint(buffs.imprint1);
+    applyImprint(buffs.imprint2);
+
+    // 선수의 최종 기본 파워에 각인 깡파워를 더하고, 전체 능력치(%) 퍼센트를 뻥튀기 반영!
+    finalTotal = (finalTotal + imprintExtraPower) * (1 + (imprintPercentBonus / 100));
+    // --- 🌟 여기까지 🌟 ---
+
     result[slot] = { power: Math.round(finalTotal), stats }
   })
   return result
@@ -1024,34 +1054,6 @@ const teamTotalPower = computed(() => {
     if (slot.startsWith('BENCH')) return 
     sum += computedPlayerStats.value[slot]?.power || 0
   })
-// --- 🌟 인게임 고증: 장착한 각인의 세부 스탯 파워 합산 로직 ---
-  const buffs = playerBuffs.value[slot];
-  if (buffs) {
-    const applyImprint = (imp: Imprint) => {
-      if (!imp) return;
-      basePower += imp.mainPower; // 주옵션 합산
-      
-      imp.subOptions.forEach(opt => {
-        // '전체 능력치(%)'는 퍼센트에 합산
-        if (opt.type === '전체 능력치(%)') {
-          powerPercent += opt.value;
-        } 
-        // '수익 증가'는 파워 수치에 영향을 주지 않으므로 제외, 나머지는 전부 파워에 합산!
-        else if (opt.type !== '수익 증가') {
-          basePower += opt.value;
-        }
-      });
-
-      // 얼티밋 전용 등급 효과: 선수의 등급과 맞을 때만 파워 합산!
-      if (imp.ultimateBonus && p.grade === imp.ultimateBonus.targetGrade) {
-        basePower += imp.ultimateBonus.power;
-      }
-    };
-
-    applyImprint(buffs.imprint1);
-    applyImprint(buffs.imprint2);
-  }
-  // --- 🌟 여기까지 🌟 ---
   return sum
 })
 
