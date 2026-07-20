@@ -89,34 +89,72 @@ const globalBuffs = reactive({
 const playerBuffs = ref<Record<string, PlayerBuff>>({})
 
 // 🌟 9up 인게임 고증: 각인(Imprint) 시스템 상태 및 로직 🌟
+type ImprintRole = '타자' | '투수'; // 🌟 타자/투수 구분 추가!
 type ImprintGrade = '노말' | '고급' | '특별' | '레전드' | '얼티밋';
+type SubOptType = '무브(컨택)' | '장억(갭파워)' | '홈억(홈런파워)' | '컨트롤(선구)' | '스터프(삼진회피)' | '수비' | '한계투구증가' | '1~2선발시파워증가' | '전체 능력치(%)' | '수익 증가' | '기타 조건부 파워';
+
+interface ImprintSubOption {
+  type: SubOptType;
+  value: number;
+}
+
 interface Imprint {
   id: string;
   name: string;
+  role: ImprintRole; // 🌟 각인의 소속 (타자용/투수용)
   grade: ImprintGrade;
-  mainPower: number;    // 주 옵션 파워 (예: 270)
-  subPowerFixed: number; // 부가 효과 깡스탯
-  subPowerPercent: number; // 부가 효과 전체능력치 %
+  mainPower: number; 
+  subOptions: ImprintSubOption[]; 
+  ultimateBonus?: { targetGrade: string, power: number }; 
 }
 
 const imprintInventory = ref<Imprint[]>([]);
 const showImprintManager = ref(false);
-const newImprint = ref<{name: string, grade: ImprintGrade, mainPower: number, subPowerFixed: number, subPowerPercent: number}>({ 
-  name: '', grade: '레전드', mainPower: 270, subPowerFixed: 0, subPowerPercent: 0 
+
+const newImprint = ref({ 
+  name: '', role: '타자' as ImprintRole, grade: '레전드' as ImprintGrade, mainPower: 270,
+  subOptions: [
+    { type: '무브(컨택)' as SubOptType, value: 0 },
+    { type: '장억(갭파워)' as SubOptType, value: 0 },
+    { type: '전체 능력치(%)' as SubOptType, value: 0 }
+  ],
+  ultimateBonus: { targetGrade: 'Dignity', power: 0 }
 });
+
+const updateSubOptionsCount = () => {
+  let count = 3; 
+  if (newImprint.value.grade === '노말') count = 0;
+  if (newImprint.value.grade === '고급') count = 1;
+  if (newImprint.value.grade === '특별') count = 2;
+  
+  while (newImprint.value.subOptions.length < count) {
+    newImprint.value.subOptions.push({ type: '무브(컨택)', value: 0 });
+  }
+  if (newImprint.value.subOptions.length > count) {
+    newImprint.value.subOptions.splice(count);
+  }
+};
 
 const createImprint = () => {
   if (!newImprint.value.name.trim()) return alert('각인 이름을 입력해주세요!');
-  imprintInventory.value.push({
+  const imp: Imprint = {
     id: Date.now().toString(),
     name: newImprint.value.name.trim(),
+    role: newImprint.value.role, // 🌟 타자/투수 속성 저장
     grade: newImprint.value.grade,
     mainPower: Number(newImprint.value.mainPower) || 0,
-    subPowerFixed: Number(newImprint.value.subPowerFixed) || 0,
-    subPowerPercent: Number(newImprint.value.subPowerPercent) || 0,
-  });
-  // 생성 후 초기화 (기본값 레전드)
-  newImprint.value = { name: '', grade: '레전드', mainPower: 270, subPowerFixed: 0, subPowerPercent: 0 };
+    subOptions: newImprint.value.subOptions.map(o => ({ type: o.type, value: Number(o.value) || 0 }))
+  };
+  
+  if (imp.grade === '얼티밋') {
+    imp.ultimateBonus = {
+      targetGrade: newImprint.value.ultimateBonus.targetGrade,
+      power: Number(newImprint.value.ultimateBonus.power) || 0
+    };
+  }
+  
+  imprintInventory.value.push(imp);
+  alert(`[${imp.role}용] 각인이 보관함에 생성되었습니다!`);
 };
 
 const deleteImprint = (id: string) => {
@@ -141,20 +179,23 @@ const equipImprint = (imprint: Imprint) => {
   const { pos, slot } = equipTarget.value;
   const p = lineup.value[pos];
   if (!p) return;
-  if (!playerBuffs.value[pos]) playerBuffs.value[pos] = {};
   
+  // 🌟 핵심 방어막: 타자는 타자 각인만, 투수는 투수 각인만!
+  const isPitcherSlot = pos.startsWith('SP') || pos.startsWith('RP');
+  const targetRole = isPitcherSlot ? '투수' : '타자';
+  if (imprint.role !== targetRole) {
+    return alert(`장착 실패! 이 슬롯의 선수는 [${targetRole}]입니다. ${targetRole}용 각인만 낄 수 있습니다!`);
+  }
+
+  if (!playerBuffs.value[pos]) playerBuffs.value[pos] = {};
   const currentBuffs = playerBuffs.value[pos];
   
-  // 1. 중복 장착 체크
   if (slot === 1 && currentBuffs.imprint2?.id === imprint.id) return alert('이미 반대쪽 슬롯에 장착된 각인입니다.');
   if (slot === 2 && currentBuffs.imprint1?.id === imprint.id) return alert('이미 반대쪽 슬롯에 장착된 각인입니다.');
 
-  // 2. 🌟 인게임 고증: 디그니티 외 등급은 얼티밋 각인 2개 장착 불가!
-  if (imprint.grade === '얼티밋' && p.grade !== 'Dignity') { // 실제 DB의 디그니티 영문명에 맞게 수정 필요
+  if (imprint.grade === '얼티밋' && p.grade !== 'Dignity') { 
     const otherImprint = slot === 1 ? currentBuffs.imprint2 : currentBuffs.imprint1;
-    if (otherImprint?.grade === '얼티밋') {
-      return alert('디그니티 등급이 아닌 선수는 얼티밋 각인을 1개만 장착할 수 있습니다!');
-    }
+    if (otherImprint?.grade === '얼티밋') return alert('디그니티 등급이 아닌 선수는 얼티밋 각인을 1개만 장착할 수 있습니다!');
   }
 
   if (slot === 1) playerBuffs.value[pos].imprint1 = imprint;
@@ -983,17 +1024,32 @@ const teamTotalPower = computed(() => {
     if (slot.startsWith('BENCH')) return 
     sum += computedPlayerStats.value[slot]?.power || 0
   })
-  // --- 🌟 여기서부터 추가: 장착한 각인의 파워를 합산해주는 로직 ---
+// --- 🌟 인게임 고증: 장착한 각인의 세부 스탯 파워 합산 로직 ---
   const buffs = playerBuffs.value[slot];
   if (buffs) {
-    if (buffs.imprint1) {
-      basePower += (buffs.imprint1.mainPower + buffs.imprint1.subPowerFixed);
-      powerPercent += buffs.imprint1.subPowerPercent;
-    }
-    if (buffs.imprint2) {
-      basePower += (buffs.imprint2.mainPower + buffs.imprint2.subPowerFixed);
-      powerPercent += buffs.imprint2.subPowerPercent;
-    }
+    const applyImprint = (imp: Imprint) => {
+      if (!imp) return;
+      basePower += imp.mainPower; // 주옵션 합산
+      
+      imp.subOptions.forEach(opt => {
+        // '전체 능력치(%)'는 퍼센트에 합산
+        if (opt.type === '전체 능력치(%)') {
+          powerPercent += opt.value;
+        } 
+        // '수익 증가'는 파워 수치에 영향을 주지 않으므로 제외, 나머지는 전부 파워에 합산!
+        else if (opt.type !== '수익 증가') {
+          basePower += opt.value;
+        }
+      });
+
+      // 얼티밋 전용 등급 효과: 선수의 등급과 맞을 때만 파워 합산!
+      if (imp.ultimateBonus && p.grade === imp.ultimateBonus.targetGrade) {
+        basePower += imp.ultimateBonus.power;
+      }
+    };
+
+    applyImprint(buffs.imprint1);
+    applyImprint(buffs.imprint2);
   }
   // --- 🌟 여기까지 🌟 ---
   return sum
@@ -1987,38 +2043,38 @@ onMounted(async () => {
                       </div>
                     </div>
                   </div>
-                  <!-- 🌟 각인 장착 슬롯 추가 (인게임 고증 버전) 🌟 -->
+<!-- 🌟 각인 장착 슬롯 (고증 완벽 반영 버전) 🌟 -->
                   <div class="mt-3 bg-white dark:bg-neutral-800 p-3 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-sm flex-shrink-0">
                     <div class="flex justify-between items-center mb-2">
                       <h3 class="text-[11px] font-bold text-neutral-700 dark:text-neutral-300 flex items-center gap-1">🛡️ 각인 장착 (최대 2개)</h3>
-                      <button @click="showImprintManager = true" class="text-[9px] bg-indigo-100 text-indigo-700 px-2 py-1 rounded hover:bg-indigo-200 transition-colors font-bold">보관함 관리</button>
+                      <button @click="showImprintManager = true" class="text-[9px] bg-indigo-100 text-indigo-700 px-2 py-1 rounded hover:bg-indigo-200 transition-colors font-bold">대장간(보관함)</button>
                     </div>
                     
                     <div class="grid grid-cols-2 gap-2">
-                      <!-- 각인 1 -->
-                      <div class="border rounded-lg p-2 h-16 flex flex-col items-center justify-center cursor-pointer transition-colors relative"
-                           :class="playerBuffs[selectedSlot]?.imprint1 ? 'border-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20' : 'border-dashed border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-700'"
-                           @click="openEquipModal(selectedSlot, 1)">
-                         <div v-if="playerBuffs[selectedSlot]?.imprint1" class="text-center w-full relative">
-                           <button @click.stop="unequipImprint(selectedSlot, 1)" class="absolute -top-2 -right-2 w-5 h-5 bg-red-100 text-red-500 rounded-full flex items-center justify-center text-[10px] hover:bg-red-500 hover:text-white transition-colors z-10">×</button>
-                           <div class="text-[8px] font-black px-1.5 py-0.5 rounded border inline-block mb-0.5" :class="getGradeColor(playerBuffs[selectedSlot].imprint1.grade)">{{ playerBuffs[selectedSlot].imprint1.grade }}</div>
-                           <div class="text-[10px] font-bold text-neutral-800 dark:text-neutral-200 truncate">{{ playerBuffs[selectedSlot].imprint1.name }}</div>
-                           <div class="text-[8px] text-neutral-500 mt-0.5">파워+{{ playerBuffs[selectedSlot].imprint1.mainPower + playerBuffs[selectedSlot].imprint1.subPowerFixed }} / {{ playerBuffs[selectedSlot].imprint1.subPowerPercent }}%</div>
+                      <div v-for="slotNum in [1, 2]" :key="'imp_slot_'+slotNum" 
+                           class="border rounded-lg p-2 min-h-[70px] flex flex-col justify-center cursor-pointer transition-colors relative"
+                           :class="playerBuffs[selectedSlot]?.[`imprint${slotNum}`] ? 'border-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20' : 'border-dashed border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-700'"
+                           @click="openEquipModal(selectedSlot, slotNum as 1|2)">
+                         
+                         <div v-if="playerBuffs[selectedSlot]?.[`imprint${slotNum}`]" class="w-full relative">
+                           <button @click.stop="unequipImprint(selectedSlot, slotNum as 1|2)" class="absolute -top-2 -right-2 w-5 h-5 bg-red-100 text-red-500 rounded-full flex items-center justify-center text-[10px] hover:bg-red-500 hover:text-white transition-colors z-10 shadow-sm">×</button>
+                           
+                           <div class="flex items-center gap-1 mb-1">
+                             <div class="text-[8px] font-black px-1.5 py-0.5 rounded border" :class="getGradeColor(playerBuffs[selectedSlot][`imprint${slotNum}`].grade)">{{ playerBuffs[selectedSlot][`imprint${slotNum}`].grade }}</div>
+                             <div class="text-[10px] font-bold text-neutral-800 dark:text-neutral-200 truncate">{{ playerBuffs[selectedSlot][`imprint${slotNum}`].name }}</div>
+                           </div>
+                           
+                           <div class="flex flex-col gap-0.5 text-[8px] text-neutral-500">
+                             <div class="font-bold text-indigo-600">주옵: +{{ playerBuffs[selectedSlot][`imprint${slotNum}`].mainPower }}</div>
+                             <div v-for="(opt, idx) in playerBuffs[selectedSlot][`imprint${slotNum}`].subOptions" :key="idx">
+                               - {{ opt.type }} +{{ opt.value }}{{ opt.type.includes('%') ? '%' : '' }}
+                             </div>
+                             <div v-if="playerBuffs[selectedSlot][`imprint${slotNum}`].ultimateBonus" class="text-red-500 font-bold mt-0.5">
+                               [등급효과] {{ playerBuffs[selectedSlot][`imprint${slotNum}`].ultimateBonus.targetGrade }} 장착시 +{{ playerBuffs[selectedSlot][`imprint${slotNum}`].ultimateBonus.power }}
+                             </div>
+                           </div>
                          </div>
-                         <div v-else class="text-[10px] text-neutral-400 font-medium">+ 각인 1 장착</div>
-                      </div>
-                      
-                      <!-- 각인 2 -->
-                      <div class="border rounded-lg p-2 h-16 flex flex-col items-center justify-center cursor-pointer transition-colors relative"
-                           :class="playerBuffs[selectedSlot]?.imprint2 ? 'border-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20' : 'border-dashed border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-700'"
-                           @click="openEquipModal(selectedSlot, 2)">
-                         <div v-if="playerBuffs[selectedSlot]?.imprint2" class="text-center w-full relative">
-                           <button @click.stop="unequipImprint(selectedSlot, 2)" class="absolute -top-2 -right-2 w-5 h-5 bg-red-100 text-red-500 rounded-full flex items-center justify-center text-[10px] hover:bg-red-500 hover:text-white transition-colors z-10">×</button>
-                           <div class="text-[8px] font-black px-1.5 py-0.5 rounded border inline-block mb-0.5" :class="getGradeColor(playerBuffs[selectedSlot].imprint2.grade)">{{ playerBuffs[selectedSlot].imprint2.grade }}</div>
-                           <div class="text-[10px] font-bold text-neutral-800 dark:text-neutral-200 truncate">{{ playerBuffs[selectedSlot].imprint2.name }}</div>
-                           <div class="text-[8px] text-neutral-500 mt-0.5">파워+{{ playerBuffs[selectedSlot].imprint2.mainPower + playerBuffs[selectedSlot].imprint2.subPowerFixed }} / {{ playerBuffs[selectedSlot].imprint2.subPowerPercent }}%</div>
-                         </div>
-                         <div v-else class="text-[10px] text-neutral-400 font-medium">+ 각인 2 장착</div>
+                         <div v-else class="text-[10px] text-neutral-400 font-medium text-center">+ 각인 {{ slotNum }} 장착</div>
                       </div>
                     </div>
                   </div>
@@ -2058,87 +2114,128 @@ onMounted(async () => {
       </div>
     </div>
   </div>
-<!-- 🌟 각인 생성 및 보관함 모달 🌟 -->
+<!-- 🌟 각인 생성 및 보관함 (대장간) 모달 🌟 -->
   <div v-if="showImprintManager" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[85vh]">
+    <div class="bg-white dark:bg-neutral-900 w-full max-w-lg rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[85vh]">
       <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
         <h2 class="text-base font-bold text-neutral-800 dark:text-neutral-200">🛡️ 각인 보관함 (대장간)</h2>
         <button @click="showImprintManager = false" class="text-neutral-500 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold">&times;</button>
       </div>
       
       <!-- 각인 생성 폼 -->
-      <div class="p-4 border-b dark:border-neutral-800 flex flex-col gap-3">
+      <div class="p-4 border-b dark:border-neutral-800 flex flex-col gap-3 bg-white dark:bg-neutral-800/80">
         <div class="flex gap-2 items-center">
-          <select v-model="newImprint.grade" class="text-xs border rounded p-2 dark:bg-neutral-800 dark:border-neutral-700 dark:text-white outline-none font-bold" :class="getGradeColor(newImprint.grade)">
+          <!-- 🌟 타자용 / 투수용 선택 추가! -->
+          <select v-model="newImprint.role" class="text-xs border rounded p-2 font-bold bg-neutral-100 text-neutral-700 outline-none">
+            <option value="타자">⚾ 타자용</option>
+            <option value="투수">⚾ 투수용</option>
+          </select>
+          <select v-model="newImprint.grade" @change="updateSubOptionsCount" class="text-xs border rounded p-2 font-bold" :class="getGradeColor(newImprint.grade)">
             <option value="노말">노말</option>
             <option value="고급">고급</option>
             <option value="특별">특별</option>
             <option value="레전드">레전드</option>
             <option value="얼티밋">얼티밋</option>
           </select>
-          <input v-model="newImprint.name" type="text" placeholder="각인 이름 (예: 무결점의 각인)" class="flex-1 text-xs border rounded p-2 dark:bg-neutral-800 dark:border-neutral-700 dark:text-white outline-none">
-        </div>
-        <div class="grid grid-cols-3 gap-2">
-          <div class="flex flex-col">
-            <span class="text-[10px] text-neutral-500 mb-1">주 옵션 (파워)</span>
-            <input v-model="newImprint.mainPower" type="number" class="text-xs border rounded p-2 dark:bg-neutral-800 dark:border-neutral-700 dark:text-white outline-none">
-          </div>
-          <div class="flex flex-col">
-            <span class="text-[10px] text-neutral-500 mb-1">부 옵션 (깡파워)</span>
-            <input v-model="newImprint.subPowerFixed" type="number" class="text-xs border rounded p-2 dark:bg-neutral-800 dark:border-neutral-700 dark:text-white outline-none">
-          </div>
-          <div class="flex flex-col">
-            <span class="text-[10px] text-neutral-500 mb-1">부 옵션 (전체능력치 %)</span>
-            <input v-model="newImprint.subPowerPercent" type="number" class="text-xs border rounded p-2 dark:bg-neutral-800 dark:border-neutral-700 dark:text-white outline-none">
+          <input v-model="newImprint.name" type="text" placeholder="각인 이름" class="flex-1 text-xs border rounded p-2">
+          <div class="flex items-center gap-1 border rounded p-1 px-2 bg-neutral-50">
+            <span class="text-[10px] text-neutral-500 font-bold">주옵(파워)</span>
+            <input v-model="newImprint.mainPower" type="number" class="w-14 text-xs bg-transparent outline-none text-right font-bold text-indigo-600">
           </div>
         </div>
-        <button @click="createImprint" class="w-full bg-indigo-600 text-white px-4 py-2 rounded font-bold hover:bg-indigo-700 text-sm mt-1 transition-colors">새 각인 보관함에 저장하기</button>
+        
+        <!-- 부가 효과 슬롯 -->
+        <div v-if="newImprint.subOptions.length > 0" class="flex flex-col gap-1.5 bg-neutral-50 p-2 rounded border">
+          <div class="text-[10px] font-bold text-neutral-600 mb-1">부가 효과 설정 (레전드/얼티밋 기본 3줄)</div>
+          <div v-for="(opt, idx) in newImprint.subOptions" :key="idx" class="flex gap-2">
+            <select v-model="opt.type" class="text-xs border rounded p-1.5 flex-1 text-neutral-700 font-medium">
+              <option value="무브(컨택)">무브 (컨택)</option>
+              <option value="장억(갭파워)">장억 (갭파워)</option>
+              <option value="홈억(홈런파워)">홈억 (홈런파워)</option>
+              <option value="컨트롤(선구)">컨트롤 (선구)</option>
+              <option value="스터프(삼진회피)">스터프 (삼진회피)</option>
+              <option value="수비">수비</option>
+              <option value="한계투구증가">한계투구 증가</option>
+              <option value="1~2선발시파워증가">1~2선발시 파워증가</option>
+              <option value="전체 능력치(%)">전체 능력치 상승(%)</option>
+              <option value="기타 조건부 파워">조건부 파워 (박빙/주자 등)</option>
+              <option value="수익 증가">경기 총 수익 증가</option>
+            </select>
+            <input v-model="opt.value" type="number" placeholder="수치" class="w-20 text-xs border rounded p-1.5 text-center">
+          </div>
+        </div>
+
+        <!-- 얼티밋 전용 4번째 부가 효과 -->
+        <div v-if="newImprint.grade === '얼티밋'" class="flex items-center gap-2 bg-red-50 border border-red-200 p-2 rounded">
+          <span class="text-[10px] font-bold text-red-600 shrink-0">등급 효과(얼티밋 전용)</span>
+          <select v-model="newImprint.ultimateBonus.targetGrade" class="text-xs border rounded p-1 text-red-800">
+            <option value="Dignity">디그니티 (Dignity)</option>
+            <option value="Top Class">탑클래스 (Top Class)</option>
+            <option value="Ace">에이스 (Ace)</option>
+          </select>
+          <span class="text-[10px] text-neutral-500">장착시 파워 +</span>
+          <input v-model="newImprint.ultimateBonus.power" type="number" class="w-16 text-xs border rounded p-1 text-center font-bold text-red-600">
+        </div>
+
+        <button @click="createImprint" class="w-full bg-indigo-600 text-white px-4 py-2 rounded font-bold hover:bg-indigo-700 text-sm mt-1">이 설정으로 각인 만들기</button>
       </div>
 
-      <!-- 각인 목록 -->
-      <div class="p-4 overflow-y-auto flex-1 custom-scrollbar bg-neutral-50 dark:bg-neutral-900/50">
-        <h3 class="text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">보유 중인 각인 ({{ imprintInventory.length }}개)</h3>
-        <div v-if="imprintInventory.length === 0" class="text-center text-neutral-400 text-xs py-8">각인이 없습니다. 위에서 생성해주세요!</div>
-        <div v-else class="flex flex-col gap-2">
-          <div v-for="imp in imprintInventory" :key="imp.id" class="flex justify-between items-center border border-neutral-200 dark:border-neutral-700 rounded-lg p-3 bg-white dark:bg-neutral-800 shadow-sm">
+      <!-- 보관함 목록 -->
+      <div class="p-4 overflow-y-auto flex-1 custom-scrollbar bg-neutral-100 dark:bg-neutral-900">
+        <h3 class="text-xs font-bold text-neutral-600 mb-2">보관 중인 각인 ({{ imprintInventory.length }}개)</h3>
+        <div class="flex flex-col gap-2">
+          <div v-for="imp in imprintInventory" :key="imp.id" class="flex justify-between items-center border border-neutral-200 rounded-lg p-3 bg-white shadow-sm">
             <div class="flex flex-col">
               <div class="flex items-center gap-1.5 mb-1">
+                <!-- 🌟 타자/투수 뱃지 추가 -->
+                <span class="text-[9px] font-black px-1.5 py-0.5 rounded" :class="imp.role === '타자' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'">{{ imp.role }}</span>
                 <span class="text-[9px] font-black px-1.5 py-0.5 rounded border" :class="getGradeColor(imp.grade)">{{ imp.grade }}</span>
-                <span class="font-bold text-neutral-800 dark:text-neutral-200 text-xs">{{ imp.name }}</span>
+                <span class="font-bold text-sm">{{ imp.name }}</span>
+                <span class="text-xs text-indigo-600 font-bold ml-1">주옵+{{ imp.mainPower }}</span>
               </div>
-              <div class="flex gap-2 text-[10px]">
-                <span class="text-indigo-600 dark:text-indigo-400 font-bold">주옵 +{{ imp.mainPower }}</span>
-                <span v-if="imp.subPowerFixed" class="text-neutral-500">부옵(깡) +{{ imp.subPowerFixed }}</span>
-                <span v-if="imp.subPowerPercent" class="text-orange-500 font-bold">부옵(%) +{{ imp.subPowerPercent }}%</span>
+              <div class="text-[10px] text-neutral-500 flex flex-wrap gap-x-2">
+                <span v-for="(opt, idx) in imp.subOptions" :key="idx" :class="{'text-orange-500 font-bold': opt.type.includes('%')}">
+                  {{ opt.type }}+{{ opt.value }}{{ opt.type.includes('%') ? '%' : '' }}
+                </span>
+                <span v-if="imp.ultimateBonus" class="text-red-500 font-bold">
+                  [등급효과] {{ imp.ultimateBonus.targetGrade }}+{{ imp.ultimateBonus.power }}
+                </span>
               </div>
             </div>
-            <button @click="deleteImprint(imp.id)" class="text-xs bg-red-100 text-red-600 px-3 py-1.5 rounded hover:bg-red-200 font-bold">삭제</button>
+            <button @click="deleteImprint(imp.id)" class="text-xs bg-red-100 text-red-600 px-3 py-1.5 rounded font-bold">삭제</button>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- 🌟 각인 장착 모달 🌟 -->
+  <!-- 🌟 각인 장착 모달 (해당 선수의 포지션에 맞는 각인만 보여줌!) 🌟 -->
   <div v-if="showImprintEquipper" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
     <div class="bg-white dark:bg-neutral-900 w-full max-w-sm rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[70vh]">
-      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800">
-        <h2 class="text-sm font-bold text-neutral-800 dark:text-neutral-200">각인 선택 (슬롯 {{ equipTarget?.slot }})</h2>
-        <button @click="showImprintEquipper = false" class="text-neutral-500 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold">&times;</button>
+      <div class="flex justify-between items-center p-4 border-b bg-neutral-50">
+        <h2 class="text-sm font-bold text-neutral-800">
+          각인 선택 ({{ equipTarget?.pos.startsWith('SP') || equipTarget?.pos.startsWith('RP') ? '투수' : '타자' }}용 슬롯 {{ equipTarget?.slot }})
+        </h2>
+        <button @click="showImprintEquipper = false" class="text-neutral-500 text-2xl font-bold">&times;</button>
       </div>
-      <div class="p-4 overflow-y-auto flex-1 custom-scrollbar bg-neutral-50 dark:bg-neutral-900/50">
-        <div v-if="imprintInventory.length === 0" class="text-center text-neutral-400 text-xs py-8">보관함에 각인이 없습니다.<br>먼저 [보관함 관리]에서 만들어주세요.</div>
-        <div v-else class="flex flex-col gap-2">
-          <div v-for="imp in imprintInventory" :key="'eq_'+imp.id" @click="equipImprint(imp)" class="flex justify-between items-center border border-neutral-200 dark:border-neutral-700 rounded-lg p-2.5 bg-white dark:bg-neutral-800 shadow-sm cursor-pointer hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all">
-            <div class="flex flex-col">
-              <div class="flex items-center gap-1.5 mb-1">
-                <span class="text-[8px] font-black px-1.5 py-0.5 rounded border" :class="getGradeColor(imp.grade)">{{ imp.grade }}</span>
-                <span class="font-bold text-neutral-800 dark:text-neutral-200 text-xs">{{ imp.name }}</span>
-              </div>
-              <span class="text-indigo-600 dark:text-indigo-400 text-[10px] font-bold">주옵+{{ imp.mainPower }} / 깡+{{ imp.subPowerFixed }} / %증가+{{ imp.subPowerPercent }}%</span>
+      <div class="p-4 overflow-y-auto flex-1 custom-scrollbar">
+        <!-- 🌟 타자는 타자 각인만, 투수는 투수 각인만 목록에 뜨도록 필터링! -->
+        <div v-for="imp in imprintInventory.filter(i => i.role === (equipTarget?.pos.startsWith('SP') || equipTarget?.pos.startsWith('RP') ? '투수' : '타자'))" 
+             :key="'eq_'+imp.id" @click="equipImprint(imp)" 
+             class="flex justify-between items-center border rounded-lg p-2.5 mb-2 bg-white shadow-sm cursor-pointer hover:border-indigo-500 transition-all">
+          <div class="flex flex-col">
+            <div class="flex items-center gap-1.5 mb-1">
+              <span class="text-[8px] font-black px-1.5 py-0.5 rounded border" :class="getGradeColor(imp.grade)">{{ imp.grade }}</span>
+              <span class="font-bold text-xs">{{ imp.name }}</span>
             </div>
-            <span class="text-[10px] bg-indigo-600 text-white px-2.5 py-1 rounded font-bold">장착</span>
+            <span class="text-indigo-600 text-[10px] font-bold">주옵+{{ imp.mainPower }} 외 부옵 {{ imp.subOptions.length }}개</span>
           </div>
+          <span class="text-[10px] bg-indigo-600 text-white px-2.5 py-1 rounded font-bold">장착</span>
+        </div>
+        
+        <!-- 장착 가능한 각인이 없을 때 안내 문구 -->
+        <div v-if="imprintInventory.filter(i => i.role === (equipTarget?.pos.startsWith('SP') || equipTarget?.pos.startsWith('RP') ? '투수' : '타자')).length === 0" class="text-center text-neutral-400 text-xs py-6">
+          이 선수에게 장착할 수 있는 [{{ equipTarget?.pos.startsWith('SP') || equipTarget?.pos.startsWith('RP') ? '투수' : '타자' }}용] 각인이 없습니다.<br>대장간에서 생성해 주세요!
         </div>
       </div>
     </div>
