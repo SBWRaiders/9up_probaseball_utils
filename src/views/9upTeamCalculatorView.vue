@@ -2251,24 +2251,23 @@ onMounted(async () => {
           </div>
         </div>
 
-        <!-- 🌟 얼티밋 전용 4번째 부가 효과 (9개 등급 전체 추가) 🌟 -->
+<!-- 🌟 얼티밋 전용 4번째 부가 효과 (순서 완벽 정렬!) 🌟 -->
         <div v-if="newImprint.grade === '얼티밋'" class="flex items-center gap-2 bg-red-50 border border-red-200 p-2 rounded">
           <span class="text-[10px] font-bold text-red-600 shrink-0">등급 효과(얼티밋)</span>
           <select v-model="newImprint.ultimateBonus.targetGrade" class="text-xs border rounded p-1 text-red-800">
             <option value="DGN">디그니티 (DGN)</option>
             <option value="TOP">탑클래스 (TOP)</option>
+            <option value="GG">골글 (GG)</option>
             <option value="ACE">에이스 (ACE)</option>
             <option value="HIT">히트 (HIT)</option>
-            <option value="TEA">팀플 (TEA)</option>
+            <option value="GGY">연도골글 (GGY)</option>
             <option value="MMVP">월간MVP (MMVP)</option>
             <option value="ROY">신인왕 (ROY)</option>
-            <option value="GGY">연도골글 (GGY)</option>
-            <option value="GG">골글 (GG)</option>
+            <option value="TEA">팀플 (TEA)</option>
           </select>
-          <span class="text-[10px] text-neutral-500">+</span>
-          <input v-model="newImprint.ultimateBonus.power" type="number" class="w-16 text-xs border rounded p-1 text-center font-bold text-red-600">
+          <span class="text-[10px] text-neutral-500 font-black">+</span>
+          <input v-model="newImprint.ultimateBonus.power" type="number" class="w-16 text-xs border rounded p-1 text-center font-bold text-red-600 outline-none bg-white">
         </div>
-
         <button @click="createImprint" class="w-full bg-indigo-600 text-white px-4 py-2 rounded font-bold hover:bg-indigo-700 text-sm mt-1 transition-colors">이 설정으로 각인 만들기</button>
       </div>
 
