@@ -124,6 +124,43 @@ const initPlayerBuff = (slot: string, p: Raw) => {
 const rightPanelTab = ref<'global' | 'player'>('global')
 const playerTab = ref<'stats' | 'synergy'>('stats')
 
+// 🌟 1단계: 시너지 카테고리 자동 분류 및 탭 필터링 로직 추가
+const activeSynergyCategory = ref('전체');
+const playerSynergyCategory = ref('전체');
+
+const getSynergyCategory = (synName: string) => {
+  const name = String(synName || '').trim();
+  // 1. 기본 (연도, 구단, 시즌카 종류)
+  if (/^\d{4}$|^\d{4}년/.test(name) || name.match(/SSG|SK|키움|히어로즈|넥센|KIA|해태|삼성|두산|OB|롯데|LG|MBC|한화|빙그레|NC|KT|현대|태평양|청보|삼미|쌍방울|디그니티|탑클|에이스|히트|골든글러브|골글|MVP|신인왕|포스트시즌|올스타|국가대표|타이틀|프랜차이즈/)) return '기본';
+  // 2. 출신 (학교, 외국인 등)
+  if (name.match(/출신|외국인|용병|해외파|고등학교|대학교|중학교|초등학교/) || name.endsWith('고') || name.endsWith('대') || name.endsWith('상고') || name.endsWith('공고')) return '출신';
+  // 3. 기록 (통산, 한시즌, 경기 등)
+  if (name.match(/경기|안타|홈런|도루|타점|득점|승|세이브|홀드|탈삼진|이닝|클럽|철인|기록|-/)) return '기록';
+  // 4. 인물 (나머지 특수 시너지들)
+  return '인물';
+}
+
+const filteredActiveTeamSynergies = computed(() => {
+  return activeTeamSynergies.value.filter(s => activeSynergyCategory.value === '전체' || getSynergyCategory(s.name) === activeSynergyCategory.value);
+});
+const filteredPendingTeamSynergies = computed(() => {
+  return pendingTeamSynergies.value.filter(s => activeSynergyCategory.value === '전체' || getSynergyCategory(s.name) === activeSynergyCategory.value);
+});
+const filteredPlayerActiveSynergies = computed(() => {
+  if (!selectedSlot.value || !lineup.value[selectedSlot.value]) return [];
+  return getExpandedPlayerSynergies(lineup.value[selectedSlot.value]!).filter(s => {
+    const matchCategory = playerSynergyCategory.value === '전체' || getSynergyCategory(s) === playerSynergyCategory.value;
+    return matchCategory && isSynergyActiveForPlayer(lineup.value[selectedSlot.value]!, s);
+  });
+});
+const filteredPlayerInactiveSynergies = computed(() => {
+  if (!selectedSlot.value || !lineup.value[selectedSlot.value]) return [];
+  return getExpandedPlayerSynergies(lineup.value[selectedSlot.value]!).filter(s => {
+    const matchCategory = playerSynergyCategory.value === '전체' || getSynergyCategory(s) === playerSynergyCategory.value;
+    return matchCategory && !isSynergyActiveForPlayer(lineup.value[selectedSlot.value]!, s);
+  });
+});
+  
 const synergyHierarchy: Record<string, string[]> = {
   '190안타 클럽': ['180안타 클럽', '170안타 클럽'], '180안타 클럽': ['170안타 클럽'],
   '40홈런 클럽': ['30홈런 클럽'], '40도루 클럽': ['30도루 클럽'],
@@ -1598,13 +1635,20 @@ onMounted(async () => {
                  </div>
               </div>
               
-              <!-- 활성화된 팀 시너지 영역 -->
+<!-- 활성화된 팀 시너지 영역 -->
               <div class="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800 shadow-sm flex-shrink-0">
-                 <h3 class="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-3 flex items-center gap-1">
-                    <Users class="w-4 h-4"/> 현재 활성화된 팀 시너지 ({{ activeTeamSynergies.length }}개)
-                 </h3>
+                 <div class="flex flex-col mb-3">
+                   <h3 class="text-sm font-bold text-indigo-800 dark:text-indigo-300 flex items-center gap-1 mb-2">
+                      <Users class="w-4 h-4"/> 현재 활성화된 팀 시너지 ({{ filteredActiveTeamSynergies.length }}개)
+                   </h3>
+                   <!-- 🌟 팀 시너지 카테고리 탭 추가 -->
+                   <div class="flex bg-white dark:bg-neutral-800 p-1 rounded-lg border border-indigo-100 dark:border-indigo-800 flex-shrink-0">
+                     <button v-for="cat in ['전체', '기본', '출신', '기록', '인물']" :key="cat" @click="activeSynergyCategory = cat" :class="activeSynergyCategory === cat ? 'bg-indigo-100 dark:bg-indigo-900/50 font-bold text-indigo-700 dark:text-indigo-300 shadow-sm' : 'text-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-700'" class="flex-1 py-1 text-[10px] sm:text-xs rounded-md transition-all">{{ cat }}</button>
+                   </div>
+                 </div>
+
                  <div class="flex flex-col gap-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">
-                   <div v-for="syn in activeTeamSynergies" :key="syn.name" class="flex flex-col text-xs bg-white dark:bg-neutral-800 rounded-lg border border-indigo-100 shadow-sm overflow-hidden flex-shrink-0">
+                   <div v-for="syn in filteredActiveTeamSynergies" :key="syn.name" class="flex flex-col text-xs bg-white dark:bg-neutral-800 rounded-lg border border-indigo-100 shadow-sm overflow-hidden flex-shrink-0">
                      <div class="flex justify-between items-center px-3 py-2 cursor-pointer hover:bg-neutral-50 transition-colors" @click="expandedSynergy = expandedSynergy === syn.name ? null : syn.name">
                        <span class="font-bold text-neutral-700">{{ syn.name }}</span>
                        <div class="flex items-center gap-2 flex-shrink-0 whitespace-nowrap"><span class="text-indigo-600 font-bold">{{ formatBonuses(syn.bonuses) }}</span><ChevronRightIcon class="w-4 h-4" /></div>
@@ -1614,16 +1658,16 @@ onMounted(async () => {
                         <div class="flex flex-wrap gap-1"><span v-for="pName in syn.matchedPlayers" :key="pName" class="text-[10px] bg-indigo-100 px-1.5 py-0.5 rounded">{{ pName }}</span></div>
                      </div>
                    </div>
-                   <div v-if="activeTeamSynergies.length === 0" class="text-xs text-neutral-400 text-center py-2">활성화된 시너지가 없습니다.</div>
+                   <div v-if="filteredActiveTeamSynergies.length === 0" class="text-xs text-neutral-400 text-center py-2">해당 분류에 활성화된 시너지가 없습니다.</div>
                  </div>
 
                  <!-- 발동 대기 시너지 추가 -->
-                 <div v-if="pendingTeamSynergies.length > 0" class="mt-4 pt-3 border-t border-indigo-200 dark:border-indigo-800/50 flex-shrink-0">
+                 <div v-if="filteredPendingTeamSynergies.length > 0" class="mt-4 pt-3 border-t border-indigo-200 dark:border-indigo-800/50 flex-shrink-0">
                    <h3 class="text-[11px] font-bold text-neutral-500 mb-2 flex items-center gap-1">
-                      <Users class="w-3 h-3"/> 발동 대기 중인 시너지 ({{ pendingTeamSynergies.length }}개)
+                      <Users class="w-3 h-3"/> 발동 대기 중인 시너지 ({{ filteredPendingTeamSynergies.length }}개)
                    </h3>
                    <div class="flex flex-col gap-1.5 max-h-60 overflow-y-auto custom-scrollbar pr-2">
-                     <div v-for="syn in pendingTeamSynergies" :key="'pend'+syn.name" class="flex flex-col text-[10px] bg-neutral-100 rounded border shadow-sm overflow-hidden flex-shrink-0">
+                     <div v-for="syn in filteredPendingTeamSynergies" :key="'pend'+syn.name" class="flex flex-col text-[10px] bg-neutral-100 rounded border shadow-sm overflow-hidden flex-shrink-0">
                        <div class="flex justify-between items-center px-2 py-1.5 cursor-pointer hover:bg-neutral-200 transition-colors" @click="expandedPendingSynergy = expandedPendingSynergy === syn.name ? null : syn.name">
                          <span class="font-medium text-neutral-600">{{ syn.name }}</span>
                          <div class="flex items-center gap-1 flex-shrink-0 whitespace-nowrap">
@@ -1785,31 +1829,37 @@ onMounted(async () => {
 
 <!-- 보유 시너지 현황 -->
                   <div class="bg-indigo-50 dark:bg-indigo-900/10 p-3 rounded-xl border border-indigo-100 dark:border-indigo-900/20 shadow-sm mt-3 flex-shrink-0">
-                    <h3 class="text-[11px] font-bold text-indigo-800 dark:text-indigo-300 mb-2 flex items-center gap-1"><Sparkles class="w-3 h-3"/> 개인 시너지 적용 현황</h3>
-                    
+                    <div class="flex flex-col mb-2">
+                      <h3 class="text-[11px] font-bold text-indigo-800 dark:text-indigo-300 mb-2 flex items-center gap-1"><Sparkles class="w-3 h-3"/> 개인 시너지 적용 현황</h3>
+                      
+                      <!-- 🌟 개인 시너지 카테고리 탭 추가 -->
+                      <div class="flex bg-white dark:bg-neutral-800 p-1 rounded-lg border border-indigo-100 dark:border-indigo-800 flex-shrink-0">
+                        <button v-for="cat in ['전체', '기본', '출신', '기록', '인물']" :key="cat" @click="playerSynergyCategory = cat" :class="playerSynergyCategory === cat ? 'bg-indigo-100 dark:bg-indigo-900/50 font-bold text-indigo-700 dark:text-indigo-300 shadow-sm' : 'text-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-700'" class="flex-1 py-1 text-[9px] rounded-md transition-all">{{ cat }}</button>
+                      </div>
+                    </div>
+
                     <div class="flex flex-col gap-2 mb-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
                        
                        <!-- 🟢 활성화된 시너지 그룹 -->
-                       <div v-if="getExpandedPlayerSynergies(lineup[selectedSlot]).filter(s => isSynergyActiveForPlayer(lineup[selectedSlot], s)).length > 0" class="flex flex-col gap-1">
+                       <div v-if="filteredPlayerActiveSynergies.length > 0" class="flex flex-col gap-1">
                          <div class="text-[10px] font-black text-indigo-600 dark:text-indigo-400 mb-0.5">🟢 활성화 됨</div>
-                         <div v-for="(rawSyn, idx) in getExpandedPlayerSynergies(lineup[selectedSlot]).filter(s => isSynergyActiveForPlayer(lineup[selectedSlot], s))" :key="'act_'+idx" class="flex justify-between items-center text-[10px] bg-white dark:bg-neutral-800 px-2 py-1.5 rounded border border-indigo-200 dark:border-indigo-700/50 shadow-sm flex-shrink-0">
+                         <div v-for="(rawSyn, idx) in filteredPlayerActiveSynergies" :key="'act_'+idx" class="flex justify-between items-center text-[10px] bg-white dark:bg-neutral-800 px-2 py-1.5 rounded border border-indigo-200 dark:border-indigo-700/50 shadow-sm flex-shrink-0">
                             <span class="font-bold text-indigo-700 dark:text-indigo-300">{{ rawSyn }}</span>
                             <span class="text-indigo-500 font-black whitespace-nowrap ml-2">적용중</span>
                          </div>
                        </div>
                        
-<!-- 🔴 조건 미달 시너지 그룹 -->
-                       <div v-if="getExpandedPlayerSynergies(lineup[selectedSlot]).filter(s => !isSynergyActiveForPlayer(lineup[selectedSlot], s)).length > 0" class="flex flex-col gap-1 mt-1">
+                       <!-- 🔴 조건 미달 시너지 그룹 -->
+                       <div v-if="filteredPlayerInactiveSynergies.length > 0" class="flex flex-col gap-1 mt-1">
                          <div class="text-[10px] font-black text-neutral-500 dark:text-neutral-400 mb-0.5 border-t border-indigo-100 dark:border-indigo-800/50 pt-2">🔴 발동 대기 (필요 인원)</div>
-                         <div v-for="(rawSyn, idx) in getExpandedPlayerSynergies(lineup[selectedSlot]).filter(s => !isSynergyActiveForPlayer(lineup[selectedSlot], s))" :key="'inact_'+idx" class="flex justify-between items-center text-[10px] bg-neutral-100 dark:bg-neutral-800/50 px-2 py-1.5 rounded border border-neutral-200 dark:border-neutral-700 opacity-60 flex-shrink-0">
+                         <div v-for="(rawSyn, idx) in filteredPlayerInactiveSynergies" :key="'inact_'+idx" class="flex justify-between items-center text-[10px] bg-neutral-100 dark:bg-neutral-800/50 px-2 py-1.5 rounded border border-neutral-200 dark:border-neutral-700 opacity-60 flex-shrink-0">
                             <span class="text-neutral-500">{{ rawSyn }}</span>
-                            <!-- 🌟 도우미 함수를 호출해서 n / n명 형태로 출력되게 변경 -->
                             <span class="text-red-500 font-bold bg-red-50 px-1.5 py-0.5 rounded whitespace-nowrap ml-2 border border-red-100">{{ getPendingSynergyText(rawSyn) }}</span>
                          </div>
                        </div>
 
                        <!-- 선수가 시너지가 아예 없을 때 -->
-                       <div v-if="getExpandedPlayerSynergies(lineup[selectedSlot]).length === 0" class="text-[10px] text-neutral-400 text-center py-2">이 선수가 가진 시너지가 없습니다.</div>
+                       <div v-if="filteredPlayerActiveSynergies.length === 0 && filteredPlayerInactiveSynergies.length === 0" class="text-[10px] text-neutral-400 text-center py-2">해당 분류에 속한 시너지가 없습니다.</div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-indigo-100 dark:border-indigo-800">
