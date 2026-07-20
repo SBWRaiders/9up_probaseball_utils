@@ -130,6 +130,13 @@ const playerSynergyCategory = ref('전체');
 
 const getSynergyCategory = (synName: string) => {
   const name = String(synName || '').trim();
+  
+  // 🌟 예외 처리 VIP 명단 대폭 업데이트! 
+  // '왕조주역', '돌격대', '황금세대', '0000국가대표팀' 등이 포함되면 무조건 인물 탭으로 직행!
+  if (name.match(/대통령배MVP|봉황대기MVP|청룡기MVP|고춧가루부대|왕조주역|돌격대|황금세대|\d{4}국가대표팀/)) {
+    return '인물';
+  }
+
   // 1. 기본 (연도, 구단, 시즌카 종류)
   if (/^\d{4}$|^\d{4}년/.test(name) || name.match(/SSG|SK|키움|히어로즈|넥센|KIA|해태|삼성|두산|OB|롯데|LG|MBC|한화|빙그레|NC|KT|현대|태평양|청보|삼미|쌍방울|디그니티|탑클|에이스|히트|골든글러브|골글|MVP|신인왕|포스트시즌|올스타|국가대표|타이틀|프랜차이즈/)) return '기본';
   // 2. 출신 (학교, 외국인 등)
