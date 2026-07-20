@@ -88,6 +88,98 @@ const globalBuffs = reactive({
 
 const playerBuffs = ref<Record<string, PlayerBuff>>({})
 
+// 🌟 9up 인게임 고증: 각인(Imprint) 시스템 상태 및 로직 🌟
+type ImprintGrade = '노말' | '고급' | '특별' | '레전드' | '얼티밋';
+interface Imprint {
+  id: string;
+  name: string;
+  grade: ImprintGrade;
+  mainPower: number;    // 주 옵션 파워 (예: 270)
+  subPowerFixed: number; // 부가 효과 깡스탯
+  subPowerPercent: number; // 부가 효과 전체능력치 %
+}
+
+const imprintInventory = ref<Imprint[]>([]);
+const showImprintManager = ref(false);
+const newImprint = ref<{name: string, grade: ImprintGrade, mainPower: number, subPowerFixed: number, subPowerPercent: number}>({ 
+  name: '', grade: '레전드', mainPower: 270, subPowerFixed: 0, subPowerPercent: 0 
+});
+
+const createImprint = () => {
+  if (!newImprint.value.name.trim()) return alert('각인 이름을 입력해주세요!');
+  imprintInventory.value.push({
+    id: Date.now().toString(),
+    name: newImprint.value.name.trim(),
+    grade: newImprint.value.grade,
+    mainPower: Number(newImprint.value.mainPower) || 0,
+    subPowerFixed: Number(newImprint.value.subPowerFixed) || 0,
+    subPowerPercent: Number(newImprint.value.subPowerPercent) || 0,
+  });
+  // 생성 후 초기화 (기본값 레전드)
+  newImprint.value = { name: '', grade: '레전드', mainPower: 270, subPowerFixed: 0, subPowerPercent: 0 };
+};
+
+const deleteImprint = (id: string) => {
+  if(!confirm('이 각인을 보관함에서 완전히 삭제하시겠습니까?')) return;
+  imprintInventory.value = imprintInventory.value.filter(i => i.id !== id);
+  Object.keys(playerBuffs.value).forEach(pos => {
+    if (playerBuffs.value[pos]?.imprint1?.id === id) playerBuffs.value[pos].imprint1 = null;
+    if (playerBuffs.value[pos]?.imprint2?.id === id) playerBuffs.value[pos].imprint2 = null;
+  });
+};
+
+const showImprintEquipper = ref(false);
+const equipTarget = ref<{ pos: string, slot: 1 | 2 } | null>(null);
+
+const openEquipModal = (pos: string, slot: 1 | 2) => {
+  equipTarget.value = { pos, slot };
+  showImprintEquipper.value = true;
+};
+
+const equipImprint = (imprint: Imprint) => {
+  if (!equipTarget.value) return;
+  const { pos, slot } = equipTarget.value;
+  const p = lineup.value[pos];
+  if (!p) return;
+  if (!playerBuffs.value[pos]) playerBuffs.value[pos] = {};
+  
+  const currentBuffs = playerBuffs.value[pos];
+  
+  // 1. 중복 장착 체크
+  if (slot === 1 && currentBuffs.imprint2?.id === imprint.id) return alert('이미 반대쪽 슬롯에 장착된 각인입니다.');
+  if (slot === 2 && currentBuffs.imprint1?.id === imprint.id) return alert('이미 반대쪽 슬롯에 장착된 각인입니다.');
+
+  // 2. 🌟 인게임 고증: 디그니티 외 등급은 얼티밋 각인 2개 장착 불가!
+  if (imprint.grade === '얼티밋' && p.grade !== 'Dignity') { // 실제 DB의 디그니티 영문명에 맞게 수정 필요
+    const otherImprint = slot === 1 ? currentBuffs.imprint2 : currentBuffs.imprint1;
+    if (otherImprint?.grade === '얼티밋') {
+      return alert('디그니티 등급이 아닌 선수는 얼티밋 각인을 1개만 장착할 수 있습니다!');
+    }
+  }
+
+  if (slot === 1) playerBuffs.value[pos].imprint1 = imprint;
+  else playerBuffs.value[pos].imprint2 = imprint;
+  
+  showImprintEquipper.value = false;
+};
+
+const unequipImprint = (pos: string, slot: 1 | 2) => {
+  if (playerBuffs.value[pos]) {
+    if (slot === 1) playerBuffs.value[pos].imprint1 = null;
+    else playerBuffs.value[pos].imprint2 = null;
+  }
+};
+
+const getGradeColor = (grade: ImprintGrade) => {
+  switch(grade) {
+    case '얼티밋': return 'text-red-600 bg-red-100 border-red-300';
+    case '레전드': return 'text-purple-600 bg-purple-100 border-purple-300';
+    case '특별': return 'text-blue-600 bg-blue-100 border-blue-300';
+    case '고급': return 'text-green-600 bg-green-100 border-green-300';
+    default: return 'text-neutral-600 bg-neutral-200 border-neutral-300';
+  }
+};
+  
 const initPlayerBuff = (slot: string, p: Raw) => {
   const grade = String(p.grade || '').toUpperCase()
   let colBuff = 1200
@@ -1882,6 +1974,41 @@ onMounted(async () => {
                       </div>
                     </div>
                   </div>
+                  <!-- 🌟 각인 장착 슬롯 추가 (인게임 고증 버전) 🌟 -->
+                  <div class="mt-3 bg-white dark:bg-neutral-800 p-3 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-sm flex-shrink-0">
+                    <div class="flex justify-between items-center mb-2">
+                      <h3 class="text-[11px] font-bold text-neutral-700 dark:text-neutral-300 flex items-center gap-1">🛡️ 각인 장착 (최대 2개)</h3>
+                      <button @click="showImprintManager = true" class="text-[9px] bg-indigo-100 text-indigo-700 px-2 py-1 rounded hover:bg-indigo-200 transition-colors font-bold">보관함 관리</button>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-2">
+                      <!-- 각인 1 -->
+                      <div class="border rounded-lg p-2 h-16 flex flex-col items-center justify-center cursor-pointer transition-colors relative"
+                           :class="playerBuffs[selectedSlot]?.imprint1 ? 'border-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20' : 'border-dashed border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-700'"
+                           @click="openEquipModal(selectedSlot, 1)">
+                         <div v-if="playerBuffs[selectedSlot]?.imprint1" class="text-center w-full relative">
+                           <button @click.stop="unequipImprint(selectedSlot, 1)" class="absolute -top-2 -right-2 w-5 h-5 bg-red-100 text-red-500 rounded-full flex items-center justify-center text-[10px] hover:bg-red-500 hover:text-white transition-colors z-10">×</button>
+                           <div class="text-[8px] font-black px-1.5 py-0.5 rounded border inline-block mb-0.5" :class="getGradeColor(playerBuffs[selectedSlot].imprint1.grade)">{{ playerBuffs[selectedSlot].imprint1.grade }}</div>
+                           <div class="text-[10px] font-bold text-neutral-800 dark:text-neutral-200 truncate">{{ playerBuffs[selectedSlot].imprint1.name }}</div>
+                           <div class="text-[8px] text-neutral-500 mt-0.5">파워+{{ playerBuffs[selectedSlot].imprint1.mainPower + playerBuffs[selectedSlot].imprint1.subPowerFixed }} / {{ playerBuffs[selectedSlot].imprint1.subPowerPercent }}%</div>
+                         </div>
+                         <div v-else class="text-[10px] text-neutral-400 font-medium">+ 각인 1 장착</div>
+                      </div>
+                      
+                      <!-- 각인 2 -->
+                      <div class="border rounded-lg p-2 h-16 flex flex-col items-center justify-center cursor-pointer transition-colors relative"
+                           :class="playerBuffs[selectedSlot]?.imprint2 ? 'border-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20' : 'border-dashed border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-700'"
+                           @click="openEquipModal(selectedSlot, 2)">
+                         <div v-if="playerBuffs[selectedSlot]?.imprint2" class="text-center w-full relative">
+                           <button @click.stop="unequipImprint(selectedSlot, 2)" class="absolute -top-2 -right-2 w-5 h-5 bg-red-100 text-red-500 rounded-full flex items-center justify-center text-[10px] hover:bg-red-500 hover:text-white transition-colors z-10">×</button>
+                           <div class="text-[8px] font-black px-1.5 py-0.5 rounded border inline-block mb-0.5" :class="getGradeColor(playerBuffs[selectedSlot].imprint2.grade)">{{ playerBuffs[selectedSlot].imprint2.grade }}</div>
+                           <div class="text-[10px] font-bold text-neutral-800 dark:text-neutral-200 truncate">{{ playerBuffs[selectedSlot].imprint2.name }}</div>
+                           <div class="text-[8px] text-neutral-500 mt-0.5">파워+{{ playerBuffs[selectedSlot].imprint2.mainPower + playerBuffs[selectedSlot].imprint2.subPowerFixed }} / {{ playerBuffs[selectedSlot].imprint2.subPowerPercent }}%</div>
+                         </div>
+                         <div v-else class="text-[10px] text-neutral-400 font-medium">+ 각인 2 장착</div>
+                      </div>
+                    </div>
+                  </div>
 
                   <!-- 스킬 설정 -->
                   <div class="mt-4 flex-shrink-0">
@@ -1915,6 +2042,91 @@ onMounted(async () => {
           </div>
         </section>
 
+      </div>
+    </div>
+  </div>
+<!-- 🌟 각인 생성 및 보관함 모달 🌟 -->
+  <div v-if="showImprintManager" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[85vh]">
+      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
+        <h2 class="text-base font-bold text-neutral-800 dark:text-neutral-200">🛡️ 각인 보관함 (대장간)</h2>
+        <button @click="showImprintManager = false" class="text-neutral-500 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold">&times;</button>
+      </div>
+      
+      <!-- 각인 생성 폼 -->
+      <div class="p-4 border-b dark:border-neutral-800 flex flex-col gap-3">
+        <div class="flex gap-2 items-center">
+          <select v-model="newImprint.grade" class="text-xs border rounded p-2 dark:bg-neutral-800 dark:border-neutral-700 dark:text-white outline-none font-bold" :class="getGradeColor(newImprint.grade)">
+            <option value="노말">노말</option>
+            <option value="고급">고급</option>
+            <option value="특별">특별</option>
+            <option value="레전드">레전드</option>
+            <option value="얼티밋">얼티밋</option>
+          </select>
+          <input v-model="newImprint.name" type="text" placeholder="각인 이름 (예: 무결점의 각인)" class="flex-1 text-xs border rounded p-2 dark:bg-neutral-800 dark:border-neutral-700 dark:text-white outline-none">
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          <div class="flex flex-col">
+            <span class="text-[10px] text-neutral-500 mb-1">주 옵션 (파워)</span>
+            <input v-model="newImprint.mainPower" type="number" class="text-xs border rounded p-2 dark:bg-neutral-800 dark:border-neutral-700 dark:text-white outline-none">
+          </div>
+          <div class="flex flex-col">
+            <span class="text-[10px] text-neutral-500 mb-1">부 옵션 (깡파워)</span>
+            <input v-model="newImprint.subPowerFixed" type="number" class="text-xs border rounded p-2 dark:bg-neutral-800 dark:border-neutral-700 dark:text-white outline-none">
+          </div>
+          <div class="flex flex-col">
+            <span class="text-[10px] text-neutral-500 mb-1">부 옵션 (전체능력치 %)</span>
+            <input v-model="newImprint.subPowerPercent" type="number" class="text-xs border rounded p-2 dark:bg-neutral-800 dark:border-neutral-700 dark:text-white outline-none">
+          </div>
+        </div>
+        <button @click="createImprint" class="w-full bg-indigo-600 text-white px-4 py-2 rounded font-bold hover:bg-indigo-700 text-sm mt-1 transition-colors">새 각인 보관함에 저장하기</button>
+      </div>
+
+      <!-- 각인 목록 -->
+      <div class="p-4 overflow-y-auto flex-1 custom-scrollbar bg-neutral-50 dark:bg-neutral-900/50">
+        <h3 class="text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">보유 중인 각인 ({{ imprintInventory.length }}개)</h3>
+        <div v-if="imprintInventory.length === 0" class="text-center text-neutral-400 text-xs py-8">각인이 없습니다. 위에서 생성해주세요!</div>
+        <div v-else class="flex flex-col gap-2">
+          <div v-for="imp in imprintInventory" :key="imp.id" class="flex justify-between items-center border border-neutral-200 dark:border-neutral-700 rounded-lg p-3 bg-white dark:bg-neutral-800 shadow-sm">
+            <div class="flex flex-col">
+              <div class="flex items-center gap-1.5 mb-1">
+                <span class="text-[9px] font-black px-1.5 py-0.5 rounded border" :class="getGradeColor(imp.grade)">{{ imp.grade }}</span>
+                <span class="font-bold text-neutral-800 dark:text-neutral-200 text-xs">{{ imp.name }}</span>
+              </div>
+              <div class="flex gap-2 text-[10px]">
+                <span class="text-indigo-600 dark:text-indigo-400 font-bold">주옵 +{{ imp.mainPower }}</span>
+                <span v-if="imp.subPowerFixed" class="text-neutral-500">부옵(깡) +{{ imp.subPowerFixed }}</span>
+                <span v-if="imp.subPowerPercent" class="text-orange-500 font-bold">부옵(%) +{{ imp.subPowerPercent }}%</span>
+              </div>
+            </div>
+            <button @click="deleteImprint(imp.id)" class="text-xs bg-red-100 text-red-600 px-3 py-1.5 rounded hover:bg-red-200 font-bold">삭제</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🌟 각인 장착 모달 🌟 -->
+  <div v-if="showImprintEquipper" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div class="bg-white dark:bg-neutral-900 w-full max-w-sm rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[70vh]">
+      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800">
+        <h2 class="text-sm font-bold text-neutral-800 dark:text-neutral-200">각인 선택 (슬롯 {{ equipTarget?.slot }})</h2>
+        <button @click="showImprintEquipper = false" class="text-neutral-500 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold">&times;</button>
+      </div>
+      <div class="p-4 overflow-y-auto flex-1 custom-scrollbar bg-neutral-50 dark:bg-neutral-900/50">
+        <div v-if="imprintInventory.length === 0" class="text-center text-neutral-400 text-xs py-8">보관함에 각인이 없습니다.<br>먼저 [보관함 관리]에서 만들어주세요.</div>
+        <div v-else class="flex flex-col gap-2">
+          <div v-for="imp in imprintInventory" :key="'eq_'+imp.id" @click="equipImprint(imp)" class="flex justify-between items-center border border-neutral-200 dark:border-neutral-700 rounded-lg p-2.5 bg-white dark:bg-neutral-800 shadow-sm cursor-pointer hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all">
+            <div class="flex flex-col">
+              <div class="flex items-center gap-1.5 mb-1">
+                <span class="text-[8px] font-black px-1.5 py-0.5 rounded border" :class="getGradeColor(imp.grade)">{{ imp.grade }}</span>
+                <span class="font-bold text-neutral-800 dark:text-neutral-200 text-xs">{{ imp.name }}</span>
+              </div>
+              <span class="text-indigo-600 dark:text-indigo-400 text-[10px] font-bold">주옵+{{ imp.mainPower }} / 깡+{{ imp.subPowerFixed }} / %증가+{{ imp.subPowerPercent }}%</span>
+            </div>
+            <span class="text-[10px] bg-indigo-600 text-white px-2.5 py-1 rounded font-bold">장착</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
