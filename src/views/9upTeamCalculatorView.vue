@@ -983,6 +983,19 @@ const teamTotalPower = computed(() => {
     if (slot.startsWith('BENCH')) return 
     sum += computedPlayerStats.value[slot]?.power || 0
   })
+  // --- 🌟 여기서부터 추가: 장착한 각인의 파워를 합산해주는 로직 ---
+  const buffs = playerBuffs.value[slot];
+  if (buffs) {
+    if (buffs.imprint1) {
+      basePower += (buffs.imprint1.mainPower + buffs.imprint1.subPowerFixed);
+      powerPercent += buffs.imprint1.subPowerPercent;
+    }
+    if (buffs.imprint2) {
+      basePower += (buffs.imprint2.mainPower + buffs.imprint2.subPowerFixed);
+      powerPercent += buffs.imprint2.subPowerPercent;
+    }
+  }
+  // --- 🌟 여기까지 🌟 ---
   return sum
 })
 
