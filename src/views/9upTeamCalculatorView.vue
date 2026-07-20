@@ -926,12 +926,84 @@ const getManagerBonusText = (typeKey: string, enhance: number) => {
   return `${mainName} +${stats.main}, ${subName} +${stats.sub}`;
 };
 
-let finalTotal = 0
+const computedPlayerStats = computed(() => {
+  const result: Record<string, { power: number, stats: Record<string, number> }> = {}
+  Object.keys(lineup.value).forEach(slot => {
+    const p = lineup.value[slot]
+    if (!p) return
+    const buffs = playerBuffs.value[slot]
+    if (!buffs) return
+
+    const isPit = isPitcher(p);
+    let baseSum = 0
+    const coreStats = isPit ? ['movement', 'longHitSuppression', 'homeRunSuppression', 'control', 'stuff'] : ['contact', 'gapPower', 'homeRunPower', 'plateDiscipline', 'strikeoutAvoidance']
+    const nonCoreStats = isPit ? ['defense', 'pitchLimit', 'runnerControl'] : ['stealing', 'baseRunning', 'defense']
+    coreStats.forEach(s => baseSum += Number(p[s] || 0))
+    nonCoreStats.forEach(s => baseSum += Number(p[s] || 0))
+    
+    const pTeams = toArray(p.team).map(toLowerCase);
+    const isMyTeam = (globalBuffs.preferredTeam || []).some(t => pTeams.includes(t));
+    const appliedTeamLevelBuff = getTeamLevelPower(globalBuffs.teamLevel, isMyTeam);
+    const growthA = Number(Math.max(0, buffs.playerLevel - 1) * 10) + buffs.collectionBuff + appliedTeamLevelBuff + buffs.careerLevelBuff + (buffs.enhancementLevel * getEnhanceMultiplier(p))
+    const flatC = buffs.binderBuff + globalBuffs.clanBuff + buffs.careerAllStatFlat + getBreakthroughFixed(p, buffs.breakthroughLevel)
+    
+    const is1st2ndSP = slot === 'SP1' || slot === 'SP2';
+    const imprintStarterAddedPower = is1st2ndSP ? buffs.imprintStarterPower : 0;
+    
+    let autoSynergyFixed = 0, autoSynergyPercent = 0, skillPowerPercent = 0, statSpecificSkillPercents: Record<string, number> = {}
+    activeTeamSynergies.value.forEach(syn => {
+      if (isPlayerReceivingSynergy(p, syn.name)) {
+        syn.bonuses.forEach(b => {
+           if (b.stat === 'power') {
+            if (b.bonus.unit === 'fixed') autoSynergyFixed += b.bonus.value
+            else if (b.bonus.unit === 'percent') autoSynergyPercent += b.bonus.value
+          }
+        })
+      }
+    })
+    const careerTeamPower = getSameTeamCount(p) * 2 * getCareerTeamMultiplier(buffs.careerTeamCount);
+    const autoTeamDignityBuff = calculateTeamPlayerDignityBuff(p);
+
+    const pGrade = String(p.grade || '').toUpperCase();
+    const dynamicHitAceBuff = ['HIT', 'ACE', 'GG'].includes(pGrade) ? getSameTeamCount(p) * 32 : 0;
+    
+    const growthB = careerTeamPower + dynamicHitAceBuff + autoTeamDignityBuff + autoSynergyFixed + imprintStarterAddedPower;
+    
+    buffs.selectedSkills.forEach(s => {
+      if (isSkillActive(s, slot, buffs.battingOrder)) {
+         const eff = SKILL_EFFECTS[s]
+         if (eff) {
+           skillPowerPercent += eff.powerPercent || 0
+           for (const [k, v] of Object.entries(eff.stats || {})) statSpecificSkillPercents[k] = (statSpecificSkillPercents[k] || 0) + Number(v)
+         }
+      }
+    })
+    const globalPercent = skillPowerPercent + autoSynergyPercent + buffs.ultimateImprintPercent
+    const globalPercentPool = coreStats.reduce((acc, s) => acc + Number(p[s]||0), 0) + nonCoreStats.reduce((acc, s) => acc + Number(p[s]||0), 0) + growthA
+    const globalBonusTotal = globalPercentPool * (globalPercent / 100)
+    
+    let managerMainStat = 0;
+    let managerSubStat = 0;
+    let managerMainName = '';
+    let managerSubName = '';
+    
+    if (globalBuffs.managerType) {
+      const isMy = globalBuffs.managerType.startsWith('my_');
+      const typeStr = globalBuffs.managerType.split('_')[1];
+      const table = isMy ? MANAGER_STATS_MY : MANAGER_STATS_COM;
+      const level = Math.min(15, Math.max(0, globalBuffs.managerEnhance || 0));
+      managerMainStat = table[level].main;
+      managerSubStat = table[level].sub;
+      managerMainName = MANAGER_TYPES[typeStr].main;
+      managerSubName = MANAGER_TYPES[typeStr].sub;
+    }
+
+    let finalTotal = 0
     const stats: Record<string, number> = {}
 
     // 🌟 1. 각인 스탯 미리 계산 (주옵/부옵을 5대 스탯에 정확히 분배) 🌟
     let imprintStatBonus: Record<string, number> = {};
-    let imprintGeneralPower = 0; // 스탯 외의 파워 (조건부 등)
+    let imprintGeneralPower = 0; 
     
     if (buffs) {
       const applyImp = (imp: Imprint) => {
@@ -943,15 +1015,12 @@ let finalTotal = 0
            '수비': 'defense', '한계투구 증가': 'pitchLimit'
          };
          
-         // 🎯 주옵션: 해당 스탯에 직접 수치만큼 더해줌!
          const mainKey = statKeyMap[imp.mainStat];
          if (mainKey) imprintStatBonus[mainKey] = (imprintStatBonus[mainKey] || 0) + imp.mainPower;
          else imprintGeneralPower += imp.mainPower;
 
-         // 🎯 부옵션 처리
          imp.subOptions.forEach(opt => {
            if (opt.type === '전체 능력치') {
-             // '전체 능력치'는 %가 아니라 코어 5대 스탯 각각에 수치(깡스탯)만큼 평등하게 더해줌!
              coreStats.forEach(c => imprintStatBonus[c] = (imprintStatBonus[c] || 0) + opt.value);
            } else if (opt.type !== '수익 증가') {
              const subKey = statKeyMap[opt.type];
@@ -960,7 +1029,6 @@ let finalTotal = 0
            }
          });
 
-         const pGrade = String(p.grade || '').toUpperCase();
          if (imp.ultimateBonus && pGrade === imp.ultimateBonus.targetGrade) {
            imprintGeneralPower += imp.ultimateBonus.power;
          }
@@ -981,7 +1049,6 @@ let finalTotal = 0
       val += Number(buffs.careerStats?.[s] || 0) + Number(buffs.imprintStats?.[s] || 0)
       val += Number(buffs.imprintCoreStat || 0) + Number(buffs.careerCoreStat || 0)
       
-      // 🎯 각인에서 분류된 스탯 보너스를 각 항목에 정직하게 합산
       val += Number(imprintStatBonus[s] || 0)
 
       stats[s] = Math.round(val)
@@ -996,14 +1063,12 @@ let finalTotal = 0
       if (s === managerSubName) val += managerSubStat;
       val += Number(buffs.careerStats?.[s] || 0) + Number(buffs.imprintStats?.[s] || 0)
       
-      // 🎯 수비, 한계투구 등도 정확히 합산
       val += Number(imprintStatBonus[s] || 0)
 
       stats[s] = Math.round(val)
       finalTotal += val
     })
 
-    // 스탯 외에 더해지는 기타 각인 파워 합산
     finalTotal += imprintGeneralPower;
 
     result[slot] = { power: Math.round(finalTotal), stats }
