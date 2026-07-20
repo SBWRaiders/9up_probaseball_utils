@@ -129,11 +129,11 @@ const activeSynergyCategory = ref('전체');
 const playerSynergyCategory = ref('전체');
 
 const getSynergyCategory = (synName: string) => {
-  const name = String(synName || '').trim();
+  // 🌟 핵심 패치: DB에 "고춧가루 부대" 처럼 띄어쓰기가 있어도 낚이지 않도록 공백을 싹 제거합니다!
+  const name = String(synName || '').replace(/\s+/g, '').trim();
   
-  // 🌟 예외 처리 VIP 명단 대폭 업데이트! 
-  // '왕조주역', '돌격대', '황금세대', '0000국가대표팀' 등이 포함되면 무조건 인물 탭으로 직행!
-  if (name.match(/대통령배MVP|봉황대기MVP|청룡기MVP|고춧가루부대|왕조주역|돌격대|황금세대|\d{4}국가대표팀/)) {
+  // 🌟 예외 처리 VIP: 공백이 제거된 상태로 검사하므로 100% 찰떡같이 알아듣습니다.
+  if (name.match(/대통령배MVP|봉황대기MVP|청룡기MVP|고춧가루|왕조주역|돌격대|황금세대|\d{4}국가대표팀/)) {
     return '인물';
   }
 
