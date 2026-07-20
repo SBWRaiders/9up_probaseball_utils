@@ -91,7 +91,6 @@ const playerBuffs = ref<Record<string, PlayerBuff>>({})
 // 🌟 9up 인게임 고증: 각인(Imprint) 시스템 상태 및 로직 🌟
 type ImprintRole = '타자' | '투수'; 
 type ImprintGrade = '노말' | '고급' | '특별' | '레전드' | '얼티밋';
-// 🌟 타자/투수 스탯 완벽 분리 및 '전체 능력치' 퍼센트 삭제 🌟
 type SubOptType = '컨택' | '갭파워' | '홈런파워' | '선구' | '삼진회피' | '무브먼트' | '장타억제' | '홈런억제' | '컨트롤' | '스터프' | '수비' | '한계투구 증가' | '1~2선발시 파워증가' | '전체 능력치' | '조건부 파워' | '수익 증가';
 
 interface ImprintSubOption {
@@ -104,6 +103,7 @@ interface Imprint {
   name: string;
   role: ImprintRole;
   grade: ImprintGrade;
+  mainStat: string; // 🌟 핵심: 5대 스탯 중 어떤 스탯을 올려주는지 저장!
   mainPower: number; 
   subOptions: ImprintSubOption[]; 
   ultimateBonus?: { targetGrade: string, power: number }; 
@@ -113,17 +113,20 @@ const imprintInventory = ref<Imprint[]>([]);
 const showImprintManager = ref(false);
 
 const newImprint = ref({ 
-  name: '', role: '타자' as ImprintRole, grade: '레전드' as ImprintGrade, mainPower: 270,
+  name: '', role: '타자' as ImprintRole, grade: '레전드' as ImprintGrade, 
+  mainStat: '컨택', // 생성 기본값
+  mainPower: 270,
   subOptions: [
     { type: '컨택' as SubOptType, value: 0 },
     { type: '갭파워' as SubOptType, value: 0 },
     { type: '전체 능력치' as SubOptType, value: 0 }
   ],
-  ultimateBonus: { targetGrade: 'DGN', power: 0 } // 기본값을 실제 내부 등급코드(DGN)로 변경
+  ultimateBonus: { targetGrade: 'DGN', power: 0 } // 내부 코드로 변경
 });
 
-// 🌟 타자 <-> 투수 변경 시 스탯 옵션 꼬임 방지 🌟
+// 🌟 역할(타/투) 변경 시 주옵/부옵 스탯 꼬임 방지 🌟
 const handleRoleChange = () => {
+  newImprint.value.mainStat = newImprint.value.role === '타자' ? '컨택' : '무브먼트';
   newImprint.value.subOptions.forEach(opt => {
     opt.type = newImprint.value.role === '타자' ? '컨택' : '무브먼트';
     opt.value = 0;
@@ -151,6 +154,7 @@ const createImprint = () => {
     name: newImprint.value.name.trim(),
     role: newImprint.value.role,
     grade: newImprint.value.grade,
+    mainStat: newImprint.value.mainStat, // 주옵션 저장
     mainPower: Number(newImprint.value.mainPower) || 0,
     subOptions: newImprint.value.subOptions.map(o => ({ type: o.type, value: Number(o.value) || 0 }))
   };
@@ -163,7 +167,7 @@ const createImprint = () => {
   }
   
   imprintInventory.value.push(imp);
-  alert(`[${imp.role}용] 각인이 보관함에 생성되었습니다!`);
+  alert(`[${imp.role}용 - ${imp.mainStat}] 각인이 생성되었습니다!`);
 };
 
 const deleteImprint = (id: string) => {
@@ -189,21 +193,23 @@ const equipImprint = (imprint: Imprint) => {
   const p = lineup.value[pos];
   if (!p) return;
   
-  // 🌟 핵심 방어막: 타자는 타자 각인만, 투수는 투수 각인만!
   const isPitcherSlot = pos.startsWith('SP') || pos.startsWith('RP');
   const targetRole = isPitcherSlot ? '투수' : '타자';
-  if (imprint.role !== targetRole) {
-    return alert(`장착 실패! 이 슬롯의 선수는 [${targetRole}]입니다. ${targetRole}용 각인만 낄 수 있습니다!`);
-  }
+  if (imprint.role !== targetRole) return alert(`장착 실패! ${targetRole}용 각인만 낄 수 있습니다!`);
 
   if (!playerBuffs.value[pos]) playerBuffs.value[pos] = {};
   const currentBuffs = playerBuffs.value[pos];
   
-  if (slot === 1 && currentBuffs.imprint2?.id === imprint.id) return alert('이미 반대쪽 슬롯에 장착된 각인입니다.');
-  if (slot === 2 && currentBuffs.imprint1?.id === imprint.id) return alert('이미 반대쪽 슬롯에 장착된 각인입니다.');
+  const otherImprint = slot === 1 ? currentBuffs.imprint2 : currentBuffs.imprint1;
+
+  if (otherImprint?.id === imprint.id) return alert('이미 반대쪽 슬롯에 장착된 각인입니다.');
+
+  // 🌟 핵심 방어막: 주옵션 중복 장착 절대 불가!
+  if (otherImprint?.mainStat === imprint.mainStat) {
+    return alert(`장착 실패! 이미 반대쪽 슬롯에 [${imprint.mainStat}] 주옵션 각인이 장착되어 있습니다. (동일 주옵 중복 장착 불가)`);
+  }
 
   if (imprint.grade === '얼티밋' && p.grade !== 'Dignity') { 
-    const otherImprint = slot === 1 ? currentBuffs.imprint2 : currentBuffs.imprint1;
     if (otherImprint?.grade === '얼티밋') return alert('디그니티 등급이 아닌 선수는 얼티밋 각인을 1개만 장착할 수 있습니다!');
   }
 
