@@ -1174,6 +1174,15 @@ const applyLoadedData = (data: any) => {
     if (data.globalBuffs.amplifiedMasteryIndex === undefined) data.globalBuffs.amplifiedMasteryIndex = -1;
     Object.assign(globalBuffs, JSON.parse(JSON.stringify(data.globalBuffs)));
   }
+  if (data.imprintInventory) imprintInventory.value = JSON.parse(JSON.stringify(data.imprintInventory));
+
+  // 🌟 핵심 패치: 파일 안에 다중 저장(multiSaves) 데이터가 있다면, 브라우저 메모리에 다시 복구시켜 줍니다!
+  if (data.multiSaves && Object.keys(data.multiSaves).length > 0) {
+    const existingSaves = JSON.parse(localStorage.getItem('9up_multi_saves') || '{}');
+    const mergedSaves = { ...existingSaves, ...data.multiSaves }; // 기존 데이터가 있으면 안전하게 합치기
+    localStorage.setItem('9up_multi_saves', JSON.stringify(mergedSaves));
+  }
+
   // 불러올 때 화면 충돌 방지를 위해 빈 화면으로 깔끔하게 초기화
   selectedSlot.value = null; 
 }
@@ -1205,7 +1214,7 @@ const resetLineup = () => {
 const saveToLocalStorage = () => {
   const saveName = prompt('저장할 라인업 이름을 입력하세요:\n(예: 국대전용, 홈런타자세팅 등)');
   if (!saveName) return;
-  const saveData = { lineup: lineup.value, playerBuffs: playerBuffs.value, globalBuffs: globalBuffs }
+  const saveData = { lineup: lineup.value, playerBuffs: playerBuffs.value, globalBuffs: globalBuffs, imprintInventory: imprintInventory.value }
   let saves = JSON.parse(localStorage.getItem('9up_multi_saves') || '{}')
   saves[saveName] = saveData
   localStorage.setItem('9up_multi_saves', JSON.stringify(saves))
@@ -1231,13 +1240,24 @@ const loadFromLocalStorage = () => {
   }
 }
 
-// 🌟 파일 내보내기 (파일 이름 설정) 🌟
+// 🌟 파일 내보내기 (다중 저장 리스트까지 싹 다 파일 안에 압축 저장!) 🌟
 const exportToFile = () => {
   const defaultName = `9up_lineup_${new Date().toISOString().slice(0,10)}`
   const fileName = prompt('저장할 파일 이름을 입력하세요:', defaultName)
   if (!fileName) return; 
   
-  const saveData = { lineup: lineup.value, playerBuffs: playerBuffs.value, globalBuffs: globalBuffs }
+  // 브라우저에 있는 다중 저장 리스트 가져오기
+  const multiSaves = JSON.parse(localStorage.getItem('9up_multi_saves') || '{}');
+
+  // 현재 데이터 + 각인 보관함 + 다중 저장 리스트 전부 묶기!
+  const saveData = { 
+    lineup: lineup.value, 
+    playerBuffs: playerBuffs.value, 
+    globalBuffs: globalBuffs, 
+    imprintInventory: imprintInventory.value,
+    multiSaves: multiSaves 
+  }
+  
   const blob = new Blob([JSON.stringify(saveData, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -1251,7 +1271,7 @@ const exportToFile = () => {
 
 const triggerFileInput = () => { fileInput.value?.click() }
 
-// 🌟 2. 파일 불러오기 기능 (에러 추적 알림 추가) 🌟
+// 🌟 2. 파일 불러오기 기능 (다중 저장 복구 안내 메시지 추가) 🌟
 const importFromFile = (event: Event) => {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
@@ -1265,12 +1285,17 @@ const importFromFile = (event: Event) => {
       
       const data = JSON.parse(result)
       applyLoadedData(data)
-      alert('✅ 파일에서 라인업을 성공적으로 불러왔습니다!')
+      
+      // 파일 안에 다중 저장 데이터가 포함되어 있다면 알림창에 내용 추가!
+      const msg = data.multiSaves && Object.keys(data.multiSaves).length > 0
+        ? '✅ 파일 불러오기 완료!\n(다중 저장 목록도 무사히 복구되었습니다!)'
+        : '✅ 파일에서 라인업을 성공적으로 불러왔습니다!';
+      alert(msg)
+      
     } catch (err: any) {
       console.error("파일 파싱 에러:", err)
       alert('❌ 파일 불러오기 실패: 형식이 맞지 않거나 손상된 파일입니다.\n(' + err.message + ')')
     } finally {
-      // 같은 파일을 다시 불러올 수 있도록 찌꺼기 비우기
       if (fileInput.value) fileInput.value.value = ''
     }
   }
@@ -1278,8 +1303,9 @@ const importFromFile = (event: Event) => {
 }
 
 // 🌟 새로고침/재접속 시 데이터가 날아가지 않도록 실시간 백업 🌟
-watch([lineup, playerBuffs, globalBuffs], () => {
-  const autoSaveData = { lineup: lineup.value, playerBuffs: playerBuffs.value, globalBuffs: globalBuffs }
+// 감시망(watch)에 imprintInventory를 추가해서 각인을 만들거나 삭제할 때마다 즉시 자동 저장됩니다.
+watch([lineup, playerBuffs, globalBuffs, imprintInventory], () => {
+  const autoSaveData = { lineup: lineup.value, playerBuffs: playerBuffs.value, globalBuffs: globalBuffs, imprintInventory: imprintInventory.value }
   localStorage.setItem('9up_auto_save', JSON.stringify(autoSaveData))
 }, { deep: true })
   
