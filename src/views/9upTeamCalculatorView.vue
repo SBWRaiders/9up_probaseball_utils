@@ -79,12 +79,16 @@ const lineup = ref({
   BENCH5: null, BENCH6: null, BENCH7: null, BENCH8: null
 } as Record<string, Raw | null>)
 
-// 🌟 시너지 마스터리 상태 추가 🌟
 const globalBuffs = reactive({
   teamLevel: 100, preferredTeam: [] as string[], clanBuff: 15, managerType: '', managerEnhance: 0,
   synergyMasteries: ['', '', '', '', ''],
-  amplifiedMasteryIndex: -1 // 증폭 선택 인덱스 (-1이면 미선택)
+  amplifiedMasteryIndex: -1,
+  // 🌟 바인더 100레벨 기본값 + 5x5 빙고판 데이터 배열
+  binderLevel: 100, 
+  binderMatrix: Array(5).fill(0).map(() => ({ team: '', position: '', player: '', year: '', grade: '' }))
 })
+
+const playerBuffs = ref<Record<string, PlayerBuff>>({})
 
 const playerBuffs = ref<Record<string, PlayerBuff>>({})
 
@@ -926,6 +930,62 @@ const getManagerBonusText = (typeKey: string, enhance: number) => {
   return `${mainName} +${stats.main}, ${subName} +${stats.sub}`;
 };
 
+// 🌟 9up 인게임 고증: 바인더 파워 자동 계산 도우미 🌟
+const calcBinderBonus = (count: number) => {
+  if (count === 1) return 10;
+  if (count === 2) return 17;
+  if (count === 3) return 22;
+  if (count === 4) return 25;
+  if (count === 5) return 27;
+  return 0;
+}
+
+const getBinderMatchCount = (val: string, pVal: any, type: string) => {
+  if (!val) return false;
+  const v = String(val).trim().toLowerCase();
+  
+  if (type === 'team') return getArray(pVal).some(t => findTeamName(t).toLowerCase().includes(v) || String(t).toLowerCase().includes(v));
+  if (type === 'position') {
+    const posArr = getArray(pVal).map(normalizePosition); 
+    if (v === '선발') return posArr.includes('SP');
+    if (v === '계투') return posArr.includes('RP');
+    if (v === '내야') return posArr.some(x => ['1B','2B','3B','SS','C'].includes(x));
+    if (v === '외야 & 지명' || v === '외야&지명') return posArr.some(x => ['LF','CF','RF','DH'].includes(x));
+    return false;
+  }
+  if (type === 'player') return String(pVal).trim().toLowerCase().includes(v);
+  if (type === 'year') return getArray(pVal).some(y => String(y).trim() === v);
+  if (type === 'grade') {
+    const map: Record<string, string> = {
+      '디그니티':'DGN', '탑클래스':'TOP', '에이스':'ACE', '히트':'HIT', '팀플':'TEA',
+      '월간mvp':'MMVP', '월간':'MMVP', '신인왕':'ROY', '연도골글':'GGY', '연글':'GGY', 
+      '골든글러브':'GG', '골글':'GG', '국가대표':'NT', '올스타':'ASG', '시즌':'SEA', '포스트시즌':'POS'
+    }
+    const targetG = map[v] || v;
+    return String(pVal).trim().toUpperCase() === targetG.toUpperCase();
+  }
+  return false;
+}
+
+const getPlayerBinderPower = (p: Raw | null) => {
+  if (!p) return 0;
+  const binderBase = (globalBuffs.binderLevel || 0) * 5; // 레벨당 5파워
+  let binderMatrixSum = 0;
+  
+  if (globalBuffs.binderMatrix && globalBuffs.binderMatrix.length === 5) {
+    const matchCounts = { team: 0, position: 0, player: 0, year: 0, grade: 0 };
+    globalBuffs.binderMatrix.forEach(row => {
+      if (row.team && getBinderMatchCount(row.team, p.team, 'team')) matchCounts.team++;
+      if (row.position && getBinderMatchCount(row.position, p.position, 'position')) matchCounts.position++;
+      if (row.player && getBinderMatchCount(row.player, p.name, 'player')) matchCounts.player++;
+      if (row.year && getBinderMatchCount(row.year, p.year, 'year')) matchCounts.year++;
+      if (row.grade && getBinderMatchCount(row.grade, p.grade, 'grade')) matchCounts.grade++;
+    });
+    binderMatrixSum = calcBinderBonus(matchCounts.team) + calcBinderBonus(matchCounts.position) + calcBinderBonus(matchCounts.player) + calcBinderBonus(matchCounts.year) + calcBinderBonus(matchCounts.grade);
+  }
+  return binderBase + binderMatrixSum;
+}
+  
 const computedPlayerStats = computed(() => {
   const result: Record<string, { power: number, stats: Record<string, number> }> = {}
   Object.keys(lineup.value).forEach(slot => {
@@ -945,7 +1005,10 @@ const computedPlayerStats = computed(() => {
     const isMyTeam = (globalBuffs.preferredTeam || []).some(t => pTeams.includes(t));
     const appliedTeamLevelBuff = getTeamLevelPower(globalBuffs.teamLevel, isMyTeam);
     const growthA = Number(Math.max(0, buffs.playerLevel - 1) * 10) + buffs.collectionBuff + appliedTeamLevelBuff + buffs.careerLevelBuff + (buffs.enhancementLevel * getEnhanceMultiplier(p))
-    const flatC = buffs.binderBuff + globalBuffs.clanBuff + buffs.careerAllStatFlat + getBreakthroughFixed(p, buffs.breakthroughLevel)
+const autoBinderPower = getPlayerBinderPower(p);
+    // 기존에 하드코딩되었던 537은 0으로 처리 (레거시 방지용)
+    const legacyBinderBuff = buffs.binderBuff === 537 ? 0 : (buffs.binderBuff || 0);
+    const flatC = legacyBinderBuff + autoBinderPower + globalBuffs.clanBuff + buffs.careerAllStatFlat + getBreakthroughFixed(p, buffs.breakthroughLevel)
     
     const is1st2ndSP = slot === 'SP1' || slot === 'SP2';
     const imprintStarterAddedPower = is1st2ndSP ? buffs.imprintStarterPower : 0;
@@ -1194,18 +1257,19 @@ const applyLoadedData = (data: any) => {
   if (data.globalBuffs) {
     if (!data.globalBuffs.synergyMasteries) data.globalBuffs.synergyMasteries = ['', '', '', '', ''];
     if (data.globalBuffs.amplifiedMasteryIndex === undefined) data.globalBuffs.amplifiedMasteryIndex = -1;
+    // 🌟 바인더 설정값도 파일에서 복구!
+    if (data.globalBuffs.binderLevel === undefined) data.globalBuffs.binderLevel = 100;
+    if (!data.globalBuffs.binderMatrix) data.globalBuffs.binderMatrix = Array(5).fill(0).map(() => ({ team: '', position: '', player: '', year: '', grade: '' }));
+    
     Object.assign(globalBuffs, JSON.parse(JSON.stringify(data.globalBuffs)));
   }
   if (data.imprintInventory) imprintInventory.value = JSON.parse(JSON.stringify(data.imprintInventory));
 
-  // 🌟 핵심 패치: 파일 안에 다중 저장(multiSaves) 데이터가 있다면, 브라우저 메모리에 다시 복구시켜 줍니다!
   if (data.multiSaves && Object.keys(data.multiSaves).length > 0) {
     const existingSaves = JSON.parse(localStorage.getItem('9up_multi_saves') || '{}');
-    const mergedSaves = { ...existingSaves, ...data.multiSaves }; // 기존 데이터가 있으면 안전하게 합치기
+    const mergedSaves = { ...existingSaves, ...data.multiSaves };
     localStorage.setItem('9up_multi_saves', JSON.stringify(mergedSaves));
   }
-
-  // 불러올 때 화면 충돌 방지를 위해 빈 화면으로 깔끔하게 초기화
   selectedSlot.value = null; 
 }
 
@@ -1813,15 +1877,50 @@ onMounted(async () => {
                 </div>
               </div>
               
-              <!-- 공통 버프 입력 -->
+<!-- 🌟 9up 인게임 완벽 고증: 공통 버프 및 5x5 바인더 설정 🌟 -->
               <div class="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800 flex-shrink-0">
-                <h3 class="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-3 flex items-center gap-1"><Users class="w-4 h-4"/> 팀 공통 버프</h3>
-                <div class="grid grid-cols-2 gap-3">
+                <h3 class="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-3 flex items-center gap-1"><Users class="w-4 h-4"/> 공통 버프 및 바인더 설정</h3>
+                
+                <div class="grid grid-cols-3 gap-3 mb-4">
                   <div class="flex flex-col gap-1">
                     <label class="text-[10px] font-bold text-neutral-500">팀 레벨 (1~100)</label>
                     <input type="number" min="1" max="100" v-model.number="globalBuffs.teamLevel" class="w-full px-2 py-1.5 text-center bg-white border rounded-lg text-xs"/>
                   </div>
                   <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">클랜 레벨 파워</label><input type="number" v-model.number="globalBuffs.clanBuff" class="w-full px-2 py-1.5 text-center bg-white border rounded-lg text-xs"/></div>
+                  <div class="flex flex-col gap-1">
+                    <label class="text-[10px] font-bold text-indigo-600">바인더 레벨 (1~100)</label>
+                    <input type="number" min="1" max="100" v-model.number="globalBuffs.binderLevel" class="w-full px-2 py-1.5 text-center bg-indigo-100 border border-indigo-300 rounded-lg text-xs font-black text-indigo-800 outline-none"/>
+                  </div>
+                </div>
+                
+                <!-- 🌟 대망의 5x5 바인더 세부 설정 빙고판 🌟 -->
+                <div class="border border-indigo-200 bg-white dark:bg-neutral-800 rounded-lg p-2 shadow-sm">
+                  <div class="text-[11px] font-bold text-indigo-700 dark:text-indigo-300 mb-2 text-center bg-indigo-50 dark:bg-indigo-900/30 py-1 rounded">바인더 세부 설정 (5x5 매트릭스)</div>
+                  
+                  <div class="grid grid-cols-6 gap-1 mb-1 items-center text-center">
+                    <div></div>
+                    <div class="text-[10px] font-bold text-neutral-500 bg-neutral-100 dark:bg-neutral-700 rounded py-1">팀</div>
+                    <div class="text-[10px] font-bold text-neutral-500 bg-neutral-100 dark:bg-neutral-700 rounded py-1">포지션</div>
+                    <div class="text-[10px] font-bold text-neutral-500 bg-neutral-100 dark:bg-neutral-700 rounded py-1">인물</div>
+                    <div class="text-[10px] font-bold text-neutral-500 bg-neutral-100 dark:bg-neutral-700 rounded py-1">연도</div>
+                    <div class="text-[10px] font-bold text-neutral-500 bg-neutral-100 dark:bg-neutral-700 rounded py-1">등급</div>
+                  </div>
+                  
+                  <div v-for="(row, idx) in globalBuffs.binderMatrix" :key="'bm'+idx" class="grid grid-cols-6 gap-1 mb-1 items-center">
+                    <div class="text-[10px] font-black text-indigo-400 text-center">{{ idx + 1 }}번</div>
+                    <input type="text" v-model="row.team" placeholder="구단명" class="w-full text-center text-[10px] border rounded py-1.5 bg-neutral-50 dark:bg-neutral-700 dark:border-neutral-600 outline-none focus:border-indigo-500 focus:bg-white font-medium" />
+                    <select v-model="row.position" class="w-full text-center text-[10px] border rounded py-1.5 bg-neutral-50 dark:bg-neutral-700 dark:border-neutral-600 outline-none focus:border-indigo-500 focus:bg-white font-medium">
+                       <option value="">비워둠</option>
+                       <option value="선발">선발</option>
+                       <option value="계투">계투</option>
+                       <option value="내야">내야</option>
+                       <option value="외야 & 지명">외야 & 지명</option>
+                    </select>
+                    <input type="text" v-model="row.player" placeholder="이름" class="w-full text-center text-[10px] border rounded py-1.5 bg-neutral-50 dark:bg-neutral-700 dark:border-neutral-600 outline-none focus:border-indigo-500 focus:bg-white font-medium" />
+                    <input type="text" v-model="row.year" placeholder="연도" class="w-full text-center text-[10px] border rounded py-1.5 bg-neutral-50 dark:bg-neutral-700 dark:border-neutral-600 outline-none focus:border-indigo-500 focus:bg-white font-medium" />
+                    <input type="text" v-model="row.grade" placeholder="탑클래스" class="w-full text-center text-[10px] border rounded py-1.5 bg-neutral-50 dark:bg-neutral-700 dark:border-neutral-600 outline-none focus:border-indigo-500 focus:bg-white font-medium" />
+                  </div>
+                  <div class="text-[9px] text-center text-neutral-400 mt-1 font-bold">※ 등급 예시: 골든글러브, 시즌, 디그니티 등</div>
                 </div>
               </div>
               
@@ -2024,7 +2123,13 @@ onMounted(async () => {
                       <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">선수 레벨</label><input type="number" v-model.number="playerBuffs[selectedSlot].playerLevel" class="w-full px-2 py-1.5 text-center bg-white border rounded-lg text-xs"/></div>
                       <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">도감 파워</label><input type="number" v-model.number="playerBuffs[selectedSlot].collectionBuff" class="w-full px-2 py-1.5 text-center bg-white border rounded-lg text-xs"/></div>
                       <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">커리어 레벨 파워</label><input type="number" v-model.number="playerBuffs[selectedSlot].careerLevelBuff" class="w-full px-2 py-1.5 text-center bg-white border rounded-lg text-xs"/></div>
-                      <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">바인더 파워</label><input type="number" v-model.number="playerBuffs[selectedSlot].binderBuff" class="w-full px-2 py-1.5 text-center bg-white border rounded-lg text-xs"/></div>
+                      <!-- 🌟 선수 개별 바인더 파워 적용 결과창 🌟 -->
+                      <div class="flex flex-col gap-1">
+                        <label class="text-[10px] font-bold text-indigo-500 flex items-center justify-center gap-1">바인더 총 파워 <Zap class="w-3 h-3"/></label>
+                        <div class="w-full px-2 py-1.5 text-center bg-indigo-50 border border-indigo-200 rounded-lg text-xs font-black text-indigo-700 shadow-inner" title="바인더 100레벨(500) + 빙고판 매칭 보너스">
+                          +{{ getPlayerBinderPower(lineup[selectedSlot]) }}
+                        </div>
+                      </div>
                       <div class="flex flex-col gap-1">
                         <label class="text-[10px] font-bold text-neutral-500">커리어 동일팀 칸수 (0~6)</label>
                         <input type="number" min="0" max="6" v-model.number="playerBuffs[selectedSlot].careerTeamCount" class="w-full px-2 py-1.5 text-center bg-white border rounded-lg text-xs"/>
