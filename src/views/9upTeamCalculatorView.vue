@@ -942,7 +942,15 @@ const getBinderMatchCount = (val: string, pVal: any, type: string) => {
   if (!val) return false;
   const v = String(val).trim().toLowerCase();
   
-  if (type === 'team') return getArray(pVal).some(t => findTeamName(t).toLowerCase().includes(v) || String(t).toLowerCase().includes(v));
+  if (type === 'team') {
+    // 🌟 'KIA/해태' 처럼 '/'로 묶여있을 경우, 쪼개서 어느 하나라도 일치하면 O.K!
+    const searchTeams = v.split('/').map(s => s.trim());
+    return getArray(pVal).some(t => {
+      const tName = findTeamName(t).toLowerCase();
+      const tRaw = String(t).toLowerCase();
+      return searchTeams.some(st => tName.includes(st) || tRaw.includes(st));
+    });
+  }
   if (type === 'position') {
     const posArr = getArray(pVal).map(normalizePosition); 
     if (v === '선발') return posArr.includes('SP');
@@ -967,7 +975,7 @@ const getBinderMatchCount = (val: string, pVal: any, type: string) => {
 
 const getPlayerBinderPower = (p: Raw | null) => {
   if (!p) return 0;
-  const binderBase = (globalBuffs.binderLevel || 0) * 5; // 레벨당 5파워
+  const binderBase = (globalBuffs.binderLevel || 0) * 5; 
   let binderMatrixSum = 0;
   
   if (globalBuffs.binderMatrix && globalBuffs.binderMatrix.length === 5) {
@@ -985,9 +993,9 @@ const getPlayerBinderPower = (p: Raw | null) => {
 }
 
 // 🌟 바인더 검색용 데이터 리스트 (자동완성) 🌟
-const binderTeamOptions = ref(['SSG', 'SK', '키움', '히어로즈', '넥센', 'KIA', '해태', '삼성', '두산', 'OB', '롯데', 'LG', 'MBC', '한화', '빙그레', 'NC', 'KT', '현대', '태평양', '청보', '삼미', '쌍방울']);
+// 🌟 좌측 검색창에서 쓰는 묶음(groupedTeams)을 재활용해서 리스트를 깔끔하게 통합!
+const binderTeamOptions = ref(groupedTeams.map(g => g.name)); 
 const binderGradeOptions = ref(['디그니티', '탑클래스', '에이스', '히트', '팀플', '월간MVP', '신인왕', '연도골글', '골든글러브', '국가대표', '올스타', '시즌', '포스트시즌']);
-
 // 🌟 전체 선수 DB를 뒤져서 이름과 연도를 자동으로 뽑아옵니다!
 const binderPlayerOptions = computed(() => {
   const names = new Set<string>();
