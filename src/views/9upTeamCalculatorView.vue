@@ -1914,19 +1914,6 @@ onMounted(async () => {
                 <div class="border border-indigo-200 bg-white dark:bg-neutral-800 rounded-lg p-2 shadow-sm">
                   <div class="text-[11px] font-bold text-indigo-700 dark:text-indigo-300 mb-2 text-center bg-indigo-50 dark:bg-indigo-900/30 py-1 rounded">바인더 세부 설정 (5x5 매트릭스)</div>
                   
-                  <div class="grid grid-cols-6 gap-1 mb-1 items-center text-center">
-                    <div></div>
-                    <div class="text-[10px] font-bold text-neutral-500 bg-neutral-100 dark:bg-neutral-700 rounded py-1">팀</div>
-                    <div class="text-[10px] font-bold text-neutral-500 bg-neutral-100 dark:bg-neutral-700 rounded py-1">포지션</div>
-                    <div class="text-[10px] font-bold text-neutral-500 bg-neutral-100 dark:bg-neutral-700 rounded py-1">인물</div>
-                    <div class="text-[10px] font-bold text-neutral-500 bg-neutral-100 dark:bg-neutral-700 rounded py-1">연도</div>
-                    <div class="text-[10px] font-bold text-neutral-500 bg-neutral-100 dark:bg-neutral-700 rounded py-1">등급</div>
-                  </div>
-                  
-<!-- 🌟 대망의 5x5 바인더 세부 설정 빙고판 🌟 -->
-                <div class="border border-indigo-200 bg-white dark:bg-neutral-800 rounded-lg p-2 shadow-sm">
-                  <div class="text-[11px] font-bold text-indigo-700 dark:text-indigo-300 mb-2 text-center bg-indigo-50 dark:bg-indigo-900/30 py-1 rounded">바인더 세부 설정 (5x5 매트릭스)</div>
-                  
                   <!-- 🌟 자동완성 검색용 보이지 않는 리스트 (Datalist) 🌟 -->
                   <datalist id="binder-team-list"><option v-for="t in binderTeamOptions" :key="t" :value="t"></option></datalist>
                   <datalist id="binder-player-list"><option v-for="p in binderPlayerOptions" :key="p" :value="p"></option></datalist>
@@ -1944,10 +1931,7 @@ onMounted(async () => {
                   
                   <div v-for="(row, idx) in globalBuffs.binderMatrix" :key="'bm'+idx" class="grid grid-cols-6 gap-1 mb-1 items-center">
                     <div class="text-[10px] font-black text-indigo-400 text-center">{{ idx + 1 }}번</div>
-                    
-                    <!-- 🌟 list 속성을 달아서 클릭하면 리스트가 나오게 만듦! -->
                     <input type="text" list="binder-team-list" v-model="row.team" placeholder="구단명" class="w-full text-center text-[10px] border rounded py-1.5 bg-neutral-50 dark:bg-neutral-700 dark:border-neutral-600 outline-none focus:border-indigo-500 focus:bg-white font-medium" />
-                    
                     <select v-model="row.position" class="w-full text-center text-[10px] border rounded py-1.5 bg-neutral-50 dark:bg-neutral-700 dark:border-neutral-600 outline-none focus:border-indigo-500 focus:bg-white font-medium">
                        <option value="">비워둠</option>
                        <option value="선발">선발</option>
@@ -1955,13 +1939,13 @@ onMounted(async () => {
                        <option value="내야">내야</option>
                        <option value="외야 & 지명">외야 & 지명</option>
                     </select>
-                    
                     <input type="text" list="binder-player-list" v-model="row.player" placeholder="이름" class="w-full text-center text-[10px] border rounded py-1.5 bg-neutral-50 dark:bg-neutral-700 dark:border-neutral-600 outline-none focus:border-indigo-500 focus:bg-white font-medium" />
                     <input type="text" list="binder-year-list" v-model="row.year" placeholder="연도" class="w-full text-center text-[10px] border rounded py-1.5 bg-neutral-50 dark:bg-neutral-700 dark:border-neutral-600 outline-none focus:border-indigo-500 focus:bg-white font-medium" />
                     <input type="text" list="binder-grade-list" v-model="row.grade" placeholder="등급" class="w-full text-center text-[10px] border rounded py-1.5 bg-neutral-50 dark:bg-neutral-700 dark:border-neutral-600 outline-none focus:border-indigo-500 focus:bg-white font-medium" />
                   </div>
                   <div class="text-[9px] text-center text-neutral-400 mt-1 font-bold">※ 빈칸 클릭 시 리스트 표시 / 한두 글자만 쳐도 검색 가능!</div>
                 </div>
+              </div>
               
               <!-- 자동 계산된 팀플/디그니티 합계 -->
               <div class="bg-indigo-50 dark:bg-indigo-900/10 p-3 rounded-xl border border-indigo-100 dark:border-indigo-800 shadow-sm flex-shrink-0">
