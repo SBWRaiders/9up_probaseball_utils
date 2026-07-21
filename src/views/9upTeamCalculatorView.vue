@@ -938,29 +938,34 @@ const calcBinderBonus = (count: number) => {
   return 0;
 }
 
-const getBinderMatchCount = (val: string, pVal: any, type: string) => {
-  if (!val) return false;
+// 🌟 이제 매칭 엔진이 선수의 이름, 연도뿐만 아니라 '등급'까지 한 번에 스캔합니다!
+const getBinderMatchCount = (val: string, p: Raw, type: string) => {
+  if (!val || !p) return false;
   const v = String(val).trim().toLowerCase();
   
   if (type === 'team') {
-    // 🌟 'KIA/해태' 처럼 '/'로 묶여있을 경우, 쪼개서 어느 하나라도 일치하면 O.K!
     const searchTeams = v.split('/').map(s => s.trim());
-    return getArray(pVal).some(t => {
+    return getArray(p.team).some(t => {
       const tName = findTeamName(t).toLowerCase();
       const tRaw = String(t).toLowerCase();
       return searchTeams.some(st => tName.includes(st) || tRaw.includes(st));
     });
   }
   if (type === 'position') {
-    const posArr = getArray(pVal).map(normalizePosition); 
+    const posArr = getArray(p.position).map(normalizePosition); 
     if (v === '선발') return posArr.includes('SP');
     if (v === '계투') return posArr.includes('RP');
     if (v === '내야') return posArr.some(x => ['1B','2B','3B','SS','C'].includes(x));
     if (v === '외야 & 지명' || v === '외야&지명') return posArr.some(x => ['LF','CF','RF','DH'].includes(x));
     return false;
   }
-  if (type === 'player') return String(pVal).trim().toLowerCase().includes(v);
-  if (type === 'year') return getArray(pVal).some(y => String(y).trim() === v);
+  if (type === 'player') return String(p.name).trim().toLowerCase().includes(v);
+  if (type === 'year') {
+    // 🌟 핵심 방어막: 탑클래스(TOP) 카드는 연도 매칭에서 무조건 탈락!
+    if (String(p.grade || '').toUpperCase() === 'TOP') return false;
+    
+    return getArray(p.year).some(y => String(y).trim() === v);
+  }
   if (type === 'grade') {
     const map: Record<string, string> = {
       '디그니티':'DGN', '탑클래스':'TOP', '에이스':'ACE', '히트':'HIT', '팀플':'TEA',
@@ -968,7 +973,7 @@ const getBinderMatchCount = (val: string, pVal: any, type: string) => {
       '골든글러브':'GG', '골글':'GG', '국가대표':'NT', '올스타':'ASG', '시즌':'SEA', '포스트시즌':'POS'
     }
     const targetG = map[v] || v;
-    return String(pVal).trim().toUpperCase() === targetG.toUpperCase();
+    return String(p.grade).trim().toUpperCase() === targetG.toUpperCase();
   }
   return false;
 }
@@ -981,11 +986,12 @@ const getPlayerBinderPower = (p: Raw | null) => {
   if (globalBuffs.binderMatrix && globalBuffs.binderMatrix.length === 5) {
     const matchCounts = { team: 0, position: 0, player: 0, year: 0, grade: 0 };
     globalBuffs.binderMatrix.forEach(row => {
-      if (row.team && getBinderMatchCount(row.team, p.team, 'team')) matchCounts.team++;
-      if (row.position && getBinderMatchCount(row.position, p.position, 'position')) matchCounts.position++;
-      if (row.player && getBinderMatchCount(row.player, p.name, 'player')) matchCounts.player++;
-      if (row.year && getBinderMatchCount(row.year, p.year, 'year')) matchCounts.year++;
-      if (row.grade && getBinderMatchCount(row.grade, p.grade, 'grade')) matchCounts.grade++;
+      // 🌟 이제 스탯 쪼가리(p.year)가 아니라 선수 본체(p)를 엔진에 집어넣어 등급까지 깐깐하게 검사합니다!
+      if (row.team && getBinderMatchCount(row.team, p, 'team')) matchCounts.team++;
+      if (row.position && getBinderMatchCount(row.position, p, 'position')) matchCounts.position++;
+      if (row.player && getBinderMatchCount(row.player, p, 'player')) matchCounts.player++;
+      if (row.year && getBinderMatchCount(row.year, p, 'year')) matchCounts.year++;
+      if (row.grade && getBinderMatchCount(row.grade, p, 'grade')) matchCounts.grade++;
     });
     binderMatrixSum = calcBinderBonus(matchCounts.team) + calcBinderBonus(matchCounts.position) + calcBinderBonus(matchCounts.player) + calcBinderBonus(matchCounts.year) + calcBinderBonus(matchCounts.grade);
   }
