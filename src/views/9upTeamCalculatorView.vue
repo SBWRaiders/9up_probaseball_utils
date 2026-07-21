@@ -248,26 +248,34 @@ const initPlayerBuff = (slot: string, p: Raw) => {
   else if (grade === 'TOP') colBuff = 1200
   else if (grade === 'DGN') colBuff = 0
 
-  // 🌟 기존 슬롯(장비칸)에 있던 각인 데이터를 백업 (없으면 0으로 초기화)
+  // 🌟 기존 슬롯(장비칸)에 있던 각인 데이터를 백업
   const existing = playerBuffs.value[slot]
   const savedImprintStats = existing ? { ...existing.imprintStats } : {}
   const savedImprintCoreStat = existing ? existing.imprintCoreStat : 0
   const savedUltimateImprintPercent = existing ? existing.ultimateImprintPercent : 0
   const savedImprintStarterPower = existing ? existing.imprintStarterPower : 0
+  
+  // 🌟 핵심 방어막: 기존에 장착된 각인 본체와 타순을 통째로 백업!
+  const savedImprint1 = existing ? existing.imprint1 : null;
+  const savedImprint2 = existing ? existing.imprint2 : null;
+  const savedBattingOrder = existing ? existing.battingOrder : null;
 
   playerBuffs.value[slot] = {
     enhancementLevel: grade === 'DGN' ? 10 : 15, breakthroughLevel: 0,
     careerTeamCount: 0, hitAceBuff: 0, 
-    imprintStarterPower: savedImprintStarterPower, // 🌟 1,2선발 각인 파워 유지
+    imprintStarterPower: savedImprintStarterPower, 
     careerAllStatFlat: 0, 
-    imprintCoreStat: savedImprintCoreStat, // 🌟 전체 능력치 각인 유지
-    careerCoreStat: 0, // 커리어는 선수 고유의 성장이므로 0으로 초기화
-    selectedSkills: [], battingOrder: null,
+    imprintCoreStat: savedImprintCoreStat, 
+    careerCoreStat: 0, 
+    selectedSkills: [], 
+    battingOrder: savedBattingOrder, // 타순 유지
     playerLevel: 100, collectionBuff: colBuff, careerLevelBuff: 149,
     binderBuff: 537, 
-    ultimateImprintPercent: savedUltimateImprintPercent, // 🌟 얼티밋 각인 % 유지
-    imprintStats: savedImprintStats, // 🌟 개별 스탯 각인 유지
-    careerStats: {} // 커리어 스탯은 초기화
+    ultimateImprintPercent: savedUltimateImprintPercent, 
+    imprintStats: savedImprintStats, 
+    careerStats: {},
+    imprint1: savedImprint1, // 🌟 각인 1 유지!
+    imprint2: savedImprint2  // 🌟 각인 2 유지!
   }
 }
   
@@ -1316,9 +1324,13 @@ const resetLineup = () => {
         enhancementLevel: 15, breakthroughLevel: 0, careerTeamCount: 0, hitAceBuff: 0,
         imprintStarterPower: b.imprintStarterPower, careerAllStatFlat: 0, 
         imprintCoreStat: b.imprintCoreStat, careerCoreStat: 0,
-        selectedSkills: [], battingOrder: null, playerLevel: 100, collectionBuff: 1200, careerLevelBuff: 149,
+        selectedSkills: [], 
+        battingOrder: b.battingOrder, // 타순 유지
+        playerLevel: 100, collectionBuff: 1200, careerLevelBuff: 149,
         binderBuff: 537, ultimateImprintPercent: b.ultimateImprintPercent,
-        imprintStats: savedImprintStats, careerStats: {}
+        imprintStats: savedImprintStats, careerStats: {},
+        imprint1: b.imprint1, // 🌟 여기서도 각인 1 유지!
+        imprint2: b.imprint2  // 🌟 여기서도 각인 2 유지!
       }
     }
   })
