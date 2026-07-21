@@ -90,8 +90,6 @@ const globalBuffs = reactive({
 
 const playerBuffs = ref<Record<string, PlayerBuff>>({})
 
-const playerBuffs = ref<Record<string, PlayerBuff>>({})
-
 // 🌟 9up 인게임 고증: 각인(Imprint) 시스템 상태 및 로직 🌟
 type ImprintRole = '타자' | '투수'; 
 type ImprintGrade = '노말' | '고급' | '특별' | '레전드' | '얼티밋';
