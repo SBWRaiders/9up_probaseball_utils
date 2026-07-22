@@ -1815,10 +1815,11 @@ const getPlayerImage = (p: Raw | null) => {
             <button @click="lineupViewMode = 'bench'" :class="lineupViewMode === 'bench' ? 'bg-white dark:bg-neutral-600 shadow-sm font-bold text-blue-600' : 'text-neutral-500'" class="flex-1 py-1.5 text-xs rounded-lg transition-all">벤치</button>
           </div>
 
-          <div class="flex-1 overflow-hidden p-2 bg-neutral-50/30 dark:bg-neutral-900/30 flex flex-col items-center justify-center">
+          <div class="flex-1 overflow-hidden p-1 sm:p-2 bg-neutral-50/30 dark:bg-neutral-900/30 flex flex-col items-center justify-center">
             
-            <!-- ⚾ 타자 다이아몬드 UI -->
+            <!-- ⚾ 타자 다이아몬드 UI (기존 완벽한 버전 유지) -->
             <div v-if="lineupViewMode === 'batter'" class="w-full h-full flex flex-col justify-center items-center gap-1 sm:gap-2 py-1">
+               
                <!-- 외야수 (3명) -->
                <div class="flex-1 w-full flex justify-center items-center gap-1 sm:gap-2 min-h-0">
                  <div v-for="pos in ['LF', 'CF', 'RF']" :key="pos" @dragover.prevent @drop="onDrop($event, pos)" class="flex-1 max-w-[24%] h-full flex justify-center items-center min-w-0 min-h-0">
@@ -1876,25 +1877,24 @@ const getPlayerImage = (p: Raw | null) => {
               
               <div class="w-full shrink-0"><h3 class="text-xs font-bold text-neutral-500 px-2 mt-1">선발 투수</h3></div>
               
-              <!-- 🌟 선발 투수 (5명) : 역할 배열로 변경! -->
-              <div class="flex-1 w-full flex justify-center items-center gap-1 sm:gap-1.5 min-h-0 mb-2">
-                <div v-for="(role, index) in ['1선발', '2선발', '3선발', '4선발', '5선발']" :key="'SP'+(index+1)" @dragover.prevent @drop="onDrop($event, 'SP'+(index+1))" class="flex-1 max-w-[19.6%] h-full flex justify-center items-center min-w-0 min-h-0">
-                   <div v-if="!lineup['SP'+(index+1)]" class="relative w-full max-h-full aspect-[5/7] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === 'SP'+(index+1)}" @click="selectSlot('SP'+(index+1))">
-                     <span class="text-[12px] font-bold">{{ role }}</span>
-                   </div>
+              <!-- 🌟 선발 투수 (5명) -->
+              <div class="flex-1 w-full flex justify-center items-end gap-1 sm:gap-1.5 min-h-0 mb-2">
+                <div v-for="(role, index) in ['1선발', '2선발', '3선발', '4선발', '5선발']" :key="'SP'+(index+1)" @dragover.prevent @drop="onDrop($event, 'SP'+(index+1))" class="flex-1 max-w-[19.6%] h-full flex flex-col justify-end items-center min-w-0 min-h-0 gap-1.5">
+                 
+                 <!-- ✨ 카드 밖 상단 빈 공간에 띄우는 보직 이름표! -->
+                 <div class="text-[11px] sm:text-[12px] font-black text-indigo-700 dark:text-indigo-400 tracking-tight shrink-0">{{ role }}</div>
+
+                 <div v-if="!lineup['SP'+(index+1)]" class="relative w-full max-h-full aspect-[5/7] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === 'SP'+(index+1)}" @click="selectSlot('SP'+(index+1))">
+                    <span class="text-[24px] font-black opacity-30">+</span>
+                 </div>
+                 
                  <div v-else draggable="true" @dragstart="onDragStart($event, 'SP'+(index+1))" class="relative w-full max-h-full aspect-[5/7] border rounded-xl flex flex-col items-center p-0 cursor-pointer transition-all shadow-sm group overflow-hidden bg-neutral-100 dark:bg-neutral-800" :class="{'border-indigo-500 ring-2 ring-indigo-400': selectedSlot === 'SP'+(index+1), 'border-neutral-200 dark:border-neutral-600': selectedSlot !== 'SP'+(index+1)}" @click="selectSlot('SP'+(index+1))">
-                    
-                    <!-- 기존 구석 기호는 살짝 작고 반투명하게 유지 (카드 식별용) -->
-                    <div class="absolute top-2 left-2 text-[9px] font-black text-white/80 drop-shadow-md z-10">{{ 'SP'+(index+1) }}</div>
-                    
-                    <!-- 🌟 새로 추가: 상단 중앙 1선발, 2선발 디테일 텍스트! -->
-                    <div class="absolute top-1.5 left-1/2 -translate-x-1/2 text-[11px] sm:text-xs font-black text-white drop-shadow-[0_1px_3px_rgba(0,0,0,1)] z-10 tracking-tight whitespace-nowrap">{{ role }}</div>
-                    
+                    <!-- ❌ 내부의 SP1, 1선발 글씨 싹 다 제거 ❌ -->
                     <button class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/50 text-white hover:bg-red-500 flex items-center justify-center text-[14px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm" @click.stop="clearSlot('SP'+(index+1))">×</button>
                     <img :src="getPlayerImage(lineup['SP'+(index+1)])" class="absolute inset-0 w-full h-full object-cover" @error="hideImage" />
-                    <div class="absolute bottom-0 inset-x-0 h-[45%] bg-gradient-to-t from-black/95 via-black/50 to-transparent flex flex-col justify-end items-center pb-1.5 px-1 pointer-events-none">
-                       <div class="text-[10px] sm:text-[12px] font-bold text-white w-full text-center truncate drop-shadow-md leading-tight">{{ lineup['SP'+(index+1)].name }}</div>
-                       <div class="text-[11px] sm:text-[14px] font-black text-amber-400 tracking-tight drop-shadow-md leading-tight mt-0.5">{{ calculatePlayerPower(lineup['SP'+(index+1)], 'SP'+(index+1)).toLocaleString() }}</div>
+                    <div class="absolute bottom-0 inset-x-0 h-[45%] bg-gradient-to-t from-black/95 via-black/50 to-transparent flex flex-col justify-end items-center pb-2 px-1 pointer-events-none">
+                       <div class="text-[11px] sm:text-[13px] font-bold text-white w-full text-center truncate drop-shadow-md leading-tight">{{ lineup['SP'+(index+1)].name }}</div>
+                       <div class="text-[13px] sm:text-[15px] font-black text-amber-400 tracking-tight drop-shadow-md leading-tight mt-0.5">{{ calculatePlayerPower(lineup['SP'+(index+1)], 'SP'+(index+1)).toLocaleString() }}</div>
                     </div>
                  </div>
                 </div>
@@ -1902,20 +1902,19 @@ const getPlayerImage = (p: Raw | null) => {
               
               <div class="w-full shrink-0"><h3 class="text-xs font-bold text-neutral-500 px-2 mt-1">계투 및 마무리</h3></div>
               
-              <!-- 🌟 계투 (6명) : 역할 배열로 변경! -->
-              <div class="flex-1 w-full flex justify-center items-center gap-1 sm:gap-1.5 min-h-0">
-                <div v-for="(role, index) in ['승리 계투', '숏 릴리프', '셋업', '마무리', '롱 맨', '추격조']" :key="'RP'+(index+1)" @dragover.prevent @drop="onDrop($event, 'RP'+(index+1))" class="flex-1 max-w-[16.4%] h-full flex justify-center items-center min-w-0 min-h-0">
-                   <div v-if="!lineup['RP'+(index+1)]" class="relative w-full max-h-full aspect-[5/7] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === 'RP'+(index+1)}" @click="selectSlot('RP'+(index+1))">
-                     <span class="text-[10px] sm:text-[12px] font-bold whitespace-nowrap">{{ role }}</span>
-                   </div>
+              <!-- 🌟 계투 (6명) -->
+              <div class="flex-1 w-full flex justify-center items-end gap-1 sm:gap-1.5 min-h-0">
+                <div v-for="(role, index) in ['승리 계투', '숏 릴리프', '셋업', '마무리', '롱 맨', '추격조']" :key="'RP'+(index+1)" @dragover.prevent @drop="onDrop($event, 'RP'+(index+1))" class="flex-1 max-w-[16.4%] h-full flex flex-col justify-end items-center min-w-0 min-h-0 gap-1.5">
+                 
+                 <!-- ✨ 카드 밖 상단 빈 공간에 띄우는 보직 이름표! -->
+                 <div class="text-[10px] sm:text-[11px] font-black text-indigo-700 dark:text-indigo-400 tracking-tight shrink-0 whitespace-nowrap">{{ role }}</div>
+
+                 <div v-if="!lineup['RP'+(index+1)]" class="relative w-full max-h-full aspect-[5/7] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === 'RP'+(index+1)}" @click="selectSlot('RP'+(index+1))">
+                     <span class="text-[20px] font-black opacity-30">+</span>
+                 </div>
+
                  <div v-else draggable="true" @dragstart="onDragStart($event, 'RP'+(index+1))" class="relative w-full max-h-full aspect-[5/7] border rounded-xl flex flex-col items-center p-0 cursor-pointer transition-all shadow-sm group overflow-hidden bg-neutral-100 dark:bg-neutral-800" :class="{'border-indigo-500 ring-2 ring-indigo-400': selectedSlot === 'RP'+(index+1), 'border-neutral-200 dark:border-neutral-600': selectedSlot !== 'RP'+(index+1)}" @click="selectSlot('RP'+(index+1))">
-                    
-                    <!-- 기존 구석 기호 -->
-                    <div class="absolute top-1.5 left-1.5 text-[8px] sm:text-[9px] font-black text-white/80 drop-shadow-md z-10">{{ 'RP'+(index+1) }}</div>
-                    
-                    <!-- 🌟 새로 추가: 상단 중앙 계투 보직 디테일 텍스트! -->
-                    <div class="absolute top-1.5 left-1/2 -translate-x-1/2 text-[10px] sm:text-[11px] font-black text-white drop-shadow-[0_1px_3px_rgba(0,0,0,1)] z-10 tracking-tight whitespace-nowrap">{{ role }}</div>
-                    
+                    <!-- ❌ 내부의 RP1, 승리 계투 글씨 싹 다 제거 ❌ -->
                     <button class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/50 text-white hover:bg-red-500 flex items-center justify-center text-[14px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm" @click.stop="clearSlot('RP'+(index+1))">×</button>
                     <img :src="getPlayerImage(lineup['RP'+(index+1)])" class="absolute inset-0 w-full h-full object-cover" @error="hideImage" />
                     <div class="absolute bottom-0 inset-x-0 h-[45%] bg-gradient-to-t from-black/95 via-black/50 to-transparent flex flex-col justify-end items-center pb-1.5 px-1 pointer-events-none">
@@ -1927,7 +1926,7 @@ const getPlayerImage = (p: Raw | null) => {
               </div>
             </div>
 
-            <!-- ⚾ 벤치 UI -->
+            <!-- ⚾ 벤치 UI (기존 완벽한 버전 유지) -->
             <div v-else class="w-full h-full flex flex-col justify-center items-center gap-1 sm:gap-2 py-1">
                <div class="w-full shrink-0"><h3 class="text-xs font-bold text-neutral-500 px-2 mt-1">벤치 멤버</h3></div>
                
@@ -1938,7 +1937,6 @@ const getPlayerImage = (p: Raw | null) => {
                    <div v-else draggable="true" @dragstart="onDragStart($event, 'BENCH'+i)" class="relative w-full max-h-full aspect-[5/7] border rounded-xl flex flex-col items-center p-0 cursor-pointer transition-all shadow-sm group overflow-hidden bg-neutral-100 dark:bg-neutral-800" :class="{'border-indigo-500 ring-2 ring-indigo-400': selectedSlot === 'BENCH'+i, 'border-neutral-200 dark:border-neutral-600': selectedSlot === 'BENCH'+i}" @click="selectSlot('BENCH'+i)">
                       <div class="absolute top-2 left-2 text-xs font-black text-white drop-shadow-[0_1px_3px_rgba(0,0,0,1)] z-10">{{ 'BENCH'+i }}</div>
                       <button class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/50 text-white hover:bg-red-500 flex items-center justify-center text-[14px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm" @click.stop="clearSlot('BENCH'+i)">×</button>
-                      <div v-if="playerBuffs['BENCH'+i]?.battingOrder && !isPitcher(lineup['BENCH'+i])" class="absolute top-2 left-1/2 -translate-x-1/2 text-[9px] font-bold bg-orange-600 text-white px-1.5 py-0.5 rounded shadow-md z-10">{{ playerBuffs['BENCH'+i].battingOrder }}번</div>
                       <img :src="getPlayerImage(lineup['BENCH'+i])" class="absolute inset-0 w-full h-full object-cover" @error="hideImage" />
                       <div class="absolute bottom-0 inset-x-0 h-[45%] bg-gradient-to-t from-black/95 via-black/50 to-transparent flex flex-col justify-end items-center pb-2 px-1 pointer-events-none">
                          <div class="text-[11px] sm:text-[13px] font-bold text-white w-full text-center truncate drop-shadow-md leading-tight">{{ lineup['BENCH'+i].name }}</div>
@@ -1955,7 +1953,6 @@ const getPlayerImage = (p: Raw | null) => {
                    <div v-else draggable="true" @dragstart="onDragStart($event, 'BENCH'+(i+4))" class="relative w-full max-h-full aspect-[5/7] border rounded-xl flex flex-col items-center p-0 cursor-pointer transition-all shadow-sm group overflow-hidden bg-neutral-100 dark:bg-neutral-800" :class="{'border-indigo-500 ring-2 ring-indigo-400': selectedSlot === 'BENCH'+(i+4), 'border-neutral-200 dark:border-neutral-600': selectedSlot !== 'BENCH'+(i+4)}" @click="selectSlot('BENCH'+(i+4))">
                       <div class="absolute top-2 left-2 text-xs font-black text-white drop-shadow-[0_1px_3px_rgba(0,0,0,1)] z-10">{{ 'BENCH'+(i+4) }}</div>
                       <button class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/50 text-white hover:bg-red-500 flex items-center justify-center text-[14px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm" @click.stop="clearSlot('BENCH'+(i+4))">×</button>
-                      <div v-if="playerBuffs['BENCH'+(i+4)]?.battingOrder && !isPitcher(lineup['BENCH'+(i+4)])" class="absolute top-2 left-1/2 -translate-x-1/2 text-[9px] font-bold bg-orange-600 text-white px-1.5 py-0.5 rounded shadow-md z-10">{{ playerBuffs['BENCH'+(i+4)].battingOrder }}번</div>
                       <img :src="getPlayerImage(lineup['BENCH'+(i+4)])" class="absolute inset-0 w-full h-full object-cover" @error="hideImage" />
                       <div class="absolute bottom-0 inset-x-0 h-[45%] bg-gradient-to-t from-black/95 via-black/50 to-transparent flex flex-col justify-end items-center pb-2 px-1 pointer-events-none">
                          <div class="text-[11px] sm:text-[13px] font-bold text-white w-full text-center truncate drop-shadow-md leading-tight">{{ lineup['BENCH'+(i+4)].name }}</div>
