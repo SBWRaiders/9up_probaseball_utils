@@ -1449,7 +1449,11 @@ const getPlayerPositions = (p: Raw) => {
 
 const hideImage = (e: Event) => {
   if (e && e.target) {
-    (e.target as HTMLElement).style.display = 'none';
+    const img = e.target as HTMLImageElement;
+    console.error("🚨 [이미지 로딩 실패] 파일을 찾지 못했습니다! 실제 폴더/파일명 대소문자를 확인하세요 ➔", img.src);
+    // 이미지를 투명하게 숨기지 않고 눈에 띄게 빨간색 테두리를 쳐줍니다.
+    img.style.display = 'block'; 
+    img.style.border = "2px solid red"; 
   }
 }
 
@@ -1531,7 +1535,7 @@ onMounted(async () => {
   }
 })
 
-// 🌟 9up 인게임 고증: 선수 이미지 주소 생성 엔진 (중복 선언 방지 원본 맞춤형)
+// 🌟 2. 9up 인게임 고증: 선수 이미지 주소 생성 엔진 (콘솔 주소 출력 기능 추가)
 const getPlayerImage = (p: Raw | null) => {
   if (!p) return '';
   let grade = String(p.grade || '').trim().toUpperCase();
@@ -1566,6 +1570,7 @@ const getPlayerImage = (p: Raw | null) => {
   else if (rawTeam.includes('삼미')) engTeam = 'SAMMI';
   else if (rawTeam.includes('쌍방울')) engTeam = 'SSANGBANGWOOL';
 
+  let imgUrl = '';
   if (grade === 'DGN') {
     let dgnTeam = engTeam;
     if (dgnTeam === 'OB') dgnTeam = 'DOOSAN';
@@ -1576,9 +1581,13 @@ const getPlayerImage = (p: Raw | null) => {
     if (dgnTeam === 'BINGGRAE') dgnTeam = 'HANWHA';
     
     const playerId = p.id || p.playerId || 'unknown_id';
-    return `/assets/playercards/DGN/${dgnTeam}/${playerId}.png`;
+    imgUrl = `/assets/playercards/DGN/${dgnTeam}/${playerId}.png`;
+  } else {
+    imgUrl = `/assets/playercards/commonCard_${grade}_${engTeam}.png`;
   }
-  return `/assets/playercards/commonCard_${grade}_${engTeam}.png`;
+  
+  console.log(`[주소 생성 성공] ${p.name}(${grade}) ➔ ${imgUrl}`);
+  return imgUrl;
 }
   
 </script>
