@@ -1815,10 +1815,9 @@ const getPlayerImage = (p: Raw | null) => {
             <button @click="lineupViewMode = 'bench'" :class="lineupViewMode === 'bench' ? 'bg-white dark:bg-neutral-600 shadow-sm font-bold text-blue-600' : 'text-neutral-500'" class="flex-1 py-1.5 text-xs rounded-lg transition-all">벤치</button>
           </div>
 
-          <!-- 🌟 스크롤바 원천 차단! 남는 공간 없이 상하좌우를 꽉 채우는 마법의 캔버스 -->
           <div class="flex-1 overflow-hidden p-2 bg-neutral-50/30 dark:bg-neutral-900/30 flex flex-col items-center justify-center">
             
-            <!-- ⚾ 타자 다이아몬드 UI (내야수 4명 폭에 맞춰 9명 전체 크기 완벽 통일!) -->
+            <!-- ⚾ 타자 다이아몬드 UI (기존 완벽한 버전 유지) -->
             <div v-if="lineupViewMode === 'batter'" class="w-full h-full flex flex-col justify-center items-center gap-1 sm:gap-2 py-1">
                
                <!-- 외야수 (3명) -->
@@ -1873,45 +1872,45 @@ const getPlayerImage = (p: Raw | null) => {
                </div>
             </div>
 
-            <!-- ⚾ 투수 UI (계투 6명 폭에 맞춰 11명 전체 크기 완벽 통일!) -->
+            <!-- ⚾ 투수 UI (선발은 양옆 꽉 채우게 거대화, 계투는 6명에 맞게!) -->
             <div v-else-if="lineupViewMode === 'pitcher'" class="w-full h-full flex flex-col justify-center items-center gap-1 sm:gap-2 py-1">
               
               <div class="w-full shrink-0"><h3 class="text-xs font-bold text-neutral-500 px-2 mt-1">선발 투수</h3></div>
-              <!-- 선발 투수 (5명) -->
-              <div class="flex-1 w-full flex justify-center items-center gap-1 sm:gap-1.5 min-h-0 mb-2">
-                <div v-for="i in 5" :key="'SP'+i" @dragover.prevent @drop="onDrop($event, 'SP'+i)" class="flex-1 max-w-[16%] h-full flex justify-center items-center min-w-0 min-h-0">
-                   <div v-if="!lineup['SP'+i]" class="relative w-full max-h-full aspect-[5/7] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === 'SP'+i}" @click="selectSlot('SP'+i)"><span class="text-[11px] sm:text-[12px] font-bold">{{ 'SP'+i }}</span></div>
+              <!-- 🌟 선발 투수 (5명): 높이(h)를 55%로 주고, 가로(max-w)를 19.6%로 열어주어 빈 공간 없이 빵빵해집니다 -->
+              <div class="w-full h-[55%] flex justify-center items-center gap-1 sm:gap-1.5 min-h-0 mb-1">
+                <div v-for="i in 5" :key="'SP'+i" @dragover.prevent @drop="onDrop($event, 'SP'+i)" class="flex-1 max-w-[19.6%] h-full flex justify-center items-center min-w-0 min-h-0">
+                   <div v-if="!lineup['SP'+i]" class="relative w-full max-h-full aspect-[5/7] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === 'SP'+i}" @click="selectSlot('SP'+i)"><span class="text-[12px] font-bold">{{ 'SP'+i }}</span></div>
                  <div v-else draggable="true" @dragstart="onDragStart($event, 'SP'+i)" class="relative w-full max-h-full aspect-[5/7] border rounded-xl flex flex-col items-center p-0 cursor-pointer transition-all shadow-sm group overflow-hidden bg-neutral-100 dark:bg-neutral-800" :class="{'border-indigo-500 ring-2 ring-indigo-400': selectedSlot === 'SP'+i, 'border-neutral-200 dark:border-neutral-600': selectedSlot !== 'SP'+i}" @click="selectSlot('SP'+i)">
-                    <div class="absolute top-1.5 left-1.5 text-[10px] sm:text-xs font-black text-white drop-shadow-[0_1px_3px_rgba(0,0,0,1)] z-10">{{ 'SP'+i }}</div>
-                    <button class="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/50 text-white hover:bg-red-500 flex items-center justify-center text-[12px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm" @click.stop="clearSlot('SP'+i)">×</button>
+                    <div class="absolute top-2 left-2 text-[11px] sm:text-xs font-black text-white drop-shadow-[0_1px_3px_rgba(0,0,0,1)] z-10">{{ 'SP'+i }}</div>
+                    <button class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/50 text-white hover:bg-red-500 flex items-center justify-center text-[14px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm" @click.stop="clearSlot('SP'+i)">×</button>
                     <img :src="getPlayerImage(lineup['SP'+i])" class="absolute inset-0 w-full h-full object-cover" @error="hideImage" />
-                    <div class="absolute bottom-0 inset-x-0 h-[45%] bg-gradient-to-t from-black/95 via-black/50 to-transparent flex flex-col justify-end items-center pb-1.5 px-1 pointer-events-none">
-                       <div class="text-[10px] sm:text-[12px] font-bold text-white w-full text-center truncate drop-shadow-md leading-tight">{{ lineup['SP'+i].name }}</div>
-                       <div class="text-[11px] sm:text-[14px] font-black text-amber-400 tracking-tight drop-shadow-md leading-tight mt-0.5">{{ calculatePlayerPower(lineup['SP'+i], 'SP'+i).toLocaleString() }}</div>
+                    <div class="absolute bottom-0 inset-x-0 h-[45%] bg-gradient-to-t from-black/95 via-black/50 to-transparent flex flex-col justify-end items-center pb-2 px-1 pointer-events-none">
+                       <div class="text-[11px] sm:text-[13px] font-bold text-white w-full text-center truncate drop-shadow-md leading-tight">{{ lineup['SP'+i].name }}</div>
+                       <div class="text-[13px] sm:text-[15px] font-black text-amber-400 tracking-tight drop-shadow-md leading-tight mt-0.5">{{ calculatePlayerPower(lineup['SP'+i], 'SP'+i).toLocaleString() }}</div>
                     </div>
                  </div>
                 </div>
               </div>
               
               <div class="w-full shrink-0"><h3 class="text-xs font-bold text-neutral-500 px-2 mt-1">계투 및 마무리</h3></div>
-              <!-- 계투 (6명) -->
-              <div class="flex-1 w-full flex justify-center items-center gap-1 sm:gap-1.5 min-h-0">
-                <div v-for="i in 6" :key="'RP'+i" @dragover.prevent @drop="onDrop($event, 'RP'+i)" class="flex-1 max-w-[16%] h-full flex justify-center items-center min-w-0 min-h-0">
-                   <div v-if="!lineup['RP'+i]" class="relative w-full max-h-full aspect-[5/7] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === 'RP'+i}" @click="selectSlot('RP'+i)"><span class="text-[11px] sm:text-[12px] font-bold">{{ 'RP'+i }}</span></div>
+              <!-- 🌟 계투 (6명): 선발에 비해 공간이 적은 6명이므로, 높이(h) 42%와 가로(max-w) 16.4%로 예쁘게 정렬됩니다 -->
+              <div class="w-full h-[42%] flex justify-center items-center gap-1 sm:gap-1.5 min-h-0">
+                <div v-for="i in 6" :key="'RP'+i" @dragover.prevent @drop="onDrop($event, 'RP'+i)" class="flex-1 max-w-[16.4%] h-full flex justify-center items-center min-w-0 min-h-0">
+                   <div v-if="!lineup['RP'+i]" class="relative w-full max-h-full aspect-[5/7] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === 'RP'+i}" @click="selectSlot('RP'+i)"><span class="text-[11px] font-bold">{{ 'RP'+i }}</span></div>
                  <div v-else draggable="true" @dragstart="onDragStart($event, 'RP'+i)" class="relative w-full max-h-full aspect-[5/7] border rounded-xl flex flex-col items-center p-0 cursor-pointer transition-all shadow-sm group overflow-hidden bg-neutral-100 dark:bg-neutral-800" :class="{'border-indigo-500 ring-2 ring-indigo-400': selectedSlot === 'RP'+i, 'border-neutral-200 dark:border-neutral-600': selectedSlot !== 'RP'+i}" @click="selectSlot('RP'+i)">
-                    <div class="absolute top-1.5 left-1.5 text-[10px] sm:text-xs font-black text-white drop-shadow-[0_1px_3px_rgba(0,0,0,1)] z-10">{{ 'RP'+i }}</div>
+                    <div class="absolute top-1.5 left-1.5 text-[10px] sm:text-[11px] font-black text-white drop-shadow-[0_1px_3px_rgba(0,0,0,1)] z-10">{{ 'RP'+i }}</div>
                     <button class="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/50 text-white hover:bg-red-500 flex items-center justify-center text-[12px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm" @click.stop="clearSlot('RP'+i)">×</button>
                     <img :src="getPlayerImage(lineup['RP'+i])" class="absolute inset-0 w-full h-full object-cover" @error="hideImage" />
                     <div class="absolute bottom-0 inset-x-0 h-[45%] bg-gradient-to-t from-black/95 via-black/50 to-transparent flex flex-col justify-end items-center pb-1.5 px-1 pointer-events-none">
                        <div class="text-[10px] sm:text-[12px] font-bold text-white w-full text-center truncate drop-shadow-md leading-tight">{{ lineup['RP'+i].name }}</div>
-                       <div class="text-[11px] sm:text-[14px] font-black text-amber-400 tracking-tight drop-shadow-md leading-tight mt-0.5">{{ calculatePlayerPower(lineup['RP'+i], 'RP'+i).toLocaleString() }}</div>
+                       <div class="text-[12px] sm:text-[14px] font-black text-amber-400 tracking-tight drop-shadow-md leading-tight mt-0.5">{{ calculatePlayerPower(lineup['RP'+i], 'RP'+i).toLocaleString() }}</div>
                     </div>
                  </div>
                 </div>
               </div>
             </div>
 
-            <!-- ⚾ 벤치 UI (한 줄 4명 폭에 맞춰 8명 전체 크기 완벽 통일!) -->
+            <!-- ⚾ 벤치 UI (기존 완벽한 버전 유지) -->
             <div v-else class="w-full h-full flex flex-col justify-center items-center gap-1 sm:gap-2 py-1">
                <div class="w-full shrink-0"><h3 class="text-xs font-bold text-neutral-500 px-2 mt-1">벤치 멤버</h3></div>
                
