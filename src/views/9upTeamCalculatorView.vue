@@ -1216,11 +1216,20 @@ const getAvailableSlot = (basePos: string): string => {
   return basePos
 }
 
+// 🌟 2. 클릭으로 배치할 때 포지션 제한 룰 적용
 const assignPlayerToSlot = (posOrSlot: string, p: Raw) => {
+  const targetSlot = getAvailableSlot(posOrSlot)
+  
+  // 배치 불가능한 포지션이면 알림 띄우고 차단!
+  if (!isValidSlotForPlayer(p, targetSlot)) {
+    alert(`[${p.name}] 선수는 '${targetSlot}' 포지션에 배치할 수 없습니다.`);
+    return;
+  }
+
   Object.keys(lineup.value).forEach(k => { 
     if (lineup.value[k] && isSamePlayer(lineup.value[k]!, p)) lineup.value[k] = null 
   })
-  const targetSlot = getAvailableSlot(posOrSlot)
+  
   lineup.value[targetSlot] = p
   initPlayerBuff(targetSlot, p)
   selectedSlot.value = targetSlot
@@ -1252,17 +1261,30 @@ const onDragStart = (e: DragEvent, slot: string) => {
   if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
 }
 
+// 🌟 3. 드래그 앤 드롭(마우스로 끌어서 교체) 시 포지션 제한 룰 적용
 const onDrop = (e: DragEvent, targetSlot: string) => {
   const sourceSlot = e.dataTransfer?.getData('text/plain');
   if (!sourceSlot || sourceSlot === targetSlot) return;
 
-  // 타자/투수 칸끼리 억지로 맞바꾸는 것 방지 (벤치는 자유롭게 이동 가능)
   const getGroup = (s: string) => s.startsWith('SP') || s.startsWith('RP') ? 'PITCHER' : s.startsWith('BENCH') ? 'BENCH' : 'BATTER';
   const sourceGroup = getGroup(sourceSlot);
   const targetGroup = getGroup(targetSlot);
   
   if (sourceGroup !== targetGroup && sourceGroup !== 'BENCH' && targetGroup !== 'BENCH') {
     alert('타자와 투수 칸은 서로 직접 바꿀 수 없습니다.');
+    return;
+  }
+
+  const sourcePlayer = lineup.value[sourceSlot];
+  const targetPlayer = lineup.value[targetSlot];
+
+  // 🚨 타자가 못 뛰는 포지션으로 이동/스와프 하려고 하면 알림 띄우고 즉시 차단!
+  if (sourcePlayer && !isValidSlotForPlayer(sourcePlayer, targetSlot)) {
+    alert(`[${sourcePlayer.name}] 선수는 '${targetSlot}' 포지션에 배치할 수 없습니다.\n(일반 카드는 주포지션과 DH만 가능합니다)`);
+    return;
+  }
+  if (targetPlayer && !isValidSlotForPlayer(targetPlayer, sourceSlot)) {
+    alert(`[${targetPlayer.name}] 선수는 '${sourceSlot}' 포지션에 배치할 수 없습니다.\n(일반 카드는 주포지션과 DH만 가능합니다)`);
     return;
   }
 
@@ -1279,8 +1301,8 @@ const onDrop = (e: DragEvent, targetSlot: string) => {
   // 3. 만약 화면에 띄워둔(선택된) 선수였다면, 바뀐 자리로 포커스 따라가기
   if (selectedSlot.value === sourceSlot) selectedSlot.value = targetSlot;
   else if (selectedSlot.value === targetSlot) selectedSlot.value = sourceSlot;
-}  
-
+}
+  
 const selectSlot = (slot: string) => { 
   selectedSlot.value = slot; 
   isManualSelection.value = true;
@@ -1442,9 +1464,32 @@ watch([lineup, playerBuffs, globalBuffs, imprintInventory], () => {
   localStorage.setItem('9up_auto_save', JSON.stringify(autoSaveData))
 }, { deep: true })
   
+// 🌟 1. 포지션 룰 적용 (일반=주포지션 1개, 디그니티=멀티포지션 전체)
 const getPlayerPositions = (p: Raw) => {
   if (!p) return [];
-  return Array.from(new Set(getArray(p.position).map(normalizePosition))).filter(Boolean);
+  const allPos = Array.from(new Set(getArray(p.position).map(normalizePosition))).filter(Boolean);
+  
+  const grade = String(p.grade || '').toUpperCase();
+  if (grade === 'DGN' || grade === 'DIGNITY') {
+    return allPos; // 디그니티는 멀티 포지션 전부 허용
+  }
+  return allPos.length > 0 ? [allPos[0]] : []; // 그 외 카드는 1포지션(주포지션)만 허용
+}
+
+// 🌟 [새로 추가됨] 드래그 앤 드롭 이동 제한을 위한 포지션 검증 암행어사
+const isValidSlotForPlayer = (p: Raw | null, slot: string) => {
+  if (!p) return true; // 빈 칸은 문제 없음
+  if (slot.startsWith('BENCH')) return true; // 벤치는 누구나 휴식 가능
+  
+  if (isPitcher(p)) {
+    return slot.startsWith('SP') || slot.startsWith('RP'); 
+  } else {
+    if (slot.startsWith('SP') || slot.startsWith('RP')) return false; // 타자는 투수 마운드 금지
+    if (slot === 'DH') return true; // 타자는 지명타자(DH) 무조건 가능
+    
+    const validPositions = getPlayerPositions(p);
+    return validPositions.includes(slot);
+  }
 }
 
 const hideImage = (e: Event) => {
