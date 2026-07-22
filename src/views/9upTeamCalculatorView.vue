@@ -289,8 +289,8 @@ const playerSynergyCategory = ref('전체');
 const getSynergyCategory = (synName: string) => {
   const name = String(synName || '').replace(/\s+/g, '').trim();
   
-  // 🌟 예외 처리 VIP: '원투펀치' 키워드 추가! (무조건 인물 탭으로 직행!)
-  if (name.match(/대통령배MVP|봉황대기MVP|청룡기MVP|고춧가루|왕조주역|돌격대|황금세대|\d{4}국가대표팀|실업야구|라이벌|원투펀치/)) {
+  // 🌟 예외 처리 VIP: '배터리' 키워드 추가! (기록 탭에 뺏기지 않고 무조건 인물 탭으로 직행!)
+  if (name.match(/대통령배MVP|봉황대기MVP|청룡기MVP|고춧가루|왕조주역|돌격대|황금세대|\d{4}국가대표팀|실업야구|라이벌|원투펀치|배터리/)) {
     return '인물';
   }
 
