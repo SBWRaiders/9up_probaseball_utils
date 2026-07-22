@@ -1009,47 +1009,7 @@ const getPlayerBinderPower = (p: Raw | null) => {
   return binderBase + binderMatrixSum;
 }
 
-// 🌟 9up 인게임 고증: 선수 이미지 주소 완벽 자동 생성 엔진 🌟
-const getPlayerImage = (p: any) => {
-  if (!p) return '';
-  
-  const grade = String(p.grade || '').toUpperCase();
-  const teamKOR = Array.isArray(p.team) ? p.team[0] : (p.team || '');
-
-  // 1. 한글 구단명을 파일용 영어 구단명으로 정밀 번역 (빙그레 -> BINGGRAE)
-  const engTeamMap: Record<string, string> = {
-    '두산': 'DOOSAN', 'OB': 'OB',
-    '기아': 'KIA', 'KIA': 'KIA', '해태': 'HAITAI',
-    '삼성': 'SAMSUNG',
-    'SSG': 'SSG', 'SK': 'SK',
-    '키움': 'KIWOOM', '히어로즈': 'HEROES', '넥센': 'NEXEN',
-    'LG': 'LG', 'MBC': 'MBC',
-    '롯데': 'LOTTE',
-    '한화': 'HANWHA', '빙그레': 'BINGGRAE',
-    'NC': 'NC',
-    'KT': 'KT',
-    '현대': 'HYUNDAI', '태평양': 'PACIFIC', '청보': 'CHUNGBO', '삼미': 'SAMMI',
-    '쌍방울': 'SSANGBANGWOOL'
-  };
-  const engTeam = engTeamMap[teamKOR] || teamKOR;
-
-  // 2. 디그니티(DGN) 카드 처리: 선수 고유 ID(예: 10200.png)와 통합 구단 폴더 사용
-  if (grade === 'DGN') {
-    let dgnTeam = engTeam;
-    // DGN 폴더는 보통 현재 구단명(DOOSAN, KIA 등)으로 통합되어 있으므로 예외 변환
-    if (['OB'].includes(engTeam)) dgnTeam = 'DOOSAN';
-    if (['HAITAI'].includes(engTeam)) dgnTeam = 'KIA';
-    if (['SK'].includes(engTeam)) dgnTeam = 'SSG';
-    if (['NEXEN', 'HEROES'].includes(engTeam)) dgnTeam = 'KIWOOM';
-    if (['MBC'].includes(engTeam)) dgnTeam = 'LG';
-    if (['BINGGRAE'].includes(engTeam)) dgnTeam = 'HANWHA';
-
-    return `/assets/playercards/DGN/${dgnTeam}/${p.id}.png`;
-  }
-  
-  // 3. 일반 카드(ACE, TOP 등) 처리: 공통 템플릿 사용 (예: commonCard_ACE_BINGGRAE.png)
-  return `/assets/playercards/commonCard_${grade}_${engTeam}.png`;
-}
+선수 이미지 주소 완벽
 
 // 🌟 바인더 검색용 데이터 리스트 (자동완성) 🌟
 // 🌟 좌측 검색창에서 쓰는 묶음(groupedTeams)을 재활용해서 리스트를 깔끔하게 통합!
