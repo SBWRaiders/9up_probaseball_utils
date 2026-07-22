@@ -1581,12 +1581,12 @@ const getPlayerImage = (p: Raw | null) => {
 </script>
 
 <template>
-  <!-- h-screen을 지우고 h-[calc(100vh-64px)] 로 교체합니다! -->
   <div class="bg-neutral-50 dark:bg-neutral-900 h-[calc(100vh-64px)] overflow-hidden transition-colors flex flex-col font-sans">
     
-<!-- 헤더 영역 -->
+    <!-- 헤더 영역 -->
     <header class="bg-gradient-to-r from-blue-700 to-indigo-800 text-white shadow-md flex-shrink-0 z-20">
-      <div class="mx-auto max-w-[1800px] px-4 py-1.5 flex items-center justify-between">
+      <!-- 🌟 변경 1: mx-auto max-w-[1800px] 족쇄 영구 제거! 좌우 패딩도 px-4에서 px-2로 축소 -->
+      <div class="w-full px-2 py-1.5 flex items-center justify-between">
         <div class="flex items-center gap-3">
           <Calculator class="w-5 h-5 text-blue-200" />
           <h1 class="text-lg font-bold tracking-tight">9UP 팀 파워 시뮬레이터</h1>
@@ -1613,12 +1613,14 @@ const getPlayerImage = (p: Raw | null) => {
       </div>
     </header>
 
-    <div class="mx-auto max-w-[1800px] w-full p-2 flex-1 flex flex-col min-h-0">
+    <!-- 🌟 변경 2: 메인 컨테이너에서도 max-w-[1800px] 족쇄 제거! 외곽 패딩(p-2)을 px-1로 극단적 축소 -->
+    <div class="w-full px-1 py-1.5 flex-1 flex flex-col min-h-0">
       <div v-if="isLoading" class="flex h-full items-center justify-center">
         <div class="animate-spin rounded-full border-4 border-neutral-300 dark:border-neutral-600 border-t-blue-600 h-10 w-10"></div>
       </div>
 
-      <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 min-h-0">
+      <!-- 🌟 변경 3: 3개 탭 사이의 넓었던 간격을 gap-4 에서 gap-1.5 로 바짝 붙임! -->
+      <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-1.5 flex-1 min-h-0">
         
         <!-- 왼쪽: 선수 검색 -->
         <section class="lg:col-span-3 flex flex-col rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 min-h-0 shadow-sm overflow-hidden">
