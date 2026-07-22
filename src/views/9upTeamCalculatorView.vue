@@ -1581,7 +1581,8 @@ const getPlayerImage = (p: Raw | null) => {
 </script>
 
 <template>
-  <div class="bg-neutral-50 dark:bg-neutral-900 h-screen overflow-hidden transition-colors flex flex-col font-sans">
+  <!-- h-screen을 지우고 h-[calc(100vh-64px)] 로 교체합니다! -->
+  <div class="bg-neutral-50 dark:bg-neutral-900 h-[calc(100vh-64px)] overflow-hidden transition-colors flex flex-col font-sans">
     
 <!-- 헤더 영역 -->
     <header class="bg-gradient-to-r from-blue-700 to-indigo-800 text-white shadow-md flex-shrink-0 z-20">
