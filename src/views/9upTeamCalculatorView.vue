@@ -1009,6 +1009,35 @@ const getPlayerBinderPower = (p: Raw | null) => {
   return binderBase + binderMatrixSum;
 }
 
+// 🌟 선수 이미지 주소 자동 생성 엔진 🌟
+const getPlayerImage = (p: any) => {
+  if (!p) return '';
+  
+  // 💡 [중요] 만약 이미지 파일 이름이 "선동열.png" 처럼 선수 이름으로 되어 있다면 `${p.name}.png` 로 바꿔주세요!
+  // 지금은 보통의 9up DB 방식인 고유번호(id) 기준인 `${p.id}.png` 로 세팅해 두었습니다.
+  const fileName = `${p.id}.png`; 
+  
+  // 디그니티(DGN) 등급인 경우 구단 폴더로 연결
+  if (String(p.grade).toUpperCase() === 'DGN') {
+    const t = Array.isArray(p.team) ? p.team[0] : p.team;
+    
+    // DB의 한글 팀명을 영어 폴더명으로 찰떡같이 바꿔주는 번역기 (OB->DOOSAN, 해태->KIA 통합)
+    const teamMap: Record<string, string> = {
+       '두산': 'DOOSAN', 'OB': 'DOOSAN', '기아': 'KIA', '해태': 'KIA', 
+       '삼성': 'SAMSUNG', 'SSG': 'SSG', 'SK': 'SSG', '키움': 'KIWOOM', 
+       '히어로즈': 'KIWOOM', '넥센': 'KIWOOM', 'LG': 'LG', 'MBC': 'LG', 
+       '롯데': 'LOTTE', '한화': 'HANWHA', '빙그레': 'HANWHA', 'NC': 'NC', 'KT': 'KT'
+    };
+    
+    // 이미 'DOOSAN'처럼 영어로 되어있으면 그대로 쓰고, 한글이면 맵에서 찾아서 씁니다.
+    const engTeam = teamMap[t] || t;
+    return `/assets/playercards/DGN/${engTeam}/${fileName}`;
+  }
+  
+  // 일반 등급(탑클, 에이스 등)은 바깥 폴더에서 바로 호출!
+  return `/assets/playercards/${fileName}`;
+}
+
 // 🌟 바인더 검색용 데이터 리스트 (자동완성) 🌟
 // 🌟 좌측 검색창에서 쓰는 묶음(groupedTeams)을 재활용해서 리스트를 깔끔하게 통합!
 const binderTeamOptions = ref(groupedTeams.map(g => g.name)); 
@@ -1774,9 +1803,9 @@ onMounted(async () => {
                       <div class="absolute top-1 left-2 text-[9px] font-black text-neutral-400 dark:text-neutral-500 z-10">{{ pos }}</div>
                       <button class="absolute top-1 right-1 w-4 h-4 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500 hover:bg-red-500 hover:text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity z-20" @click.stop="clearSlot(pos)">×</button>
                       
-                      <!-- 🌟 선수 실제 이미지 & 미니 등급 뱃지 -->
+                      <!-- 🌟 선수 실제 이미지 & 미니 등급 뱃지 적용 🌟 -->
                       <div class="relative w-full h-11 flex items-center justify-center mt-1.5">
-                        <img :src="lineup[pos].img" class="h-full object-contain drop-shadow-md" @error="hideImage" />
+                        <img :src="getPlayerImage(lineup[pos])" class="h-full object-contain drop-shadow-md" @error="hideImage" />
                         <span class="absolute -top-1.5 -left-1 text-[7px] font-black px-1 py-0.5 rounded border shadow-sm z-10 bg-white dark:bg-neutral-800" :class="getGradeColor(lineup[pos].grade)">{{ lineup[pos].grade }}</span>
                       </div>
                       
@@ -1794,9 +1823,8 @@ onMounted(async () => {
                       <div class="absolute top-1 left-2 text-[9px] font-black text-neutral-400 dark:text-neutral-500 z-10">{{ pos }}</div>
                       <button class="absolute top-1 right-1 w-4 h-4 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500 hover:bg-red-500 hover:text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity z-20" @click.stop="clearSlot(pos)">×</button>
                       
-                      <!-- 🌟 선수 실제 이미지 & 미니 등급 뱃지 -->
                       <div class="relative w-full h-11 flex items-center justify-center mt-1.5">
-                        <img :src="lineup[pos].img" class="h-full object-contain drop-shadow-md" @error="hideImage" />
+                        <img :src="getPlayerImage(lineup[pos])" class="h-full object-contain drop-shadow-md" @error="hideImage" />
                         <span class="absolute -top-1.5 -left-1 text-[7px] font-black px-1 py-0.5 rounded border shadow-sm z-10 bg-white dark:bg-neutral-800" :class="getGradeColor(lineup[pos].grade)">{{ lineup[pos].grade }}</span>
                       </div>
                       
@@ -1814,9 +1842,8 @@ onMounted(async () => {
                       <div class="absolute top-1 left-2 text-[9px] font-black text-neutral-400 dark:text-neutral-500 z-10">{{ pos }}</div>
                       <button class="absolute top-1 right-1 w-4 h-4 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500 hover:bg-red-500 hover:text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity z-20" @click.stop="clearSlot(pos)">×</button>
                       
-                      <!-- 🌟 선수 실제 이미지 & 미니 등급 뱃지 -->
                       <div class="relative w-full h-11 flex items-center justify-center mt-1.5">
-                        <img :src="lineup[pos].img" class="h-full object-contain drop-shadow-md" @error="hideImage" />
+                        <img :src="getPlayerImage(lineup[pos])" class="h-full object-contain drop-shadow-md" @error="hideImage" />
                         <span class="absolute -top-1.5 -left-1 text-[7px] font-black px-1 py-0.5 rounded border shadow-sm z-10 bg-white dark:bg-neutral-800" :class="getGradeColor(lineup[pos].grade)">{{ lineup[pos].grade }}</span>
                       </div>
                       
@@ -1840,9 +1867,8 @@ onMounted(async () => {
                       <div class="absolute top-1 left-2 text-[9px] font-black text-neutral-400 dark:text-neutral-500 z-10">{{ 'SP'+i }}</div>
                       <button class="absolute top-1 right-1 w-4 h-4 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500 hover:bg-red-500 hover:text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity z-20" @click.stop="clearSlot('SP'+i)">×</button>
                       
-                      <!-- 🌟 선수 실제 이미지 & 미니 등급 뱃지 -->
                       <div class="relative w-full h-11 flex items-center justify-center mt-1.5">
-                        <img :src="lineup['SP'+i].img" class="h-full object-contain drop-shadow-md" @error="hideImage" />
+                        <img :src="getPlayerImage(lineup['SP'+i])" class="h-full object-contain drop-shadow-md" @error="hideImage" />
                         <span class="absolute -top-1.5 -left-1 text-[7px] font-black px-1 py-0.5 rounded border shadow-sm z-10 bg-white dark:bg-neutral-800" :class="getGradeColor(lineup['SP'+i].grade)">{{ lineup['SP'+i].grade }}</span>
                       </div>
                       
@@ -1863,9 +1889,8 @@ onMounted(async () => {
                       <div class="absolute top-1 left-2 text-[9px] font-black text-neutral-400 dark:text-neutral-500 z-10">{{ 'RP'+i }}</div>
                       <button class="absolute top-1 right-1 w-4 h-4 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500 hover:bg-red-500 hover:text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity z-20" @click.stop="clearSlot('RP'+i)">×</button>
                       
-                      <!-- 🌟 선수 실제 이미지 & 미니 등급 뱃지 -->
                       <div class="relative w-full h-11 flex items-center justify-center mt-1.5">
-                        <img :src="lineup['RP'+i].img" class="h-full object-contain drop-shadow-md" @error="hideImage" />
+                        <img :src="getPlayerImage(lineup['RP'+i])" class="h-full object-contain drop-shadow-md" @error="hideImage" />
                         <span class="absolute -top-1.5 -left-1 text-[7px] font-black px-1 py-0.5 rounded border shadow-sm z-10 bg-white dark:bg-neutral-800" :class="getGradeColor(lineup['RP'+i].grade)">{{ lineup['RP'+i].grade }}</span>
                       </div>
                       
@@ -1889,9 +1914,8 @@ onMounted(async () => {
                       <div class="absolute top-1 left-2 text-[9px] font-black text-neutral-400 dark:text-neutral-500 z-10">{{ 'BENCH'+i }}</div>
                       <button class="absolute top-1 right-1 w-4 h-4 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500 hover:bg-red-500 hover:text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity z-20" @click.stop="clearSlot('BENCH'+i)">×</button>
                       
-                      <!-- 🌟 선수 실제 이미지 & 미니 등급 뱃지 -->
                       <div class="relative w-full h-11 flex items-center justify-center mt-1.5">
-                        <img :src="lineup['BENCH'+i].img" class="h-full object-contain drop-shadow-md" @error="hideImage" />
+                        <img :src="getPlayerImage(lineup['BENCH'+i])" class="h-full object-contain drop-shadow-md" @error="hideImage" />
                         <span class="absolute -top-1.5 -left-1 text-[7px] font-black px-1 py-0.5 rounded border shadow-sm z-10 bg-white dark:bg-neutral-800" :class="getGradeColor(lineup['BENCH'+i].grade)">{{ lineup['BENCH'+i].grade }}</span>
                       </div>
                       
