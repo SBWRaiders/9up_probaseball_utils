@@ -1903,6 +1903,8 @@ onMounted(async () => {
                   </div>
                </div>
             </div>
+          </div>
+        </section>
 
         <!-- 오른쪽: 설정 패널 -->
         <section class="lg:col-span-4 flex flex-col rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 min-h-0 shadow-sm overflow-hidden">
