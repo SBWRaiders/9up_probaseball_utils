@@ -1216,15 +1216,12 @@ const getAvailableSlot = (basePos: string): string => {
   return basePos
 }
 
-// 🌟 2. 클릭으로 배치할 때 포지션 제한 룰 적용
+// 🌟 2. 클릭으로 배치할 때 포지션 제한 룰 적용 (경고창 삭제)
 const assignPlayerToSlot = (posOrSlot: string, p: Raw) => {
   const targetSlot = getAvailableSlot(posOrSlot)
   
-  // 배치 불가능한 포지션이면 알림 띄우고 차단!
-  if (!isValidSlotForPlayer(p, targetSlot)) {
-    alert(`[${p.name}] 선수는 '${targetSlot}' 포지션에 배치할 수 없습니다.`);
-    return;
-  }
+  // 🚨 불가능한 자리면 팝업창 없이 조용히 무시!
+  if (!isValidSlotForPlayer(p, targetSlot)) return;
 
   Object.keys(lineup.value).forEach(k => { 
     if (lineup.value[k] && isSamePlayer(lineup.value[k]!, p)) lineup.value[k] = null 
@@ -1261,7 +1258,7 @@ const onDragStart = (e: DragEvent, slot: string) => {
   if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
 }
 
-// 🌟 3. 드래그 앤 드롭(마우스로 끌어서 교체) 시 포지션 제한 룰 적용
+// 🌟 3. 드래그 앤 드롭(마우스로 끌어서 교체) 시 포지션 제한 룰 적용 (경고창 삭제)
 const onDrop = (e: DragEvent, targetSlot: string) => {
   const sourceSlot = e.dataTransfer?.getData('text/plain');
   if (!sourceSlot || sourceSlot === targetSlot) return;
@@ -1270,23 +1267,15 @@ const onDrop = (e: DragEvent, targetSlot: string) => {
   const sourceGroup = getGroup(sourceSlot);
   const targetGroup = getGroup(targetSlot);
   
-  if (sourceGroup !== targetGroup && sourceGroup !== 'BENCH' && targetGroup !== 'BENCH') {
-    alert('타자와 투수 칸은 서로 직접 바꿀 수 없습니다.');
-    return;
-  }
+  // 🚨 타자/투수 교환 꼼수 조용히 무시!
+  if (sourceGroup !== targetGroup && sourceGroup !== 'BENCH' && targetGroup !== 'BENCH') return;
 
   const sourcePlayer = lineup.value[sourceSlot];
   const targetPlayer = lineup.value[targetSlot];
 
-  // 🚨 타자가 못 뛰는 포지션으로 이동/스와프 하려고 하면 알림 띄우고 즉시 차단!
-  if (sourcePlayer && !isValidSlotForPlayer(sourcePlayer, targetSlot)) {
-    alert(`[${sourcePlayer.name}] 선수는 '${targetSlot}' 포지션에 배치할 수 없습니다.\n(일반 카드는 주포지션과 DH만 가능합니다)`);
-    return;
-  }
-  if (targetPlayer && !isValidSlotForPlayer(targetPlayer, sourceSlot)) {
-    alert(`[${targetPlayer.name}] 선수는 '${sourceSlot}' 포지션에 배치할 수 없습니다.\n(일반 카드는 주포지션과 DH만 가능합니다)`);
-    return;
-  }
+  // 🚨 불가능한 포지션 교환 시 팝업창 없이 조용히 제자리로 돌려보냄!
+  if (sourcePlayer && !isValidSlotForPlayer(sourcePlayer, targetSlot)) return;
+  if (targetPlayer && !isValidSlotForPlayer(targetPlayer, sourceSlot)) return;
 
   // 1. 라인업 데이터(선수 본체) 맞교환
   const tempPlayer = lineup.value[targetSlot];
@@ -1476,18 +1465,27 @@ const getPlayerPositions = (p: Raw) => {
   return allPos.length > 0 ? [allPos[0]] : []; // 그 외 카드는 1포지션(주포지션)만 허용
 }
 
-// 🌟 [새로 추가됨] 드래그 앤 드롭 이동 제한을 위한 포지션 검증 암행어사
+// 🌟 [수정됨] 투수/타자 포지션 꼼꼼하게 검증 + 알람 끄기
 const isValidSlotForPlayer = (p: Raw | null, slot: string) => {
   if (!p) return true; // 빈 칸은 문제 없음
   if (slot.startsWith('BENCH')) return true; // 벤치는 누구나 휴식 가능
   
+  const validPositions = getPlayerPositions(p);
+
   if (isPitcher(p)) {
-    return slot.startsWith('SP') || slot.startsWith('RP'); 
+    // 투수인데 타자 칸(DH 포함)으로 가는 것 차단
+    if (!slot.startsWith('SP') && !slot.startsWith('RP')) return false;
+    
+    // 선발/계투 확실히 구분 (SP는 SP칸에만, RP는 RP칸에만)
+    if (slot.startsWith('SP') && !validPositions.includes('SP')) return false;
+    if (slot.startsWith('RP') && !validPositions.includes('RP')) return false;
+    
+    return true;
   } else {
-    if (slot.startsWith('SP') || slot.startsWith('RP')) return false; // 타자는 투수 마운드 금지
+    // 타자가 투수 칸으로 가는 것 차단
+    if (slot.startsWith('SP') || slot.startsWith('RP')) return false; 
     if (slot === 'DH') return true; // 타자는 지명타자(DH) 무조건 가능
     
-    const validPositions = getPlayerPositions(p);
     return validPositions.includes(slot);
   }
 }
