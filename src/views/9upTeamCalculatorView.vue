@@ -1815,10 +1815,12 @@ const getPlayerImage = (p: Raw | null) => {
           <div class="flex-1 overflow-y-auto p-4 custom-scrollbar bg-neutral-50/30 dark:bg-neutral-900/30 flex flex-col items-center">
             
             <!-- 타자 다이아몬드 UI -->
-            <div v-if="lineupViewMode === 'batter'" class="w-full flex flex-col items-center justify-center pt-2 pb-6">
+            <!-- 🌟 pt-2 pb-6 이던 전체 상하 패딩을 pt-2 pb-2로 줄임 -->
+            <div v-if="lineupViewMode === 'batter'" class="w-full flex flex-col items-center justify-center pt-2 pb-2">
                
                <!-- 외야수 (3명) -->
-               <div class="grid grid-cols-3 gap-3 sm:gap-4 w-full max-w-xl mb-6">
+               <!-- 🌟 mb-6 이던 하단 여백을 mb-2 로 확 줄임 -->
+               <div class="grid grid-cols-3 gap-3 sm:gap-4 w-full max-w-xl mb-2">
                  <div v-for="pos in ['LF', 'CF', 'RF']" :key="pos" @dragover.prevent @drop="onDrop($event, pos)">
                    <div v-if="!lineup[pos]" class="w-full aspect-[5/7] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === pos}" @click="selectSlot(pos)"><span class="text-[11px] font-bold">{{ pos }}</span></div>
                    <div v-else draggable="true" @dragstart="onDragStart($event, pos)" class="relative w-full aspect-[5/7] border rounded-xl flex flex-col items-center p-0 cursor-pointer transition-all shadow-sm group overflow-hidden bg-neutral-100 dark:bg-neutral-800" :class="{'border-indigo-500 ring-2 ring-indigo-400': selectedSlot === pos, 'border-neutral-200 dark:border-neutral-600': selectedSlot !== pos}" @click="selectSlot(pos)">
@@ -1826,10 +1828,8 @@ const getPlayerImage = (p: Raw | null) => {
                       <button class="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/50 text-white hover:bg-red-500 flex items-center justify-center text-[12px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm" @click.stop="clearSlot(pos)">×</button>
                       <div v-if="playerBuffs[pos]?.battingOrder && !isPitcher(lineup[pos])" class="absolute top-1.5 left-1/2 -translate-x-1/2 text-[9px] font-bold bg-orange-600 text-white px-1.5 py-0.5 rounded shadow-md z-10">{{ playerBuffs[pos].battingOrder }}번</div>
                       
-                      <!-- 🌟 5:7 비율에 맞춰 완벽하게 꽉 차는 이미지 -->
                       <img :src="getPlayerImage(lineup[pos])" class="w-full h-full object-cover" @error="hideImage" />
                       
-                      <!-- 🌟 이름/파워 하단 오버레이 (카드 아래쪽에 겹침) -->
                       <div class="absolute bottom-0 inset-x-0 h-1/2 bg-gradient-to-t from-black/95 via-black/50 to-transparent flex flex-col justify-end items-center pb-2 px-1.5 pointer-events-none">
                          <div class="text-[12px] sm:text-[13px] font-bold text-white w-full text-center truncate drop-shadow-md leading-tight">{{ lineup[pos].name }}</div>
                          <div class="text-[14px] sm:text-[15px] font-black text-amber-400 tracking-tight drop-shadow-md leading-tight mt-0.5">{{ calculatePlayerPower(lineup[pos], pos).toLocaleString() }}</div>
@@ -1839,7 +1839,8 @@ const getPlayerImage = (p: Raw | null) => {
                </div>
 
                <!-- 내야수 (4명) -->
-               <div class="grid grid-cols-4 gap-3 sm:gap-4 w-full max-w-3xl mb-6">
+               <!-- 🌟 mb-6 이던 하단 여백을 mb-2 로 확 줄임 -->
+               <div class="grid grid-cols-4 gap-3 sm:gap-4 w-full max-w-3xl mb-2">
                  <div v-for="pos in ['3B', 'SS', '2B', '1B']" :key="pos" @dragover.prevent @drop="onDrop($event, pos)">
                    <div v-if="!lineup[pos]" class="w-full aspect-[5/7] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === pos}" @click="selectSlot(pos)"><span class="text-[11px] font-bold">{{ pos }}</span></div>
                    <div v-else draggable="true" @dragstart="onDragStart($event, pos)" class="relative w-full aspect-[5/7] border rounded-xl flex flex-col items-center p-0 cursor-pointer transition-all shadow-sm group overflow-hidden bg-neutral-100 dark:bg-neutral-800" :class="{'border-indigo-500 ring-2 ring-indigo-400': selectedSlot === pos, 'border-neutral-200 dark:border-neutral-600': selectedSlot !== pos}" @click="selectSlot(pos)">
@@ -1857,7 +1858,7 @@ const getPlayerImage = (p: Raw | null) => {
                  </div>
                </div>
 
-               <!-- 포수 & 지명타자 (너무 커지지 않게 max-w-sm 적용) -->
+               <!-- 포수 & 지명타자 -->
                <div class="grid grid-cols-2 gap-8 sm:gap-16 w-full max-w-sm">
                  <div v-for="pos in ['C', 'DH']" :key="pos" @dragover.prevent @drop="onDrop($event, pos)">
                    <div v-if="!lineup[pos]" class="w-full aspect-[5/7] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === pos}" @click="selectSlot(pos)"><span class="text-[11px] font-bold">{{ pos }}</span></div>
@@ -1936,7 +1937,7 @@ const getPlayerImage = (p: Raw | null) => {
                         
                         <div class="absolute bottom-0 inset-x-0 h-1/2 bg-gradient-to-t from-black/95 via-black/50 to-transparent flex flex-col justify-end items-center pb-2 px-1.5 pointer-events-none">
                            <div class="text-[12px] sm:text-[13px] font-bold text-white w-full text-center truncate drop-shadow-md leading-tight">{{ lineup['BENCH'+i].name }}</div>
-                           <div class="text-[14px] sm:text-[15px] font-black text-amber-400 tracking-tight drop-shadow-md leading-tight mt-0.5">{{ calculatePlayerPower(lineup['BENCH'+i], 'BENCH'+i).toLocaleString() }}</div>
+                           <div class="text-[14px] sm:text-[15px] font-black text-neutral-300 tracking-tight drop-shadow-md leading-tight mt-0.5">{{ calculatePlayerPower(lineup['BENCH'+i], 'BENCH'+i).toLocaleString() }}</div>
                         </div>
                      </div>
                     </div>
