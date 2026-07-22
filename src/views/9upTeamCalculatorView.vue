@@ -1535,7 +1535,7 @@ onMounted(async () => {
   }
 })
 
-// 🌟 2. 9up 인게임 고증: 선수 이미지 주소 생성 엔진 (콘솔 주소 출력 기능 추가)
+// 🌟 2. 9up 인게임 고증: 선수 이미지 주소 생성 엔진 (최종 완벽본)
 const getPlayerImage = (p: Raw | null) => {
   if (!p) return '';
   let grade = String(p.grade || '').trim().toUpperCase();
@@ -1546,37 +1546,24 @@ const getPlayerImage = (p: Raw | null) => {
   };
   grade = gradeMap[grade] || grade;
 
-  let rawTeam = String(Array.isArray(p.team) ? p.team[0] : (p.team || '')).trim();
-  let engTeam = 'KBO';
-  if (rawTeam.includes('두산')) engTeam = 'DOOSAN';
-  else if (rawTeam.includes('OB')) engTeam = 'OB';
-  else if (rawTeam.includes('기아') || rawTeam.includes('KIA')) engTeam = 'KIA';
-  else if (rawTeam.includes('해태')) engTeam = 'HAITAI';
-  else if (rawTeam.includes('삼성')) engTeam = 'SAMSUNG';
-  else if (rawTeam.includes('SSG')) engTeam = 'SSG';
-  else if (rawTeam.includes('SK')) engTeam = 'SK';
-  else if (rawTeam.includes('키움') || rawTeam.includes('히어로즈')) engTeam = 'KIWOOM';
-  else if (rawTeam.includes('넥센')) engTeam = 'NEXEN';
-  else if (rawTeam.includes('LG') || rawTeam.includes('엘지')) engTeam = 'LG';
-  else if (rawTeam.includes('MBC') || rawTeam.includes('청룡')) engTeam = 'MBC';
-  else if (rawTeam.includes('롯데')) engTeam = 'LOTTE';
-  else if (rawTeam.includes('한화')) engTeam = 'HANWHA';
-  else if (rawTeam.includes('빙그레')) engTeam = 'BINGGRAE';
-  else if (rawTeam.includes('NC') || rawTeam.includes('엔씨')) engTeam = 'NC';
-  else if (rawTeam.includes('KT') || rawTeam.includes('케이티')) engTeam = 'KT';
-  else if (rawTeam.includes('현대')) engTeam = 'HYUNDAI';
-  else if (rawTeam.includes('태평양')) engTeam = 'PACIFIC';
-  else if (rawTeam.includes('청보')) engTeam = 'CHUNGBO';
-  else if (rawTeam.includes('삼미')) engTeam = 'SAMMI';
-  else if (rawTeam.includes('쌍방울')) engTeam = 'SSANGBANGWOOL';
+  // 🌟 원본 데이터가 이미 'samsung', 'haitai' 같은 영어임! 대문자로만 바꿔줍니다.
+  let rawTeam = String(Array.isArray(p.team) ? p.team[0] : (p.team || '')).trim().toUpperCase();
+  
+  // 혹시나 한글이 섞여 있을 경우를 대비한 보험
+  let engTeam = rawTeam;
+  const teamKorToEng: Record<string, string> = {
+    '두산':'DOOSAN', '기아':'KIA', '해태':'HAITAI', '삼성':'SAMSUNG', '키움':'KIWOOM', '히어로즈':'HEROES', '넥센':'NEXEN', '엘지':'LG', '청룡':'MBC', '롯데':'LOTTE', '한화':'HANWHA', '빙그레':'BINGGRAE', '엔씨':'NC', '케이티':'KT', '현대':'HYUNDAI', '태평양':'PACIFIC', '청보':'CHUNGBO', '삼미':'SAMMI', '쌍방울':'SSANGBANGWOOL'
+  };
+  if (teamKorToEng[rawTeam]) engTeam = teamKorToEng[rawTeam];
 
   let imgUrl = '';
   if (grade === 'DGN') {
     let dgnTeam = engTeam;
+    // DGN 폴더는 현재 구단 폴더로 통합!
     if (dgnTeam === 'OB') dgnTeam = 'DOOSAN';
     if (dgnTeam === 'HAITAI') dgnTeam = 'KIA';
     if (dgnTeam === 'SK') dgnTeam = 'SSG';
-    if (dgnTeam === 'NEXEN') dgnTeam = 'KIWOOM';
+    if (dgnTeam === 'NEXEN' || dgnTeam === 'HEROES') dgnTeam = 'KIWOOM';
     if (dgnTeam === 'MBC') dgnTeam = 'LG';
     if (dgnTeam === 'BINGGRAE') dgnTeam = 'HANWHA';
     
@@ -1586,6 +1573,7 @@ const getPlayerImage = (p: Raw | null) => {
     imgUrl = `/assets/playercards/commonCard_${grade}_${engTeam}.png`;
   }
   
+  // 주소 확인용 로그 (이제 KBO가 아니라 KIA, SAMSUNG 등 제대로 찍힐 겁니다!)
   console.log(`[주소 생성 성공] ${p.name}(${grade}) ➔ ${imgUrl}`);
   return imgUrl;
 }
