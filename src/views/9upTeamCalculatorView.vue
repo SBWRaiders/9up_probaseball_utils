@@ -1530,7 +1530,57 @@ onMounted(async () => {
     isLoading.value = false 
   }
 })
+
+// 🌟 9up 인게임 고증: 선수 이미지 주소 생성 엔진 (중복 선언 방지 원본 맞춤형)
+const getPlayerImage = (p: Raw | null) => {
+  if (!p) return '';
+  let grade = String(p.grade || '').trim().toUpperCase();
+  const gradeMap: Record<string, string> = {
+    '디그니티':'DGN', '탑클래스':'TOP', '에이스':'ACE', '히트':'HIT', '팀플':'TEA',
+    '월간MVP':'MMVP', '월간':'MMVP', '신인왕':'ROY', '연도골글':'GGY', '연글':'GGY', 
+    '골든글러브':'GG', '골글':'GG', '국가대표':'NT', '올스타':'ASG', '시즌':'SEA', '포스트시즌':'POS'
+  };
+  grade = gradeMap[grade] || grade;
+
+  let rawTeam = String(Array.isArray(p.team) ? p.team[0] : (p.team || '')).trim();
+  let engTeam = 'KBO';
+  if (rawTeam.includes('두산')) engTeam = 'DOOSAN';
+  else if (rawTeam.includes('OB')) engTeam = 'OB';
+  else if (rawTeam.includes('기아') || rawTeam.includes('KIA')) engTeam = 'KIA';
+  else if (rawTeam.includes('해태')) engTeam = 'HAITAI';
+  else if (rawTeam.includes('삼성')) engTeam = 'SAMSUNG';
+  else if (rawTeam.includes('SSG')) engTeam = 'SSG';
+  else if (rawTeam.includes('SK')) engTeam = 'SK';
+  else if (rawTeam.includes('키움') || rawTeam.includes('히어로즈')) engTeam = 'KIWOOM';
+  else if (rawTeam.includes('넥센')) engTeam = 'NEXEN';
+  else if (rawTeam.includes('LG') || rawTeam.includes('엘지')) engTeam = 'LG';
+  else if (rawTeam.includes('MBC') || rawTeam.includes('청룡')) engTeam = 'MBC';
+  else if (rawTeam.includes('롯데')) engTeam = 'LOTTE';
+  else if (rawTeam.includes('한화')) engTeam = 'HANWHA';
+  else if (rawTeam.includes('빙그레')) engTeam = 'BINGGRAE';
+  else if (rawTeam.includes('NC') || rawTeam.includes('엔씨')) engTeam = 'NC';
+  else if (rawTeam.includes('KT') || rawTeam.includes('케이티')) engTeam = 'KT';
+  else if (rawTeam.includes('현대')) engTeam = 'HYUNDAI';
+  else if (rawTeam.includes('태평양')) engTeam = 'PACIFIC';
+  else if (rawTeam.includes('청보')) engTeam = 'CHUNGBO';
+  else if (rawTeam.includes('삼미')) engTeam = 'SAMMI';
+  else if (rawTeam.includes('쌍방울')) engTeam = 'SSANGBANGWOOL';
+
+  if (grade === 'DGN') {
+    let dgnTeam = engTeam;
+    if (dgnTeam === 'OB') dgnTeam = 'DOOSAN';
+    if (dgnTeam === 'HAITAI') dgnTeam = 'KIA';
+    if (dgnTeam === 'SK') dgnTeam = 'SSG';
+    if (dgnTeam === 'NEXEN') dgnTeam = 'KIWOOM';
+    if (dgnTeam === 'MBC') dgnTeam = 'LG';
+    if (dgnTeam === 'BINGGRAE') dgnTeam = 'HANWHA';
     
+    const playerId = p.id || p.playerId || 'unknown_id';
+    return `/assets/playercards/DGN/${dgnTeam}/${playerId}.png`;
+  }
+  return `/assets/playercards/commonCard_${grade}_${engTeam}.png`;
+}
+  
 </script>
 
 <template>
