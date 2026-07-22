@@ -2,28 +2,7 @@
 import { ref, computed, onMounted, reactive, watch } from 'vue'
 import Papa from 'papaparse'
 import { Search, Calculator, Star, Shield, Zap, TrendingUp, X, Users, ArrowUpCircle, Sparkles, UserCheck, Filter, ChevronRight as ChevronRightIcon, Check, Save, FolderOpen, Download, Upload } from 'lucide-vue-next'
-
-type Raw = Record<string, any>
-type CountOp = '==' | '>=' | '<=' | '>' | '<' | 'between'
-
-interface JsonBonus { unit: 'percent' | 'fixed'; value: number }
-interface JsonCond  { count: any; stat: string; bonus: JsonBonus }
-interface JsonSynergy { id: number | string; synergy: string; conditions: JsonCond[] }
-interface PlayerBuff {
-  enhancementLevel: number; breakthroughLevel: number; careerTeamCount: number;
-  hitAceBuff: number; imprintStarterPower: number;
-  careerAllStatFlat: number; 
-  imprintCoreStat: number; // 🌟 추가: 각인 전체 능력치 (5대 스탯)
-  careerCoreStat: number;  // 🌟 추가: 커리어 전체 능력치 (5대 스탯)
-  selectedSkills: string[];
-  battingOrder: number | null;
-  playerLevel: number; collectionBuff: number; careerLevelBuff: number;
-  binderBuff: number; ultimateImprintPercent: number;
-  imprintStats: Record<string, number>;
-  careerStats: Record<string, number>;
-}
-
- // =====================================================================
+// =====================================================================
 // 🌟 1. 선수 이미지 주소 완벽 자동 생성 엔진 (대소문자/한글 완벽 방어) 🌟
 const getPlayerImage = (p: any) => {
   if (!p) return '';
@@ -85,7 +64,29 @@ const getGradeColor = (grade: any) => {
   if (g === 'ROY' || g === 'GG') return 'text-yellow-600 border-yellow-400 bg-yellow-50 dark:bg-yellow-900/30';
   return 'text-neutral-600 border-neutral-400 bg-neutral-50 dark:bg-neutral-800';
 }
-// ===================================================================== 
+// =====================================================================
+
+  
+type Raw = Record<string, any>
+type CountOp = '==' | '>=' | '<=' | '>' | '<' | 'between'
+
+interface JsonBonus { unit: 'percent' | 'fixed'; value: number }
+interface JsonCond  { count: any; stat: string; bonus: JsonBonus }
+interface JsonSynergy { id: number | string; synergy: string; conditions: JsonCond[] }
+interface PlayerBuff {
+  enhancementLevel: number; breakthroughLevel: number; careerTeamCount: number;
+  hitAceBuff: number; imprintStarterPower: number;
+  careerAllStatFlat: number; 
+  imprintCoreStat: number; // 🌟 추가: 각인 전체 능력치 (5대 스탯)
+  careerCoreStat: number;  // 🌟 추가: 커리어 전체 능력치 (5대 스탯)
+  selectedSkills: string[];
+  battingOrder: number | null;
+  playerLevel: number; collectionBuff: number; careerLevelBuff: number;
+  binderBuff: number; ultimateImprintPercent: number;
+  imprintStats: Record<string, number>;
+  careerStats: Record<string, number>;
+}
+
   
 const POSITION_ALIASES: Record<string, string> = {
   'b1': '1B', '1b': '1B', '1': '1B', '1루': '1B',
