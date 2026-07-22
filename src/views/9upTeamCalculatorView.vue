@@ -1009,8 +1009,6 @@ const getPlayerBinderPower = (p: Raw | null) => {
   return binderBase + binderMatrixSum;
 }
 
-선수 이미지 주소 완벽
-
 // 🌟 바인더 검색용 데이터 리스트 (자동완성) 🌟
 // 🌟 좌측 검색창에서 쓰는 묶음(groupedTeams)을 재활용해서 리스트를 깔끔하게 통합!
 const binderTeamOptions = ref(groupedTeams.map(g => g.name)); 
