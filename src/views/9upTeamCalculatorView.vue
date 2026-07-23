@@ -1709,7 +1709,7 @@ onMounted(async () => {
   }
 })
 
-// 🌟 2. 9up 인게임 고증: 선수 이미지 주소 생성 엔진 (최종 완벽본)
+// 🌟 2. 9up 인게임 고증: 선수 이미지 주소 생성 엔진 (스마트 예외 처리 방식)
 const getPlayerImage = (p: Raw | null) => {
   if (!p) return '';
   let grade = String(p.grade || '').trim().toUpperCase();
@@ -1720,36 +1720,37 @@ const getPlayerImage = (p: Raw | null) => {
   };
   grade = gradeMap[grade] || grade;
 
-  // 🌟 원본 데이터가 이미 'samsung', 'haitai' 같은 영어임! 대문자로만 바꿔줍니다.
   let rawTeam = String(Array.isArray(p.team) ? p.team[0] : (p.team || '')).trim().toUpperCase();
-  
-  // 혹시나 한글이 섞여 있을 경우를 대비한 보험
   let engTeam = rawTeam;
   const teamKorToEng: Record<string, string> = {
     '두산':'DOOSAN', '기아':'KIA', '해태':'HAITAI', '삼성':'SAMSUNG', '키움':'KIWOOM', '히어로즈':'HEROES', '넥센':'NEXEN', '엘지':'LG', '청룡':'MBC', '롯데':'LOTTE', '한화':'HANWHA', '빙그레':'BINGGRAE', '엔씨':'NC', '케이티':'KT', '현대':'HYUNDAI', '태평양':'PACIFIC', '청보':'CHUNGBO', '삼미':'SAMMI', '쌍방울':'SSANGBANGWOOL'
   };
   if (teamKorToEng[rawTeam]) engTeam = teamKorToEng[rawTeam];
 
-  let imgUrl = '';
   if (grade === 'DGN') {
-    let dgnTeam = engTeam;
-    // DGN 폴더는 현재 구단 폴더로 통합!
-    if (dgnTeam === 'OB') dgnTeam = 'DOOSAN';
-    if (dgnTeam === 'HAITAI') dgnTeam = 'KIA';
-    if (dgnTeam === 'SK') dgnTeam = 'SSG';
-    if (dgnTeam === 'NEXEN' || dgnTeam === 'HEROES') dgnTeam = 'KIWOOM';
-    if (dgnTeam === 'MBC') dgnTeam = 'LG';
-    if (dgnTeam === 'BINGGRAE') dgnTeam = 'HANWHA';
+    const playerId = String(p.id || p.playerId || 'unknown_id');
     
-    const playerId = p.id || p.playerId || 'unknown_id';
-    imgUrl = `/assets/playercards/DGN/${dgnTeam}/${playerId}.png`;
-  } else {
-    imgUrl = `/assets/playercards/commonCard_${grade}_${engTeam}.png`;
-  }
+    // 🌟 [핵심] 겹치는 디그니티 선수 ID 명단 (손승락 등)
+    // 이 배열 안에 있는 ID만 팀 이름을 붙여서 찾고, 나머지는 기존처럼 숫자(ID)로만 찾습니다!
+    const multiTeamDignityIds = ['11054']; // <-- 예시: ['10123', '20444']
+    
+    if (multiTeamDignityIds.includes(playerId)) {
+      let dgnTeam = engTeam;
+      if (dgnTeam === 'OB') dgnTeam = 'DOOSAN';
+      if (dgnTeam === 'HAITAI') dgnTeam = 'KIA';
+      if (dgnTeam === 'SK') dgnTeam = 'SSG';
+      if (dgnTeam === 'NEXEN' || dgnTeam === 'HEROES') dgnTeam = 'KIWOOM';
+      if (dgnTeam === 'MBC') dgnTeam = 'LG';
+      if (dgnTeam === 'BINGGRAE') dgnTeam = 'HANWHA';
+      
+      return `/assets/playercards/DGN/${dgnTeam}_${playerId}.png`;
+    } else {
+      // 🌟 나머지 48명의 일반 디그니티 선수들은 이름 변경 없이 그대로 사용!
+      return `/assets/playercards/DGN/${playerId}.png`;
+    }
+  } 
   
-  // 주소 확인용 로그 (이제 KBO가 아니라 KIA, SAMSUNG 등 제대로 찍힐 겁니다!)
-  console.log(`[주소 생성 성공] ${p.name}(${grade}) ➔ ${imgUrl}`);
-  return imgUrl;
+  return `/assets/playercards/commonCard_${grade}_${engTeam}.png`;
 }
   
 </script>
