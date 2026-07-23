@@ -1769,10 +1769,10 @@ const getPlayerImage = (p: Raw | null) => {
                    <button v-for="g in ['DIGNITY', 'TOP CLASS', 'GOLDEN GLOVE', 'ACE PITCHER', 'HIT BATTER', 'GG OF THE YEAR', 'MONTHLY MVP', 'ROOKIE OF THE YEAR', 'TEAM PLAYER', 'POST SEASON', 'ALLSTAR', 'SEASON']" :key="g" 
                            @click="searchQuery.grade.includes(g) ? searchQuery.grade = searchQuery.grade.filter(x => x !== g) : searchQuery.grade.push(g)" 
                            :class="{'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30': searchQuery.grade.includes(g)}" 
-                           class="border border-neutral-200 dark:border-neutral-600 rounded-lg p-1 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-all flex items-center justify-center bg-white dark:bg-neutral-800 h-9 overflow-hidden">
-                     <!-- 🌟 수정됨: max-h-[18px] 족쇄 제거, w-full h-full로 여백 없이 꽉 채움! -->
-                     <img v-if="getGradeImage(g)" :src="getGradeImage(g)" :alt="g" class="w-full h-full object-contain drop-shadow-sm" @error="hideImage" />
-                     <span v-else class="text-[9px] font-bold">{{ g }}</span>
+                           class="relative border border-neutral-200 dark:border-neutral-600 rounded-lg p-0 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-all flex items-center justify-center bg-white dark:bg-neutral-800 h-10 overflow-hidden">
+                     <!-- 🌟 수정됨: p-0으로 버튼 여백 삭제, h-10으로 크기 확장, scale-[1.35]로 이미지 강제 줌인! -->
+                     <img v-if="getGradeImage(g)" :src="getGradeImage(g)" :alt="g" class="absolute inset-0 w-full h-full object-contain scale-[1.35] drop-shadow-sm pointer-events-none" @error="hideImage" />
+                     <span v-else class="text-[9px] font-bold z-10">{{ g }}</span>
                    </button>
                 </div>
               </div>
