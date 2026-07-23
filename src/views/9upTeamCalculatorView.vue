@@ -2474,6 +2474,12 @@ const getPlayerImage = (p: Raw | null) => {
                 </div>
               </div>
             </div>
+            
+            <div v-else class="flex h-full items-center justify-center text-neutral-400 text-sm flex-col gap-2">
+              <UserCheck class="w-10 h-10 opacity-20"/>
+              중앙에서 선수를 클릭해주세요.
+            </div>
+          </div>
         </section>
         </div> <!-- 🌟 복구 1. 좌/우/중앙 Flex 분할 컨테이너 닫기 -->
     </div> <!-- 🌟 복구 2. 전체 패널 영역 닫기 -->
