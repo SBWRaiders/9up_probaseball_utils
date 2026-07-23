@@ -1,5 +1,17 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, reactive, watch } from 'vue'
+// 🌟 누락되었던 등급 이미지 로드 함수 (이거 넣으면 하얀 화면 즉시 해결!)
+const getGradeImage = (grade: unknown) => {
+  if (!grade) return '';
+  const g = String(grade).toUpperCase();
+  const map: Record<string, string> = {
+    '디그니티':'DGN', '탑클래스':'TOP', '에이스':'ACE', '히트':'HIT', '팀플':'TEA',
+    '월간MVP':'MMVP', '월간':'MMVP', '신인왕':'ROY', '연도골글':'GGY', '연글':'GGY',
+    '골든글러브':'GG', '골글':'GG', '국가대표':'NT', '올스타':'ASG', '시즌':'SEA', '포스트시즌':'POS'
+  };
+  const mappedGrade = map[g] || g;
+  return `/assets/logos/grade/${mappedGrade}.png`;
+}ㄹ
+  import { ref, computed, onMounted, reactive, watch } from 'vue'
 import Papa from 'papaparse'
 import { Search, Calculator, Star, Shield, Zap, TrendingUp, X, Users, ArrowUpCircle, Sparkles, UserCheck, Filter, ChevronRight as ChevronRightIcon, Check, Save, FolderOpen, Download, Upload } from 'lucide-vue-next'
 
@@ -1700,7 +1712,7 @@ const getPlayerImage = (p: Raw | null) => {
               <!-- 🌟 1. 별 갯수 (희귀도) 필터 복구 -->
               <div>
                 <label class="block text-[11px] font-bold text-neutral-500 mb-1.5 ml-1">별 갯수 (희귀도)</label>
-                <div class="grid grid-cols-5 gap-1">
+                <div class="grid grid-cols-4 gap-1">
                   <button v-for="star in [1,2,3,4,5]" :key="'star'+star" 
                           @click="searchQuery.rarity === star ? searchQuery.rarity = null : searchQuery.rarity = star" 
                           :class="{'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30': searchQuery.rarity === star}" 
