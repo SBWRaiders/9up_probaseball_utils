@@ -1716,15 +1716,23 @@ const getPlayerImage = (p: Raw | null) => {
         <!-- ========================================== -->
         <section class="lg:w-[320px] xl:w-[340px] flex-shrink-0 flex flex-col rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 min-h-0 shadow-sm overflow-hidden">
           <div class="p-3 sm:p-4 border-b border-neutral-200 dark:border-neutral-700 flex flex-col gap-3 bg-neutral-50/50 dark:bg-neutral-800/50">
+            
+            <!-- 🌟 수정됨: 필터 초기화 버튼 추가 영역 -->
             <div class="flex items-center justify-between">
               <h2 class="font-black text-[15px] sm:text-[17px] text-neutral-800 dark:text-neutral-100 tracking-tight">선수 검색</h2>
               <div class="flex items-center gap-1.5">
-                <!-- 🌟 필터 초기화 버튼 추가 (필터/검색어가 있을 때만 등장) -->
                 <button v-if="activeFilterCount > 0 || searchQuery.search || searchQuery.rarity !== null" @click="resetFilters" class="flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-black text-rose-500 bg-rose-50 hover:bg-rose-100 hover:text-rose-600 border border-rose-200 rounded-md transition-colors shadow-sm">
                   <X class="w-3 h-3" /> 초기화
                 </button>
                 <span class="text-xs font-semibold text-neutral-400 bg-white dark:bg-neutral-700 px-2 py-0.5 rounded-full border border-neutral-200 dark:border-neutral-600 shadow-sm">{{ filteredPlayers.length.toLocaleString() }}명</span>
               </div>
+            </div>
+            
+            <div class="relative group">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search class="h-4 w-4 text-neutral-400 group-focus-within:text-blue-500 transition-colors" />
+              </div>
+              <input v-model="searchQuery.search" type="text" class="block w-full pl-9 pr-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-xl leading-5 bg-white dark:bg-neutral-700 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm text-sm" placeholder="이름, 팀, 포지션, 시너지..." @input="currentPage = 1" />
             </div>
 
             <!-- 상세 필터 토글 -->
@@ -1741,7 +1749,7 @@ const getPlayerImage = (p: Raw | null) => {
 
             <div v-show="advancedFilterOpen" class="flex flex-col gap-3 pt-2 max-h-[40vh] overflow-y-auto custom-scrollbar pr-1">
               
-              <!-- 🌟 1. 별 갯수 (1~6성, 3칸 2줄 배열 완벽 복구) -->
+              <!-- 별 갯수 (1~6성, 3칸 2줄 배열 완벽 복구) -->
               <div>
                 <label class="block text-[11px] font-bold text-neutral-500 mb-1.5 ml-1">별 갯수 (희귀도)</label>
                 <div class="grid grid-cols-3 gap-1">
@@ -1754,7 +1762,7 @@ const getPlayerImage = (p: Raw | null) => {
                 </div>
               </div>
 
-              <!-- 🌟 2. 등급 (4칸 3줄) -->
+              <!-- 등급 (4칸 3줄) -->
               <div>
                 <label class="block text-[11px] font-bold text-neutral-500 mb-1.5 ml-1">등급</label>
                 <div class="grid grid-cols-4 gap-1">
@@ -1795,14 +1803,13 @@ const getPlayerImage = (p: Raw | null) => {
                 </div>
               </div>
 
-              <!-- 🌟 3. 시너지 검색 (브라우저 기본 블랙 UI 제거, 깔끔한 커스텀 드롭다운 교체) -->
+              <!-- 시너지 검색 (드롭다운) -->
               <div>
                 <label class="block text-[11px] font-bold text-neutral-500 mb-1.5 ml-1">시너지 검색</label>
                 <div class="relative flex flex-col gap-1" @focusout="setTimeout(() => isSynergyDropdownOpen = false, 200)">
                   <input v-model="synergySearchText" @focus="isSynergyDropdownOpen = true" placeholder="시너지를 입력해 주세요. (클릭하여 선택)" 
                          class="w-full px-2 py-1.5 text-[11px] border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm" />
                   
-                  <!-- 검색 결과 드롭다운 -->
                   <div v-show="isSynergyDropdownOpen" class="absolute top-8 left-0 z-50 w-full bg-white dark:bg-neutral-800 border border-blue-200 dark:border-blue-800 rounded-lg shadow-xl max-h-40 overflow-y-auto custom-scrollbar">
                     <button v-for="s in filteredSynergyOptions" :key="s" 
                             @click="toggleSynergyFilter(s); synergySearchText=''; isSynergyDropdownOpen=false;" 
@@ -1812,7 +1819,6 @@ const getPlayerImage = (p: Raw | null) => {
                     <div v-if="filteredSynergyOptions.length === 0" class="px-3 py-2 text-center text-[10px] text-neutral-400">검색 결과가 없습니다.</div>
                   </div>
 
-                  <!-- 선택된 시너지 태그들 -->
                   <div class="flex flex-wrap gap-1 mt-1">
                      <span v-for="syn in searchQuery.synergy" :key="syn" class="px-2 py-1 text-[10px] bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-md flex items-center gap-1 font-bold border border-blue-200 dark:border-blue-800">
                        {{ syn }} <button @click="toggleSynergyFilter(syn)" class="hover:text-red-500 font-black ml-0.5">&times;</button>
@@ -1832,25 +1838,23 @@ const getPlayerImage = (p: Raw | null) => {
             </div>
           </div>
 
-          <!-- 🌟 선수 리스트 렌더링 -->
+          <!-- 🌟 선수 리스트 (분열 버그 방지 고유 Key 적용됨) -->
           <div class="flex-1 overflow-y-auto p-2 sm:p-3 space-y-2 custom-scrollbar relative">
              <div v-if="paginatedPlayers.length === 0" class="absolute inset-0 flex flex-col items-center justify-center text-neutral-400">
                 <Users class="w-10 h-10 mb-2 opacity-20" />
                 <p class="text-sm font-bold">검색 결과가 없습니다.</p>
              </div>
              
-             <!-- 🌟 고유키(Key) 꼬임 방지: ID+이름+등급+인덱스 조합으로 무조건 고유한 값 생성! -->
+             <!-- 🌟 고유키(Key)를 완벽하게 조합하여 분신술 렌더링을 차단합니다. -->
              <div v-for="(p, index) in paginatedPlayers" :key="(p.id || p.playerId || '') + '_' + p.name + '_' + p.grade + '_' + index" class="border border-neutral-200 dark:border-neutral-700 rounded-xl p-2 bg-white dark:bg-neutral-800 shadow-sm hover:shadow-md transition-all group flex flex-col gap-2">
-                   <!-- 선수 로고 -->
+                <div class="flex items-center gap-3">
                    <div class="w-12 h-12 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-700/50 flex items-center justify-center flex-shrink-0 overflow-hidden shadow-inner">
                       <img v-if="getGradeImage(p.grade)" :src="getGradeImage(p.grade)" :alt="p.grade" class="w-10 object-contain drop-shadow-sm" @error="hideImage" />
                       <span v-else class="text-[9px] font-black text-neutral-400">{{ p.grade }}</span>
                    </div>
-                   <!-- 선수 정보 -->
                    <div class="flex-1 min-w-0">
                      <div class="flex items-center gap-1.5 mb-0.5">
                         <span class="font-black text-[14px] text-neutral-900 dark:text-neutral-100 truncate tracking-tight">{{ p.name }}</span>
-                        <!-- 🌟 4. 선수 별 갯수 복구! -->
                         <div class="flex">
                            <Star v-for="i in Number(p.rarity || 1)" :key="i" class="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
                         </div>
@@ -1858,13 +1862,11 @@ const getPlayerImage = (p: Raw | null) => {
                      <div class="flex items-center gap-1 text-[11px] text-neutral-500 font-medium">
                         <img v-if="getTeamLogoUrl(Array.isArray(p.team) ? p.team[0] : p.team)" :src="getTeamLogoUrl(Array.isArray(p.team) ? p.team[0] : p.team)" class="h-3.5 w-auto" @error="hideImage" />
                         <span v-else>{{ Array.isArray(p.team) ? p.team[0] : p.team }}</span>
-                        <!-- 🌟 시너지 텍스트 완벽 제거 & 팀명 한 줄 유지! -->
                         <span class="font-bold text-neutral-700 dark:text-neutral-300 ml-0.5 whitespace-nowrap">{{ findTeamName(Array.isArray(p.team) ? p.team[0] : p.team) }}</span>
                      </div>
                    </div>
                 </div>
                 
-                <!-- 🌟 5. 포지션 버튼 (이제 칸 선택 안 해도 클릭 시 바로 들어감!) -->
                 <div class="flex flex-wrap gap-1 mt-0.5 pl-[60px]">
                    <button v-for="pos in getPlayerPositions(p)" :key="pos" draggable="true" @dragstart="onDragStart($event, pos)" 
                            @click="assignPlayerToSlot(pos, p)" 
@@ -1881,6 +1883,7 @@ const getPlayerImage = (p: Raw | null) => {
              </div>
           </div>
         </section>
+        
         <!-- ========================================== -->
         <!-- 중앙: 라인업 보드 (flex-1 독식) -->
         <!-- ========================================== -->
