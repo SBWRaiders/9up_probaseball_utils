@@ -23,6 +23,17 @@ interface PlayerBuff {
   careerStats: Record<string, number>;
 }
 
+const getGradeImage = (grade: unknown) => {
+  if (!grade) return '';
+  const g = String(grade).toUpperCase();
+  const map: Record<string, string> = {
+    '디그니티':'DGN', '탑클래스':'TOP', '에이스':'ACE', '히트':'HIT', '팀플':'TEA',
+    '월간MVP':'MMVP', '월간':'MMVP', '신인왕':'ROY', '연도골글':'GGY', '연글':'GGY',
+    '골든글러브':'GG', '골글':'GG', '국가대표':'NT', '올스타':'ASG', '시즌':'SEA', '포스트시즌':'POS'
+  };
+  const mappedGrade = map[g] || g;
+  return `/assets/logos/grade/${mappedGrade}.png`;
+}
   
 const POSITION_ALIASES: Record<string, string> = {
   'b1': '1B', '1b': '1B', '1': '1B', '1루': '1B',
