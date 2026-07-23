@@ -2472,7 +2472,7 @@ const getPlayerImage = (p: Raw | null) => {
                   </div>
                 </div>
               </div>
-            </div>
+          </div>
             
             <div v-else class="flex h-full items-center justify-center text-neutral-400 text-sm flex-col gap-2">
               <UserCheck class="w-10 h-10 opacity-20"/>
