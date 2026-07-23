@@ -22,6 +22,75 @@ interface PlayerBuff {
   imprintStats: Record<string, number>;
   careerStats: Record<string, number>;
 }
+// ========================================================
+// 🌟 9up 인게임 고증: 커리어 장착 시스템 엔진 🌟
+// ========================================================
+type CareerGrade = '루키' | '엘리트' | '프로' | '마스터';
+interface CareerSlot { grade: CareerGrade; statType: string; value: number; }
+
+const showCareerManager = ref(false);
+
+const KOR_STAT_MAP: Record<string, string> = {
+  '컨택': 'contact', '갭파워': 'gapPower', '홈런파워': 'homeRunPower', '선구': 'plateDiscipline', '삼진회피': 'strikeoutAvoidance',
+  '무브먼트': 'movement', '장타억제': 'longHitSuppression', '홈런억제': 'homeRunSuppression', '컨트롤': 'control', '스터프': 'stuff'
+};
+
+const getAvailableCareerStatTypes = (p: Raw | null, grade: string) => {
+  if (!p) return [];
+  const base = isPitcher(p) ? ['무브먼트', '장타억제', '홈런억제', '컨트롤', '스터프'] : ['컨택', '갭파워', '홈런파워', '선구', '삼진회피'];
+  base.push('전체 능력치');
+  if (grade === '마스터') base.push('동일팀 파워');
+  return base;
+}
+
+const getAvailableCareerValues = (grade: string, statType: string) => {
+  if (!statType || statType === '동일팀 파워') return [];
+  const isCore = statType !== '전체 능력치';
+  if (grade === '마스터') return isCore ? [60, 55, 46] : [14, 13, 12];
+  if (grade === '프로') return isCore ? [41, 37, 32] : [10, 9, 8];
+  if (grade === '엘리트') return isCore ? [28, 23, 19] : [7, 6, 5];
+  if (grade === '루키') return isCore ? [14, 10, 5] : [4, 3, 2];
+  return [];
+}
+
+const onCareerChange = (c: any) => {
+  if (c.statType === '동일팀 파워' && c.grade !== '마스터') c.statType = '';
+  const validValues = getAvailableCareerValues(c.grade, c.statType);
+  if (validValues.length > 0 && !validValues.includes(c.value)) c.value = validValues[0];
+  else if (validValues.length === 0) c.value = 0;
+}
+
+const getCareerGradeColor = (g: string) => {
+  if (g === '마스터') return 'text-purple-600';
+  if (g === '프로') return 'text-blue-600';
+  if (g === '엘리트') return 'text-emerald-600';
+  return 'text-neutral-500';
+}
+
+const setAllCareersToMaster = () => {
+  if (!selectedSlot.value || !playerBuffs.value[selectedSlot.value]) return;
+  if (!playerBuffs.value[selectedSlot.value].careers) return;
+  playerBuffs.value[selectedSlot.value].careers.forEach(c => {
+      c.grade = '마스터';
+      onCareerChange(c);
+  });
+}
+
+const getCareerSetEffectText = (careers: CareerSlot[] | undefined) => {
+  if (!careers) return '';
+  const counts: Record<string, number> = {};
+  careers.forEach(c => { if(c.statType) counts[c.statType] = (counts[c.statType]||0) + 1; });
+  const effects: string[] = [];
+  Object.entries(counts).forEach(([type, count]) => {
+      if (count >= 3) {
+          if (type === '전체 능력치') effects.push(`전능 +${count === 6 ? 30 : count * 6}`);
+          else if (type === '동일팀 파워') effects.push(`동일팀파워 +${count}배`);
+          else effects.push(`${type} +${count * 25}`);
+      }
+  });
+  return effects.join(', ');
+}
+// ========================================================
 
 // 🌟 1. 등급 맵핑 함수 (grade 필터 버그 및 이미지 출력 공통 사용)
 const getMappedGrade = (grade: unknown) => {
@@ -1083,6 +1152,9 @@ const computedPlayerStats = computed(() => {
     const buffs = playerBuffs.value[slot]
     if (!buffs) return
 
+    // 🌟 안전장치: 구버전 세이브파일 호환을 위해 커리어 배열이 없으면 자동 생성
+    if (!buffs.careers) buffs.careers = Array(6).fill(null).map(() => ({ grade: '마스터', statType: '', value: 0 }));
+
     const isPit = isPitcher(p);
     let baseSum = 0
     const coreStats = isPit ? ['movement', 'longHitSuppression', 'homeRunSuppression', 'control', 'stuff'] : ['contact', 'gapPower', 'homeRunPower', 'plateDiscipline', 'strikeoutAvoidance']
@@ -1094,8 +1166,7 @@ const computedPlayerStats = computed(() => {
     const isMyTeam = (globalBuffs.preferredTeam || []).some(t => pTeams.includes(t));
     const appliedTeamLevelBuff = getTeamLevelPower(globalBuffs.teamLevel, isMyTeam);
     const growthA = Number(Math.max(0, buffs.playerLevel - 1) * 10) + buffs.collectionBuff + appliedTeamLevelBuff + buffs.careerLevelBuff + (buffs.enhancementLevel * getEnhanceMultiplier(p))
-const autoBinderPower = getPlayerBinderPower(p);
-    // 기존에 하드코딩되었던 537은 0으로 처리 (레거시 방지용)
+    const autoBinderPower = getPlayerBinderPower(p);
     const legacyBinderBuff = buffs.binderBuff === 537 ? 0 : (buffs.binderBuff || 0);
     const flatC = legacyBinderBuff + autoBinderPower + globalBuffs.clanBuff + buffs.careerAllStatFlat + getBreakthroughFixed(p, buffs.breakthroughLevel)
     
@@ -1113,13 +1184,43 @@ const autoBinderPower = getPlayerBinderPower(p);
         })
       }
     })
-    const careerTeamPower = getSameTeamCount(p) * 2 * getCareerTeamMultiplier(buffs.careerTeamCount);
-    const autoTeamDignityBuff = calculateTeamPlayerDignityBuff(p);
-
-    const pGrade = String(p.grade || '').toUpperCase();
-    const dynamicHitAceBuff = ['HIT', 'ACE', 'GG'].includes(pGrade) ? getSameTeamCount(p) * 32 : 0;
     
-    const growthB = careerTeamPower + dynamicHitAceBuff + autoTeamDignityBuff + autoSynergyFixed + imprintStarterAddedPower;
+    // 🌟 커리어 장착 시스템 스탯/파워 자동 계산 로직 🌟
+    const ST = getSameTeamCount(p);
+    let careerStatBonus: Record<string, number> = {};
+    let careerGeneralStat = 0; 
+    let careerTeamPowerBonus = 0; 
+    const careerTypeCounts: Record<string, number> = {};
+
+    buffs.careers.forEach(c => {
+       if (!c.statType) return;
+       careerTypeCounts[c.statType] = (careerTypeCounts[c.statType] || 0) + 1;
+       if (c.statType === '전체 능력치') careerGeneralStat += c.value;
+       else if (c.statType === '동일팀 파워') careerTeamPowerBonus += ST * 2;
+       else {
+           const key = KOR_STAT_MAP[c.statType];
+           if (key) careerStatBonus[key] = (careerStatBonus[key] || 0) + c.value;
+       }
+    });
+
+    // 🌟 커리어 세트 효과 발동 (3칸 이상)
+    Object.entries(careerTypeCounts).forEach(([type, count]) => {
+       if (count >= 3) {
+           if (type === '전체 능력치') careerGeneralStat += (count === 6 ? 30 : count * 6);
+           else if (type === '동일팀 파워') careerTeamPowerBonus += count * (ST * 2);
+           else {
+               const key = KOR_STAT_MAP[type];
+               if (key) careerStatBonus[key] = (careerStatBonus[key] || 0) + (count * 25);
+           }
+       }
+    });
+
+    const autoTeamDignityBuff = calculateTeamPlayerDignityBuff(p);
+    const pGrade = String(p.grade || '').toUpperCase();
+    const dynamicHitAceBuff = ['HIT', 'ACE', 'GG'].includes(pGrade) ? ST * 32 : 0;
+    
+    // 기존의 수동 careerTeamCount를 지우고, 커리어 장착 파워(careerTeamPowerBonus)로 대체!
+    const growthB = careerTeamPowerBonus + dynamicHitAceBuff + autoTeamDignityBuff + autoSynergyFixed + imprintStarterAddedPower;
     
     buffs.selectedSkills.forEach(s => {
       if (isSkillActive(s, slot, buffs.battingOrder)) {
@@ -1134,62 +1235,46 @@ const autoBinderPower = getPlayerBinderPower(p);
     const globalPercentPool = coreStats.reduce((acc, s) => acc + Number(p[s]||0), 0) + nonCoreStats.reduce((acc, s) => acc + Number(p[s]||0), 0) + growthA
     const globalBonusTotal = globalPercentPool * (globalPercent / 100)
     
-    let managerMainStat = 0;
-    let managerSubStat = 0;
-    let managerMainName = '';
-    let managerSubName = '';
-    
+    let managerMainStat = 0; let managerSubStat = 0; let managerMainName = ''; let managerSubName = '';
     if (globalBuffs.managerType) {
       const isMy = globalBuffs.managerType.startsWith('my_');
       const typeStr = globalBuffs.managerType.split('_')[1];
       const table = isMy ? MANAGER_STATS_MY : MANAGER_STATS_COM;
       const level = Math.min(15, Math.max(0, globalBuffs.managerEnhance || 0));
-      managerMainStat = table[level].main;
-      managerSubStat = table[level].sub;
-      managerMainName = MANAGER_TYPES[typeStr].main;
-      managerSubName = MANAGER_TYPES[typeStr].sub;
+      managerMainStat = table[level].main; managerSubStat = table[level].sub;
+      managerMainName = MANAGER_TYPES[typeStr].main; managerSubName = MANAGER_TYPES[typeStr].sub;
     }
 
     let finalTotal = 0
     const stats: Record<string, number> = {}
 
-    // 🌟 1. 각인 스탯 미리 계산 (주옵/부옵을 5대 스탯에 정확히 분배) 🌟
     let imprintStatBonus: Record<string, number> = {};
     let imprintGeneralPower = 0; 
     
     if (buffs) {
-      const applyImp = (imp: Imprint) => {
+      const applyImp = (imp: any) => {
          if(!imp) return;
-         
-         const statKeyMap: Record<string, string> = {
-           '컨택': 'contact', '갭파워': 'gapPower', '홈런파워': 'homeRunPower', '선구': 'plateDiscipline', '삼진회피': 'strikeoutAvoidance',
-           '무브먼트': 'movement', '장타억제': 'longHitSuppression', '홈런억제': 'homeRunSuppression', '컨트롤': 'control', '스터프': 'stuff',
-           '수비': 'defense', '한계투구 증가': 'pitchLimit'
-         };
-         
-         const mainKey = statKeyMap[imp.mainStat];
+         const mainKey = KOR_STAT_MAP[imp.mainStat];
          if (mainKey) imprintStatBonus[mainKey] = (imprintStatBonus[mainKey] || 0) + imp.mainPower;
          else imprintGeneralPower += imp.mainPower;
 
-         imp.subOptions.forEach(opt => {
+         imp.subOptions.forEach((opt: any) => {
            if (opt.type === '전체 능력치') {
              coreStats.forEach(c => imprintStatBonus[c] = (imprintStatBonus[c] || 0) + opt.value);
            } else if (opt.type !== '수익 증가') {
-             const subKey = statKeyMap[opt.type];
+             const subKey = KOR_STAT_MAP[opt.type];
              if (subKey) imprintStatBonus[subKey] = (imprintStatBonus[subKey] || 0) + opt.value;
              else imprintGeneralPower += opt.value;
            }
          });
-
-         if (imp.ultimateBonus && pGrade === imp.ultimateBonus.targetGrade) {
-           imprintGeneralPower += imp.ultimateBonus.power;
-         }
+         if (imp.ultimateBonus && pGrade === imp.ultimateBonus.targetGrade) imprintGeneralPower += imp.ultimateBonus.power;
       };
-      applyImp(buffs.imprint1);
-      applyImp(buffs.imprint2);
+      applyImp(buffs.imprint1); applyImp(buffs.imprint2);
     }
 
-    // 🌟 2. 세부 스탯 및 최종 파워 계산 🌟
+    // 🌟 커리어 전능 스탯 합산
+    let coreStatSum = Number(buffs.imprintCoreStat || 0) + Number(buffs.careerCoreStat || 0) + careerGeneralStat;
+
     coreStats.forEach(s => {
       const base = Number(p[s] || 0)
       let preSpec = base + (growthA/5) + (growthB/5) + (globalBonusTotal/5)
@@ -1199,9 +1284,7 @@ const autoBinderPower = getPlayerBinderPower(p);
       if (s === managerSubName) val += managerSubStat;
       
       val += Number(buffs.careerStats?.[s] || 0) + Number(buffs.imprintStats?.[s] || 0)
-      val += Number(buffs.imprintCoreStat || 0) + Number(buffs.careerCoreStat || 0)
-      
-      val += Number(imprintStatBonus[s] || 0)
+      val += coreStatSum + Number(imprintStatBonus[s] || 0) + Number(careerStatBonus[s] || 0)
 
       stats[s] = Math.round(val)
       finalTotal += val
@@ -1214,7 +1297,6 @@ const autoBinderPower = getPlayerBinderPower(p);
       if (s === managerMainName) val += managerMainStat;
       if (s === managerSubName) val += managerSubStat;
       val += Number(buffs.careerStats?.[s] || 0) + Number(buffs.imprintStats?.[s] || 0)
-      
       val += Number(imprintStatBonus[s] || 0)
 
       stats[s] = Math.round(val)
@@ -1222,7 +1304,6 @@ const autoBinderPower = getPlayerBinderPower(p);
     })
 
     finalTotal += imprintGeneralPower;
-
     result[slot] = { power: Math.round(finalTotal), stats }
   })
   return result
@@ -2298,44 +2379,37 @@ const getPlayerImage = (p: Raw | null) => {
                     </div>
                   </div>
 
-                  <!-- 선수 개인 성장 버프 -->
+                  <!-- 선수 개인 성장 및 커리어 장착 -->
                   <div class="bg-sky-50 p-3 rounded-xl border border-sky-100 flex-shrink-0">
-                    <h3 class="text-[11px] font-bold text-sky-800 mb-2 flex items-center gap-1"><Zap class="w-3 h-3"/> 선수 성장 및 깡스탯</h3>
-                    <div class="grid grid-cols-2 gap-2">
+                    <h3 class="text-[11px] font-bold text-sky-800 mb-2 flex items-center gap-1"><Zap class="w-3 h-3"/> 선수 기본 성장</h3>
+                    <div class="grid grid-cols-2 gap-2 mb-3">
                       <div class="flex flex-col gap-0.5"><label class="text-[9px] font-bold text-neutral-500">선수 레벨</label><input type="number" v-model.number="playerBuffs[selectedSlot].playerLevel" class="w-full px-2 py-1 text-center bg-white border rounded text-[11px]"/></div>
                       <div class="flex flex-col gap-0.5"><label class="text-[9px] font-bold text-neutral-500">도감 파워</label><input type="number" v-model.number="playerBuffs[selectedSlot].collectionBuff" class="w-full px-2 py-1 text-center bg-white border rounded text-[11px]"/></div>
                       <div class="flex flex-col gap-0.5"><label class="text-[9px] font-bold text-neutral-500">커리어 레벨 파워</label><input type="number" v-model.number="playerBuffs[selectedSlot].careerLevelBuff" class="w-full px-2 py-1 text-center bg-white border rounded text-[11px]"/></div>
-                      
                       <div class="flex flex-col gap-0.5">
                         <label class="text-[9px] font-bold text-indigo-500 flex items-center justify-center gap-0.5">바인더 파워 <Zap class="w-2.5 h-2.5"/></label>
-                        <div class="w-full px-2 py-1 text-center bg-indigo-50 border border-indigo-200 rounded text-[11px] font-black text-indigo-700 shadow-inner">
-                          +{{ getPlayerBinderPower(lineup[selectedSlot]) }}
-                        </div>
+                        <div class="w-full px-2 py-1 text-center bg-indigo-50 border border-indigo-200 rounded text-[11px] font-black text-indigo-700 shadow-inner">+{{ getPlayerBinderPower(lineup[selectedSlot]) }}</div>
                       </div>
-                      <div class="flex flex-col gap-0.5">
-                        <label class="text-[9px] font-bold text-neutral-500">커리어 동일팀(0~6)</label>
-                        <input type="number" min="0" max="6" v-model.number="playerBuffs[selectedSlot].careerTeamCount" class="w-full px-2 py-1 text-center bg-white border rounded text-[11px]"/>
-                        <div class="mt-0.5 text-center bg-indigo-50 rounded border border-indigo-100">
-                          <span class="text-[8px] font-black text-indigo-700">{{ getSameTeamCount(lineup[selectedSlot]) }}명 ➔ +{{ getSameTeamCount(lineup[selectedSlot]) * 2 * getCareerTeamMultiplier(playerBuffs[selectedSlot].careerTeamCount) }}</span>
-                        </div>
+                    </div>
+
+                    <!-- 🌟 대망의 커리어 6칸 세팅 UI -->
+                    <div class="bg-white p-2.5 rounded-xl border border-neutral-200 shadow-sm">
+                      <div class="flex justify-between items-center mb-1.5">
+                        <h3 class="text-[10px] font-bold text-neutral-700 flex items-center gap-1">🎖️ 커리어 장착 (총 6칸)</h3>
+                        <button @click="showCareerManager = true" class="text-[8px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded hover:bg-emerald-200 transition-colors font-bold">커리어 편집</button>
                       </div>
                       
-                      <div v-if="['HIT', 'ACE', 'GG'].includes(String(lineup[selectedSlot]?.grade || '').toUpperCase())" class="flex flex-col gap-0.5">
-                        <label class="text-[9px] font-bold text-rose-500">HIT/ACE/GG 시너지</label>
-                        <div class="w-full px-2 py-1 text-center bg-rose-50 border border-rose-200 rounded text-[11px] font-black text-rose-600">자동 적용중</div>
-                        <div class="mt-0.5 text-center bg-rose-100 rounded border border-rose-200">
-                          <span class="text-[8px] font-black text-rose-700">{{ getSameTeamCount(lineup[selectedSlot]) }}명 ➔ +{{ getSameTeamCount(lineup[selectedSlot]) * 32 }}</span>
+                      <div class="grid grid-cols-6 gap-1">
+                        <div v-for="(c, i) in (playerBuffs[selectedSlot]?.careers || [])" :key="i" 
+                             class="border rounded flex flex-col items-center justify-center p-1 h-10 transition-colors"
+                             :class="c.statType ? 'bg-emerald-50 border-emerald-300' : 'bg-neutral-50 border-dashed'">
+                          <span class="text-[7px] font-black" :class="getCareerGradeColor(c.grade)">{{ c.grade }}</span>
+                          <span class="text-[8px] font-bold text-neutral-700 mt-0.5 truncate w-full text-center">{{ c.statType || '빈칸' }}</span>
                         </div>
                       </div>
-
-                      <div v-if="selectedSlot === 'SP1' || selectedSlot === 'SP2'" class="flex flex-col gap-0.5" :class="['HIT', 'ACE', 'GG'].includes(String(lineup[selectedSlot]?.grade || '').toUpperCase()) ? 'col-span-2' : ''">
-                        <label class="text-[9px] font-bold text-indigo-500">1,2선발 파워증가</label>
-                        <input type="number" v-model.number="playerBuffs[selectedSlot].imprintStarterPower" class="w-full px-2 py-1 text-center bg-white border border-indigo-200 rounded text-[11px]"/>
-                      </div>
-
-                      <div class="flex flex-col gap-0.5 col-span-2">
-                        <label class="text-[9px] font-bold text-neutral-500">얼티밋 각인 (% 증가)</label>
-                        <input type="number" v-model.number="playerBuffs[selectedSlot].ultimateImprintPercent" class="w-full px-2 py-1 text-center bg-white border rounded text-[11px]"/>
+                      <!-- 세트 효과 프리뷰 -->
+                      <div class="mt-1.5 text-[8px] text-neutral-500 bg-neutral-50 p-1 rounded border border-neutral-100">
+                         <span class="font-bold text-emerald-600">발동된 세트효과:</span> {{ getCareerSetEffectText(playerBuffs[selectedSlot]?.careers) || '없음 (같은 옵션 3칸 이상 시 발동)' }}
                       </div>
                     </div>
                   </div>
@@ -2568,6 +2642,34 @@ const getPlayerImage = (p: Raw | null) => {
         <div v-if="imprintInventory.filter(i => i.role === (equipTarget?.pos?.startsWith('SP') || equipTarget?.pos?.startsWith('RP') ? '투수' : '타자')).length === 0" class="text-center text-neutral-400 text-xs py-6">
           이 선수에게 장착할 수 있는 [{{ equipTarget?.pos?.startsWith('SP') || equipTarget?.pos?.startsWith('RP') ? '투수' : '타자' }}용] 각인이 없습니다.<br>대장간에서 생성해 주세요!
         </div>
+      </div>
+    </div>
+  </div>
+  <!-- 🌟 커리어 장착 (편집) 모달 🌟 -->
+  <div v-if="showCareerManager && selectedSlot" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-2xl shadow-xl overflow-hidden flex flex-col">
+      <div class="flex justify-between items-center p-4 border-b bg-neutral-50 dark:bg-neutral-800">
+         <h2 class="text-sm font-bold text-neutral-800 dark:text-neutral-100">🎖️ 커리어 설정 ({{ lineup[selectedSlot].name }})</h2>
+         <button @click="showCareerManager = false" class="text-neutral-500 text-2xl font-bold">&times;</button>
+      </div>
+      <div class="p-4 flex flex-col gap-2 overflow-y-auto bg-neutral-100 dark:bg-neutral-900">
+         <div v-for="(c, i) in playerBuffs[selectedSlot].careers" :key="i" class="flex items-center gap-2 border p-2 rounded-lg bg-white dark:bg-neutral-800 shadow-sm">
+            <span class="text-xs font-black text-neutral-400 w-4">{{ i+1 }}</span>
+            <select v-model="c.grade" @change="onCareerChange(c)" class="text-xs border rounded p-1 font-bold outline-none" :class="getCareerGradeColor(c.grade)">
+               <option value="루키">루키</option><option value="엘리트">엘리트</option><option value="프로">프로</option><option value="마스터">마스터</option>
+            </select>
+            <select v-model="c.statType" @change="onCareerChange(c)" class="text-xs border rounded p-1 flex-1 font-bold outline-none text-neutral-700">
+               <option value="">옵션 선택</option>
+               <option v-for="opt in getAvailableCareerStatTypes(lineup[selectedSlot], c.grade)" :key="opt" :value="opt">{{ opt }}</option>
+            </select>
+            <select v-if="c.statType && c.statType !== '동일팀 파워'" v-model.number="c.value" class="text-xs border rounded p-1 w-16 text-center font-black text-indigo-600 outline-none">
+               <option v-for="v in getAvailableCareerValues(c.grade, c.statType)" :key="v" :value="v">+{{ v }}</option>
+            </select>
+            <span v-else-if="c.statType === '동일팀 파워'" class="text-[10px] font-bold text-emerald-600 w-16 text-center bg-emerald-50 rounded py-1">자동 계산</span>
+            <span v-else class="w-16"></span>
+         </div>
+         
+         <button @click="setAllCareersToMaster" class="mt-2 text-xs bg-indigo-600 text-white py-2.5 rounded-lg font-bold hover:bg-indigo-700 shadow-md transition-colors">🚀 일괄 마스터(6칸) 자동 등급 세팅</button>
       </div>
     </div>
   </div>
