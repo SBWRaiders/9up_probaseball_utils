@@ -1662,7 +1662,7 @@ const getPlayerImage = (p: Raw | null) => {
       <div v-else class="flex flex-col lg:flex-row gap-1.5 flex-1 min-h-0">
         
         <!-- ========================================== -->
-        <!-- 왼쪽: 선수 검색 -->
+        <!-- 왼쪽: 선수 검색 (320px 다이어트 고정) -->
         <!-- ========================================== -->
         <section class="lg:w-[320px] xl:w-[340px] flex-shrink-0 flex flex-col rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 min-h-0 shadow-sm overflow-hidden">
           <div class="p-3 sm:p-4 border-b border-neutral-200 dark:border-neutral-700 flex flex-col gap-3 bg-neutral-50/50 dark:bg-neutral-800/50">
@@ -1675,35 +1675,41 @@ const getPlayerImage = (p: Raw | null) => {
               <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Search class="h-4 w-4 text-neutral-400 group-focus-within:text-blue-500 transition-colors" />
               </div>
-              <input v-model="searchQuery" type="text" class="block w-full pl-9 pr-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-xl leading-5 bg-white dark:bg-neutral-700 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm text-sm" placeholder="이름, 팀, 포지션, 시너지..." @input="currentPage = 1" />
+              <input v-model="searchQuery.search" type="text" class="block w-full pl-9 pr-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-xl leading-5 bg-white dark:bg-neutral-700 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm text-sm" placeholder="이름, 팀, 포지션, 시너지..." @input="currentPage = 1" />
             </div>
 
             <!-- 상세 필터 토글 -->
-            <button @click="showFilters = !showFilters" class="flex items-center justify-between w-full px-3 py-2 text-sm bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-600 transition-colors shadow-sm group">
+            <button @click="advancedFilterOpen = !advancedFilterOpen" class="flex items-center justify-between w-full px-3 py-2 text-sm bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-600 transition-colors shadow-sm group">
               <div class="flex items-center gap-2 font-bold text-neutral-600 dark:text-neutral-300 group-hover:text-blue-600 transition-colors">
                 <Filter class="w-4 h-4" />
                 <span>상세 필터</span>
               </div>
               <div class="flex items-center gap-2">
                 <span v-if="activeFilterCount > 0" class="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900 text-[10px] font-bold text-blue-600 dark:text-blue-300">{{ activeFilterCount }}</span>
-                <ChevronDown class="w-4 h-4 text-neutral-400 transition-transform" :class="{ 'rotate-180': showFilters }" />
+                <ChevronRightIcon class="w-4 h-4 text-neutral-400 transition-transform" :class="{ 'rotate-90': advancedFilterOpen }" />
               </div>
             </button>
 
-            <div v-show="showFilters" class="flex flex-col gap-3 pt-2">
+            <!-- 🌟 수정됨: 스크립트 변수와 완벽 일치하도록 재작성된 좁은 필터 UI -->
+            <div v-show="advancedFilterOpen" class="flex flex-col gap-3 pt-2">
               <div>
                 <label class="block text-[11px] font-bold text-neutral-500 mb-1.5 ml-1">등급</label>
                 <div class="grid grid-cols-5 gap-1">
-                   <button v-for="g in ['DIGNITY', 'TOP CLASS', 'GOLDEN GLOVE', 'ACE PITCHER', 'HIT BATTER', 'GG OF THE YEAR', 'MONTHLY MVP', 'ROOKIE OF THE YEAR', 'TEAM PLAYER', 'POST SEASON', 'ALLSTAR', 'SEASON']" :key="g" @click="toggleFilter('grade', g)" :class="{'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30': filters.grade.includes(g)}" class="border border-neutral-200 dark:border-neutral-600 rounded-lg p-0.5 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-all flex items-center justify-center bg-white dark:bg-neutral-800 h-7 overflow-hidden">
-                     <img v-if="getGradeImage(g)" :src="getGradeImage(g)" :alt="g" class="h-full w-auto object-contain max-h-[18px]" />
-                     <span v-else class="text-[9px] font-bold">{{ g }}</span>
+                   <button v-for="g in ['DIGNITY', 'TOP CLASS', 'GOLDEN GLOVE', 'ACE PITCHER', 'HIT BATTER', 'GG OF THE YEAR', 'MONTHLY MVP', 'ROOKIE OF THE YEAR', 'TEAM PLAYER', 'POST SEASON', 'ALLSTAR', 'SEASON']" :key="g" 
+                           @click="searchQuery.grade.includes(g) ? searchQuery.grade = searchQuery.grade.filter(x => x !== g) : searchQuery.grade.push(g)" 
+                           :class="{'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30': searchQuery.grade.includes(g)}" 
+                           class="border border-neutral-200 dark:border-neutral-600 rounded-lg p-0.5 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-all flex items-center justify-center bg-white dark:bg-neutral-800 h-7 overflow-hidden">
+                     <img :src="`/assets/logos/grade/${g}.png`" :alt="g" class="h-full w-auto object-contain max-h-[18px]" @error="hideImage" />
                    </button>
                 </div>
               </div>
               <div>
                 <label class="block text-[11px] font-bold text-neutral-500 mb-1.5 ml-1">포지션</label>
                 <div class="grid grid-cols-4 gap-1">
-                  <button v-for="pos in ['1B', '2B', '3B', 'C', 'CF', 'DH', 'LF', 'RF', 'RP', 'SP', 'SS']" :key="pos" @click="toggleFilter('position', pos)" :class="{'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 font-bold': filters.position.includes(pos)}" class="border border-neutral-200 dark:border-neutral-600 rounded-lg py-1 text-[11px] hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-all bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300">
+                  <button v-for="pos in ['1B', '2B', '3B', 'C', 'CF', 'DH', 'LF', 'RF', 'RP', 'SP', 'SS']" :key="pos" 
+                          @click="searchQuery.position.includes(pos) ? searchQuery.position = searchQuery.position.filter(x => x !== pos) : searchQuery.position.push(pos)" 
+                          :class="{'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 font-bold': searchQuery.position.includes(pos)}" 
+                          class="border border-neutral-200 dark:border-neutral-600 rounded-lg py-1 text-[11px] hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-all bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300">
                     {{ pos }}
                   </button>
                 </div>
@@ -1711,8 +1717,12 @@ const getPlayerImage = (p: Raw | null) => {
               <div>
                 <label class="block text-[11px] font-bold text-neutral-500 mb-1.5 ml-1">팀</label>
                 <div class="grid grid-cols-5 gap-1">
-                  <button v-for="team in Object.keys(TEAM_LOGOS)" :key="team" @click="toggleFilter('team', team)" :class="{'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30': filters.team.includes(team)}" class="border border-neutral-200 dark:border-neutral-600 rounded-lg p-0.5 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-all flex items-center justify-center bg-white dark:bg-neutral-800 h-7">
-                    <img :src="TEAM_LOGOS[team]" :alt="team" class="h-4 w-auto object-contain" />
+                  <button v-for="group in groupedTeams" :key="'filter_'+group.name" 
+                          @click="toggleTeamGroup(group)" 
+                          :class="{'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30': isTeamGroupSelected(group)}" 
+                          class="border border-neutral-200 dark:border-neutral-600 rounded-lg p-0.5 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-all flex items-center justify-center bg-white dark:bg-neutral-800 h-7">
+                    <img v-if="getTeamLogoUrl(group.id[0])" :src="getTeamLogoUrl(group.id[0])" :alt="group.name" class="h-4 w-auto object-contain" />
+                    <span v-else class="text-[9px]">{{ group.name }}</span>
                   </button>
                 </div>
               </div>
@@ -1737,8 +1747,8 @@ const getPlayerImage = (p: Raw | null) => {
              <div v-for="p in paginatedPlayers" :key="p.id" class="border border-neutral-200 dark:border-neutral-700 rounded-xl p-2 bg-white dark:bg-neutral-800 shadow-sm hover:shadow-md transition-all group flex flex-col gap-2">
                 <div class="flex items-start gap-3">
                    <div class="w-12 h-12 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-700/50 flex items-center justify-center flex-shrink-0 overflow-hidden shadow-inner">
-                      <img v-if="getGradeImage(p.grade)" :src="getGradeImage(p.grade)" :alt="p.grade" class="w-10 object-contain drop-shadow-sm" />
-                      <span v-else class="text-[9px] font-black text-neutral-400">{{ p.grade }}</span>
+                      <!-- 🌟 수정됨: 오류 안 나게 올바른 함수 사용 -->
+                      <img :src="`/assets/logos/grade/${p.grade}.png`" :alt="p.grade" class="w-10 object-contain drop-shadow-sm" @error="hideImage" />
                    </div>
                    <div class="flex-1 min-w-0 pt-0.5">
                      <div class="flex items-center gap-1.5 mb-1">
@@ -1748,7 +1758,8 @@ const getPlayerImage = (p: Raw | null) => {
                         </div>
                      </div>
                      <div class="flex items-center gap-1 text-[11px] text-neutral-500 font-medium">
-                        <img v-if="TEAM_LOGOS[Array.isArray(p.team) ? p.team[0] : p.team]" :src="TEAM_LOGOS[Array.isArray(p.team) ? p.team[0] : p.team]" class="h-3.5 w-auto" />
+                        <!-- 🌟 수정됨: 오류 안 나게 올바른 로고 호출 -->
+                        <img v-if="getTeamLogoUrl(Array.isArray(p.team) ? p.team[0] : p.team)" :src="getTeamLogoUrl(Array.isArray(p.team) ? p.team[0] : p.team)" class="h-3.5 w-auto" @error="hideImage" />
                         <span v-else>{{ Array.isArray(p.team) ? p.team[0] : p.team }}</span>
                         <span class="text-neutral-300 dark:text-neutral-600">·</span>
                         <span class="truncate">{{ getArray(p.synergy).join(', ') }}</span>
@@ -1757,18 +1768,18 @@ const getPlayerImage = (p: Raw | null) => {
                 </div>
                 
                 <div class="flex flex-wrap gap-1 mt-0.5 pl-[60px]">
-                   <button v-for="pos in getPlayerPositions(p)" :key="pos" draggable="true" @dragstart="onDragStart($event, pos, p)" @click="isManualSelection ? assignPlayerToSlot(pos, p) : null" class="px-2 py-0.5 rounded-md text-[10px] font-bold border cursor-grab active:cursor-grabbing hover:-translate-y-0.5 transition-transform bg-white dark:bg-neutral-700 shadow-sm" :class="isPitcher(p) ? 'border-rose-200 text-rose-600 dark:border-rose-800 dark:text-rose-400' : 'border-indigo-200 text-indigo-600 dark:border-indigo-800 dark:text-indigo-400'">
+                   <button v-for="pos in getPlayerPositions(p)" :key="pos" draggable="true" @dragstart="onDragStart($event, pos)" @click="isManualSelection ? assignPlayerToSlot(pos, p) : null" class="px-2 py-0.5 rounded-md text-[10px] font-bold border cursor-grab active:cursor-grabbing hover:-translate-y-0.5 transition-transform bg-white dark:bg-neutral-700 shadow-sm" :class="isPitcher(p) ? 'border-rose-200 text-rose-600 dark:border-rose-800 dark:text-rose-400' : 'border-indigo-200 text-indigo-600 dark:border-indigo-800 dark:text-indigo-400'">
                      {{ pos }}
                    </button>
-                   <button v-if="!isPitcher(p)" draggable="true" @dragstart="onDragStart($event, 'DH', p)" @click="isManualSelection ? assignPlayerToSlot('DH', p) : null" class="px-2 py-0.5 rounded-md text-[10px] font-bold border border-emerald-200 text-emerald-600 bg-white shadow-sm cursor-grab hover:-translate-y-0.5 transition-transform dark:bg-neutral-700 dark:border-emerald-800 dark:text-emerald-400">DH</button>
-                   <button draggable="true" @dragstart="onDragStart($event, 'BENCH', p)" @click="isManualSelection ? assignPlayerToSlot('BENCH', p) : null" class="px-2 py-0.5 rounded-md text-[10px] font-bold border border-neutral-200 text-neutral-500 bg-white shadow-sm cursor-grab hover:-translate-y-0.5 transition-transform dark:bg-neutral-700 dark:border-neutral-600 dark:text-neutral-400">벤치</button>
+                   <button v-if="!isPitcher(p)" draggable="true" @dragstart="onDragStart($event, 'DH')" @click="isManualSelection ? assignPlayerToSlot('DH', p) : null" class="px-2 py-0.5 rounded-md text-[10px] font-bold border border-emerald-200 text-emerald-600 bg-white shadow-sm cursor-grab hover:-translate-y-0.5 transition-transform dark:bg-neutral-700 dark:border-emerald-800 dark:text-emerald-400">DH</button>
+                   <button draggable="true" @dragstart="onDragStart($event, 'BENCH')" @click="isManualSelection ? assignPlayerToSlot('BENCH', p) : null" class="px-2 py-0.5 rounded-md text-[10px] font-bold border border-neutral-200 text-neutral-500 bg-white shadow-sm cursor-grab hover:-translate-y-0.5 transition-transform dark:bg-neutral-700 dark:border-neutral-600 dark:text-neutral-400">벤치</button>
                 </div>
              </div>
           </div>
         </section>
 
         <!-- ========================================== -->
-        <!-- 중앙: 라인업 보드 -->
+        <!-- 중앙: 라인업 보드 (flex-1 독식) -->
         <!-- ========================================== -->
         <section class="flex-1 flex flex-col rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 min-h-0 shadow-sm overflow-hidden relative">
           <div class="flex items-center bg-neutral-100 dark:bg-neutral-700/50 p-1 border-b border-neutral-200 dark:border-neutral-700 flex-shrink-0">
@@ -1781,6 +1792,7 @@ const getPlayerImage = (p: Raw | null) => {
             
             <!-- ⚾ 타자 다이아몬드 UI -->
             <div v-if="lineupViewMode === 'batter'" class="w-full h-full flex flex-col justify-center items-center gap-1 sm:gap-2 py-1">
+               <!-- 외야수 (3명) -->
                <div class="flex-1 w-full flex justify-center items-center gap-1 sm:gap-2 min-h-0">
                  <div v-for="pos in ['LF', 'CF', 'RF']" :key="pos" @dragover.prevent @drop="onDrop($event, pos)" class="flex-1 max-w-[24%] h-full flex justify-center items-center min-w-0 min-h-0">
                    <div v-if="!lineup[pos]" class="relative w-full max-h-full aspect-[5/7] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === pos}" @click="selectSlot(pos)"><span class="text-[12px] font-bold">{{ pos }}</span></div>
@@ -1797,6 +1809,7 @@ const getPlayerImage = (p: Raw | null) => {
                  </div>
                </div>
 
+               <!-- 내야수 (4명) -->
                <div class="flex-1 w-full flex justify-center items-center gap-1 sm:gap-2 min-h-0">
                  <div v-for="pos in ['3B', 'SS', '2B', '1B']" :key="pos" @dragover.prevent @drop="onDrop($event, pos)" class="flex-1 max-w-[24%] h-full flex justify-center items-center min-w-0 min-h-0">
                    <div v-if="!lineup[pos]" class="relative w-full max-h-full aspect-[5/7] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === pos}" @click="selectSlot(pos)"><span class="text-[12px] font-bold">{{ pos }}</span></div>
@@ -1813,6 +1826,7 @@ const getPlayerImage = (p: Raw | null) => {
                  </div>
                </div>
 
+               <!-- 포수 & 지명타자 -->
                <div class="flex-1 w-full flex justify-center items-center gap-12 sm:gap-20 min-h-0">
                  <div v-for="pos in ['C', 'DH']" :key="pos" @dragover.prevent @drop="onDrop($event, pos)" class="flex-1 max-w-[24%] h-full flex justify-center items-center min-w-0 min-h-0">
                    <div v-if="!lineup[pos]" class="relative w-full max-h-full aspect-[5/7] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === pos}" @click="selectSlot(pos)"><span class="text-[12px] font-bold">{{ pos }}</span></div>
@@ -1830,16 +1844,20 @@ const getPlayerImage = (p: Raw | null) => {
                </div>
             </div>
 
-            <!-- ⚾ 투수 UI -->
+            <!-- ⚾ 투수 UI (상단 밀착 및 카드 밖 보직명) -->
             <div v-else-if="lineupViewMode === 'pitcher'" class="w-full h-full flex flex-col justify-start gap-4 sm:gap-6 py-2">
+              <!-- 🌟 선발 투수 그룹 -->
               <div class="w-full flex-1 flex flex-col min-h-0">
                 <h3 class="text-xs font-bold text-neutral-500 px-2 mb-2 shrink-0">선발 투수</h3>
                 <div class="flex-1 w-full flex justify-center items-start gap-1 sm:gap-1.5 min-h-0">
                   <div v-for="(role, index) in ['1선발', '2선발', '3선발', '4선발', '5선발']" :key="'SP'+(index+1)" @dragover.prevent @drop="onDrop($event, 'SP'+(index+1))" class="flex-1 max-w-[19.6%] h-full flex flex-col justify-start items-center min-w-0 min-h-0 gap-1.5">
+                   
                    <div class="text-[11px] sm:text-[12px] font-black text-indigo-700 dark:text-indigo-400 tracking-tight shrink-0">{{ role }}</div>
+
                    <div v-if="!lineup['SP'+(index+1)]" class="relative w-full max-h-full aspect-[5/7] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === 'SP'+(index+1)}" @click="selectSlot('SP'+(index+1))">
                       <span class="text-[24px] font-black opacity-30">+</span>
                    </div>
+                   
                    <div v-else draggable="true" @dragstart="onDragStart($event, 'SP'+(index+1))" class="relative w-full max-h-full aspect-[5/7] border rounded-xl flex flex-col items-center p-0 cursor-pointer transition-all shadow-sm group overflow-hidden bg-neutral-100 dark:bg-neutral-800" :class="{'border-indigo-500 ring-2 ring-indigo-400': selectedSlot === 'SP'+(index+1), 'border-neutral-200 dark:border-neutral-600': selectedSlot !== 'SP'+(index+1)}" @click="selectSlot('SP'+(index+1))">
                       <button class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/50 text-white hover:bg-red-500 flex items-center justify-center text-[14px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm" @click.stop="clearSlot('SP'+(index+1))">×</button>
                       <img :src="getPlayerImage(lineup['SP'+(index+1)])" class="absolute inset-0 w-full h-full object-cover" @error="hideImage" />
@@ -1852,14 +1870,18 @@ const getPlayerImage = (p: Raw | null) => {
                 </div>
               </div>
               
+              <!-- 🌟 계투 및 마무리 그룹 -->
               <div class="w-full flex-1 flex flex-col min-h-0">
                 <h3 class="text-xs font-bold text-neutral-500 px-2 mb-2 shrink-0">계투 및 마무리</h3>
                 <div class="flex-1 w-full flex justify-center items-start gap-1 sm:gap-1.5 min-h-0">
                   <div v-for="(role, index) in ['승리 계투', '숏 릴리프', '셋업', '마무리', '롱 맨', '추격조']" :key="'RP'+(index+1)" @dragover.prevent @drop="onDrop($event, 'RP'+(index+1))" class="flex-1 max-w-[16.4%] h-full flex flex-col justify-start items-center min-w-0 min-h-0 gap-1.5">
+                   
                    <div class="text-[10px] sm:text-[11px] font-black text-indigo-700 dark:text-indigo-400 tracking-tight shrink-0 whitespace-nowrap">{{ role }}</div>
+
                    <div v-if="!lineup['RP'+(index+1)]" class="relative w-full max-h-full aspect-[5/7] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === 'RP'+(index+1)}" @click="selectSlot('RP'+(index+1))">
                        <span class="text-[20px] font-black opacity-30">+</span>
                    </div>
+
                    <div v-else draggable="true" @dragstart="onDragStart($event, 'RP'+(index+1))" class="relative w-full max-h-full aspect-[5/7] border rounded-xl flex flex-col items-center p-0 cursor-pointer transition-all shadow-sm group overflow-hidden bg-neutral-100 dark:bg-neutral-800" :class="{'border-indigo-500 ring-2 ring-indigo-400': selectedSlot === 'RP'+(index+1), 'border-neutral-200 dark:border-neutral-600': selectedSlot !== 'RP'+(index+1)}" @click="selectSlot('RP'+(index+1))">
                       <button class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/50 text-white hover:bg-red-500 flex items-center justify-center text-[14px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm" @click.stop="clearSlot('RP'+(index+1))">×</button>
                       <img :src="getPlayerImage(lineup['RP'+(index+1)])" class="absolute inset-0 w-full h-full object-cover" @error="hideImage" />
@@ -1876,12 +1898,13 @@ const getPlayerImage = (p: Raw | null) => {
             <!-- ⚾ 벤치 UI -->
             <div v-else class="w-full h-full flex flex-col justify-start gap-2 py-2">
                <div class="w-full shrink-0"><h3 class="text-xs font-bold text-neutral-500 px-2 mb-1">벤치 멤버</h3></div>
+               
                <div class="w-full flex-1 flex flex-col gap-2 sm:gap-4 min-h-0">
+                 <!-- 벤치 윗줄 (4명) -->
                  <div class="flex-1 w-full flex justify-center items-start gap-1 sm:gap-2 min-h-0">
                     <div v-for="i in 4" :key="'BENCH'+i" @dragover.prevent @drop="onDrop($event, 'BENCH'+i)" class="flex-1 max-w-[24%] h-full flex justify-center items-start min-w-0 min-h-0">
                        <div v-if="!lineup['BENCH'+i]" class="relative w-full max-h-full aspect-[5/7] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === 'BENCH'+i}" @click="selectSlot('BENCH'+i)"><span class="text-[12px] font-bold">{{ 'BENCH'+i }}</span></div>
                      <div v-else draggable="true" @dragstart="onDragStart($event, 'BENCH'+i)" class="relative w-full max-h-full aspect-[5/7] border rounded-xl flex flex-col items-center p-0 cursor-pointer transition-all shadow-sm group overflow-hidden bg-neutral-100 dark:bg-neutral-800" :class="{'border-indigo-500 ring-2 ring-indigo-400': selectedSlot === 'BENCH'+i, 'border-neutral-200 dark:border-neutral-600': selectedSlot === 'BENCH'+i}" @click="selectSlot('BENCH'+i)">
-                        <div class="absolute top-2 left-2 text-xs font-black text-white drop-shadow-[0_1px_3px_rgba(0,0,0,1)] z-10">{{ 'BENCH'+i }}</div>
                         <button class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/50 text-white hover:bg-red-500 flex items-center justify-center text-[14px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm" @click.stop="clearSlot('BENCH'+i)">×</button>
                         <img :src="getPlayerImage(lineup['BENCH'+i])" class="absolute inset-0 w-full h-full object-cover" @error="hideImage" />
                         <div class="absolute bottom-0 inset-x-0 h-[45%] bg-gradient-to-t from-black/95 via-black/50 to-transparent flex flex-col justify-end items-center pb-2 px-1 pointer-events-none">
@@ -1891,11 +1914,12 @@ const getPlayerImage = (p: Raw | null) => {
                      </div>
                     </div>
                  </div>
+                 
+                 <!-- 벤치 아랫줄 (4명) -->
                  <div class="flex-1 w-full flex justify-center items-start gap-1 sm:gap-2 min-h-0">
                     <div v-for="i in 4" :key="'BENCH'+(i+4)" @dragover.prevent @drop="onDrop($event, 'BENCH'+(i+4))" class="flex-1 max-w-[24%] h-full flex justify-center items-start min-w-0 min-h-0">
                        <div v-if="!lineup['BENCH'+(i+4)]" class="relative w-full max-h-full aspect-[5/7] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === 'BENCH'+(i+4)}" @click="selectSlot('BENCH'+(i+4))"><span class="text-[12px] font-bold">{{ 'BENCH'+(i+4) }}</span></div>
                      <div v-else draggable="true" @dragstart="onDragStart($event, 'BENCH'+(i+4))" class="relative w-full max-h-full aspect-[5/7] border rounded-xl flex flex-col items-center p-0 cursor-pointer transition-all shadow-sm group overflow-hidden bg-neutral-100 dark:bg-neutral-800" :class="{'border-indigo-500 ring-2 ring-indigo-400': selectedSlot === 'BENCH'+(i+4), 'border-neutral-200 dark:border-neutral-600': selectedSlot !== 'BENCH'+(i+4)}" @click="selectSlot('BENCH'+(i+4))">
-                        <div class="absolute top-2 left-2 text-xs font-black text-white drop-shadow-[0_1px_3px_rgba(0,0,0,1)] z-10">{{ 'BENCH'+(i+4) }}</div>
                         <button class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/50 text-white hover:bg-red-500 flex items-center justify-center text-[14px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm" @click.stop="clearSlot('BENCH'+(i+4))">×</button>
                         <img :src="getPlayerImage(lineup['BENCH'+(i+4)])" class="absolute inset-0 w-full h-full object-cover" @error="hideImage" />
                         <div class="absolute bottom-0 inset-x-0 h-[45%] bg-gradient-to-t from-black/95 via-black/50 to-transparent flex flex-col justify-end items-center pb-2 px-1 pointer-events-none">
@@ -1911,7 +1935,7 @@ const getPlayerImage = (p: Raw | null) => {
         </section>
 
         <!-- ========================================== -->
-        <!-- 오른쪽: 설정 탭 -->
+        <!-- 오른쪽: 설정 탭 (360px 슬림 다이어트 고정!) -->
         <!-- ========================================== -->
         <section class="lg:w-[360px] xl:w-[380px] flex-shrink-0 flex flex-col rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 min-h-0 shadow-sm overflow-hidden">
           <div class="flex items-center bg-neutral-100 dark:bg-neutral-700/50 p-1 border-b border-neutral-200 dark:border-neutral-700 flex-shrink-0">
@@ -1946,6 +1970,7 @@ const getPlayerImage = (p: Raw | null) => {
                   <div v-for="i in 5" :key="i" class="flex items-center gap-2">
                     <span class="text-[10px] font-bold text-neutral-500 w-6">칸 {{ i }}</span>
                     <input list="synergy-list" v-model="globalBuffs.synergyMasteries[i-1]" placeholder="시너지 검색..." class="w-full px-2 py-1 bg-white border rounded text-xs"/>
+                    
                     <label class="flex items-center justify-center cursor-pointer bg-white px-2 py-1.5 rounded border transition-colors shrink-0 select-none"
                            :class="globalBuffs.amplifiedMasteryIndex === i - 1 ? 'border-indigo-500 bg-indigo-100 dark:bg-indigo-900/50 shadow-inner' : 'border-neutral-200 hover:bg-neutral-50'">
                       <input type="checkbox" 
@@ -1962,7 +1987,7 @@ const getPlayerImage = (p: Raw | null) => {
                 </div>
               </div>
               
-              <!-- 공통 버프 및 바인더 설정 -->
+              <!-- 🌟 9up 인게임 완벽 고증: 공통 버프 및 5x5 바인더 설정 🌟 -->
               <div class="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800 flex-shrink-0">
                 <h3 class="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-3 flex items-center gap-1"><Users class="w-4 h-4"/> 공통 버프 및 바인더 설정</h3>
                 
@@ -1978,7 +2003,7 @@ const getPlayerImage = (p: Raw | null) => {
                   </div>
                 </div>
                 
-                <!-- 바인더 세부 설정 (5x5 매트릭스) -->
+                <!-- 🌟 대망의 5x5 바인더 세부 설정 빙고판 🌟 -->
                 <div class="border border-indigo-200 bg-white dark:bg-neutral-800 rounded-lg p-2 shadow-sm">
                   <div class="text-[11px] font-bold text-indigo-700 dark:text-indigo-300 mb-2 text-center bg-indigo-50 dark:bg-indigo-900/30 py-1 rounded">바인더 세부 설정 (5x5 매트릭스)</div>
                   
@@ -1996,20 +2021,22 @@ const getPlayerImage = (p: Raw | null) => {
                     <div class="text-[10px] font-bold text-neutral-500 bg-neutral-100 dark:bg-neutral-700 rounded py-1">등급</div>
                   </div>
                   
-                  <div v-for="(row, idx) in globalBuffs.binderMatrix" :key="'bm'+idx" class="grid grid-cols-6 gap-1 mb-1 items-center">
-                    <div class="text-[10px] font-black text-indigo-400 text-center">{{ idx + 1 }}번</div>
-                    <input type="text" list="binder-team-list" v-model="row.team" placeholder="구단명" class="w-full text-center text-[10px] border rounded py-1.5 bg-neutral-50 dark:bg-neutral-700 dark:border-neutral-600 outline-none focus:border-indigo-500 focus:bg-white font-medium" />
-                    <select v-model="row.position" class="w-full text-center text-[10px] border rounded py-1.5 bg-neutral-50 dark:bg-neutral-700 dark:border-neutral-600 outline-none focus:border-indigo-500 focus:bg-white font-medium">
-                       <option value="">비워둠</option>
-                       <option value="선발">선발</option>
-                       <option value="계투">계투</option>
-                       <option value="내야">내야</option>
-                       <option value="외야 & 지명">외야 & 지명</option>
-                    </select>
-                    <input type="text" list="binder-player-list" v-model="row.player" placeholder="이름" class="w-full text-center text-[10px] border rounded py-1.5 bg-neutral-50 dark:bg-neutral-700 dark:border-neutral-600 outline-none focus:border-indigo-500 focus:bg-white font-medium" />
-                    <input type="text" list="binder-year-list" v-model="row.year" placeholder="연도" class="w-full text-center text-[10px] border rounded py-1.5 bg-neutral-50 dark:bg-neutral-700 dark:border-neutral-600 outline-none focus:border-indigo-500 focus:bg-white font-medium" />
-                    <input type="text" list="binder-grade-list" v-model="row.grade" placeholder="등급" class="w-full text-center text-[10px] border rounded py-1.5 bg-neutral-50 dark:bg-neutral-700 dark:border-neutral-600 outline-none focus:border-indigo-500 focus:bg-white font-medium" />
-                  </div>
+                  <template v-for="(row, idx) in globalBuffs.binderMatrix" :key="'bm'+idx">
+                    <div class="grid grid-cols-6 gap-1 mb-1 items-center">
+                      <div class="text-[10px] font-black text-indigo-400 text-center">{{ idx + 1 }}번</div>
+                      <input type="text" list="binder-team-list" v-model="row.team" placeholder="구단명" class="w-full text-center text-[10px] border rounded py-1.5 bg-neutral-50 dark:bg-neutral-700 dark:border-neutral-600 outline-none focus:border-indigo-500 focus:bg-white font-medium" />
+                      <select v-model="row.position" class="w-full text-center text-[10px] border rounded py-1.5 bg-neutral-50 dark:bg-neutral-700 dark:border-neutral-600 outline-none focus:border-indigo-500 focus:bg-white font-medium">
+                         <option value="">비워둠</option>
+                         <option value="선발">선발</option>
+                         <option value="계투">계투</option>
+                         <option value="내야">내야</option>
+                         <option value="외야 & 지명">외야 & 지명</option>
+                      </select>
+                      <input type="text" list="binder-player-list" v-model="row.player" placeholder="이름" class="w-full text-center text-[10px] border rounded py-1.5 bg-neutral-50 dark:bg-neutral-700 dark:border-neutral-600 outline-none focus:border-indigo-500 focus:bg-white font-medium" />
+                      <input type="text" list="binder-year-list" v-model="row.year" placeholder="연도" class="w-full text-center text-[10px] border rounded py-1.5 bg-neutral-50 dark:bg-neutral-700 dark:border-neutral-600 outline-none focus:border-indigo-500 focus:bg-white font-medium" />
+                      <input type="text" list="binder-grade-list" v-model="row.grade" placeholder="등급" class="w-full text-center text-[10px] border rounded py-1.5 bg-neutral-50 dark:bg-neutral-700 dark:border-neutral-600 outline-none focus:border-indigo-500 focus:bg-white font-medium" />
+                    </div>
+                  </template>
                   <div class="text-[9px] text-center text-neutral-400 mt-1 font-bold">※ 빈칸 클릭 시 리스트 표시 / 한두 글자만 쳐도 검색 가능!</div>
                 </div>
               </div>
@@ -2018,7 +2045,7 @@ const getPlayerImage = (p: Raw | null) => {
               <div class="bg-indigo-50 dark:bg-indigo-900/10 p-3 rounded-xl border border-indigo-100 dark:border-indigo-800 shadow-sm flex-shrink-0">
                 <h3 class="text-[11px] font-bold text-indigo-800 dark:text-indigo-300 mb-2 flex items-center gap-1"><Zap class="w-3 h-3"/> 팀플/디그니티 버프 자동 적용</h3>
                 <div class="grid grid-cols-2 gap-2">
-                  <template v-for="teamId in Array.from(new Set(Object.values(lineup).filter(Boolean).flatMap(p => toArray(p.team).map(toLowerCase))))">
+                  <template v-for="teamId in Array.from(new Set(Object.values(lineup).filter(Boolean).flatMap(p => toArray(p.team).map(toLowerCase))))" :key="teamId">
                      <div v-if="calculateTeamPlayerDignityBuff({ team: teamId }) > 0" class="flex justify-between items-center text-[10px] bg-white dark:bg-neutral-800 px-2 py-1.5 rounded border shadow-sm flex-shrink-0">
                        <span class="font-bold text-neutral-700">{{ findTeamName(teamId) }}</span>
                        <span class="text-indigo-600 font-black">+{{ calculateTeamPlayerDignityBuff({ team: teamId }) }}</span>
@@ -2077,6 +2104,7 @@ const getPlayerImage = (p: Raw | null) => {
                    <div v-if="filteredActiveTeamSynergies.length === 0" class="text-xs text-neutral-400 text-center py-2">해당 분류에 활성화된 시너지가 없습니다.</div>
                  </div>
 
+                 <!-- 발동 대기 시너지 추가 -->
                  <div v-if="filteredPendingTeamSynergies.length > 0" class="mt-4 pt-3 border-t border-indigo-200 dark:border-indigo-800/50 flex-shrink-0">
                    <h3 class="text-[11px] font-bold text-neutral-500 mb-2 flex items-center gap-1">
                       <Users class="w-3 h-3"/> 발동 대기 중인 시너지 ({{ filteredPendingTeamSynergies.length }}개)
@@ -2146,6 +2174,7 @@ const getPlayerImage = (p: Raw | null) => {
                       </div>
                     </div>
 
+                    <!-- 기존 개별 스탯 입력칸 -->
                     <div class="grid grid-cols-2 lg:grid-cols-4 gap-2">
                        <div v-for="stat in (isPitcher(lineup[selectedSlot]) ? pitcherStats : batterStats)" :key="stat" class="flex flex-col gap-1 border border-indigo-100 p-1.5 rounded-lg bg-white shadow-sm flex-shrink-0">
                           <label class="text-[10px] font-bold text-neutral-600 text-center">{{ STAT_LABELS[stat] || stat }}</label>
@@ -2167,7 +2196,7 @@ const getPlayerImage = (p: Raw | null) => {
 
                 <!-- 성장/스킬 설정 내용 -->
                 <div v-else-if="playerTab === 'synergy'" class="space-y-4 animate-in fade-in">
-                  <!-- 타순 설정 -->
+                  <!-- 타순 설정 (타자일 경우만) -->
                   <div v-if="!isPitcher(lineup[selectedSlot])" class="bg-orange-50 p-3 rounded-xl border border-orange-100 flex-shrink-0">
                     <h3 class="text-[11px] font-bold text-orange-800 mb-1.5">타순 설정</h3>
                     <select v-model.number="playerBuffs[selectedSlot].battingOrder" class="w-full py-1.5 px-2 rounded-lg border border-orange-200 bg-white text-xs">
@@ -2209,6 +2238,7 @@ const getPlayerImage = (p: Raw | null) => {
                       <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">선수 레벨</label><input type="number" v-model.number="playerBuffs[selectedSlot].playerLevel" class="w-full px-2 py-1.5 text-center bg-white border rounded-lg text-xs"/></div>
                       <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">도감 파워</label><input type="number" v-model.number="playerBuffs[selectedSlot].collectionBuff" class="w-full px-2 py-1.5 text-center bg-white border rounded-lg text-xs"/></div>
                       <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">커리어 레벨 파워</label><input type="number" v-model.number="playerBuffs[selectedSlot].careerLevelBuff" class="w-full px-2 py-1.5 text-center bg-white border rounded-lg text-xs"/></div>
+                      
                       <div class="flex flex-col gap-1">
                         <label class="text-[10px] font-bold text-indigo-500 flex items-center justify-center gap-1">바인더 총 파워 <Zap class="w-3 h-3"/></label>
                         <div class="w-full px-2 py-1.5 text-center bg-indigo-50 border border-indigo-200 rounded-lg text-xs font-black text-indigo-700 shadow-inner" title="바인더 100레벨(500) + 빙고판 매칭 보너스">
