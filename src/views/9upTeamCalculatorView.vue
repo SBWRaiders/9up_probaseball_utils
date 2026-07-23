@@ -23,10 +23,10 @@ interface PlayerBuff {
   careerStats: Record<string, number>;
 }
 
-const getGradeImage = (grade: unknown) => {
+// 🌟 1. 등급 맵핑 함수 (grade 필터 버그 및 이미지 출력 공통 사용)
+const getMappedGrade = (grade: unknown) => {
   if (!grade) return '';
   const g = String(grade).toUpperCase();
-  // 🌟 영문 이름도 파일명으로 변환하도록 매핑 추가!
   const map: Record<string, string> = {
     'DIGNITY':'DGN', '디그니티':'DGN', 
     'TOP CLASS':'TOP', '탑클래스':'TOP', 
@@ -42,8 +42,13 @@ const getGradeImage = (grade: unknown) => {
     'SEASON':'SEA', '시즌':'SEA', 
     'POST SEASON':'POS', '포스트시즌':'POS'
   };
-  const mappedGrade = map[g] || g;
-  return `/assets/logos/grade/${mappedGrade}.png`;
+  return map[g] || g;
+}
+
+// 엑스박스 방지용 이미지 경로 로더
+const getGradeImage = (grade: unknown) => {
+  const mappedGrade = getMappedGrade(grade);
+  return mappedGrade ? `/assets/logos/grade/${mappedGrade}.png` : '';
 }
   
 const POSITION_ALIASES: Record<string, string> = {
@@ -510,20 +515,38 @@ const toggleSynergyFilter = (s: string) => {
   else searchQuery.synergy.push(s)
 }
 
+// 🌟 2. 필터 검색 엔진 완벽 개조 (단어 띄어쓰기 AND 검색, 등급/별 필터 완벽 호환)
 const filteredPlayers = computed(() => {
-  const tokens = searchQuery.search ? searchQuery.search.split(/[\s,]+/).map(t=>t.trim()).filter(Boolean).map(normalizeText) : []
+  const tokens = searchQuery.search ? searchQuery.search.split(/[\s,]+/).map(t=>t.trim()).filter(Boolean).map(normalizeText) : [];
+  
   return preparedPlayers.value.filter(({ raw: p, nameNormalized, teamLowerCase, positionLowerCase, yearsNumeric, synergyNormalizedSet }) => {
-    if (searchQuery.team.length && !searchQuery.team.some(t => teamLowerCase.includes(toLowerCase(t)))) return false
-    if (searchQuery.rarity != null && Number(p.rarity) !== Number(searchQuery.rarity)) return false
-    if (searchQuery.grade.length && !searchQuery.grade.includes(String(p.grade || ''))) return false
-    if (searchQuery.position.length && !searchQuery.position.some(v => positionLowerCase.includes(toLowerCase(v)))) return false
-    if (searchQuery.synergy.length && !searchQuery.synergy.map(normalizeText).every(t => synergyNormalizedSet.has(t))) return false
-    if (tokens.length) {
-      const hay = new Set<string>([nameNormalized, ...teamLowerCase, ...positionLowerCase, ...Array.from(synergyNormalizedSet), ...yearsNumeric.map(String)])
-      if (!tokens.some(t => hay.has(t) || nameNormalized.includes(t))) return false
+    
+    // ① 팀 필터
+    if (searchQuery.team.length && !searchQuery.team.some(t => teamLowerCase.includes(toLowerCase(t)))) return false;
+    
+    // ② 별(희귀도) 필터 고장 수정: p.rarity와 p.stars 모두 호환 적용
+    if (searchQuery.rarity != null && Number(p.rarity || p.stars || 1) !== Number(searchQuery.rarity)) return false;
+    
+    // ③ 등급 필터 고장 수정: 풀네임('DIGNITY')과 약자('DGN')를 모두 매핑해서 완벽 비교
+    if (searchQuery.grade.length) {
+       const playerGradeMapped = getMappedGrade(p.grade);
+       const queryGradesMapped = searchQuery.grade.map(g => getMappedGrade(g));
+       if (!queryGradesMapped.includes(playerGradeMapped)) return false;
     }
-    return true
-  }).map(pp => pp.raw)
+
+    // ④ 포지션 및 시너지 필터
+    if (searchQuery.position.length && !searchQuery.position.some(v => positionLowerCase.includes(toLowerCase(v)))) return false;
+    if (searchQuery.synergy.length && !searchQuery.synergy.map(normalizeText).every(t => synergyNormalizedSet.has(t))) return false;
+    
+    // ⑤ 검색창 텍스트 고장 수정: 띄어쓰기 시 AND 조건으로 똑똑하게 좁혀지도록 개선
+    if (tokens.length) {
+      const hay = [nameNormalized, ...teamLowerCase, ...positionLowerCase, ...Array.from(synergyNormalizedSet), ...yearsNumeric.map(String)].join(' ');
+      // 사용자가 입력한 모든 검색어(token)가 정보(hay) 안에 전부 포함되어 있어야 통과!
+      if (!tokens.every(t => hay.includes(t))) return false;
+    }
+    
+    return true;
+  }).map(pp => pp.raw);
 })
 
 const totalPlayers = computed(() => filteredPlayers.value.length)
