@@ -2482,6 +2482,9 @@ const getPlayerImage = (p: Raw | null) => {
             </div>
           </div>
         </section>
+        </div> <!-- 🌟 복구 1. 좌/우/중앙 Flex 분할 컨테이너 닫기 -->
+    </div> <!-- 🌟 복구 2. 전체 패널 영역 닫기 -->
+  </div> <!-- 🌟 복구 3. 메인 배경 화면 닫기 -->
 
   <!-- 🌟 각인 생성 및 보관함 (대장간) 모달 -->
   <div v-if="showImprintManager" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
