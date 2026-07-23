@@ -1624,7 +1624,6 @@ const getPlayerImage = (p: Raw | null) => {
 </script>
 
 <template>
-<template>
           <div class="flex items-center bg-neutral-100 dark:bg-neutral-700/50 p-1 border-b border-neutral-200 dark:border-neutral-700 flex-shrink-0">
             <button @click="lineupViewMode = 'batter'" :class="lineupViewMode === 'batter' ? 'bg-white dark:bg-neutral-600 shadow-sm font-bold text-blue-600' : 'text-neutral-500'" class="flex-1 py-1.5 text-xs rounded-lg transition-all">타자 라인업</button>
             <button @click="lineupViewMode = 'pitcher'" :class="lineupViewMode === 'pitcher' ? 'bg-white dark:bg-neutral-600 shadow-sm font-bold text-blue-600' : 'text-neutral-500'" class="flex-1 py-1.5 text-xs rounded-lg transition-all">투수 라인업</button>
