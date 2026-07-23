@@ -26,10 +26,21 @@ interface PlayerBuff {
 const getGradeImage = (grade: unknown) => {
   if (!grade) return '';
   const g = String(grade).toUpperCase();
+  // 🌟 영문 이름도 파일명으로 변환하도록 매핑 추가!
   const map: Record<string, string> = {
-    '디그니티':'DGN', '탑클래스':'TOP', '에이스':'ACE', '히트':'HIT', '팀플':'TEA',
-    '월간MVP':'MMVP', '월간':'MMVP', '신인왕':'ROY', '연도골글':'GGY', '연글':'GGY',
-    '골든글러브':'GG', '골글':'GG', '국가대표':'NT', '올스타':'ASG', '시즌':'SEA', '포스트시즌':'POS'
+    'DIGNITY':'DGN', '디그니티':'DGN', 
+    'TOP CLASS':'TOP', '탑클래스':'TOP', 
+    'GOLDEN GLOVE':'GG', '골든글러브':'GG', '골글':'GG', 
+    'ACE PITCHER':'ACE', '에이스':'ACE', 
+    'HIT BATTER':'HIT', '히트':'HIT', 
+    'TEAM PLAYER':'TEA', '팀플':'TEA',
+    'MONTHLY MVP':'MMVP', '월간MVP':'MMVP', '월간':'MMVP', 
+    'ROOKIE OF THE YEAR':'ROY', '신인왕':'ROY', 
+    'GG OF THE YEAR':'GGY', '연도골글':'GGY', '연글':'GGY',
+    'NATIONAL TEAM':'NT', '국가대표':'NT', 
+    'ALLSTAR':'ASG', '올스타':'ASG', 
+    'SEASON':'SEA', '시즌':'SEA', 
+    'POST SEASON':'POS', '포스트시즌':'POS'
   };
   const mappedGrade = map[g] || g;
   return `/assets/logos/grade/${mappedGrade}.png`;
@@ -1676,7 +1687,7 @@ const getPlayerImage = (p: Raw | null) => {
 
       <div v-else class="flex flex-col lg:flex-row gap-1.5 flex-1 min-h-0">
         
-        <!-- ========================================== -->
+<!-- ========================================== -->
         <!-- 왼쪽: 선수 검색 (320px 다이어트 고정) -->
         <!-- ========================================== -->
         <section class="lg:w-[320px] xl:w-[340px] flex-shrink-0 flex flex-col rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 min-h-0 shadow-sm overflow-hidden">
@@ -1705,14 +1716,13 @@ const getPlayerImage = (p: Raw | null) => {
               </div>
             </button>
 
-            <!-- 🌟 수정됨: 상세 필터 전체 복구 (별 갯수, 4-4-4 배열, 시너지 드롭다운) -->
             <div v-show="advancedFilterOpen" class="flex flex-col gap-3 pt-2 max-h-[40vh] overflow-y-auto custom-scrollbar pr-1">
               
-              <!-- 🌟 1. 별 갯수 (희귀도) 필터 복구 -->
+              <!-- 🌟 1. 별 갯수 (1~6성, 3칸 2줄 배열 완벽 복구) -->
               <div>
                 <label class="block text-[11px] font-bold text-neutral-500 mb-1.5 ml-1">별 갯수 (희귀도)</label>
-                <div class="grid grid-cols-4 gap-1">
-                  <button v-for="star in [1,2,3,4,5]" :key="'star'+star" 
+                <div class="grid grid-cols-3 gap-1">
+                  <button v-for="star in [1,2,3,4,5,6]" :key="'star'+star" 
                           @click="searchQuery.rarity === star ? searchQuery.rarity = null : searchQuery.rarity = star" 
                           :class="{'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30': searchQuery.rarity === star}" 
                           class="flex items-center justify-center py-1 border border-neutral-200 dark:border-neutral-600 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 bg-white dark:bg-neutral-800 transition-all">
@@ -1721,7 +1731,7 @@ const getPlayerImage = (p: Raw | null) => {
                 </div>
               </div>
 
-              <!-- 🌟 2. 등급 필터 (가로 4칸 3줄 배열 & getGradeImage 함수로 이미지 복구) -->
+              <!-- 🌟 2. 등급 (4칸 3줄) -->
               <div>
                 <label class="block text-[11px] font-bold text-neutral-500 mb-1.5 ml-1">등급</label>
                 <div class="grid grid-cols-4 gap-1">
@@ -1735,7 +1745,7 @@ const getPlayerImage = (p: Raw | null) => {
                 </div>
               </div>
 
-              <!-- 🌟 3. 포지션 필터 (가로 4칸 배열) -->
+              <!-- 포지션 -->
               <div>
                 <label class="block text-[11px] font-bold text-neutral-500 mb-1.5 ml-1">포지션</label>
                 <div class="grid grid-cols-4 gap-1">
@@ -1748,7 +1758,7 @@ const getPlayerImage = (p: Raw | null) => {
                 </div>
               </div>
 
-              <!-- 🌟 4. 팀 필터 (가로 4칸 3줄 배열) -->
+              <!-- 팀 -->
               <div>
                 <label class="block text-[11px] font-bold text-neutral-500 mb-1.5 ml-1">팀</label>
                 <div class="grid grid-cols-4 gap-1">
@@ -1762,16 +1772,24 @@ const getPlayerImage = (p: Raw | null) => {
                 </div>
               </div>
 
-              <!-- 🌟 5. 시너지 필터 드롭다운 복구 -->
+              <!-- 🌟 3. 시너지 검색 (브라우저 기본 블랙 UI 제거, 깔끔한 커스텀 드롭다운 교체) -->
               <div>
                 <label class="block text-[11px] font-bold text-neutral-500 mb-1.5 ml-1">시너지 검색</label>
-                <div class="flex flex-col gap-1">
-                  <input list="search-synergy-list" v-model="synergySearchText" placeholder="시너지 검색... (엔터로 추가)" 
-                         class="w-full px-2 py-1.5 text-xs border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm" 
-                         @keydown.enter.prevent="if(synergySearchText) { toggleSynergyFilter(synergySearchText); synergySearchText=''; }" />
-                  <datalist id="search-synergy-list">
-                    <option v-for="s in synergyOptions" :key="s" :value="s" />
-                  </datalist>
+                <div class="relative flex flex-col gap-1">
+                  <input v-model="synergySearchText" placeholder="시너지를 입력해 주세요. (클릭하여 선택)" 
+                         class="w-full px-2 py-1.5 text-[11px] border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm" />
+                  
+                  <!-- 검색 결과 드롭다운 -->
+                  <div v-if="synergySearchText" class="absolute top-8 left-0 z-50 w-full bg-white dark:bg-neutral-800 border border-blue-200 dark:border-blue-800 rounded-lg shadow-xl max-h-40 overflow-y-auto custom-scrollbar">
+                    <button v-for="s in filteredSynergyOptions" :key="s" 
+                            @click="toggleSynergyFilter(s); synergySearchText=''" 
+                            class="w-full text-left px-3 py-1.5 text-[11px] text-neutral-700 dark:text-neutral-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors border-b border-neutral-100 last:border-0">
+                      {{ s }}
+                    </button>
+                    <div v-if="filteredSynergyOptions.length === 0" class="px-3 py-2 text-center text-[10px] text-neutral-400">검색 결과가 없습니다.</div>
+                  </div>
+
+                  <!-- 선택된 시너지 태그들 -->
                   <div class="flex flex-wrap gap-1 mt-1">
                      <span v-for="syn in searchQuery.synergy" :key="syn" class="px-2 py-1 text-[10px] bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-md flex items-center gap-1 font-bold border border-blue-200 dark:border-blue-800">
                        {{ syn }} <button @click="toggleSynergyFilter(syn)" class="hover:text-red-500 font-black ml-0.5">&times;</button>
@@ -1806,14 +1824,20 @@ const getPlayerImage = (p: Raw | null) => {
                    <div class="flex-1 min-w-0 pt-0.5">
                      <div class="flex items-center gap-1.5 mb-1">
                         <span class="font-black text-[14px] text-neutral-900 dark:text-neutral-100 truncate tracking-tight">{{ p.name }}</span>
+                        <!-- 🌟 4. 선수 별 갯수 복구! (1성일때도 렌더링되도록 수정) -->
                         <div class="flex">
-                           <Star v-for="i in Number(p.stars || 0)" :key="i" class="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
+                           <Star v-for="i in Number(p.rarity || 1)" :key="i" class="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
                         </div>
                      </div>
                      <div class="flex items-center gap-1 text-[11px] text-neutral-500 font-medium">
                         <img v-if="getTeamLogoUrl(Array.isArray(p.team) ? p.team[0] : p.team)" :src="getTeamLogoUrl(Array.isArray(p.team) ? p.team[0] : p.team)" class="h-3.5 w-auto" @error="hideImage" />
                         <span v-else>{{ Array.isArray(p.team) ? p.team[0] : p.team }}</span>
-                        <!-- 🌟 선수 카드 안의 지저분한 시너지 텍스트 제거 (상세 필터에서 검색 가능) -->
+                        
+                        <!-- 🌟 5. 선수 팀 이름 문자열 복구! -->
+                        <span class="font-bold text-neutral-700 dark:text-neutral-300 ml-0.5">{{ findTeamName(Array.isArray(p.team) ? p.team[0] : p.team) }}</span>
+                        
+                        <span class="text-neutral-300 dark:text-neutral-600 mx-0.5">·</span>
+                        <span class="truncate">{{ getArray(p.synergy).join(', ') }}</span>
                      </div>
                    </div>
                 </div>
