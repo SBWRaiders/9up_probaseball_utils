@@ -77,6 +77,7 @@ const synergys = ref<JsonSynergy[]>([])
 const teamData = ref<any[]>([])
 
 const advancedFilterOpen = ref(false)
+const isSynergyDropdownOpen = ref(false)
 const currentPage = ref(1)
 const pageSize = 50
 const synergySearchText = ref('')
@@ -1775,14 +1776,14 @@ const getPlayerImage = (p: Raw | null) => {
               <!-- 🌟 3. 시너지 검색 (브라우저 기본 블랙 UI 제거, 깔끔한 커스텀 드롭다운 교체) -->
               <div>
                 <label class="block text-[11px] font-bold text-neutral-500 mb-1.5 ml-1">시너지 검색</label>
-                <div class="relative flex flex-col gap-1">
-                  <input v-model="synergySearchText" placeholder="시너지를 입력해 주세요. (클릭하여 선택)" 
+                <div class="relative flex flex-col gap-1" @focusout="setTimeout(() => isSynergyDropdownOpen = false, 200)">
+                  <input v-model="synergySearchText" @focus="isSynergyDropdownOpen = true" placeholder="시너지를 입력해 주세요. (클릭하여 선택)" 
                          class="w-full px-2 py-1.5 text-[11px] border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm" />
                   
                   <!-- 검색 결과 드롭다운 -->
-                  <div v-if="synergySearchText" class="absolute top-8 left-0 z-50 w-full bg-white dark:bg-neutral-800 border border-blue-200 dark:border-blue-800 rounded-lg shadow-xl max-h-40 overflow-y-auto custom-scrollbar">
+                  <div v-show="isSynergyDropdownOpen" class="absolute top-8 left-0 z-50 w-full bg-white dark:bg-neutral-800 border border-blue-200 dark:border-blue-800 rounded-lg shadow-xl max-h-40 overflow-y-auto custom-scrollbar">
                     <button v-for="s in filteredSynergyOptions" :key="s" 
-                            @click="toggleSynergyFilter(s); synergySearchText=''" 
+                            @click="toggleSynergyFilter(s); synergySearchText=''; isSynergyDropdownOpen=false;" 
                             class="w-full text-left px-3 py-1.5 text-[11px] text-neutral-700 dark:text-neutral-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors border-b border-neutral-100 last:border-0">
                       {{ s }}
                     </button>
@@ -1800,7 +1801,7 @@ const getPlayerImage = (p: Raw | null) => {
             </div>
           </div>
 
-          <!-- 선수 목록 -->
+          <!-- 선수 목록 페이지네이션 -->
           <div class="flex items-center justify-between px-4 py-2 border-b border-neutral-100 dark:border-neutral-700 bg-neutral-50/50 dark:bg-neutral-800/30">
             <span class="text-[11px] font-bold text-neutral-500">{{ currentPage }} / {{ totalPages || 1 }} 페이지</span>
             <div class="flex gap-1">
@@ -1809,6 +1810,7 @@ const getPlayerImage = (p: Raw | null) => {
             </div>
           </div>
 
+          <!-- 🌟 선수 리스트 렌더링 -->
           <div class="flex-1 overflow-y-auto p-2 sm:p-3 space-y-2 custom-scrollbar relative">
              <div v-if="paginatedPlayers.length === 0" class="absolute inset-0 flex flex-col items-center justify-center text-neutral-400">
                 <Users class="w-10 h-10 mb-2 opacity-20" />
@@ -1816,15 +1818,17 @@ const getPlayerImage = (p: Raw | null) => {
              </div>
              
              <div v-for="p in paginatedPlayers" :key="p.id" class="border border-neutral-200 dark:border-neutral-700 rounded-xl p-2 bg-white dark:bg-neutral-800 shadow-sm hover:shadow-md transition-all group flex flex-col gap-2">
-                <div class="flex items-start gap-3">
+                <div class="flex items-center gap-3">
+                   <!-- 선수 로고 -->
                    <div class="w-12 h-12 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-700/50 flex items-center justify-center flex-shrink-0 overflow-hidden shadow-inner">
                       <img v-if="getGradeImage(p.grade)" :src="getGradeImage(p.grade)" :alt="p.grade" class="w-10 object-contain drop-shadow-sm" @error="hideImage" />
                       <span v-else class="text-[9px] font-black text-neutral-400">{{ p.grade }}</span>
                    </div>
-                   <div class="flex-1 min-w-0 pt-0.5">
-                     <div class="flex items-center gap-1.5 mb-1">
+                   <!-- 선수 정보 -->
+                   <div class="flex-1 min-w-0">
+                     <div class="flex items-center gap-1.5 mb-0.5">
                         <span class="font-black text-[14px] text-neutral-900 dark:text-neutral-100 truncate tracking-tight">{{ p.name }}</span>
-                        <!-- 🌟 4. 선수 별 갯수 복구! (1성일때도 렌더링되도록 수정) -->
+                        <!-- 🌟 4. 선수 별 갯수 복구! -->
                         <div class="flex">
                            <Star v-for="i in Number(p.rarity || 1)" :key="i" class="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
                         </div>
@@ -1832,27 +1836,29 @@ const getPlayerImage = (p: Raw | null) => {
                      <div class="flex items-center gap-1 text-[11px] text-neutral-500 font-medium">
                         <img v-if="getTeamLogoUrl(Array.isArray(p.team) ? p.team[0] : p.team)" :src="getTeamLogoUrl(Array.isArray(p.team) ? p.team[0] : p.team)" class="h-3.5 w-auto" @error="hideImage" />
                         <span v-else>{{ Array.isArray(p.team) ? p.team[0] : p.team }}</span>
-                        
-                        <!-- 🌟 5. 선수 팀 이름 문자열 복구! -->
-                        <span class="font-bold text-neutral-700 dark:text-neutral-300 ml-0.5">{{ findTeamName(Array.isArray(p.team) ? p.team[0] : p.team) }}</span>
-                        
-                        <span class="text-neutral-300 dark:text-neutral-600 mx-0.5">·</span>
-                        <span class="truncate">{{ getArray(p.synergy).join(', ') }}</span>
+                        <!-- 🌟 시너지 텍스트 완벽 제거 & 팀명 한 줄 유지! -->
+                        <span class="font-bold text-neutral-700 dark:text-neutral-300 ml-0.5 whitespace-nowrap">{{ findTeamName(Array.isArray(p.team) ? p.team[0] : p.team) }}</span>
                      </div>
                    </div>
                 </div>
                 
+                <!-- 🌟 5. 포지션 버튼 (이제 칸 선택 안 해도 클릭 시 바로 들어감!) -->
                 <div class="flex flex-wrap gap-1 mt-0.5 pl-[60px]">
-                   <button v-for="pos in getPlayerPositions(p)" :key="pos" draggable="true" @dragstart="onDragStart($event, pos)" @click="isManualSelection ? assignPlayerToSlot(pos, p) : null" class="px-2 py-0.5 rounded-md text-[10px] font-bold border cursor-grab active:cursor-grabbing hover:-translate-y-0.5 transition-transform bg-white dark:bg-neutral-700 shadow-sm" :class="isPitcher(p) ? 'border-rose-200 text-rose-600 dark:border-rose-800 dark:text-rose-400' : 'border-indigo-200 text-indigo-600 dark:border-indigo-800 dark:text-indigo-400'">
+                   <button v-for="pos in getPlayerPositions(p)" :key="pos" draggable="true" @dragstart="onDragStart($event, pos)" 
+                           @click="assignPlayerToSlot(pos, p)" 
+                           class="px-2 py-0.5 rounded-md text-[10px] font-bold border cursor-grab active:cursor-grabbing hover:-translate-y-0.5 transition-transform bg-white dark:bg-neutral-700 shadow-sm" :class="isPitcher(p) ? 'border-rose-200 text-rose-600 dark:border-rose-800 dark:text-rose-400' : 'border-indigo-200 text-indigo-600 dark:border-indigo-800 dark:text-indigo-400'">
                      {{ pos }}
                    </button>
-                   <button v-if="!isPitcher(p)" draggable="true" @dragstart="onDragStart($event, 'DH')" @click="isManualSelection ? assignPlayerToSlot('DH', p) : null" class="px-2 py-0.5 rounded-md text-[10px] font-bold border border-emerald-200 text-emerald-600 bg-white shadow-sm cursor-grab hover:-translate-y-0.5 transition-transform dark:bg-neutral-700 dark:border-emerald-800 dark:text-emerald-400">DH</button>
-                   <button draggable="true" @dragstart="onDragStart($event, 'BENCH')" @click="isManualSelection ? assignPlayerToSlot('BENCH', p) : null" class="px-2 py-0.5 rounded-md text-[10px] font-bold border border-neutral-200 text-neutral-500 bg-white shadow-sm cursor-grab hover:-translate-y-0.5 transition-transform dark:bg-neutral-700 dark:border-neutral-600 dark:text-neutral-400">벤치</button>
+                   <button v-if="!isPitcher(p)" draggable="true" @dragstart="onDragStart($event, 'DH')" 
+                           @click="assignPlayerToSlot('DH', p)" 
+                           class="px-2 py-0.5 rounded-md text-[10px] font-bold border border-emerald-200 text-emerald-600 bg-white shadow-sm cursor-grab hover:-translate-y-0.5 transition-transform dark:bg-neutral-700 dark:border-emerald-800 dark:text-emerald-400">DH</button>
+                   <button draggable="true" @dragstart="onDragStart($event, 'BENCH')" 
+                           @click="assignPlayerToSlot('BENCH', p)" 
+                           class="px-2 py-0.5 rounded-md text-[10px] font-bold border border-neutral-200 text-neutral-500 bg-white shadow-sm cursor-grab hover:-translate-y-0.5 transition-transform dark:bg-neutral-700 dark:border-neutral-600 dark:text-neutral-400">벤치</button>
                 </div>
              </div>
           </div>
         </section>
-
         <!-- ========================================== -->
         <!-- 중앙: 라인업 보드 (flex-1 독식) -->
         <!-- ========================================== -->
