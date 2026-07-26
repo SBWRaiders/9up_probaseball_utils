@@ -1946,6 +1946,10 @@ const getPlayerImage = (p: Raw | null) => {
                         <img v-if="getTeamLogoUrl(Array.isArray(p.team) ? p.team[0] : p.team)" :src="getTeamLogoUrl(Array.isArray(p.team) ? p.team[0] : p.team)" class="h-3.5 w-auto" @error="hideImage" />
                         <span v-else>{{ Array.isArray(p.team) ? p.team[0] : p.team }}</span>
                         <span class="font-bold text-neutral-700 dark:text-neutral-300 ml-0.5 whitespace-nowrap">{{ findTeamName(Array.isArray(p.team) ? p.team[0] : p.team) }}</span>
+                        <!-- 🌟 선수 연도 표시 추가 -->
+                        <span v-if="p.year && String(p.year) !== 'NaN' && String(p.year) !== '0'" class="font-bold text-neutral-500 ml-0.5 whitespace-nowrap truncate">
+                           · [{{ String(p.year).replace(/[\[\]]/g, '').split(',').join(', ') }}]
+                        </span>
                      </div>
                    </div>
                 </div>
