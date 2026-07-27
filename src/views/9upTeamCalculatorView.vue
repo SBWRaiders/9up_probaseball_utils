@@ -1994,10 +1994,10 @@ const getPlayerImage = (p: Raw | null) => {
                       <div v-if="playerBuffs[pos]?.battingOrder && !isPitcher(lineup[pos])" class="absolute top-2 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-orange-600 text-white px-2 py-0.5 rounded shadow-md z-10">{{ playerBuffs[pos].battingOrder }}번</div>
                       <img :src="getPlayerImage(lineup[pos])" class="absolute inset-0 w-full h-full object-cover" @error="hideImage" />
                       <div class="absolute bottom-0 inset-x-0 h-[45%] bg-gradient-to-t from-black/95 via-black/50 to-transparent flex flex-col justify-end items-center pb-2 px-1 pointer-events-none">
-                         <!-- 🌟 수정됨: 이름 옆에 연도 표시 (탑클 제외) -->
+                         <!-- 🌟 수정됨: 연도 텍스트 크기 제한 삭제 (이름과 완벽 동기화) -->
                          <div class="text-[11px] sm:text-[13px] font-bold text-white w-full flex items-baseline justify-center truncate drop-shadow-md leading-tight">
                            {{ lineup[pos].name }}
-                           <span v-if="lineup[pos].year && String(lineup[pos].year) !== 'NaN' && String(lineup[pos].year) !== '0' && !['TOP', '탑클래스'].includes(String(lineup[pos].grade).toUpperCase())" class="text-[9px] text-neutral-300/90 ml-0.5 tracking-tighter font-medium drop-shadow-sm">'{{ String(lineup[pos].year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
+                           <span v-if="lineup[pos].year && String(lineup[pos].year) !== 'NaN' && String(lineup[pos].year) !== '0' && !['TOP', '탑클래스'].includes(String(lineup[pos].grade).toUpperCase())" class="text-neutral-300 ml-0.5 drop-shadow-sm">'{{ String(lineup[pos].year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
                          </div>
                          <div class="text-[13px] sm:text-[15px] font-black text-amber-400 tracking-tight drop-shadow-md leading-tight mt-0.5">{{ calculatePlayerPower(lineup[pos], pos).toLocaleString() }}</div>
                       </div>
@@ -2014,10 +2014,10 @@ const getPlayerImage = (p: Raw | null) => {
                       <div v-if="playerBuffs[pos]?.battingOrder && !isPitcher(lineup[pos])" class="absolute top-2 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-orange-600 text-white px-2 py-0.5 rounded shadow-md z-10">{{ playerBuffs[pos].battingOrder }}번</div>
                       <img :src="getPlayerImage(lineup[pos])" class="absolute inset-0 w-full h-full object-cover" @error="hideImage" />
                       <div class="absolute bottom-0 inset-x-0 h-[45%] bg-gradient-to-t from-black/95 via-black/50 to-transparent flex flex-col justify-end items-center pb-2 px-1 pointer-events-none">
-                         <!-- 🌟 수정됨: 이름 옆에 연도 표시 (탑클 제외) -->
+                         <!-- 🌟 수정됨: 연도 텍스트 크기 제한 삭제 (이름과 완벽 동기화) -->
                          <div class="text-[11px] sm:text-[13px] font-bold text-white w-full flex items-baseline justify-center truncate drop-shadow-md leading-tight">
                            {{ lineup[pos].name }}
-                           <span v-if="lineup[pos].year && String(lineup[pos].year) !== 'NaN' && String(lineup[pos].year) !== '0' && !['TOP', '탑클래스'].includes(String(lineup[pos].grade).toUpperCase())" class="text-[9px] text-neutral-300/90 ml-0.5 tracking-tighter font-medium drop-shadow-sm">'{{ String(lineup[pos].year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
+                           <span v-if="lineup[pos].year && String(lineup[pos].year) !== 'NaN' && String(lineup[pos].year) !== '0' && !['TOP', '탑클래스'].includes(String(lineup[pos].grade).toUpperCase())" class="text-neutral-300 ml-0.5 drop-shadow-sm">'{{ String(lineup[pos].year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
                          </div>
                          <div class="text-[13px] sm:text-[15px] font-black text-amber-400 tracking-tight drop-shadow-md leading-tight mt-0.5">{{ calculatePlayerPower(lineup[pos], pos).toLocaleString() }}</div>
                       </div>
@@ -2034,10 +2034,10 @@ const getPlayerImage = (p: Raw | null) => {
                       <div v-if="playerBuffs[pos]?.battingOrder && !isPitcher(lineup[pos])" class="absolute top-2 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-orange-600 text-white px-2 py-0.5 rounded shadow-md z-10">{{ playerBuffs[pos].battingOrder }}번</div>
                       <img :src="getPlayerImage(lineup[pos])" class="absolute inset-0 w-full h-full object-cover" @error="hideImage" />
                       <div class="absolute bottom-0 inset-x-0 h-[45%] bg-gradient-to-t from-black/95 via-black/50 to-transparent flex flex-col justify-end items-center pb-2 px-1 pointer-events-none">
-                         <!-- 🌟 수정됨: 이름 옆에 연도 표시 (탑클 제외) -->
+                         <!-- 🌟 수정됨: 연도 텍스트 크기 제한 삭제 (이름과 완벽 동기화) -->
                          <div class="text-[11px] sm:text-[13px] font-bold text-white w-full flex items-baseline justify-center truncate drop-shadow-md leading-tight">
                            {{ lineup[pos].name }}
-                           <span v-if="lineup[pos].year && String(lineup[pos].year) !== 'NaN' && String(lineup[pos].year) !== '0' && !['TOP', '탑클래스'].includes(String(lineup[pos].grade).toUpperCase())" class="text-[9px] text-neutral-300/90 ml-0.5 tracking-tighter font-medium drop-shadow-sm">'{{ String(lineup[pos].year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
+                           <span v-if="lineup[pos].year && String(lineup[pos].year) !== 'NaN' && String(lineup[pos].year) !== '0' && !['TOP', '탑클래스'].includes(String(lineup[pos].grade).toUpperCase())" class="text-neutral-300 ml-0.5 drop-shadow-sm">'{{ String(lineup[pos].year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
                          </div>
                          <div class="text-[13px] sm:text-[15px] font-black text-amber-400 tracking-tight drop-shadow-md leading-tight mt-0.5">{{ calculatePlayerPower(lineup[pos], pos).toLocaleString() }}</div>
                       </div>
@@ -2060,10 +2060,10 @@ const getPlayerImage = (p: Raw | null) => {
                       <button class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/50 text-white hover:bg-red-500 flex items-center justify-center text-[14px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm" @click.stop="clearSlot('SP'+(index+1))">×</button>
                       <img :src="getPlayerImage(lineup['SP'+(index+1)])" class="absolute inset-0 w-full h-full object-cover" @error="hideImage" />
                       <div class="absolute bottom-0 inset-x-0 h-[45%] bg-gradient-to-t from-black/95 via-black/50 to-transparent flex flex-col justify-end items-center pb-2 px-1 pointer-events-none">
-                         <!-- 🌟 수정됨: 이름 옆에 연도 표시 (탑클 제외) -->
+                         <!-- 🌟 수정됨: 연도 텍스트 크기 제한 삭제 (이름과 완벽 동기화) -->
                          <div class="text-[11px] sm:text-[13px] font-bold text-white w-full flex items-baseline justify-center truncate drop-shadow-md leading-tight">
                            {{ lineup['SP'+(index+1)].name }}
-                           <span v-if="lineup['SP'+(index+1)].year && String(lineup['SP'+(index+1)].year) !== 'NaN' && String(lineup['SP'+(index+1)].year) !== '0' && !['TOP', '탑클래스'].includes(String(lineup['SP'+(index+1)].grade).toUpperCase())" class="text-[9px] text-neutral-300/90 ml-0.5 tracking-tighter font-medium drop-shadow-sm">'{{ String(lineup['SP'+(index+1)].year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
+                           <span v-if="lineup['SP'+(index+1)].year && String(lineup['SP'+(index+1)].year) !== 'NaN' && String(lineup['SP'+(index+1)].year) !== '0' && !['TOP', '탑클래스'].includes(String(lineup['SP'+(index+1)].grade).toUpperCase())" class="text-neutral-300 ml-0.5 drop-shadow-sm">'{{ String(lineup['SP'+(index+1)].year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
                          </div>
                          <div class="text-[13px] sm:text-[15px] font-black text-amber-400 tracking-tight drop-shadow-md leading-tight mt-0.5">{{ calculatePlayerPower(lineup['SP'+(index+1)], 'SP'+(index+1)).toLocaleString() }}</div>
                       </div>
@@ -2084,10 +2084,10 @@ const getPlayerImage = (p: Raw | null) => {
                       <button class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/50 text-white hover:bg-red-500 flex items-center justify-center text-[14px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm" @click.stop="clearSlot('RP'+(index+1))">×</button>
                       <img :src="getPlayerImage(lineup['RP'+(index+1)])" class="absolute inset-0 w-full h-full object-cover" @error="hideImage" />
                       <div class="absolute bottom-0 inset-x-0 h-[45%] bg-gradient-to-t from-black/95 via-black/50 to-transparent flex flex-col justify-end items-center pb-1.5 px-1 pointer-events-none">
-                         <!-- 🌟 수정됨: 이름 옆에 연도 표시 (탑클 제외) -->
+                         <!-- 🌟 수정됨: 연도 텍스트 크기 제한 삭제 (이름과 완벽 동기화) -->
                          <div class="text-[10px] sm:text-[12px] font-bold text-white w-full flex items-baseline justify-center truncate drop-shadow-md leading-tight">
                            {{ lineup['RP'+(index+1)].name }}
-                           <span v-if="lineup['RP'+(index+1)].year && String(lineup['RP'+(index+1)].year) !== 'NaN' && String(lineup['RP'+(index+1)].year) !== '0' && !['TOP', '탑클래스'].includes(String(lineup['RP'+(index+1)].grade).toUpperCase())" class="text-[8px] sm:text-[9px] text-neutral-300/90 ml-0.5 tracking-tighter font-medium drop-shadow-sm">'{{ String(lineup['RP'+(index+1)].year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
+                           <span v-if="lineup['RP'+(index+1)].year && String(lineup['RP'+(index+1)].year) !== 'NaN' && String(lineup['RP'+(index+1)].year) !== '0' && !['TOP', '탑클래스'].includes(String(lineup['RP'+(index+1)].grade).toUpperCase())" class="text-neutral-300 ml-0.5 drop-shadow-sm">'{{ String(lineup['RP'+(index+1)].year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
                          </div>
                          <div class="text-[11px] sm:text-[14px] font-black text-amber-400 tracking-tight drop-shadow-md leading-tight mt-0.5">{{ calculatePlayerPower(lineup['RP'+(index+1)], 'RP'+(index+1)).toLocaleString() }}</div>
                       </div>
@@ -2108,10 +2108,10 @@ const getPlayerImage = (p: Raw | null) => {
                         <button class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/50 text-white hover:bg-red-500 flex items-center justify-center text-[14px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm" @click.stop="clearSlot('BENCH'+i)">×</button>
                         <img :src="getPlayerImage(lineup['BENCH'+i])" class="absolute inset-0 w-full h-full object-cover" @error="hideImage" />
                         <div class="absolute bottom-0 inset-x-0 h-[45%] bg-gradient-to-t from-black/95 via-black/50 to-transparent flex flex-col justify-end items-center pb-2 px-1 pointer-events-none">
-                           <!-- 🌟 수정됨: 이름 옆에 연도 표시 (탑클 제외) -->
+                           <!-- 🌟 수정됨: 연도 텍스트 크기 제한 삭제 (이름과 완벽 동기화) -->
                            <div class="text-[11px] sm:text-[13px] font-bold text-white w-full flex items-baseline justify-center truncate drop-shadow-md leading-tight">
                              {{ lineup['BENCH'+i].name }}
-                             <span v-if="lineup['BENCH'+i].year && String(lineup['BENCH'+i].year) !== 'NaN' && String(lineup['BENCH'+i].year) !== '0' && !['TOP', '탑클래스'].includes(String(lineup['BENCH'+i].grade).toUpperCase())" class="text-[9px] text-neutral-300/90 ml-0.5 tracking-tighter font-medium drop-shadow-sm">'{{ String(lineup['BENCH'+i].year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
+                             <span v-if="lineup['BENCH'+i].year && String(lineup['BENCH'+i].year) !== 'NaN' && String(lineup['BENCH'+i].year) !== '0' && !['TOP', '탑클래스'].includes(String(lineup['BENCH'+i].grade).toUpperCase())" class="text-neutral-300 ml-0.5 drop-shadow-sm">'{{ String(lineup['BENCH'+i].year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
                            </div>
                            <div class="text-[13px] sm:text-[15px] font-black text-neutral-300 tracking-tight drop-shadow-md leading-tight mt-0.5">{{ calculatePlayerPower(lineup['BENCH'+i], 'BENCH'+i).toLocaleString() }}</div>
                         </div>
@@ -2125,10 +2125,10 @@ const getPlayerImage = (p: Raw | null) => {
                         <button class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/50 text-white hover:bg-red-500 flex items-center justify-center text-[14px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm" @click.stop="clearSlot('BENCH'+(i+4))">×</button>
                         <img :src="getPlayerImage(lineup['BENCH'+(i+4)])" class="absolute inset-0 w-full h-full object-cover" @error="hideImage" />
                         <div class="absolute bottom-0 inset-x-0 h-[45%] bg-gradient-to-t from-black/95 via-black/50 to-transparent flex flex-col justify-end items-center pb-2 px-1 pointer-events-none">
-                           <!-- 🌟 수정됨: 이름 옆에 연도 표시 (탑클 제외) -->
+                           <!-- 🌟 수정됨: 연도 텍스트 크기 제한 삭제 (이름과 완벽 동기화) -->
                            <div class="text-[11px] sm:text-[13px] font-bold text-white w-full flex items-baseline justify-center truncate drop-shadow-md leading-tight">
                              {{ lineup['BENCH'+(i+4)].name }}
-                             <span v-if="lineup['BENCH'+(i+4)].year && String(lineup['BENCH'+(i+4)].year) !== 'NaN' && String(lineup['BENCH'+(i+4)].year) !== '0' && !['TOP', '탑클래스'].includes(String(lineup['BENCH'+(i+4)].grade).toUpperCase())" class="text-[9px] text-neutral-300/90 ml-0.5 tracking-tighter font-medium drop-shadow-sm">'{{ String(lineup['BENCH'+(i+4)].year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
+                             <span v-if="lineup['BENCH'+(i+4)].year && String(lineup['BENCH'+(i+4)].year) !== 'NaN' && String(lineup['BENCH'+(i+4)].year) !== '0' && !['TOP', '탑클래스'].includes(String(lineup['BENCH'+(i+4)].grade).toUpperCase())" class="text-neutral-300 ml-0.5 drop-shadow-sm">'{{ String(lineup['BENCH'+(i+4)].year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
                            </div>
                            <div class="text-[13px] sm:text-[15px] font-black text-neutral-300 tracking-tight drop-shadow-md leading-tight mt-0.5">{{ calculatePlayerPower(lineup['BENCH'+(i+4)], 'BENCH'+(i+4)).toLocaleString() }}</div>
                         </div>
