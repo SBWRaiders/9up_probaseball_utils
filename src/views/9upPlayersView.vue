@@ -287,16 +287,27 @@ const filteredPlayers = computed(() => {
             if (!(selected as string[]).some(sel => positionLc.includes(normalizePosition(sel).toLowerCase()))) return false
             continue
           }
+          // 🌟 핵심 개조 1: 이름 복합 검색 (쉼표=OR, 띄어쓰기=AND)
           if (field === 'name') {
-            const want = normText(selected)
-            if (want && !nameNorm.includes(want)) return false
-            continue
+             const searchGroups = String(selected).split(',').map(g => g.trim()).filter(Boolean)
+                 .map(g => g.split(/\s+/).map(t => normText(t)).filter(Boolean));
+             if (searchGroups.length > 0) {
+                const isMatch = searchGroups.some(tokens => tokens.every(t => nameNorm.includes(t)));
+                if (!isMatch) return false;
+             }
+             continue
           }
+          // 🌟 핵심 개조 2: 시너지 복합 검색 (쉼표=OR, 띄어쓰기=AND)
           if (field === 'synergy') {
-            const terms = Array.isArray(selected)
-                ? (selected as string[]).map(normText)
-                : String(selected).split(/[,\s]+/).filter(Boolean).map(normText)
-            if (terms.length && !terms.every(t => synergyNormSet.has(t))) return false
+            const rawSynergy = Array.isArray(selected) ? selected.join(',') : String(selected);
+            const searchGroups = rawSynergy.split(',').map(g => g.trim()).filter(Boolean)
+                 .map(g => g.split(/\s+/).map(t => normText(t)).filter(Boolean));
+            
+            if (searchGroups.length > 0) {
+               const hay = Array.from(synergyNormSet).join(' ');
+               const isMatch = searchGroups.some(tokens => tokens.every(t => hay.includes(t)));
+               if (!isMatch) return false;
+            }
             continue
           }
 
