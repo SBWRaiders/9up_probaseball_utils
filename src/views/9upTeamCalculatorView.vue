@@ -586,7 +586,10 @@ const toggleSynergyFilter = (s: string) => {
 
 // 🌟 2. 필터 검색 엔진 완벽 개조 (단어 띄어쓰기 AND 검색, 등급/별 필터 완벽 호환)
 const filteredPlayers = computed(() => {
-  const tokens = searchQuery.search ? searchQuery.search.split(/[\s,]+/).map(t=>t.trim()).filter(Boolean).map(normalizeText) : [];
+  // 🌟 수정됨: 쉼표(,)는 OR 검색으로, 띄어쓰기( )는 AND 검색으로 동작하도록 스마트 파싱
+  const searchGroups = searchQuery.search 
+    ? searchQuery.search.split(',').map(g => g.trim()).filter(Boolean).map(g => g.split(/\s+/).map(t => normalizeText(t)).filter(Boolean))
+    : [];
   
   return preparedPlayers.value.filter(({ raw: p, nameNormalized, teamLowerCase, positionLowerCase, yearsNumeric, synergyNormalizedSet }) => {
     
@@ -607,17 +610,19 @@ const filteredPlayers = computed(() => {
     if (searchQuery.position.length && !searchQuery.position.some(v => positionLowerCase.includes(toLowerCase(v)))) return false;
     if (searchQuery.synergy.length && !searchQuery.synergy.map(normalizeText).every(t => synergyNormalizedSet.has(t))) return false;
     
-    // ⑤ 검색창 텍스트 고장 수정: 띄어쓰기 시 AND 조건으로 똑똑하게 좁혀지도록 개선
-    if (tokens.length) {
+    // ⑤ 🌟 핵심: 쉼표(OR) & 띄어쓰기(AND) 복합 검색 엔진!
+    if (searchGroups.length > 0) {
       const hay = [nameNormalized, ...teamLowerCase, ...positionLowerCase, ...Array.from(synergyNormalizedSet), ...yearsNumeric.map(String)].join(' ');
-      // 사용자가 입력한 모든 검색어(token)가 정보(hay) 안에 전부 포함되어 있어야 통과!
-      if (!tokens.every(t => hay.includes(t))) return false;
+      
+      // 여러 그룹(쉼표로 구분) 중 단 하나라도, 그 그룹 안의 모든 키워드(띄어쓰기로 구분)를 가지고 있다면 통과!
+      const isMatch = searchGroups.some(tokens => tokens.every(t => hay.includes(t)));
+      if (!isMatch) return false;
     }
     
     return true;
   }).map(pp => pp.raw);
 })
-
+  
 const totalPlayers = computed(() => filteredPlayers.value.length)
 const totalPages = computed(() => Math.max(1, Math.ceil(totalPlayers.value / pageSize)))
 const paginatedPlayers = computed(() => filteredPlayers.value.slice((currentPage.value-1)*pageSize, (currentPage.value)*pageSize))
