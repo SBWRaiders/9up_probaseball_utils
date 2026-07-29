@@ -287,7 +287,7 @@ const filteredPlayers = computed(() => {
             if (!(selected as string[]).some(sel => positionLc.includes(normalizePosition(sel).toLowerCase()))) return false
             continue
           }
-          // 🌟 핵심 개조 1: 이름 복합 검색 (쉼표=OR, 띄어쓰기=AND)
+          // 🌟 이름 복합 검색 (쉼표=OR, 띄어쓰기=AND)
           if (field === 'name') {
              const searchGroups = String(selected).split(',').map(g => g.trim()).filter(Boolean)
                  .map(g => g.split(/\s+/).map(t => normText(t)).filter(Boolean));
@@ -297,16 +297,26 @@ const filteredPlayers = computed(() => {
              }
              continue
           }
-          // 🌟 핵심 개조 2: 시너지 복합 검색 (쉼표=OR, 띄어쓰기=AND)
+          // 🌟 시너지 복합 검색 (드롭다운 배열은 무조건 AND!)
           if (field === 'synergy') {
-            const rawSynergy = Array.isArray(selected) ? selected.join(',') : String(selected);
-            const searchGroups = rawSynergy.split(',').map(g => g.trim()).filter(Boolean)
-                 .map(g => g.split(/\s+/).map(t => normText(t)).filter(Boolean));
-            
-            if (searchGroups.length > 0) {
-               const hay = Array.from(synergyNormSet).join(' ');
-               const isMatch = searchGroups.some(tokens => tokens.every(t => hay.includes(t)));
-               if (!isMatch) return false;
+            if (Array.isArray(selected)) {
+              // 배열(드롭다운에서 여러 개 선택)일 경우: 모든 시너지를 다 가지고 있어야 함 (AND 검색)
+              const selectedTerms = selected.map(s => normText(String(s)));
+              const hasAll = selectedTerms.every(term => 
+                 Array.from(synergyNormSet).some(playerSyn => playerSyn.includes(term))
+              );
+              if (!hasAll) return false;
+            } else {
+              // 혹시나 텍스트로 검색이 들어올 경우: 쉼표(OR), 띄어쓰기(AND) 적용
+              const rawSynergy = String(selected);
+              const searchGroups = rawSynergy.split(',').map(g => g.trim()).filter(Boolean)
+                   .map(g => g.split(/\s+/).map(t => normText(t)).filter(Boolean));
+              
+              if (searchGroups.length > 0) {
+                 const hay = Array.from(synergyNormSet).join(' ');
+                 const isMatch = searchGroups.some(tokens => tokens.every(t => hay.includes(t)));
+                 if (!isMatch) return false;
+              }
             }
             continue
           }
@@ -322,7 +332,7 @@ const filteredPlayers = computed(() => {
       })
       .map(pp => pp.raw)
 })
-
+   
 /* =========================
    Pagination (derived)
 ========================= */
