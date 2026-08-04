@@ -1556,24 +1556,32 @@ const saveToLocalStorage = () => {
   alert(`'${saveName}' 라인업이 브라우저에 저장되었습니다.`)
 }
 
-// 🌟 다중 페이지 불러오기 (목록에서 선택) 🌟
-const loadFromLocalStorage = () => {
-  const saves = JSON.parse(localStorage.getItem('9up_multi_saves') || '{}')
-  const saveNames = Object.keys(saves)
-  if (saveNames.length === 0) {
-    alert('브라우저에 저장된 라인업이 없습니다.'); return;
+// 🌟 다중 페이지 불러오기 및 관리 (모달 UI로 업그레이드) 🌟
+const showSaveManager = ref(false);
+const savedLineupsList = ref<string[]>([]);
+
+const openSaveManager = () => {
+  const saves = JSON.parse(localStorage.getItem('9up_multi_saves') || '{}');
+  savedLineupsList.value = Object.keys(saves);
+  showSaveManager.value = true;
+};
+
+const loadSpecificSave = (saveName: string) => {
+  const saves = JSON.parse(localStorage.getItem('9up_multi_saves') || '{}');
+  if (saves[saveName]) {
+    applyLoadedData(saves[saveName]);
+    alert(`'${saveName}' 라인업을 성공적으로 불러왔습니다.`);
+    showSaveManager.value = false;
   }
-  const msg = '불러올 라인업 번호를 입력하세요:\n\n' + saveNames.map((n, i) => `${i + 1}. ${n}`).join('\n')
-  const choice = prompt(msg)
-  if (!choice) return;
-  const idx = parseInt(choice) - 1
-  if (idx >= 0 && idx < saveNames.length) {
-    applyLoadedData(saves[saveNames[idx]])
-    alert(`'${saveNames[idx]}' 라인업을 불러왔습니다.`)
-  } else {
-    alert('잘못된 번호입니다.')
-  }
-}
+};
+
+const deleteSpecificSave = (saveName: string) => {
+  if (!confirm(`정말로 '${saveName}' 라인업을 삭제하시겠습니까?\n(삭제 후에는 복구할 수 없습니다)`)) return;
+  const saves = JSON.parse(localStorage.getItem('9up_multi_saves') || '{}');
+  delete saves[saveName]; // 🌟 삭제 핵심 로직
+  localStorage.setItem('9up_multi_saves', JSON.stringify(saves));
+  savedLineupsList.value = Object.keys(saves); // 삭제 후 리스트 갱신
+};
 
 // 🌟 파일 내보내기 (다중 저장 리스트까지 싹 다 파일 안에 압축 저장!) 🌟
 const exportToFile = () => {
@@ -1830,7 +1838,7 @@ const getPlayerImage = (p: Raw | null) => {
           
           <div class="flex items-center bg-black/20 rounded-lg p-0.5 border border-white/10 shadow-inner">
              <button @click="saveToLocalStorage" class="p-1.5 text-blue-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="브라우저에 이름 지정하여 저장"><Save class="w-3.5 h-3.5" /><span class="text-[10px] font-bold hidden sm:block">다중 저장</span></button>
-             <button @click="loadFromLocalStorage" class="p-1.5 text-blue-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="브라우저에서 선택하여 불러오기"><FolderOpen class="w-3.5 h-3.5" /><span class="text-[10px] font-bold hidden sm:block">불러오기</span></button>
+             <button @click="openSaveManager" class="p-1.5 text-blue-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="저장된 라인업 불러오기/삭제"><FolderOpen class="w-3.5 h-3.5" /><span class="text-[10px] font-bold hidden sm:block">불러오기</span></button>
              <div class="w-px h-3 bg-white/20 mx-1"></div>
              <button @click="exportToFile" class="p-1.5 text-emerald-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="PC에 파일로 내보내기"><Download class="w-3.5 h-3.5" /><span class="text-[10px] font-bold hidden sm:block">파일 저장</span></button>
              <button @click="triggerFileInput" class="p-1.5 text-emerald-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="PC에서 파일 불러오기"><Upload class="w-3.5 h-3.5" /><span class="text-[10px] font-bold hidden sm:block">파일 열기</span></button>
@@ -2793,6 +2801,40 @@ const getPlayerImage = (p: Raw | null) => {
                                 sk.replace('번', '') 
                               }}
                            </div>
+                          <!-- 🌟 라인업 저장소 관리 (불러오기/삭제) 모달 🌟 -->
+  <div v-if="showSaveManager" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] border border-neutral-200 dark:border-neutral-700">
+      
+      <div class="flex justify-between items-center p-4 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-black">
+         <h2 class="text-base font-black tracking-tight flex items-center gap-2 text-neutral-800 dark:text-white">
+            <FolderOpen class="w-5 h-5 text-indigo-500" /> 라인업 불러오기 및 관리
+         </h2>
+         <button @click="showSaveManager = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold leading-none transition-colors">&times;</button>
+      </div>
+      
+      <div class="p-4 flex flex-col gap-2 overflow-y-auto custom-scrollbar bg-neutral-100 dark:bg-neutral-900">
+         <!-- 저장된 라인업이 없을 때 -->
+         <div v-if="savedLineupsList.length === 0" class="py-12 flex flex-col items-center justify-center text-neutral-400">
+             <FolderOpen class="w-12 h-12 mb-3 opacity-30" />
+             <div class="text-sm font-bold">브라우저에 저장된 라인업이 없습니다.</div>
+         </div>
+         
+         <!-- 라인업 목록 (불러오기 / 삭제 버튼 포함) -->
+         <div v-for="(name, idx) in savedLineupsList" :key="name" class="flex justify-between items-center bg-white dark:bg-neutral-800 p-3 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-sm transition-all hover:border-indigo-400 hover:shadow-md">
+            <div class="flex items-center gap-3 overflow-hidden">
+               <div class="w-6 h-6 shrink-0 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-xs font-black">{{ idx + 1 }}</div>
+               <span class="font-bold text-neutral-800 dark:text-neutral-200 text-sm truncate" title="name">{{ name }}</span>
+            </div>
+            
+            <div class="flex items-center gap-1.5 shrink-0 pl-2">
+               <button @click="loadSpecificSave(name)" class="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-500 rounded-lg text-xs font-black transition-colors border border-indigo-200 dark:border-indigo-800 shadow-sm">불러오기</button>
+               <button @click="deleteSpecificSave(name)" class="px-3 py-1.5 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 hover:bg-rose-600 hover:text-white dark:hover:bg-rose-500 rounded-lg text-xs font-black transition-colors border border-rose-200 dark:border-rose-800 shadow-sm">삭제</button>
+            </div>
+         </div>
+      </div>
+      
+    </div>
+  </div>
                         </template>
                      </div>
                      
