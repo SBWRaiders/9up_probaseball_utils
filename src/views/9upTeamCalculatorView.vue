@@ -2802,40 +2802,6 @@ const getPlayerImage = (p: Raw | null) => {
                                 sk.replace('번', '') 
                               }}
                            </div>
-                          <!-- 🌟 라인업 저장소 관리 (불러오기/삭제) 모달 🌟 -->
-  <div v-if="showSaveManager" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] border border-neutral-200 dark:border-neutral-700">
-      
-      <div class="flex justify-between items-center p-4 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-black">
-         <h2 class="text-base font-black tracking-tight flex items-center gap-2 text-neutral-800 dark:text-white">
-            <FolderOpen class="w-5 h-5 text-indigo-500" /> 라인업 불러오기 및 관리
-         </h2>
-         <button @click="showSaveManager = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold leading-none transition-colors">&times;</button>
-      </div>
-      
-      <div class="p-4 flex flex-col gap-2 overflow-y-auto custom-scrollbar bg-neutral-100 dark:bg-neutral-900">
-         <!-- 저장된 라인업이 없을 때 -->
-         <div v-if="savedLineupsList.length === 0" class="py-12 flex flex-col items-center justify-center text-neutral-400">
-             <FolderOpen class="w-12 h-12 mb-3 opacity-30" />
-             <div class="text-sm font-bold">브라우저에 저장된 라인업이 없습니다.</div>
-         </div>
-         
-         <!-- 라인업 목록 (불러오기 / 삭제 버튼 포함) -->
-         <div v-for="(name, idx) in savedLineupsList" :key="name" class="flex justify-between items-center bg-white dark:bg-neutral-800 p-3 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-sm transition-all hover:border-indigo-400 hover:shadow-md">
-            <div class="flex items-center gap-3 overflow-hidden">
-               <div class="w-6 h-6 shrink-0 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-xs font-black">{{ idx + 1 }}</div>
-               <span class="font-bold text-neutral-800 dark:text-neutral-200 text-sm truncate" title="name">{{ name }}</span>
-            </div>
-            
-            <div class="flex items-center gap-1.5 shrink-0 pl-2">
-               <button @click="loadSpecificSave(name)" class="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-500 rounded-lg text-xs font-black transition-colors border border-indigo-200 dark:border-indigo-800 shadow-sm">불러오기</button>
-               <button @click="deleteSpecificSave(name)" class="px-3 py-1.5 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 hover:bg-rose-600 hover:text-white dark:hover:bg-rose-500 rounded-lg text-xs font-black transition-colors border border-rose-200 dark:border-rose-800 shadow-sm">삭제</button>
-            </div>
-         </div>
-      </div>
-      
-    </div>
-  </div>
                         </template>
                      </div>
                      
@@ -2864,6 +2830,40 @@ const getPlayerImage = (p: Raw | null) => {
       <!-- 푸터 -->
       <div class="p-3 border-t border-neutral-800 bg-black flex justify-end">
          <button @click="showBattingOrderManager = false" class="px-8 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-lg shadow-md transition-colors text-sm">완료</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🌟 라인업 저장소 관리 (불러오기/삭제) 모달 🌟 -->
+  <div v-if="showSaveManager" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] border border-neutral-200 dark:border-neutral-700">
+      
+      <div class="flex justify-between items-center p-4 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-black">
+         <h2 class="text-base font-black tracking-tight flex items-center gap-2 text-neutral-800 dark:text-white">
+            <FolderOpen class="w-5 h-5 text-indigo-500" /> 라인업 불러오기 및 관리
+         </h2>
+         <button @click="showSaveManager = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold leading-none transition-colors">&times;</button>
+      </div>
+      
+      <div class="p-4 flex flex-col gap-2 overflow-y-auto custom-scrollbar bg-neutral-100 dark:bg-neutral-900">
+         <!-- 저장된 라인업이 없을 때 -->
+         <div v-if="savedLineupsList.length === 0" class="py-12 flex flex-col items-center justify-center text-neutral-400">
+             <FolderOpen class="w-12 h-12 mb-3 opacity-30" />
+             <div class="text-sm font-bold">브라우저에 저장된 라인업이 없습니다.</div>
+         </div>
+         
+         <!-- 라인업 목록 (불러오기 / 삭제 버튼 포함) -->
+         <div v-for="(name, idx) in savedLineupsList" :key="name" class="flex justify-between items-center bg-white dark:bg-neutral-800 p-3 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-sm transition-all hover:border-indigo-400 hover:shadow-md">
+            <div class="flex items-center gap-3 overflow-hidden">
+               <div class="w-6 h-6 shrink-0 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-xs font-black">{{ idx + 1 }}</div>
+               <span class="font-bold text-neutral-800 dark:text-neutral-200 text-sm truncate" :title="name">{{ name }}</span>
+            </div>
+            
+            <div class="flex items-center gap-1.5 shrink-0 pl-2">
+               <button @click="loadSpecificSave(name)" class="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-500 rounded-lg text-xs font-black transition-colors border border-indigo-200 dark:border-indigo-800 shadow-sm">불러오기</button>
+               <button @click="deleteSpecificSave(name)" class="px-3 py-1.5 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 hover:bg-rose-600 hover:text-white dark:hover:bg-rose-500 rounded-lg text-xs font-black transition-colors border border-rose-200 dark:border-rose-800 shadow-sm">삭제</button>
+            </div>
+         </div>
       </div>
     </div>
   </div>
