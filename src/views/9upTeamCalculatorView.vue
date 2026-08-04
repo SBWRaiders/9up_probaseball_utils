@@ -1556,7 +1556,7 @@ const saveToLocalStorage = () => {
   alert(`'${saveName}' 라인업이 브라우저에 저장되었습니다.`)
 }
 
-// 🌟 다중 페이지 불러오기 및 관리 (모달 UI로 업그레이드) 🌟
+// 🌟 다중 페이지 불러오기 및 관리 (모달 UI 엔진) 🌟
 const showSaveManager = ref(false);
 const savedLineupsList = ref<string[]>([]);
 
@@ -1578,9 +1578,9 @@ const loadSpecificSave = (saveName: string) => {
 const deleteSpecificSave = (saveName: string) => {
   if (!confirm(`정말로 '${saveName}' 라인업을 삭제하시겠습니까?\n(삭제 후에는 복구할 수 없습니다)`)) return;
   const saves = JSON.parse(localStorage.getItem('9up_multi_saves') || '{}');
-  delete saves[saveName]; // 🌟 삭제 핵심 로직
+  delete saves[saveName]; 
   localStorage.setItem('9up_multi_saves', JSON.stringify(saves));
-  savedLineupsList.value = Object.keys(saves); // 삭제 후 리스트 갱신
+  savedLineupsList.value = Object.keys(saves); // 삭제 후 리스트 실시간 갱신
 };
 
 // 🌟 파일 내보내기 (다중 저장 리스트까지 싹 다 파일 안에 압축 저장!) 🌟
@@ -1836,9 +1836,10 @@ const getPlayerImage = (p: Raw | null) => {
         <div class="flex items-center gap-2">
           <input type="file" ref="fileInput" accept=".json" class="hidden" @change="importFromFile" />
           
+          <!-- 상단 5종 버튼 메뉴바 -->
           <div class="flex items-center bg-black/20 rounded-lg p-0.5 border border-white/10 shadow-inner">
              <button @click="saveToLocalStorage" class="p-1.5 text-blue-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="브라우저에 이름 지정하여 저장"><Save class="w-3.5 h-3.5" /><span class="text-[10px] font-bold hidden sm:block">다중 저장</span></button>
-             <button @click="openSaveManager" class="p-1.5 text-blue-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="저장된 라인업 불러오기/삭제"><FolderOpen class="w-3.5 h-3.5" /><span class="text-[10px] font-bold hidden sm:block">불러오기</span></button>
+             <button @click="openSaveManager" class="p-1.5 text-blue-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="저장된 라인업 관리(불러오기/삭제)"><FolderOpen class="w-3.5 h-3.5" /><span class="text-[10px] font-bold hidden sm:block">불러오기</span></button>
              <div class="w-px h-3 bg-white/20 mx-1"></div>
              <button @click="exportToFile" class="p-1.5 text-emerald-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="PC에 파일로 내보내기"><Download class="w-3.5 h-3.5" /><span class="text-[10px] font-bold hidden sm:block">파일 저장</span></button>
              <button @click="triggerFileInput" class="p-1.5 text-emerald-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="PC에서 파일 불러오기"><Upload class="w-3.5 h-3.5" /><span class="text-[10px] font-bold hidden sm:block">파일 열기</span></button>
