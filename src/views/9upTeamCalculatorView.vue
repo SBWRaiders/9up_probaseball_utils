@@ -2701,47 +2701,80 @@ const getPlayerImage = (p: Raw | null) => {
       </div>
     </div>
   </div>
-  <!-- 🌟 라인업 타순 일괄 변경 모달 🌟 -->
-  <div v-if="showBattingOrderManager" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-    <div class="bg-white dark:bg-neutral-900 w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
-      <div class="flex justify-between items-center p-4 border-b bg-gradient-to-r from-indigo-600 to-blue-700 text-white">
-         <h2 class="text-lg font-black tracking-tight flex items-center gap-2">⚾ 라인업 타순 일괄 설정</h2>
-         <button @click="showBattingOrderManager = false" class="text-white/80 hover:text-white text-2xl font-bold">&times;</button>
+<!-- 🌟 라인업 타순 일괄 변경 모달 (인게임 UI 적용) 🌟 -->
+  <div v-if="showBattingOrderManager" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-2 sm:p-4 backdrop-blur-sm">
+    <div class="bg-neutral-900 w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-neutral-700">
+      
+      <!-- 헤더 -->
+      <div class="flex justify-between items-center p-3 sm:p-4 border-b border-neutral-800 bg-black">
+         <h2 class="text-lg font-black tracking-tight flex items-center gap-2 text-white">⚾ 라인업 타순 일괄 설정</h2>
+         <button @click="showBattingOrderManager = false" class="text-neutral-400 hover:text-white text-3xl font-bold leading-none transition-colors">&times;</button>
       </div>
-      <div class="p-4 flex flex-col gap-3 overflow-y-auto bg-neutral-100 dark:bg-neutral-900 custom-scrollbar">
-         <div class="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 p-2.5 rounded-lg border border-indigo-100 dark:border-indigo-800 shadow-sm">
-            💡 팁: 드롭다운 번호를 바꾸면, 기존에 그 번호를 차지하고 있던 선수와 자동으로 자리를 바꿉니다! (Swap)
+      
+      <!-- 바디 -->
+      <div class="p-3 sm:p-5 flex flex-col gap-4 overflow-y-auto custom-scrollbar bg-neutral-900">
+         
+         <div class="text-xs font-bold text-indigo-300 bg-indigo-900/30 p-3 rounded-xl border border-indigo-800/50 shadow-sm leading-relaxed">
+            💡 <strong>자리 교체(Swap):</strong> 드롭다운 번호를 바꾸면, 기존에 그 번호를 차지하고 있던 선수와 자동으로 자리를 바꿉니다!<br>
+            💡 <strong class="text-amber-400">타순 스킬 램프:</strong> 타순 전용 스킬(테이블세터, 클린업 등)이 장착된 선수는 조건 일치 시 좌측 하단 램프에 <span class="text-amber-400 drop-shadow-md">황금색 불</span>이 들어옵니다.
          </div>
-         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            <div v-for="pos in sortedBattersForOrder" :key="pos" class="flex items-center gap-3 bg-white dark:bg-neutral-800 p-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-sm relative overflow-hidden transition-all hover:border-indigo-400 hover:shadow-md">
-               <!-- 타순 번호 뱃지 -->
-               <div class="w-8 h-8 rounded-lg font-black flex items-center justify-center text-sm shrink-0 border"
-                    :class="playerBuffs[pos]?.battingOrder ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800' : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-400 border-neutral-200 dark:border-neutral-600'">
-                  {{ playerBuffs[pos]?.battingOrder ? playerBuffs[pos].battingOrder : '-' }}
+         
+         <!-- 🌟 큼직한 카드 그리드 (인게임처럼 5열 배치) -->
+         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+            <div v-for="pos in sortedBattersForOrder" :key="pos" class="flex flex-col bg-neutral-800/50 p-2 rounded-xl border border-neutral-700 shadow-lg relative overflow-hidden transition-all hover:border-indigo-500 hover:bg-neutral-800 group">
+               
+               <!-- 상단: 포지션 & 타순 선택 -->
+               <div class="flex justify-between items-center mb-2 px-1">
+                  <div class="text-xs font-black" :class="playerBuffs[pos]?.battingOrder ? 'text-indigo-400' : 'text-neutral-500'">{{ pos }}</div>
+                  <select :value="playerBuffs[pos]?.battingOrder" @change="handleBattingOrderChange(pos, Number($event.target.value) || null)" class="border border-neutral-600 rounded bg-black px-1 py-0.5 text-xs font-bold text-white outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer text-center">
+                     <option :value="null">미지정</option>
+                     <option v-for="i in 9" :key="i" :value="i">{{ i }}번</option>
+                  </select>
                </div>
-               <!-- 선수 사진 -->
-               <div class="w-10 h-14 sm:w-12 sm:h-16 shrink-0 rounded border border-neutral-200 dark:border-neutral-700 overflow-hidden bg-neutral-100 dark:bg-neutral-800 relative">
+               
+               <!-- 중앙: 선수 사진 및 타순 스킬 오버레이 -->
+               <div class="relative w-full aspect-[5/7] rounded-lg border border-neutral-700 overflow-hidden bg-black shadow-inner">
                   <img :src="getPlayerImage(lineup[pos])" class="absolute inset-0 w-full h-full object-contain" @error="hideImage"/>
+                  
+                  <!-- 🌟 타순 스킬 표시기 (조건부 점등) -->
+                  <div class="absolute bottom-1.5 left-1.5 flex flex-col gap-1 z-10">
+                     <template v-for="sk in playerBuffs[pos]?.selectedSkills || []" :key="sk">
+                        <!-- 타순 관련 스킬들만 필터링해서 보여줌 -->
+                        <div v-if="['1번', '2번', '3번', '4번', '5번', '6번', '7번', '8번', '9번', '테이블세터', '클린업', '하위타선'].includes(sk)" 
+                             class="flex items-center justify-center px-1.5 py-0.5 rounded text-[11px] font-black tracking-tighter border transition-all duration-300"
+                             :class="isSkillActive(sk, pos, playerBuffs[pos]?.battingOrder) 
+                                ? 'bg-gradient-to-b from-amber-300 to-amber-600 text-black border-amber-200 shadow-[0_0_8px_rgba(251,191,36,0.8)]' 
+                                : 'bg-gradient-to-b from-neutral-700 to-neutral-900 text-neutral-400 border-neutral-600 opacity-90'">
+                           <!-- 긴 스킬 이름 예쁘게 줄여쓰기 -->
+                           {{ 
+                             sk === '테이블세터' ? '1·2번' : 
+                             sk === '클린업' ? '3·4·5번' : 
+                             sk === '하위타선' ? '6~9번' : 
+                             sk 
+                           }}
+                        </div>
+                     </template>
+                  </div>
                </div>
-               <!-- 선수 정보 -->
-               <div class="flex-1 min-w-0 flex flex-col justify-center">
-                  <div class="text-[10px] font-bold text-neutral-500 dark:text-neutral-400">{{ pos }}</div>
-                  <div class="font-black text-sm text-neutral-800 dark:text-neutral-100 truncate">{{ lineup[pos]?.name }}</div>
+               
+               <!-- 하단: 선수 이름 -->
+               <div class="mt-2 text-center">
+                  <div class="font-black text-sm truncate px-1" :class="playerBuffs[pos]?.battingOrder ? 'text-white' : 'text-neutral-400'">{{ lineup[pos]?.name }}</div>
                </div>
-               <!-- 타순 선택 드롭다운 -->
-               <select :value="playerBuffs[pos]?.battingOrder" @change="handleBattingOrderChange(pos, Number($event.target.value) || null)" class="border border-neutral-300 dark:border-neutral-600 rounded-lg px-1.5 py-1.5 text-xs font-bold bg-neutral-50 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-200 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer shrink-0">
-                  <option :value="null">미지정</option>
-                  <option v-for="i in 9" :key="i" :value="i">{{ i }}번</option>
-               </select>
+               
             </div>
          </div>
-         <div v-if="sortedBattersForOrder.length === 0" class="py-10 flex flex-col items-center justify-center text-neutral-400">
-             <div class="text-4xl mb-2">⚾</div>
-             <div class="text-sm font-bold">라인업에 벤치 외 타자가 없습니다. 먼저 선수를 배치해 주세요!</div>
+         
+         <!-- 빈 화면 -->
+         <div v-if="sortedBattersForOrder.length === 0" class="py-12 flex flex-col items-center justify-center text-neutral-500">
+             <div class="text-4xl mb-3 opacity-50">⚾</div>
+             <div class="text-sm font-bold">라인업에 배치된 타자가 없습니다.</div>
          </div>
       </div>
-      <div class="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-800 flex justify-end">
-         <button @click="showBattingOrderManager = false" class="px-8 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-xl shadow-md transition-colors tracking-tight">닫기</button>
+      
+      <!-- 푸터 -->
+      <div class="p-3 border-t border-neutral-800 bg-black flex justify-end">
+         <button @click="showBattingOrderManager = false" class="px-8 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-lg shadow-md transition-colors text-sm">완료</button>
       </div>
     </div>
   </div>
