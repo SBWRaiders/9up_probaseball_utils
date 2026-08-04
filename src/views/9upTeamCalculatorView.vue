@@ -2701,65 +2701,77 @@ const getPlayerImage = (p: Raw | null) => {
       </div>
     </div>
   </div>
-<!-- 🌟 라인업 타순 일괄 변경 모달 (인게임 UI 적용) 🌟 -->
+<!-- 🌟 라인업 타순 일괄 변경 모달 (인게임 UI 완벽 적용) 🌟 -->
   <div v-if="showBattingOrderManager" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-2 sm:p-4 backdrop-blur-sm">
     <div class="bg-neutral-900 w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-neutral-700">
       
       <!-- 헤더 -->
       <div class="flex justify-between items-center p-3 sm:p-4 border-b border-neutral-800 bg-black">
-         <h2 class="text-lg font-black tracking-tight flex items-center gap-2 text-white">⚾ 라인업 타순 일괄 설정</h2>
+         <h2 class="text-base sm:text-lg font-black tracking-tight flex items-center gap-2 text-white">⚾ 라인업 타순 일괄 설정</h2>
          <button @click="showBattingOrderManager = false" class="text-neutral-400 hover:text-white text-3xl font-bold leading-none transition-colors">&times;</button>
       </div>
       
       <!-- 바디 -->
       <div class="p-3 sm:p-5 flex flex-col gap-4 overflow-y-auto custom-scrollbar bg-neutral-900">
          
-         <div class="text-xs font-bold text-indigo-300 bg-indigo-900/30 p-3 rounded-xl border border-indigo-800/50 shadow-sm leading-relaxed">
-            💡 <strong>자리 교체(Swap):</strong> 드롭다운 번호를 바꾸면, 기존에 그 번호를 차지하고 있던 선수와 자동으로 자리를 바꿉니다!<br>
-            💡 <strong class="text-amber-400">타순 스킬 램프:</strong> 타순 전용 스킬(테이블세터, 클린업 등)이 장착된 선수는 조건 일치 시 좌측 하단 램프에 <span class="text-amber-400 drop-shadow-md">황금색 불</span>이 들어옵니다.
+         <div class="text-[11px] sm:text-xs font-bold text-indigo-300 bg-indigo-900/30 p-3 rounded-xl border border-indigo-800/50 shadow-sm leading-relaxed">
+            💡 <strong>자리 교체(Swap):</strong> 드롭다운 번호를 바꾸면, 기존 선수와 자동으로 자리를 바꿉니다!<br>
+            💡 <strong class="text-amber-400">타순 스킬 램프:</strong> 타순 전용 스킬이 장착된 선수는 조건 일치 시 카드 내부에 <span class="text-amber-400 drop-shadow-md">황금색 램프</span>가 켜집니다.
          </div>
          
-         <!-- 🌟 큼직한 카드 그리드 (인게임처럼 5열 배치) -->
-         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-            <div v-for="pos in sortedBattersForOrder" :key="pos" class="flex flex-col bg-neutral-800/50 p-2 rounded-xl border border-neutral-700 shadow-lg relative overflow-hidden transition-all hover:border-indigo-500 hover:bg-neutral-800 group">
+         <!-- 🌟 이름, 파워를 내부로 넣어서 카드를 큼직하게 키운 랩핑 그리드 -->
+         <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2.5 sm:gap-4">
+            <div v-for="pos in sortedBattersForOrder" :key="pos" class="flex flex-col bg-neutral-800/80 p-1.5 sm:p-2 rounded-xl border border-neutral-700 shadow-lg relative transition-all hover:border-indigo-500 hover:bg-neutral-800 group">
                
-               <!-- 상단: 포지션 & 타순 선택 -->
-               <div class="flex justify-between items-center mb-2 px-1">
-                  <div class="text-xs font-black" :class="playerBuffs[pos]?.battingOrder ? 'text-indigo-400' : 'text-neutral-500'">{{ pos }}</div>
-                  <select :value="playerBuffs[pos]?.battingOrder" @change="handleBattingOrderChange(pos, Number($event.target.value) || null)" class="border border-neutral-600 rounded bg-black px-1 py-0.5 text-xs font-bold text-white outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer text-center">
-                     <option :value="null">미지정</option>
+               <!-- 상단: 포지션 & 타순 선택 (공간 최소화) -->
+               <div class="flex justify-between items-center mb-1.5 px-0.5 sm:px-1">
+                  <div class="text-[10px] sm:text-xs font-black" :class="playerBuffs[pos]?.battingOrder ? 'text-indigo-400' : 'text-neutral-500'">{{ pos }}</div>
+                  <select :value="playerBuffs[pos]?.battingOrder" @change="handleBattingOrderChange(pos, Number($event.target.value) || null)" class="border border-neutral-600 rounded bg-black px-1 sm:px-1.5 py-0.5 text-[10px] sm:text-xs font-bold text-white outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer text-center">
+                     <option :value="null">대기</option>
                      <option v-for="i in 9" :key="i" :value="i">{{ i }}번</option>
                   </select>
                </div>
                
-               <!-- 중앙: 선수 사진 및 타순 스킬 오버레이 -->
+               <!-- 중앙: 카드 본체 (이름, 파워, 스킬 모두 내부로 삽입) -->
                <div class="relative w-full aspect-[5/7] rounded-lg border border-neutral-700 overflow-hidden bg-black shadow-inner">
                   <img :src="getPlayerImage(lineup[pos])" class="absolute inset-0 w-full h-full object-contain" @error="hideImage"/>
                   
-                  <!-- 🌟 타순 스킬 표시기 (조건부 점등) -->
-                  <div class="absolute bottom-1.5 left-1.5 flex flex-col gap-1 z-10">
-                     <template v-for="sk in playerBuffs[pos]?.selectedSkills || []" :key="sk">
-                        <!-- 타순 관련 스킬들만 필터링해서 보여줌 -->
-                        <div v-if="['1번', '2번', '3번', '4번', '5번', '6번', '7번', '8번', '9번', '테이블세터', '클린업', '하위타선'].includes(sk)" 
-                             class="flex items-center justify-center px-1.5 py-0.5 rounded text-[11px] font-black tracking-tighter border transition-all duration-300"
-                             :class="isSkillActive(sk, pos, playerBuffs[pos]?.battingOrder) 
-                                ? 'bg-gradient-to-b from-amber-300 to-amber-600 text-black border-amber-200 shadow-[0_0_8px_rgba(251,191,36,0.8)]' 
-                                : 'bg-gradient-to-b from-neutral-700 to-neutral-900 text-neutral-400 border-neutral-600 opacity-90'">
-                           <!-- 긴 스킬 이름 예쁘게 줄여쓰기 -->
-                           {{ 
-                             sk === '테이블세터' ? '1·2번' : 
-                             sk === '클린업' ? '3·4·5번' : 
-                             sk === '하위타선' ? '6~9번' : 
-                             sk 
-                           }}
-                        </div>
-                     </template>
+                  <!-- 좌측 상단: 현재 타순 뱃지 -->
+                  <div class="absolute top-1 left-1 w-5 h-5 sm:w-6 sm:h-6 rounded bg-black/70 backdrop-blur-md text-white font-black flex items-center justify-center text-[10px] sm:text-xs border border-white/20 z-10 shadow-sm">
+                     {{ playerBuffs[pos]?.battingOrder || '-' }}
                   </div>
-               </div>
-               
-               <!-- 하단: 선수 이름 -->
-               <div class="mt-2 text-center">
-                  <div class="font-black text-sm truncate px-1" :class="playerBuffs[pos]?.battingOrder ? 'text-white' : 'text-neutral-400'">{{ lineup[pos]?.name }}</div>
+                  
+                  <!-- 하단 정보 오버레이 (인게임 방식: 위부터 스킬 -> 파워 -> 이름) -->
+                  <div class="absolute bottom-0 inset-x-0 h-[60%] bg-gradient-to-t from-black/95 via-black/60 to-transparent flex flex-col justify-end items-center pb-1.5 px-1 pointer-events-none">
+                     
+                     <!-- 🌟 타순 스킬 표시기 (조건부 점등) -->
+                     <div class="flex flex-col items-center gap-0.5 mb-1 z-10 w-full">
+                        <template v-for="sk in playerBuffs[pos]?.selectedSkills || []" :key="sk">
+                           <div v-if="['1번', '2번', '3번', '4번', '5번', '6번', '7번', '8번', '9번', '테이블세터', '클린업', '하위타선'].includes(sk)" 
+                                class="flex items-center justify-center px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-black tracking-tighter border transition-all duration-300 w-[90%] max-w-[50px] truncate"
+                                :class="isSkillActive(sk, pos, playerBuffs[pos]?.battingOrder) 
+                                   ? 'bg-gradient-to-b from-amber-500 to-amber-700 text-amber-100 border-amber-300 shadow-[0_0_6px_rgba(251,191,36,0.8)]' 
+                                   : 'bg-gradient-to-b from-neutral-800 to-neutral-950 text-neutral-500 border-neutral-600 opacity-80'">
+                              {{ 
+                                sk === '테이블세터' ? '1·2' : 
+                                sk === '클린업' ? '3·4·5' : 
+                                sk === '하위타선' ? '6~9' : 
+                                sk.replace('번', '') 
+                              }}
+                           </div>
+                        </template>
+                     </div>
+                     
+                     <!-- 파워 (노란색) -->
+                     <div class="text-[12px] sm:text-[14px] font-black text-amber-400 tracking-tight drop-shadow-md leading-none mb-0.5">
+                       {{ calculatePlayerPower(lineup[pos], pos).toLocaleString() }}
+                     </div>
+                     
+                     <!-- 이름 (흰색) -->
+                     <div class="text-[11px] sm:text-[13px] font-bold text-white w-full text-center truncate drop-shadow-md leading-none">
+                       {{ lineup[pos]?.name }}
+                     </div>
+                  </div>
                </div>
                
             </div>
