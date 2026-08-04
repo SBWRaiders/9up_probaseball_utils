@@ -60,6 +60,23 @@ const KOR_STAT_MAP: Record<string, string> = {
   '컨택': 'contact', '갭파워': 'gapPower', '홈런파워': 'homeRunPower', '선구': 'plateDiscipline', '삼진회피': 'strikeoutAvoidance',
   '무브먼트': 'movement', '장타억제': 'longHitSuppression', '홈런억제': 'homeRunSuppression', '컨트롤': 'control', '스터프': 'stuff'
 };
+// 🌟 타순 변경 모달 전용 드래그 앤 드롭 엔진
+const onBattingOrderDragStart = (e: DragEvent, pos: string) => {
+  e.dataTransfer?.setData('text/plain', pos);
+  if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+};
+
+const onBattingOrderDrop = (e: DragEvent, targetPos: string) => {
+  const sourcePos = e.dataTransfer?.getData('text/plain');
+  if (!sourcePos || sourcePos === targetPos) return;
+
+  // 두 선수의 타순 번호를 쏙 빼서 서로 맞교환(Swap)
+  const sourceOrder = playerBuffs.value[sourcePos]?.battingOrder;
+  const targetOrder = playerBuffs.value[targetPos]?.battingOrder;
+
+  if (playerBuffs.value[sourcePos]) playerBuffs.value[sourcePos].battingOrder = targetOrder || null;
+  if (playerBuffs.value[targetPos]) playerBuffs.value[targetPos].battingOrder = sourceOrder || null;
+};
 
 const getAvailableCareerStatTypes = (p: Raw | null, grade: string) => {
   if (!p) return [];
@@ -372,17 +389,29 @@ const initPlayerBuff = (slot: string, p: Raw) => {
   else if (grade === 'TOP') colBuff = 1200
   else if (grade === 'DGN') colBuff = 0
 
-  // 🌟 기존 슬롯(장비칸)에 있던 각인 데이터를 백업
   const existing = playerBuffs.value[slot]
   const savedImprintStats = existing ? { ...existing.imprintStats } : {}
   const savedImprintCoreStat = existing ? existing.imprintCoreStat : 0
   const savedUltimateImprintPercent = existing ? existing.ultimateImprintPercent : 0
   const savedImprintStarterPower = existing ? existing.imprintStarterPower : 0
-  
-  // 🌟 핵심 방어막: 기존에 장착된 각인 본체와 타순을 통째로 백업!
   const savedImprint1 = existing ? existing.imprint1 : null;
   const savedImprint2 = existing ? existing.imprint2 : null;
-  const savedBattingOrder = existing ? existing.battingOrder : null;
+  
+  // 🌟 타순 자동 배정 AI (신규)
+  let savedBattingOrder = existing ? existing.battingOrder : null;
+  if (!isPitcher(p) && !slot.startsWith('BENCH') && savedBattingOrder === null) {
+    const usedOrders = new Set();
+    ['LF', 'CF', 'RF', '3B', 'SS', '2B', '1B', 'C', 'DH'].forEach(s => {
+      if (playerBuffs.value[s]?.battingOrder) usedOrders.add(playerBuffs.value[s].battingOrder);
+    });
+    // 1번부터 9번까지 스캔해서 남는 번호가 있으면 즉시 부여!
+    for (let i = 1; i <= 9; i++) {
+      if (!usedOrders.has(i)) {
+        savedBattingOrder = i;
+        break;
+      }
+    }
+  }
 
   playerBuffs.value[slot] = {
     enhancementLevel: grade === 'DGN' ? 10 : 15, breakthroughLevel: 0,
@@ -392,14 +421,14 @@ const initPlayerBuff = (slot: string, p: Raw) => {
     imprintCoreStat: savedImprintCoreStat, 
     careerCoreStat: 0, 
     selectedSkills: [], 
-    battingOrder: savedBattingOrder, // 타순 유지
+    battingOrder: savedBattingOrder, // 🌟 타순 유지 및 자동 부여
     playerLevel: 100, collectionBuff: colBuff, careerLevelBuff: 149,
     binderBuff: 537, 
     ultimateImprintPercent: savedUltimateImprintPercent, 
     imprintStats: savedImprintStats, 
     careerStats: {},
-    imprint1: savedImprint1, // 🌟 각인 1 유지!
-    imprint2: savedImprint2  // 🌟 각인 2 유지!
+    imprint1: savedImprint1, 
+    imprint2: savedImprint2  
   }
 }
   
@@ -2721,7 +2750,12 @@ const getPlayerImage = (p: Raw | null) => {
          
          <!-- 🌟 이름, 파워를 내부로 넣어서 카드를 큼직하게 키운 랩핑 그리드 -->
          <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2.5 sm:gap-4">
-            <div v-for="pos in sortedBattersForOrder" :key="pos" class="flex flex-col bg-neutral-800/80 p-1.5 sm:p-2 rounded-xl border border-neutral-700 shadow-lg relative transition-all hover:border-indigo-500 hover:bg-neutral-800 group">
+            <div v-for="pos in sortedBattersForOrder" :key="pos" 
+                 draggable="true"
+                 @dragstart="onBattingOrderDragStart($event, pos)"
+                 @dragover.prevent
+                 @drop="onBattingOrderDrop($event, pos)"
+                 class="flex flex-col bg-neutral-800/80 p-1.5 sm:p-2 rounded-xl border border-neutral-700 shadow-lg relative transition-all hover:border-indigo-500 hover:bg-neutral-800 group cursor-grab active:cursor-grabbing">
                
                <!-- 상단: 포지션 & 타순 선택 (공간 최소화) -->
                <div class="flex justify-between items-center mb-1.5 px-0.5 sm:px-1">
