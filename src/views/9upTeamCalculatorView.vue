@@ -29,7 +29,37 @@ type CareerGrade = '루키' | '엘리트' | '프로' | '마스터';
 interface CareerSlot { grade: CareerGrade; statType: string; value: number; }
 
 const showCareerManager = ref(false);
+// 🌟 타순 일괄 변경 엔진 및 상태
+const showBattingOrderManager = ref(false);
+const batterLineupPositions = ['LF', 'CF', 'RF', '3B', 'SS', '2B', '1B', 'C', 'DH'];
 
+// 타순이 설정된 순서대로(1~9번) 정렬해서 보여주는 똑똑한 배열
+const sortedBattersForOrder = computed(() => {
+   const filled = batterLineupPositions.filter(pos => lineup.value[pos] && playerBuffs.value[pos]);
+   return filled.sort((a, b) => {
+      const orderA = playerBuffs.value[a].battingOrder || 99;
+      const orderB = playerBuffs.value[b].battingOrder || 99;
+      return orderA - orderB;
+   });
+});
+
+// 번호를 고르면 다른 선수와 겹치지 않게 자동으로 자리를 바꿔치기(Swap) 해주는 함수!
+const handleBattingOrderChange = (pos: string, newVal: number | null) => {
+  if (!playerBuffs.value[pos]) return;
+  if (newVal === null) {
+    playerBuffs.value[pos].battingOrder = null;
+    return;
+  }
+  // 이미 해당 번호를 차지하고 있는 다른 타자가 있는지 확인
+  const existingPos = batterLineupPositions.find(k => k !== pos && playerBuffs.value[k]?.battingOrder === newVal);
+  const oldOrder = playerBuffs.value[pos].battingOrder;
+  
+  // 만약 차지하고 있다면 서로 번호를 맞교환 (Swap!)
+  if (existingPos && playerBuffs.value[existingPos]) {
+     playerBuffs.value[existingPos].battingOrder = oldOrder;
+  }
+  playerBuffs.value[pos].battingOrder = newVal;
+};
 const KOR_STAT_MAP: Record<string, string> = {
   '컨택': 'contact', '갭파워': 'gapPower', '홈런파워': 'homeRunPower', '선구': 'plateDiscipline', '삼진회피': 'strikeoutAvoidance',
   '무브먼트': 'movement', '장타억제': 'longHitSuppression', '홈런억제': 'homeRunSuppression', '컨트롤': 'control', '스터프': 'stuff'
@@ -2028,14 +2058,15 @@ const getPlayerImage = (p: Raw | null) => {
                  </div>
                </div>
 
-               <div class="flex-1 w-full flex justify-center items-center gap-12 sm:gap-20 min-h-0">
+               <!-- 🌟 포수(C) / 지명타자(DH) / 그리고 새로 추가된 [타순 변경] 버튼 -->
+               <div class="flex-1 w-full flex justify-center items-center gap-6 sm:gap-10 min-h-0">
                  <div v-for="pos in ['C', 'DH']" :key="pos" @dragover.prevent @drop="onDrop($event, pos)" class="flex-1 max-w-[24%] h-full flex justify-center items-center min-w-0 min-h-0">
                    <div v-if="!lineup[pos]" class="relative h-full max-w-full aspect-[5/7] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === pos}" @click="selectSlot(pos)"><span class="text-[12px] font-bold">{{ pos }}</span></div>
                    <div v-else draggable="true" @dragstart="onDragStart($event, pos)" class="relative h-full max-w-full aspect-[5/7] border rounded-xl flex flex-col items-center p-0 cursor-pointer transition-all shadow-sm group overflow-hidden bg-white dark:bg-neutral-800" :class="{'border-indigo-500 ring-2 ring-indigo-400': selectedSlot === pos, 'border-neutral-200 dark:border-neutral-600': selectedSlot !== pos}" @click="selectSlot(pos)">
                       <div class="absolute top-2 left-2 text-xs font-black text-white drop-shadow-[0_1px_3px_rgba(0,0,0,1)] z-10">{{ pos }}</div>
                       <button class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/50 text-white hover:bg-red-500 flex items-center justify-center text-[14px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm" @click.stop="clearSlot(pos)">×</button>
                       <div v-if="playerBuffs[pos]?.battingOrder && !isPitcher(lineup[pos])" class="absolute top-2 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-orange-600 text-white px-2 py-0.5 rounded shadow-md z-10">{{ playerBuffs[pos].battingOrder }}번</div>
-                      <img :src="getPlayerImage(lineup[pos])" class="absolute inset-0 w-full h-full object-cover object-top" @error="hideImage" />
+                      <img :src="getPlayerImage(lineup[pos])" class="absolute inset-0 w-full h-full object-contain" @error="hideImage" />
                       <div class="absolute bottom-0 inset-x-0 h-[45%] bg-gradient-to-t from-black/95 via-black/50 to-transparent flex flex-col justify-end items-center pb-2 px-1 pointer-events-none">
                          <div class="text-[11px] sm:text-[13px] font-bold text-white w-full flex items-baseline justify-center truncate drop-shadow-md leading-tight">
                            {{ lineup[pos].name }}
@@ -2045,6 +2076,17 @@ const getPlayerImage = (p: Raw | null) => {
                       </div>
                    </div>
                  </div>
+
+                 <!-- 🌟 새로 추가된 '타순 변경' 전용 카드 버튼 -->
+                 <div class="flex-1 max-w-[24%] h-full flex justify-center items-center min-w-0 min-h-0 pl-2 sm:pl-4">
+                   <button @click="showBattingOrderManager = true" class="relative w-full h-full max-w-full aspect-[5/7] border-2 border-indigo-300 dark:border-indigo-700 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all bg-indigo-50/50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-500 dark:text-indigo-400 group shadow-sm">
+                      <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-indigo-200 dark:bg-indigo-800 flex items-center justify-center mb-1 sm:mb-2 group-hover:scale-110 transition-transform">
+                         <Users class="w-4 h-4 sm:w-5 sm:h-5 text-indigo-700 dark:text-indigo-300" />
+                      </div>
+                      <span class="text-[10px] sm:text-xs font-black tracking-tight">타순 변경</span>
+                   </button>
+                 </div>
+               </div>
                </div>
             </div>
 
@@ -2661,6 +2703,50 @@ const getPlayerImage = (p: Raw | null) => {
          </div>
          
          <button @click="setAllCareersToMaster" class="mt-2 text-xs bg-indigo-600 text-white py-2.5 rounded-lg font-bold hover:bg-indigo-700 shadow-md transition-colors">🚀 일괄 마스터(6칸) 자동 등급 세팅</button>
+      </div>
+    </div>
+  </div>
+  <!-- 🌟 라인업 타순 일괄 변경 모달 🌟 -->
+  <div v-if="showBattingOrderManager" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+    <div class="bg-white dark:bg-neutral-900 w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+      <div class="flex justify-between items-center p-4 border-b bg-gradient-to-r from-indigo-600 to-blue-700 text-white">
+         <h2 class="text-lg font-black tracking-tight flex items-center gap-2">⚾ 라인업 타순 일괄 설정</h2>
+         <button @click="showBattingOrderManager = false" class="text-white/80 hover:text-white text-2xl font-bold">&times;</button>
+      </div>
+      <div class="p-4 flex flex-col gap-3 overflow-y-auto bg-neutral-100 dark:bg-neutral-900 custom-scrollbar">
+         <div class="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 p-2.5 rounded-lg border border-indigo-100 dark:border-indigo-800 shadow-sm">
+            💡 팁: 드롭다운 번호를 바꾸면, 기존에 그 번호를 차지하고 있던 선수와 자동으로 자리를 바꿉니다! (Swap)
+         </div>
+         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div v-for="pos in sortedBattersForOrder" :key="pos" class="flex items-center gap-3 bg-white dark:bg-neutral-800 p-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-sm relative overflow-hidden transition-all hover:border-indigo-400 hover:shadow-md">
+               <!-- 타순 번호 뱃지 -->
+               <div class="w-8 h-8 rounded-lg font-black flex items-center justify-center text-sm shrink-0 border"
+                    :class="playerBuffs[pos]?.battingOrder ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800' : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-400 border-neutral-200 dark:border-neutral-600'">
+                  {{ playerBuffs[pos]?.battingOrder ? playerBuffs[pos].battingOrder : '-' }}
+               </div>
+               <!-- 선수 사진 -->
+               <div class="w-10 h-14 sm:w-12 sm:h-16 shrink-0 rounded border border-neutral-200 dark:border-neutral-700 overflow-hidden bg-neutral-100 dark:bg-neutral-800 relative">
+                  <img :src="getPlayerImage(lineup[pos])" class="absolute inset-0 w-full h-full object-contain" @error="hideImage"/>
+               </div>
+               <!-- 선수 정보 -->
+               <div class="flex-1 min-w-0 flex flex-col justify-center">
+                  <div class="text-[10px] font-bold text-neutral-500 dark:text-neutral-400">{{ pos }}</div>
+                  <div class="font-black text-sm text-neutral-800 dark:text-neutral-100 truncate">{{ lineup[pos]?.name }}</div>
+               </div>
+               <!-- 타순 선택 드롭다운 -->
+               <select :value="playerBuffs[pos]?.battingOrder" @change="handleBattingOrderChange(pos, Number($event.target.value) || null)" class="border border-neutral-300 dark:border-neutral-600 rounded-lg px-1.5 py-1.5 text-xs font-bold bg-neutral-50 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-200 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer shrink-0">
+                  <option :value="null">미지정</option>
+                  <option v-for="i in 9" :key="i" :value="i">{{ i }}번</option>
+               </select>
+            </div>
+         </div>
+         <div v-if="sortedBattersForOrder.length === 0" class="py-10 flex flex-col items-center justify-center text-neutral-400">
+             <div class="text-4xl mb-2">⚾</div>
+             <div class="text-sm font-bold">라인업에 벤치 외 타자가 없습니다. 먼저 선수를 배치해 주세요!</div>
+         </div>
+      </div>
+      <div class="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-800 flex justify-end">
+         <button @click="showBattingOrderManager = false" class="px-8 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-xl shadow-md transition-colors tracking-tight">닫기</button>
       </div>
     </div>
   </div>
