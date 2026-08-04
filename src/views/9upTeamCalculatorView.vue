@@ -33,7 +33,6 @@ const showCareerManager = ref(false);
 const showBattingOrderManager = ref(false);
 const batterLineupPositions = ['LF', 'CF', 'RF', '3B', 'SS', '2B', '1B', 'C', 'DH'];
 
-// 타순이 설정된 순서대로(1~9번) 정렬해서 보여주는 똑똑한 배열
 const sortedBattersForOrder = computed(() => {
    const filled = batterLineupPositions.filter(pos => lineup.value[pos] && playerBuffs.value[pos]);
    return filled.sort((a, b) => {
@@ -43,18 +42,15 @@ const sortedBattersForOrder = computed(() => {
    });
 });
 
-// 번호를 고르면 다른 선수와 겹치지 않게 자동으로 자리를 바꿔치기(Swap) 해주는 함수!
 const handleBattingOrderChange = (pos: string, newVal: number | null) => {
   if (!playerBuffs.value[pos]) return;
   if (newVal === null) {
     playerBuffs.value[pos].battingOrder = null;
     return;
   }
-  // 이미 해당 번호를 차지하고 있는 다른 타자가 있는지 확인
   const existingPos = batterLineupPositions.find(k => k !== pos && playerBuffs.value[k]?.battingOrder === newVal);
   const oldOrder = playerBuffs.value[pos].battingOrder;
   
-  // 만약 차지하고 있다면 서로 번호를 맞교환 (Swap!)
   if (existingPos && playerBuffs.value[existingPos]) {
      playerBuffs.value[existingPos].battingOrder = oldOrder;
   }
@@ -2027,7 +2023,7 @@ const getPlayerImage = (p: Raw | null) => {
                       <div class="absolute top-2 left-2 text-xs font-black text-white drop-shadow-[0_1px_3px_rgba(0,0,0,1)] z-10">{{ pos }}</div>
                       <button class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/50 text-white hover:bg-red-500 flex items-center justify-center text-[14px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm" @click.stop="clearSlot(pos)">×</button>
                       <div v-if="playerBuffs[pos]?.battingOrder && !isPitcher(lineup[pos])" class="absolute top-2 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-orange-600 text-white px-2 py-0.5 rounded shadow-md z-10">{{ playerBuffs[pos].battingOrder }}번</div>
-                      <img :src="getPlayerImage(lineup[pos])" class="absolute inset-0 w-full h-full object-cover object-top" @error="hideImage" />
+                      <img :src="getPlayerImage(lineup[pos])" class="absolute inset-0 w-full h-full object-contain" @error="hideImage" />
                       <div class="absolute bottom-0 inset-x-0 h-[45%] bg-gradient-to-t from-black/95 via-black/50 to-transparent flex flex-col justify-end items-center pb-2 px-1 pointer-events-none">
                          <div class="text-[11px] sm:text-[13px] font-bold text-white w-full flex items-baseline justify-center truncate drop-shadow-md leading-tight">
                            {{ lineup[pos].name }}
@@ -2046,7 +2042,7 @@ const getPlayerImage = (p: Raw | null) => {
                       <div class="absolute top-2 left-2 text-xs font-black text-white drop-shadow-[0_1px_3px_rgba(0,0,0,1)] z-10">{{ pos }}</div>
                       <button class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/50 text-white hover:bg-red-500 flex items-center justify-center text-[14px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm" @click.stop="clearSlot(pos)">×</button>
                       <div v-if="playerBuffs[pos]?.battingOrder && !isPitcher(lineup[pos])" class="absolute top-2 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-orange-600 text-white px-2 py-0.5 rounded shadow-md z-10">{{ playerBuffs[pos].battingOrder }}번</div>
-                      <img :src="getPlayerImage(lineup[pos])" class="absolute inset-0 w-full h-full object-cover object-top" @error="hideImage" />
+                      <img :src="getPlayerImage(lineup[pos])" class="absolute inset-0 w-full h-full object-contain" @error="hideImage" />
                       <div class="absolute bottom-0 inset-x-0 h-[45%] bg-gradient-to-t from-black/95 via-black/50 to-transparent flex flex-col justify-end items-center pb-2 px-1 pointer-events-none">
                          <div class="text-[11px] sm:text-[13px] font-bold text-white w-full flex items-baseline justify-center truncate drop-shadow-md leading-tight">
                            {{ lineup[pos].name }}
@@ -2058,7 +2054,7 @@ const getPlayerImage = (p: Raw | null) => {
                  </div>
                </div>
 
-               <!-- 🌟 포수(C) / 지명타자(DH) / 그리고 새로 추가된 [타순 변경] 버튼 -->
+               <!-- 🌟 포수(C), 지명타자(DH), 타순 변경 버튼 -->
                <div class="flex-1 w-full flex justify-center items-center gap-6 sm:gap-10 min-h-0">
                  <div v-for="pos in ['C', 'DH']" :key="pos" @dragover.prevent @drop="onDrop($event, pos)" class="flex-1 max-w-[24%] h-full flex justify-center items-center min-w-0 min-h-0">
                    <div v-if="!lineup[pos]" class="relative h-full max-w-full aspect-[5/7] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === pos}" @click="selectSlot(pos)"><span class="text-[12px] font-bold">{{ pos }}</span></div>
@@ -2077,7 +2073,7 @@ const getPlayerImage = (p: Raw | null) => {
                    </div>
                  </div>
 
-                 <!-- 🌟 새로 추가된 '타순 변경' 전용 카드 버튼 -->
+                 <!-- 🌟 타순 변경 전용 카드 버튼 -->
                  <div class="flex-1 max-w-[24%] h-full flex justify-center items-center min-w-0 min-h-0 pl-2 sm:pl-4">
                    <button @click="showBattingOrderManager = true" class="relative w-full h-full max-w-full aspect-[5/7] border-2 border-indigo-300 dark:border-indigo-700 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all bg-indigo-50/50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-500 dark:text-indigo-400 group shadow-sm">
                       <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-indigo-200 dark:bg-indigo-800 flex items-center justify-center mb-1 sm:mb-2 group-hover:scale-110 transition-transform">
@@ -2086,7 +2082,6 @@ const getPlayerImage = (p: Raw | null) => {
                       <span class="text-[10px] sm:text-xs font-black tracking-tight">타순 변경</span>
                    </button>
                  </div>
-               </div>
                </div>
             </div>
 
@@ -2097,10 +2092,10 @@ const getPlayerImage = (p: Raw | null) => {
                 <div class="flex-1 w-full flex justify-center items-start gap-1 sm:gap-1.5 min-h-0">
                   <div v-for="(role, index) in ['1선발', '2선발', '3선발', '4선발', '5선발']" :key="'SP'+(index+1)" @dragover.prevent @drop="onDrop($event, 'SP'+(index+1))" class="flex-1 max-w-[19.6%] h-full flex flex-col justify-start items-center min-w-0 min-h-0 gap-1.5">
                    <div class="text-[11px] sm:text-[12px] font-black text-indigo-700 dark:text-indigo-400 tracking-tight shrink-0">{{ role }}</div>
-                   <div v-if="!lineup['SP'+(index+1)]" class="relative w-full max-h-full aspect-[5/7] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === 'SP'+(index+1)}" @click="selectSlot('SP'+(index+1))">
+                   <div v-if="!lineup['SP'+(index+1)]" class="relative h-full max-w-full aspect-[5/7] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === 'SP'+(index+1)}" @click="selectSlot('SP'+(index+1))">
                       <span class="text-[24px] font-black opacity-30">+</span>
                    </div>
-                   <div v-else draggable="true" @dragstart="onDragStart($event, 'SP'+(index+1))" class="relative w-full max-h-full aspect-[5/7] border rounded-xl flex flex-col items-center p-0 cursor-pointer transition-all shadow-sm group overflow-hidden bg-neutral-100 dark:bg-neutral-800" :class="{'border-indigo-500 ring-2 ring-indigo-400': selectedSlot === 'SP'+(index+1), 'border-neutral-200 dark:border-neutral-600': selectedSlot !== 'SP'+(index+1)}" @click="selectSlot('SP'+(index+1))">
+                   <div v-else draggable="true" @dragstart="onDragStart($event, 'SP'+(index+1))" class="relative h-full max-w-full aspect-[5/7] border rounded-xl flex flex-col items-center p-0 cursor-pointer transition-all shadow-sm group overflow-hidden bg-neutral-100 dark:bg-neutral-800" :class="{'border-indigo-500 ring-2 ring-indigo-400': selectedSlot === 'SP'+(index+1), 'border-neutral-200 dark:border-neutral-600': selectedSlot !== 'SP'+(index+1)}" @click="selectSlot('SP'+(index+1))">
                       <button class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/50 text-white hover:bg-red-500 flex items-center justify-center text-[14px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm" @click.stop="clearSlot('SP'+(index+1))">×</button>
                       <img :src="getPlayerImage(lineup['SP'+(index+1)])" class="absolute inset-0 w-full h-full object-cover" @error="hideImage" />
                       <div class="absolute bottom-0 inset-x-0 h-[45%] bg-gradient-to-t from-black/95 via-black/50 to-transparent flex flex-col justify-end items-center pb-2 px-1 pointer-events-none">
@@ -2120,10 +2115,10 @@ const getPlayerImage = (p: Raw | null) => {
                 <div class="flex-1 w-full flex justify-center items-start gap-1 sm:gap-1.5 min-h-0">
                   <div v-for="(role, index) in ['승리 계투', '숏 릴리프', '셋업', '마무리', '롱 맨', '추격조']" :key="'RP'+(index+1)" @dragover.prevent @drop="onDrop($event, 'RP'+(index+1))" class="flex-1 max-w-[16.4%] h-full flex flex-col justify-start items-center min-w-0 min-h-0 gap-1.5">
                    <div class="text-[10px] sm:text-[11px] font-black text-indigo-700 dark:text-indigo-400 tracking-tight shrink-0 whitespace-nowrap">{{ role }}</div>
-                   <div v-if="!lineup['RP'+(index+1)]" class="relative w-full max-h-full aspect-[5/7] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === 'RP'+(index+1)}" @click="selectSlot('RP'+(index+1))">
+                   <div v-if="!lineup['RP'+(index+1)]" class="relative h-full max-w-full aspect-[5/7] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === 'RP'+(index+1)}" @click="selectSlot('RP'+(index+1))">
                        <span class="text-[20px] font-black opacity-30">+</span>
                    </div>
-                   <div v-else draggable="true" @dragstart="onDragStart($event, 'RP'+(index+1))" class="relative w-full max-h-full aspect-[5/7] border rounded-xl flex flex-col items-center p-0 cursor-pointer transition-all shadow-sm group overflow-hidden bg-neutral-100 dark:bg-neutral-800" :class="{'border-indigo-500 ring-2 ring-indigo-400': selectedSlot === 'RP'+(index+1), 'border-neutral-200 dark:border-neutral-600': selectedSlot !== 'RP'+(index+1)}" @click="selectSlot('RP'+(index+1))">
+                   <div v-else draggable="true" @dragstart="onDragStart($event, 'RP'+(index+1))" class="relative h-full max-w-full aspect-[5/7] border rounded-xl flex flex-col items-center p-0 cursor-pointer transition-all shadow-sm group overflow-hidden bg-neutral-100 dark:bg-neutral-800" :class="{'border-indigo-500 ring-2 ring-indigo-400': selectedSlot === 'RP'+(index+1), 'border-neutral-200 dark:border-neutral-600': selectedSlot !== 'RP'+(index+1)}" @click="selectSlot('RP'+(index+1))">
                       <button class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/50 text-white hover:bg-red-500 flex items-center justify-center text-[14px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm" @click.stop="clearSlot('RP'+(index+1))">×</button>
                       <img :src="getPlayerImage(lineup['RP'+(index+1)])" class="absolute inset-0 w-full h-full object-cover" @error="hideImage" />
                       <div class="absolute bottom-0 inset-x-0 h-[45%] bg-gradient-to-t from-black/95 via-black/50 to-transparent flex flex-col justify-end items-center pb-1.5 px-1 pointer-events-none">
