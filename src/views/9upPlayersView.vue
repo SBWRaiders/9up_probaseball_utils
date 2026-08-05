@@ -20,12 +20,12 @@ const pageSize = 20
 /* =========================
    Fields
 ========================= */
-const inputFields = ['name', 'team', 'year', 'skill', 'synergy'] as const
+const inputFields = ['name', 'team', 'year', 'skill', 'synergy', 'excludedSynergy'] as const
 const rarityField = 'rarity'
 const fieldLabels: Record<string, string> = {
   grade: '등급',
   rarity: '레어도',
-  name: '이름',
+  name: '이름 (부분 일치)',
   team: '팀',
   year: '연도',
   position: '포지션',
@@ -33,7 +33,8 @@ const fieldLabels: Record<string, string> = {
   throwHand: '투구 유형',
   pitchingType: '투구 폼',
   skill: '스킬',
-  synergy: '시너지',
+  synergy: '시너지 (정확 일치 AND)',
+  excludedSynergy: '제외할 시너지 (NOT)',
   enhancedSkill: '강화 스킬',
   search: '이름/시너지 검색'
 }
@@ -297,17 +298,15 @@ const filteredPlayers = computed(() => {
              }
              continue
           }
-          // 🌟 시너지 복합 검색 (드롭다운 배열은 무조건 AND!)
+          // 🌟 시너지 복합 검색 (포함해야 하는 조건: AND)
           if (field === 'synergy') {
             if (Array.isArray(selected)) {
-              // 배열(드롭다운에서 여러 개 선택)일 경우: 모든 시너지를 다 가지고 있어야 함 (AND 검색)
               const selectedTerms = selected.map(s => normText(String(s)));
               const hasAll = selectedTerms.every(term => 
                  Array.from(synergyNormSet).some(playerSyn => playerSyn.includes(term))
               );
               if (!hasAll) return false;
             } else {
-              // 혹시나 텍스트로 검색이 들어올 경우: 쉼표(OR), 띄어쓰기(AND) 적용
               const rawSynergy = String(selected);
               const searchGroups = rawSynergy.split(',').map(g => g.trim()).filter(Boolean)
                    .map(g => g.split(/\s+/).map(t => normText(t)).filter(Boolean));
@@ -316,6 +315,30 @@ const filteredPlayers = computed(() => {
                  const hay = Array.from(synergyNormSet).join(' ');
                  const isMatch = searchGroups.some(tokens => tokens.every(t => hay.includes(t)));
                  if (!isMatch) return false;
+              }
+            }
+            continue
+          }
+
+          // 🌟 새로 추가됨: 시너지 제외 검색 (제외할 조건: NOT)
+          if (field === 'excludedSynergy') {
+            if (Array.isArray(selected)) {
+              const excludedTerms = selected.map(s => normText(String(s)));
+              const hasAny = excludedTerms.some(term => 
+                 Array.from(synergyNormSet).some(playerSyn => playerSyn.includes(term))
+              );
+              // 제외 키워드가 하나라도 포함되어 있으면 즉시 검색 탈락!
+              if (hasAny) return false; 
+            } else {
+              const rawExcluded = String(selected);
+              const searchGroups = rawExcluded.split(',').map(g => g.trim()).filter(Boolean)
+                   .map(g => g.split(/\s+/).map(t => normText(t)).filter(Boolean));
+              
+              if (searchGroups.length > 0) {
+                 const hay = Array.from(synergyNormSet).join(' ');
+                 // 제외 키워드 그룹에 하나라도 일치하면 검색 탈락!
+                 const isMatch = searchGroups.some(tokens => tokens.every(t => hay.includes(t)));
+                 if (isMatch) return false; 
               }
             }
             continue
