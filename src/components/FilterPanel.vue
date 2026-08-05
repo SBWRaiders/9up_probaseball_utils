@@ -299,6 +299,16 @@ const wrapperRef = ref<HTMLElement | null>(null)
 const selectedTags = ref<string[]>([])
 const synergyActiveIndex = ref(-1)
 
+/* =========================
+   제외할 시너지 (NOT) 자동완성 & 태그
+========================= */
+const excludedInput = ref('')
+const showExcludedSuggestions = ref(false)
+const isExcludedComposing = ref(false)
+const excludedWrapperRef = ref<HTMLElement | null>(null)
+const selectedExcludedTags = ref<string[]>([])
+const excludedActiveIndex = ref(-1)
+
 const filteredSuggestions = computed(() => {
   const q = norm(searchInput.value)
   const picked = new Set(selectedTags.value.map(norm))
@@ -308,17 +318,33 @@ const filteredSuggestions = computed(() => {
     .slice(0, 100)
 })
 
+const filteredExcludedSuggestions = computed(() => {
+  const q = norm(excludedInput.value)
+  const picked = new Set(selectedExcludedTags.value.map(norm))
+  return (props.synergyOptions ?? [])
+    .filter((s) => !picked.has(norm(s)))
+    .filter((s) => (q ? norm(s).includes(q) : true))
+    .slice(0, 100)
+})
+
+// 🌟 데이터 동기화 시 excludedSynergy까지 확실하게 연결
 const syncFromParent = () => {
   const src = props.filters?.synergy
   selectedTags.value = Array.isArray(src) ? [...new Set(src.filter(Boolean).map(String))] : []
+  
+  const srcExc = props.filters?.excludedSynergy
+  selectedExcludedTags.value = Array.isArray(srcExc) ? [...new Set(srcExc.filter(Boolean).map(String))] : []
 }
 watch(() => props.filters, syncFromParent, { immediate: true, deep: true })
 
 const pushToParent = () => {
   const next = { ...(props.filters ?? {}) }
   next.synergy = [...selectedTags.value]
+  next.excludedSynergy = [...selectedExcludedTags.value]
   emit('update:filters', next)
 }
+
+// 🌟 일반 시너지 함수
 const addTag = (v: string) => {
   const val = (v ?? '').trim()
   if (!val) return
@@ -361,6 +387,49 @@ const onSynergyBackspace = (e: KeyboardEvent) => {
   }
 }
 
+// 🌟 제외할 시너지 함수
+const addExcludedTag = (v: string) => {
+  const val = (v ?? '').trim()
+  if (!val) return
+  if (!selectedExcludedTags.value.map(norm).includes(norm(val))) {
+    selectedExcludedTags.value.push(val)
+    pushToParent()
+  }
+  excludedInput.value = ''
+  showExcludedSuggestions.value = true
+  excludedActiveIndex.value = -1
+}
+const removeExcludedTag = (v: string) => {
+  selectedExcludedTags.value = selectedExcludedTags.value.filter((t) => norm(t) !== norm(v))
+  pushToParent()
+}
+const moveExcluded = (delta: number) => {
+  if (!showExcludedSuggestions.value || filteredExcludedSuggestions.value.length === 0) return
+  const n = filteredExcludedSuggestions.value.length
+  excludedActiveIndex.value = ((excludedActiveIndex.value + delta + n) % n)
+}
+const commitExcludedByEnter = () => {
+  if (isExcludedComposing.value) return
+  if (showExcludedSuggestions.value && excludedActiveIndex.value >= 0) return addExcludedTag(filteredExcludedSuggestions.value[excludedActiveIndex.value])
+  if (excludedInput.value.trim()) addExcludedTag(excludedInput.value)
+  else if (filteredExcludedSuggestions.value.length) addExcludedTag(filteredExcludedSuggestions.value[0])
+}
+const onExcludedCompositionStart = () => (isExcludedComposing.value = true)
+const onExcludedCompositionEnd = () => (isExcludedComposing.value = false)
+const onExcludedInputDelimit = (e: Event) => {
+  const v = (e.target as HTMLInputElement).value
+  const parts = v.split(/[,;]+|\s{2,}/).map((s) => s.trim()).filter(Boolean)
+  if (parts.length > 1) {
+    parts.forEach(addExcludedTag)
+    excludedInput.value = ''
+  }
+}
+const onExcludedBackspace = (e: KeyboardEvent) => {
+  if ((e.target as HTMLInputElement).value === '' && selectedExcludedTags.value.length > 0) {
+    removeExcludedTag(selectedExcludedTags.value[selectedExcludedTags.value.length - 1])
+  }
+}
+
 /* =========================
    바깥 클릭 → 드롭다운 닫기
 ========================= */
@@ -368,6 +437,7 @@ const onDocClick = (ev: MouseEvent) => {
   const t = ev.target as Node
   if (nameWrapperRef.value && !nameWrapperRef.value.contains(t)) showNameSuggestions.value = false
   if (wrapperRef.value && !wrapperRef.value.contains(t)) showSuggestions.value = false
+  if (excludedWrapperRef.value && !excludedWrapperRef.value.contains(t)) showExcludedSuggestions.value = false
 }
 onMounted(() => document.addEventListener('click', onDocClick))
 onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
@@ -487,7 +557,7 @@ defineExpose({
                         @click="toggleFilter('position', pos === '1B' ? 'B1' : pos === '2B' ? 'B2' : pos === '3B' ? 'B3' : pos)"
                         :class="['px-2 py-1.5 rounded-md text-sm font-bold border transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500',
                                  isSelected('position', (pos === '1B' ? 'B1' : pos === '2B' ? 'B2' : pos === '3B' ? 'B3' : pos)) ? 'bg-blue-500 text-white border-blue-500 shadow-md hover:bg-blue-600 dark:bg-blue-700 dark:border-blue-700 dark:hover:bg-blue-600'
-                                                                                                                                  : 'bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 border-neutral-200 dark:border-neutral-600 hover:bg-blue-50 dark:hover:bg-neutral-700 hover:border-blue-300 dark:hover:border-neutral-500']">
+                                                                                                                                   : 'bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 border-neutral-200 dark:border-neutral-600 hover:bg-blue-50 dark:hover:bg-neutral-700 hover:border-blue-300 dark:hover:border-neutral-500']">
                   {{ pos }}
                 </button>
               </div>
@@ -754,13 +824,14 @@ defineExpose({
 
     </div> <!-- /grid -->
 
-    <!-- ===== Toolbar: 이름 · 시너지 ===== -->
+    <!-- 🌟 수정됨: Toolbar: 이름 · 시너지 · 제외 시너지 (3칸) -->
     <section class="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white/95 dark:bg-neutral-900/95 shadow-sm p-4">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <!-- 이름 -->
         <div>
+          <!-- 🌟 중복 텍스트 버그 수정 -->
           <label class="block text-xs font-semibold text-neutral-600 dark:text-neutral-300 mb-1">
-            {{ fieldLabels?.name || '이름' }} (부분 일치)
+            {{ fieldLabels?.name || '이름 (부분 일치)' }}
           </label>
           <div ref="nameWrapperRef" class="relative">
             <input
@@ -797,10 +868,11 @@ defineExpose({
           </div>
         </div>
 
-        <!-- 시너지 -->
+        <!-- 포함할 시너지 -->
         <div>
+          <!-- 🌟 중복 텍스트 버그 수정 -->
           <label class="block text-xs font-semibold text-neutral-600 dark:text-neutral-300 mb-1">
-            {{ fieldLabels?.synergy || '시너지' }} (정확 일치 AND)
+            {{ fieldLabels?.synergy || '시너지 (정확 일치 AND)' }}
           </label>
           <div ref="wrapperRef" class="relative">
             <input
@@ -814,7 +886,7 @@ defineExpose({
               @keydown.backspace="onSynergyBackspace"
               @compositionstart="onCompositionStart"
               @compositionend="onCompositionEnd"
-              placeholder="시너지를 입력해 주세요."
+              placeholder="포함할 시너지를 입력해 주세요."
               class="w-full bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-600 rounded-md px-3 py-2 pr-10 text-sm text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
               role="combobox" aria-expanded="showSuggestions" aria-controls="syn-suggest"
             />
@@ -852,6 +924,63 @@ defineExpose({
             </span>
           </div>
         </div>
+
+        <!-- 🌟 새롭게 추가된 제외할 시너지 (NOT) 칸 -->
+        <div>
+          <label class="block text-xs font-semibold text-rose-600 dark:text-rose-400 mb-1">
+            {{ fieldLabels?.excludedSynergy || '제외할 시너지 (NOT)' }}
+          </label>
+          <div ref="excludedWrapperRef" class="relative">
+            <input
+              v-model="excludedInput"
+              @input="onExcludedInputDelimit"
+              @focus="showExcludedSuggestions = true"
+              @keydown.down.prevent="moveExcluded(1)"
+              @keydown.up.prevent="moveExcluded(-1)"
+              @keydown.enter.prevent="commitExcludedByEnter"
+              @keydown.esc="showExcludedSuggestions = false"
+              @keydown.backspace="onExcludedBackspace"
+              @compositionstart="onExcludedCompositionStart"
+              @compositionend="onExcludedCompositionEnd"
+              placeholder="제외할 시너지를 입력해 주세요."
+              class="w-full bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-600 rounded-md px-3 py-2 pr-10 text-sm text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition-colors"
+              role="combobox" aria-expanded="showExcludedSuggestions" aria-controls="exc-suggest"
+            />
+            <Search class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-rose-400 dark:text-rose-500 pointer-events-none" />
+
+            <ul
+              v-if="showExcludedSuggestions && filteredExcludedSuggestions.length"
+              id="exc-suggest"
+              class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-rose-200 dark:border-rose-800 rounded-md shadow-lg max-h-56 md:max-h-64 overflow-y-auto"
+              role="listbox"
+            >
+              <li
+                v-for="(suggestion, idx) in filteredExcludedSuggestions"
+                :key="suggestion"
+                @mousedown.prevent="addExcludedTag(suggestion)"
+                @mouseenter="excludedActiveIndex = idx"
+                class="px-3 py-2 text-sm cursor-pointer hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
+                :class="idx === excludedActiveIndex ? 'bg-rose-50 dark:bg-rose-900/20' : ''"
+                role="option"
+                :aria-selected="idx === excludedActiveIndex"
+              >
+                {{ suggestion }}
+              </li>
+            </ul>
+          </div>
+
+          <!-- 제외할 시너지 태그 뱃지 -->
+          <div class="flex flex-wrap gap-2 mt-2">
+            <span
+              v-for="tag in selectedExcludedTags" :key="tag"
+              class="flex items-center gap-1 px-2 py-1 text-xs bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-200 rounded-full transition-colors border border-rose-200 dark:border-rose-800"
+            >
+              {{ tag }}
+              <button @click="removeExcludedTag(tag)" class="text-rose-600 hover:text-rose-800 dark:text-rose-300 dark:hover:text-rose-100 transition-colors font-black" aria-label="태그 제거">&times;</button>
+            </span>
+          </div>
+        </div>
+
       </div>
     </section>
 
