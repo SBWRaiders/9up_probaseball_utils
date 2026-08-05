@@ -1709,10 +1709,13 @@ const activeFilterCount = computed(() => {
   return count;
 });
 
+// 🌟 1. 강화스킬(패시브)을 장착 스킬 목록에서 완벽 분리
 const getAvailableSkills = (p: Raw | null) => {
   if (!p) return [];
   const excluded = ['야전사령관', '인사이드 워크', '투수 리드', '친화력', '도루 저지'];
-  const rawSkills = [...getArray(p.skill), ...getArray(p.enhancedSkill)];
+  // 기존: ...getArray(p.enhancedSkill) 가 섞여 있어서 중복 버그 발생!
+  // 수정: 장착 가능한 일반 skill 데이터만 가져오도록 깔끔하게 분리!
+  const rawSkills = [...getArray(p.skill)];
   return Array.from(new Set(rawSkills.filter(s => !excluded.includes(s))));
 }
 
@@ -2555,13 +2558,22 @@ const getPlayerImage = (p: Raw | null) => {
                   </div>
                 </div>
 
-                <!-- 스킬 설정 -->
+                <!-- 🌟 스킬 설정 (패시브와 장착 스킬 완벽 분리) -->
                 <div class="flex-shrink-0 bg-white p-2.5 rounded-xl border border-neutral-200 shadow-sm">
                   <div class="flex items-center justify-between mb-2">
                     <h3 class="text-[15px] font-bold text-neutral-900 flex items-center gap-1"><Star class="w-4 h-4 text-amber-400"/> 스킬 장착</h3>
                     <span class="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-black">{{ playerBuffs[selectedSlot].selectedSkills.length }} / {{ getMaxSkillCount(lineup[selectedSlot]) }}</span>
                   </div>
                   <div class="flex flex-wrap gap-1.5">
+                    
+                    <!-- 🌟 1. 카드 고유 패시브 (강화스킬) 영역 - 장착/해제 불가 고정 뱃지 -->
+                    <template v-for="enh in getArray(lineup[selectedSlot]?.enhancedSkill)" :key="'enh_'+enh">
+                      <div class="px-2 py-1 text-xs font-black border rounded-lg bg-gradient-to-r from-amber-50 to-orange-50 text-amber-800 border-amber-300 shadow-sm flex items-center gap-1 cursor-default" title="카드의 고유 패시브입니다 (장착 슬롯 비차지)">
+                        <Sparkles class="w-3 h-3 text-amber-500" /> {{ enh }} (고유)
+                      </div>
+                    </template>
+
+                    <!-- 🌟 2. 클릭해서 장착할 수 있는 진짜 스킬 목록 -->
                     <button 
                       v-for="sk in getAvailableSkills(lineup[selectedSlot])" 
                       :key="sk"
@@ -2577,8 +2589,6 @@ const getPlayerImage = (p: Raw | null) => {
                     </button>
                   </div>
                 </div>
-              </div>
-          </div>
             
             <div v-else class="flex h-full items-center justify-center text-neutral-400 text-sm flex-col gap-2">
               <UserCheck class="w-10 h-10 opacity-20"/>
