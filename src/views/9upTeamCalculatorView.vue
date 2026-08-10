@@ -2838,7 +2838,8 @@ const getPlayerImage = (p: Raw | null) => {
                         
                         <!-- 스킬 이미지 -->
                         <div class="w-12 h-12 shrink-0 rounded-lg overflow-hidden bg-[#1a1a1a] border border-indigo-300/50 dark:border-indigo-700/50 shadow-inner flex items-center justify-center relative">
-                          <div v-if="matchEnhancedSkillImage(enh)" :class="['w-full h-full bg-center bg-no-repeat scale-[1.2]', matchEnhancedSkillImage(enh)]" style="background-size: contain;"></div>
+                          <!-- CSS 스프라이트를 그대로 가져와서 크기만 살짝 키웁니다. background-size를 강제하면 바둑판이 됩니다! -->
+                          <div v-if="matchEnhancedSkillImage(enh)" :class="[matchEnhancedSkillImage(enh), 'transform scale-[1.2] sm:scale-[1.3]']"></div>
                           <Sparkles v-else class="w-6 h-6 text-indigo-400" />
                           <div class="absolute bottom-0 inset-x-0 bg-black/70 text-[8px] font-black text-center text-white pb-0.5 pt-0.5 leading-none tracking-tighter backdrop-blur-sm border-t border-white/10">
                             고유
