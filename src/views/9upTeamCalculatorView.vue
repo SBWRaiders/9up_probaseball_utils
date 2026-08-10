@@ -757,23 +757,53 @@ const getEnhancedSkillEffect = (skillName: string, level: number) => {
   const data = enhancedSkillData.value.find((s) => s.enhanced_skill === skillName);
   if (!data) return '효과 정보를 불러올 수 없습니다.';
 
-  // 1. 배열 형태인 경우 (effects[level])
-  if (Array.isArray(data.effects)) return data.effects[level] || data.effects[data.effects.length - 1] || '';
-  
-  // 2. 객체 형태인 경우 (effects[level] 또는 effects["15"])
-  if (data.effects && typeof data.effects === 'object') {
-     return data.effects[level] || data.effects[String(level)] || Object.values(data.effects).pop() || '';
+  // 1. data.effects가 존재하는 경우
+  if (data.effects) {
+    if (Array.isArray(data.effects)) {
+       if (data.effects[level]) return data.effects[level];
+       return data.effects[data.effects.length - 1] || '';
+    }
+    if (typeof data.effects === 'object') {
+       if (data.effects[level]) return data.effects[level];
+       if (data.effects[String(level)]) return data.effects[String(level)];
+    }
+  }
+
+  // 2. data.levels가 존재하는 경우
+  if (data.levels) {
+    if (Array.isArray(data.levels)) {
+       if (data.levels[level]) return data.levels[level];
+    }
+    if (typeof data.levels === 'object') {
+       if (data.levels[level]) return data.levels[level];
+       if (data.levels[String(level)]) return data.levels[String(level)];
+    }
+  }
+
+  // 3. 플랫한 키 매칭 (ex: lv0, lv15, level_15, effect15)
+  const exactKeys = [
+    `lv${level}`, `lv_${level}`, `Lv${level}`, `Lv_${level}`, `level${level}`, `level_${level}`,
+    `effect${level}`, `effect_${level}`, `eff${level}`, `eff_${level}`
+  ];
+  for (const k of exactKeys) {
+    if (data[k]) return data[k];
   }
   
-  // 3. 직접 키로 있는 경우 (effect_15 등)
-  if (data[`effect_${level}`]) return data[`effect_${level}`];
-  if (data[`level_${level}`]) return data[`level_${level}`];
-  if (data[`lv_${level}`]) return data[`lv_${level}`];
-  if (data[`Lv_${level}`]) return data[`Lv_${level}`];
-  if (data[`Lv.${level}`]) return data[`Lv.${level}`];
-  
-  // 4. 그냥 description
-  return data.description || '효과가 등록되지 않았습니다.';
+  // 4. "기본" (레벨 0일 때)
+  if (level === 0) {
+     if (data['기본']) return data['기본'];
+     if (data.base) return data.base;
+     if (data.base_effect) return data.base_effect;
+  }
+
+  // 5. 정규식으로 키 탐색 (숫자 포함된 키)
+  const keys = Object.keys(data);
+  const regex = new RegExp(`(lv|level|effect).*\b${level}\b`, 'i');
+  const matchedKey = keys.find(k => regex.test(k));
+  if (matchedKey && typeof data[matchedKey] === 'string') return data[matchedKey];
+
+  // 그래도 못 찾으면 설명(description) 반환
+  return data.description || '해당 레벨의 효과 데이터가 없습니다.';
 }
 
 const filteredSkillOptions = computed(() => {
