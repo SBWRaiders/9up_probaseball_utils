@@ -182,10 +182,6 @@ const STAT_LABELS: Record<string, string> = {
 const batterStats = ['contact', 'gapPower', 'homeRunPower', 'plateDiscipline', 'strikeoutAvoidance', 'stealing', 'baseRunning', 'defense'];
 const pitcherStats = ['movement', 'longHitSuppression', 'homeRunSuppression', 'control', 'stuff', 'defense', 'pitchLimit', 'runnerControl'];
 
-// 🌟 레이더 차트 및 스탯 박스 표시용 (인게임 순서 완벽 고증)
-const radarBatterStats = ['contact', 'homeRunPower', 'strikeoutAvoidance', 'plateDiscipline', 'gapPower'];
-const radarPitcherStats = ['movement', 'homeRunSuppression', 'stuff', 'control', 'longHitSuppression'];
-  
 const isPitcher = (p: Raw | null) => {
   if (!p) return false;
   const pos = String(p.position || '').toUpperCase();
@@ -667,9 +663,39 @@ const skillSearchText = ref('')
 const excludedFilterSkills = ['마무리', '셋업맨', '숏릴리프', '승리계투'];
 const skillOptions = computed(() => Object.keys(SKILL_EFFECTS).filter(sk => !excludedFilterSkills.includes(sk)).sort());
 const normalSkillData = ref<any[]>([])
+const enhancedSkillData = ref<any[]>([]) // 🌟 추가됨: 강화스킬 DB
 
 const matchSkillInfo = (skill: string) => {
   return normalSkillData.value.find((s) => s.skill === skill)?.image || ''
+}
+
+// 🌟 강화스킬 이미지 매칭
+const matchEnhancedSkillImage = (skill: string) => {
+  return enhancedSkillData.value.find((s) => s.enhanced_skill === skill)?.image || ''
+}
+
+// 🌟 강화스킬 효과 매칭 (레벨 연동)
+const getEnhancedSkillEffect = (skillName: string, level: number) => {
+  const data = enhancedSkillData.value.find((s) => s.enhanced_skill === skillName);
+  if (!data) return '효과 정보를 불러올 수 없습니다.';
+
+  // 1. 배열 형태인 경우 (effects[level])
+  if (Array.isArray(data.effects)) return data.effects[level] || data.effects[data.effects.length - 1] || '';
+  
+  // 2. 객체 형태인 경우 (effects[level] 또는 effects["15"])
+  if (data.effects && typeof data.effects === 'object') {
+     return data.effects[level] || data.effects[String(level)] || Object.values(data.effects).pop() || '';
+  }
+  
+  // 3. 직접 키로 있는 경우 (effect_15 등)
+  if (data[`effect_${level}`]) return data[`effect_${level}`];
+  if (data[`level_${level}`]) return data[`level_${level}`];
+  if (data[`lv_${level}`]) return data[`lv_${level}`];
+  if (data[`Lv_${level}`]) return data[`Lv_${level}`];
+  if (data[`Lv.${level}`]) return data[`Lv.${level}`];
+  
+  // 4. 그냥 description
+  return data.description || '효과가 등록되지 않았습니다.';
 }
 
 const filteredSkillOptions = computed(() => {
@@ -1423,86 +1449,6 @@ const computedPlayerStats = computed(() => {
   return result
 })
 
-// 🌟 레이더 차트 (오각형) 그리기 도우미 함수들 (인게임 2000 고정 스케일)
-const RADAR_CENTER = 100;
-const RADAR_RADIUS = 60; // 2000 스탯일 때의 기준 반지름
-const RADAR_ANGLES = [0, 72, 144, 216, 288];
-
-// 🌟 1. 거미줄 생성 (4줄: 500, 1000, 1500, 2000)
-const getRadarWebPoints = (level: number) => {
-  const r = (RADAR_RADIUS / 4) * level; 
-  return RADAR_ANGLES.map(angle => {
-    const rad = (angle - 90) * (Math.PI / 180);
-    return `${RADAR_CENTER + r * Math.cos(rad)},${RADAR_CENTER + r * Math.sin(rad)}`;
-  }).join(' ');
-};
-
-// 🌟 2. 스탯 꼭짓점 계산 (2000 넘으면 뚫고 나감)
-const getRadarStatPoints = (slot: string) => {
-  if (!slot || !computedPlayerStats.value[slot]) return '';
-  const p = lineup.value[slot];
-  if (!p) return '';
-  const isPit = isPitcher(p);
-  const coreStats = isPit ? radarPitcherStats : radarBatterStats;
-  const stats = computedPlayerStats.value[slot].stats;
-  const values = coreStats.map(s => stats[s] || 0);
-
-  return values.map((val, i) => {
-    // 자동 스케일링(Math.max)을 없애고 2000을 고정 기준으로 나눔!
-    const r = (val / 2000) * RADAR_RADIUS; 
-    const rad = (RADAR_ANGLES[i] - 90) * (Math.PI / 180);
-    return `${RADAR_CENTER + r * Math.cos(rad)},${RADAR_CENTER + r * Math.sin(rad)}`;
-  }).join(' ');
-};
-
-// 🌟 3. 스탯 점(동그라미) 계산
-const getRadarStatDots = (slot: string) => {
-  if (!slot || !computedPlayerStats.value[slot]) return [];
-  const p = lineup.value[slot];
-  if (!p) return [];
-  const isPit = isPitcher(p);
-  const coreStats = isPit ? radarPitcherStats : radarBatterStats;
-  const stats = computedPlayerStats.value[slot].stats;
-  const values = coreStats.map(s => stats[s] || 0);
-
-  return values.map((val, i) => {
-    const r = (val / 2000) * RADAR_RADIUS; // 동일하게 2000 기준
-    const rad = (RADAR_ANGLES[i] - 90) * (Math.PI / 180);
-    return { x: RADAR_CENTER + r * Math.cos(rad), y: RADAR_CENTER + r * Math.sin(rad) };
-  });
-};
-
-// 🌟 4. 스탯 텍스트 위치 계산
-const getRadarLabels = (slot: string) => {
-  if (!slot || !computedPlayerStats.value[slot]) return [];
-  const p = lineup.value[slot];
-  if (!p) return [];
-  const isPit = isPitcher(p);
-  const coreStats = isPit ? radarPitcherStats : radarBatterStats;
-  const stats = computedPlayerStats.value[slot].stats;
-
-  return coreStats.map((s, i) => {
-    const val = stats[s] || 0;
-    const r = (val / 2000) * RADAR_RADIUS;
-    // 스탯이 2000을 뚫고 나가면 글씨가 가려지지 않게 같이 밀어냄!
-    const labelRadius = Math.max(RADAR_RADIUS, r) + 18;
-
-    const rad = (RADAR_ANGLES[i] - 90) * (Math.PI / 180);
-    let x = RADAR_CENTER + labelRadius * Math.cos(rad);
-    let y = RADAR_CENTER + labelRadius * Math.sin(rad);
-    
-    // 미세 위치 보정
-    if (i === 0) y -= 2;
-    if (i === 2 || i === 3) y += 6;
-    
-    return { 
-      text: `${STAT_LABELS[s] || s} ${stats[s] || 0}`, 
-      x, 
-      y 
-    };
-  });
-};
-  
 const calculatePlayerPower = (p: Raw, slot: string) => computedPlayerStats.value[slot]?.power || 0
 
 const teamTotalPower = computed(() => {
@@ -1892,11 +1838,12 @@ onMounted(async () => {
   }
 
   try {
-    const [csvRes, synRes, teamRes, skillRes] = await Promise.all([
-      fetch('/DB/player_sorted.csv', { cache: 'no-store' }), fetch('/DB/synergys.json', { cache: 'no-store' }), fetch('/DB/setting.json', { cache: 'no-store' }), fetch('/DB/normal_skill.json', { cache: 'no-store' })
+    const [csvRes, synRes, teamRes, skillRes, enhRes] = await Promise.all([
+      fetch('/DB/player_sorted.csv', { cache: 'no-store' }), fetch('/DB/synergys.json', { cache: 'no-store' }), fetch('/DB/setting.json', { cache: 'no-store' }), fetch('/DB/normal_skill.json', { cache: 'no-store' }), fetch('/DB/enhanced_skill.json', { cache: 'no-store' })
     ])
     if (teamRes.ok) teamData.value = await teamRes.json()
     if (skillRes.ok) normalSkillData.value = await skillRes.json()
+    if (enhRes.ok) enhancedSkillData.value = await enhRes.json()
     const text = await csvRes.text()
     
     // 원본 코드로 깔끔하게 복구
@@ -2586,65 +2533,17 @@ const getPlayerImage = (p: Raw | null) => {
               <!-- 🌟 2. 전체 스크롤 영역 (여백 깎고 글자는 키움) -->
               <div class="flex-1 overflow-y-auto custom-scrollbar pr-1.5 pb-2 space-y-2.5">
                 
-                <!-- 🌟 최종 세부 능력치 (오각형 레이더 차트 적용) -->
-                <div v-if="computedPlayerStats[selectedSlot]" class="bg-neutral-50 dark:bg-[#222222] p-4 rounded-xl border border-neutral-200 dark:border-neutral-700/80 shadow-sm flex-shrink-0 flex flex-col items-center relative overflow-hidden">
-                  
-                  <!-- 상단 종합 능력 타이틀 -->
-                  <div class="w-full flex justify-between items-center mb-6 z-10 px-1">
-                    <span class="text-[15px] font-bold text-neutral-800 dark:text-neutral-100">종합 능력</span>
-                    <span class="text-2xl font-black text-blue-600 dark:text-blue-400 tracking-tighter">{{ calculatePlayerPower(lineup[selectedSlot], selectedSlot).toLocaleString() }}</span>
-                  </div>
-
-                  <!-- 🌟 레이더 차트 SVG -->
-                  <div class="relative w-full max-w-[280px] aspect-square flex items-center justify-center mb-4 z-10 mx-auto">
-                     <svg viewBox="0 0 200 200" class="w-full h-full overflow-visible">
-                        <!-- 차트를 화면 중앙으로 맞추기 위한 위치 보정 -->
-                        <g transform="translate(0, -5)">
-                           <!-- 배경 거미줄 (4단계: 500, 1000, 1500, 2000) -->
-<polygon v-for="level in 4" :key="'web'+level" :points="getRadarWebPoints(level)" fill="none" stroke="currentColor" class="text-neutral-300 dark:text-neutral-600/70" stroke-width="0.7" />
-                           <!-- 중심선 -->
-                           <line v-for="angle in [0, 72, 144, 216, 288]" :key="'line'+angle" x1="100" y1="100" :x2="100 + 60 * Math.cos((angle - 90) * Math.PI / 180)" :y2="100 + 60 * Math.sin((angle - 90) * Math.PI / 180)" stroke="currentColor" class="text-neutral-300 dark:text-neutral-600/70" stroke-width="0.7" />
-                           
-                           <!-- 실제 능력치 다각형 (파란색) -->
-                           <polygon :points="getRadarStatPoints(selectedSlot)" fill="rgba(59, 130, 246, 0.4)" stroke="#3b82f6" stroke-width="2" stroke-linejoin="round" />
-                           
-                           <!-- 꼭짓점 점 (파란색) -->
-                           <circle v-for="(pt, i) in getRadarStatDots(selectedSlot)" :key="'dot'+i" :cx="pt.x" :cy="pt.y" r="3.5" fill="#3b82f6" />
-                           
-                           <!-- 레이더 차트 스탯 텍스트 -->
-                           <text v-for="(lbl, i) in getRadarLabels(selectedSlot)" :key="'lbl'+i" :x="lbl.x" :y="lbl.y" class="fill-neutral-700 dark:fill-neutral-200" font-size="10" font-weight="bold" text-anchor="middle" dominant-baseline="middle">{{ lbl.text }}</text>
-                        </g>
-                     </svg>
-                  </div>
-
-                  <!-- 🌟 하단 스탯 박스 그리드 (인게임 고증: 레이더 차트 배열 순서 적용) -->
-                  <div class="w-full flex flex-col gap-2.5 z-10">
-                     
-                     <!-- 코어 5대 스탯 (상단 4개, 하단 1개 배치) -->
-                     <div class="grid grid-cols-2 gap-2">
-                        <div v-for="stat in (isPitcher(lineup[selectedSlot]) ? radarPitcherStats.slice(0,4) : radarBatterStats.slice(0,4))" :key="stat" 
-                             class="flex justify-between items-center bg-white dark:bg-[#333333] rounded-lg px-3 py-2.5 border border-neutral-200 dark:border-neutral-700 shadow-sm">
-                           <span class="text-xs font-bold text-neutral-500 dark:text-neutral-400">{{ STAT_LABELS[stat] || stat }}</span>
-                           <span class="text-sm font-black text-neutral-800 dark:text-white">{{ computedPlayerStats[selectedSlot].stats[stat] }}</span>
-                        </div>
-                     </div>
-                     <div class="flex justify-between items-center bg-white dark:bg-[#333333] rounded-lg px-3 py-2.5 border border-neutral-200 dark:border-neutral-700 shadow-sm w-[calc(50%-4px)]">
-                        <span class="text-xs font-bold text-neutral-500 dark:text-neutral-400">{{ STAT_LABELS[(isPitcher(lineup[selectedSlot]) ? radarPitcherStats : radarBatterStats)[4]] }}</span>
-                        <span class="text-sm font-black text-neutral-800 dark:text-white">{{ computedPlayerStats[selectedSlot].stats[(isPitcher(lineup[selectedSlot]) ? radarPitcherStats : radarBatterStats)[4]] }}</span>
-                     </div>
-                     
-                     <!-- 하단 논코어 스탯 (수비/주루 등, 3개 나란히 배치) -->
-                     <div class="grid grid-cols-3 gap-2 mt-1">
-                        <div v-for="stat in (isPitcher(lineup[selectedSlot]) ? pitcherStats.slice(5) : batterStats.slice(5))" :key="'noncore'+stat" 
-                             class="flex flex-col items-center justify-center bg-white dark:bg-[#333333] rounded-lg py-2 border border-neutral-200 dark:border-neutral-700 shadow-sm">
-                           <span class="text-[11px] font-bold text-neutral-500 dark:text-neutral-400 mb-0.5">{{ STAT_LABELS[stat] || stat }}</span>
-                           <!-- 수비 스탯은 노란색으로 특별 강조! -->
-                           <span class="text-sm font-black text-neutral-800 dark:text-white" :class="stat === 'defense' ? 'text-amber-500 dark:text-amber-400' : ''">{{ computedPlayerStats[selectedSlot].stats[stat] }}</span>
-                        </div>
+                <!-- 최종 세부 능력치 -->
+                <div v-if="computedPlayerStats[selectedSlot]" class="bg-indigo-50 dark:bg-indigo-900/10 p-2 rounded-xl border border-indigo-100 shadow-sm flex-shrink-0">
+                  <h3 class="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-2 flex items-center gap-1"><TrendingUp class="w-4 h-4"/> 최종 세부 능력치</h3>
+                  <div class="grid grid-cols-4 gap-1.5">
+                     <div v-for="stat in (isPitcher(lineup[selectedSlot]) ? pitcherStats : batterStats)" :key="stat" class="flex flex-col items-center justify-center py-1.5 border border-indigo-100 rounded-lg bg-white shadow-sm flex-shrink-0 gap-0.5">
+                        <span class="text-xs font-bold text-neutral-500">{{ STAT_LABELS[stat] || stat }}</span>
+                        <span class="text-[15px] font-black text-indigo-700">{{ computedPlayerStats[selectedSlot].stats[stat] }}</span>
                      </div>
                   </div>
                 </div>
-                
+
                 <!-- 타순 설정 -->
                 <div v-if="!isPitcher(lineup[selectedSlot])" class="bg-orange-50 p-2 rounded-xl border border-orange-100 flex-shrink-0">
                   <h3 class="text-sm font-bold text-orange-800 mb-1.5">타순 설정</h3>
@@ -2789,11 +2688,36 @@ const getPlayerImage = (p: Raw | null) => {
                     <span class="text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 px-2 py-0.5 rounded font-black">{{ playerBuffs[selectedSlot].selectedSkills.length }} / {{ getMaxSkillCount(lineup[selectedSlot]) }}</span>
                   </div>
                   
-                  <!-- 1. 카드 고유 패시브 (장착/해제 불가 고정 뱃지) -->
-                  <div class="flex flex-wrap gap-1.5 mb-2.5">
+                  <!-- 1. 카드 고유 패시브 (강화스킬) 영역 - 이미지 및 레벨별 효과 표시 -->
+                  <div class="flex flex-col gap-2 mb-3">
                     <template v-for="enh in getArray(lineup[selectedSlot]?.enhancedSkill)" :key="'enh_'+enh">
-                      <div class="px-2 py-1.5 text-[11px] font-black border rounded-lg bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 text-amber-800 dark:text-amber-400 border-amber-300 dark:border-amber-700 shadow-sm flex items-center gap-1 cursor-default" title="카드의 고유 패시브입니다 (장착 슬롯 비차지)">
-                        <Sparkles class="w-3 h-3 text-amber-500" /> {{ enh }} (고유)
+                      <div class="flex gap-2.5 p-2.5 rounded-xl border border-indigo-200 dark:border-indigo-800/50 bg-gradient-to-r from-indigo-50/50 to-blue-50/50 dark:from-indigo-900/10 dark:to-blue-900/10 shadow-sm cursor-default relative overflow-hidden">
+                        <!-- 배경 장식 (선택) -->
+                        <div class="absolute -right-4 -top-4 opacity-5 pointer-events-none">
+                          <Sparkles class="w-20 h-20" />
+                        </div>
+                        
+                        <!-- 스킬 이미지 -->
+                        <div class="w-12 h-12 shrink-0 rounded-lg overflow-hidden bg-[#1a1a1a] border border-indigo-300/50 dark:border-indigo-700/50 shadow-inner flex items-center justify-center relative">
+                          <img v-if="matchEnhancedSkillImage(enh)" :src="matchEnhancedSkillImage(enh)" class="w-full h-full object-contain scale-[1.2]" />
+                          <Sparkles v-else class="w-6 h-6 text-indigo-400" />
+                          <div class="absolute bottom-0 inset-x-0 bg-black/70 text-[8px] font-black text-center text-white pb-0.5 pt-0.5 leading-none tracking-tighter backdrop-blur-sm border-t border-white/10">
+                            고유
+                          </div>
+                        </div>
+                        
+                        <!-- 텍스트 영역 -->
+                        <div class="flex flex-col min-w-0 flex-1 justify-center">
+                          <div class="flex items-center gap-1.5 mb-1">
+                            <span class="text-sm font-black text-indigo-900 dark:text-indigo-300 tracking-tight">{{ enh }}</span>
+                            <span class="text-[9px] font-bold bg-white dark:bg-neutral-800 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded border border-indigo-200 dark:border-indigo-800 shadow-sm ml-auto shrink-0 tracking-tighter">
+                              Lv.{{ playerBuffs[selectedSlot].enhancementLevel }} 효과
+                            </span>
+                          </div>
+                          <div class="text-[11px] font-medium text-neutral-600 dark:text-neutral-400 leading-snug break-keep whitespace-pre-wrap">
+                            {{ getEnhancedSkillEffect(enh, playerBuffs[selectedSlot].enhancementLevel) }}
+                          </div>
+                        </div>
                       </div>
                     </template>
                   </div>
