@@ -639,16 +639,22 @@ const toggleSynergyFilter = (s: string) => {
   else searchQuery.synergy.push(s)
 }
 
-// 🌟 스킬 검색용 드롭다운 상태 및 자동완성
+// 🌟 스킬 검색용 드롭다운 및 이미지 매칭 엔진
 const isSkillDropdownOpen = ref(false)
 const skillSearchText = ref('')
 const skillOptions = computed(() => Object.keys(SKILL_EFFECTS).sort())
+const normalSkillData = ref<any[]>([]) // 🌟 스킬 이미지 DB 상태
+
+const matchSkillInfo = (skill: string) => {
+  return normalSkillData.value.find((s) => s.skill === skill)?.image || ''
+}
 
 const filteredSkillOptions = computed(() => {
   const query = normalizeText(skillSearchText.value)
   if (!query) return skillOptions.value
   return skillOptions.value.filter(s => normalizeText(s).includes(query))
 })
+
 const toggleSkillFilter = (s: string) => {
   if (searchQuery.skill.includes(s)) searchQuery.skill = searchQuery.skill.filter(x => x !== s)
   else searchQuery.skill.push(s)
@@ -1768,10 +1774,15 @@ onMounted(async () => {
   }
 
   try {
-    const [csvRes, synRes, teamRes] = await Promise.all([
-      fetch('/DB/player_sorted.csv', { cache: 'no-store' }), fetch('/DB/synergys.json', { cache: 'no-store' }), fetch('/DB/setting.json', { cache: 'no-store' })
+    const [csvRes, synRes, teamRes, skillRes] = await Promise.all([
+      fetch('/DB/player_sorted.csv', { cache: 'no-store' }), 
+      fetch('/DB/synergys.json', { cache: 'no-store' }), 
+      fetch('/DB/setting.json', { cache: 'no-store' }),
+      fetch('/DB/normal_skill.json', { cache: 'no-store' }) // 🌟 스킬 이미지 DB 로드 추가!
     ])
     if (teamRes.ok) teamData.value = await teamRes.json()
+    if (skillRes.ok) normalSkillData.value = await skillRes.json() // 🌟 데이터 저장
+
     const text = await csvRes.text()
     
     // 원본 코드로 깔끔하게 복구
@@ -1995,26 +2006,25 @@ const getPlayerImage = (p: Raw | null) => {
                   </div>
                 </div>
 
-                <!-- 🌟 스킬 검색 -->
+                <!-- 🌟 스킬 검색 (인게임 이미지 그리드 적용) -->
                 <div>
-                  <label class="block text-[11px] font-bold text-amber-500 mb-1.5 ml-1 flex items-center gap-1"><Star class="w-3 h-3 text-amber-400"/>스킬 검색</label>
-                  <div class="relative flex flex-col gap-1" @focusout="setTimeout(() => isSkillDropdownOpen = false, 200)">
-                    <input v-model="skillSearchText" @focus="isSkillDropdownOpen = true" placeholder="보유 스킬을 검색하세요" 
-                           class="w-full px-2 py-1.5 text-[11px] border border-amber-300 dark:border-amber-600/50 rounded-lg bg-white dark:bg-neutral-700 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 shadow-sm" />
-                    
-                    <div v-show="isSkillDropdownOpen" class="absolute top-8 left-0 z-50 w-full bg-white dark:bg-neutral-800 border border-amber-200 dark:border-amber-800 rounded-lg shadow-xl max-h-40 overflow-y-auto custom-scrollbar">
-                      <button v-for="sk in filteredSkillOptions" :key="sk" 
-                              @click="toggleSkillFilter(sk); skillSearchText=''; isSkillDropdownOpen=false;" 
-                              class="w-full text-left px-3 py-1.5 text-[11px] text-neutral-700 dark:text-neutral-300 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors border-b border-neutral-100 last:border-0">
-                        {{ sk }}
+                  <label class="block text-[11px] font-bold text-amber-500 mb-1.5 ml-1 flex items-center gap-1"><Star class="w-3 h-3 text-amber-400"/>스킬 필터</label>
+                  
+                  <div class="overflow-y-auto overscroll-contain rounded-lg border border-neutral-200 dark:border-neutral-600 p-1.5 bg-neutral-50/50 dark:bg-neutral-800/50 max-h-56 custom-scrollbar">
+                    <div class="grid grid-cols-4 gap-1.5">
+                      <button
+                        v-for="sk in skillOptions" :key="sk"
+                        @click="toggleSkillFilter(sk)"
+                        class="group relative inline-flex flex-col items-center justify-center gap-1 rounded-xl border py-1.5 text-[10px] font-medium select-none focus:outline-none transition-all duration-200"
+                        :class="searchQuery.skill.includes(sk)
+                          ? 'bg-amber-500 text-white border-amber-500 shadow-md dark:bg-amber-600 dark:border-amber-600'
+                          : 'bg-white dark:bg-neutral-700 text-neutral-700 dark:text-neutral-200 border-neutral-200 dark:border-neutral-600 hover:bg-amber-50 dark:hover:bg-neutral-600'"
+                      >
+                        <!-- 🌟 실제 스킬 이미지가 렌더링 되는 곳 -->
+                        <div class="w-8 h-8 rounded-lg"
+                             :class="['bg-neutral-100 dark:bg-neutral-600', searchQuery.skill.includes(sk) ? 'ring-2 ring-white/50 bg-white/20' : '', `bg-${matchSkillInfo(sk)}`]"></div>
+                        <span class="block w-full text-center font-semibold truncate px-0.5">{{ sk }}</span>
                       </button>
-                      <div v-if="filteredSkillOptions.length === 0" class="px-3 py-2 text-center text-[10px] text-neutral-400">검색 결과가 없습니다.</div>
-                    </div>
-
-                    <div class="flex flex-wrap gap-1 mt-1">
-                       <span v-for="sk in searchQuery.skill" :key="sk" class="px-2 py-1 text-[10px] bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 rounded-md flex items-center gap-1 font-bold border border-amber-300 dark:border-amber-800">
-                         {{ sk }} <button @click="toggleSkillFilter(sk)" class="hover:text-red-500 font-black ml-0.5">&times;</button>
-                       </span>
                     </div>
                   </div>
                 </div>
@@ -2597,45 +2607,50 @@ const getPlayerImage = (p: Raw | null) => {
                   </div>
                 </div>
 
-                <!-- 🌟 스킬 설정 (패시브와 장착 스킬 완벽 분리) -->
-                <div class="flex-shrink-0 bg-white p-2.5 rounded-xl border border-neutral-200 shadow-sm">
+                <!-- 🌟 스킬 장착 (패시브 분리 + 인게임 이미지 그리드 적용) -->
+                <div class="flex-shrink-0 bg-white dark:bg-neutral-800 p-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-sm">
                   <div class="flex items-center justify-between mb-2">
-                    <h3 class="text-[15px] font-bold text-neutral-900 flex items-center gap-1"><Star class="w-4 h-4 text-amber-400"/> 스킬 장착</h3>
-                    <span class="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-black">{{ playerBuffs[selectedSlot].selectedSkills.length }} / {{ getMaxSkillCount(lineup[selectedSlot]) }}</span>
+                    <h3 class="text-[15px] font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-1"><Star class="w-4 h-4 text-amber-400"/> 스킬 장착</h3>
+                    <span class="text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 px-2 py-0.5 rounded font-black">{{ playerBuffs[selectedSlot].selectedSkills.length }} / {{ getMaxSkillCount(lineup[selectedSlot]) }}</span>
                   </div>
-                  <div class="flex flex-wrap gap-1.5">
-                    
-                    <!-- 🌟 1. 카드 고유 패시브 (강화스킬) 영역 - 장착/해제 불가 고정 뱃지 -->
+                  
+                  <!-- 1. 카드 고유 패시브 (장착/해제 불가 고정 뱃지) -->
+                  <div class="flex flex-wrap gap-1.5 mb-2.5">
                     <template v-for="enh in getArray(lineup[selectedSlot]?.enhancedSkill)" :key="'enh_'+enh">
-                      <div class="px-2 py-1 text-xs font-black border rounded-lg bg-gradient-to-r from-amber-50 to-orange-50 text-amber-800 border-amber-300 shadow-sm flex items-center gap-1 cursor-default" title="카드의 고유 패시브입니다 (장착 슬롯 비차지)">
+                      <div class="px-2 py-1.5 text-[11px] font-black border rounded-lg bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 text-amber-800 dark:text-amber-400 border-amber-300 dark:border-amber-700 shadow-sm flex items-center gap-1 cursor-default" title="카드의 고유 패시브입니다 (장착 슬롯 비차지)">
                         <Sparkles class="w-3 h-3 text-amber-500" /> {{ enh }} (고유)
                       </div>
                     </template>
+                  </div>
 
-                    <!-- 🌟 2. 클릭해서 장착할 수 있는 진짜 스킬 목록 -->
+                  <!-- 🌟 2. 클릭해서 장착할 수 있는 스킬 목록 (이미지 갤러리) -->
+                  <div class="grid grid-cols-4 sm:grid-cols-5 gap-1.5">
                     <button 
                       v-for="sk in getAvailableSkills(lineup[selectedSlot])" 
                       :key="sk"
                       @click="togglePlayerSkill(sk)"
                       :class="[
-                        playerBuffs[selectedSlot].selectedSkills.includes(sk) ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-neutral-50 border-neutral-200 text-neutral-600 hover:bg-neutral-100',
-                        playerBuffs[selectedSlot].selectedSkills.includes(sk) && !isSkillActive(sk, selectedSlot, playerBuffs[selectedSlot].battingOrder) ? 'bg-red-500 border-red-600 text-white' : ''
+                        playerBuffs[selectedSlot].selectedSkills.includes(sk) 
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-md dark:bg-indigo-700 dark:border-indigo-700' 
+                          : 'bg-neutral-50 border-neutral-200 text-neutral-700 hover:bg-neutral-100 dark:bg-neutral-700 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-600',
+                        playerBuffs[selectedSlot].selectedSkills.includes(sk) && !isSkillActive(sk, selectedSlot, playerBuffs[selectedSlot].battingOrder) 
+                          ? 'bg-red-500 border-red-600 text-white dark:bg-red-600 dark:border-red-700' : ''
                       ]"
-                      class="px-2 py-1 text-xs font-bold border rounded-lg transition-colors relative flex-shrink-0"
+                      class="group relative inline-flex flex-col items-center justify-center gap-1 rounded-xl border py-1.5 text-[10px] font-medium select-none transition-all duration-200"
                     >
-                      {{ sk }}
-                      <span v-if="playerBuffs[selectedSlot].selectedSkills.includes(sk) && !isSkillActive(sk, selectedSlot, playerBuffs[selectedSlot].battingOrder)" class="absolute -top-2 -right-2 bg-white text-red-600 border border-red-500 text-[10px] font-black px-1 rounded-full shadow-sm whitespace-nowrap z-10">조건불일치</span>
+                      <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-md"
+                           :class="['bg-neutral-200 dark:bg-neutral-600', playerBuffs[selectedSlot].selectedSkills.includes(sk) ? 'ring-2 ring-white/50 bg-white/20' : '', `bg-${matchSkillInfo(sk)}`]"></div>
+                      <span class="block w-full text-center font-semibold truncate px-0.5" 
+                            :class="playerBuffs[selectedSlot].selectedSkills.includes(sk) ? 'text-white' : 'text-neutral-700 dark:text-neutral-300'">{{ sk }}</span>
+                      
+                      <!-- 조건 불일치 경고 뱃지 -->
+                      <span v-if="playerBuffs[selectedSlot].selectedSkills.includes(sk) && !isSkillActive(sk, selectedSlot, playerBuffs[selectedSlot].battingOrder)" 
+                            class="absolute -top-1.5 -right-1.5 bg-white text-red-600 border border-red-500 text-[9px] font-black px-1 rounded-full shadow-sm whitespace-nowrap z-10 scale-90 origin-bottom-left">
+                        불일치
+                      </span>
                     </button>
                   </div>
                 </div>
-                </div>
-                </div>
-            
-            <div v-else class="flex h-full items-center justify-center text-neutral-400 text-sm flex-col gap-2">
-              <UserCheck class="w-10 h-10 opacity-20"/>
-              중앙에서 선수를 클릭해주세요.
-            </div>
-          </div>
         </section>
         </div> <!-- 🌟 복구 1. 좌/우/중앙 Flex 분할 컨테이너 닫기 -->
     </div> <!-- 🌟 복구 2. 전체 패널 영역 닫기 -->
