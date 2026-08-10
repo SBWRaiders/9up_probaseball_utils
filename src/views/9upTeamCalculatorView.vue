@@ -798,7 +798,7 @@ const getEnhancedSkillEffect = (skillName: string, level: number) => {
 
   // 5. 정규식으로 키 탐색 (숫자 포함된 키)
   const keys = Object.keys(data);
-  const regex = new RegExp(`(lv|level|effect).*\b${level}\b`, 'i');
+  const regex = new RegExp(`(lv|level|effect).*${level}`, 'i');
   const matchedKey = keys.find(k => regex.test(k));
   if (matchedKey && typeof data[matchedKey] === 'string') return data[matchedKey];
 
@@ -2855,7 +2855,7 @@ const getPlayerImage = (p: Raw | null) => {
                         
                         <!-- 스킬 이미지 -->
                         <div class="w-12 h-12 shrink-0 rounded-lg overflow-hidden bg-[#1a1a1a] border border-indigo-300/50 dark:border-indigo-700/50 shadow-inner flex items-center justify-center relative">
-                          <img v-if="matchEnhancedSkillImage(enh)" :src="matchEnhancedSkillImage(enh)" class="w-full h-full object-contain scale-[1.2]" />
+                          <div v-if="matchEnhancedSkillImage(enh)" :class="['w-full h-full bg-center bg-no-repeat scale-[1.2]', matchEnhancedSkillImage(enh)]" style="background-size: contain;"></div>
                           <Sparkles v-else class="w-6 h-6 text-indigo-400" />
                           <div class="absolute bottom-0 inset-x-0 bg-black/70 text-[8px] font-black text-center text-white pb-0.5 pt-0.5 leading-none tracking-tighter backdrop-blur-sm border-t border-white/10">
                             고유
