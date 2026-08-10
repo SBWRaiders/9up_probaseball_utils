@@ -205,7 +205,7 @@ const expandedPendingSynergy = ref<string | null>(null)
 
 const searchQuery = reactive({
   search: '', position: [] as string[], team: [] as string[],
-  synergy: [] as string[], rarity: null as number | null, grade: [] as string[]
+  synergy: [] as string[], skill: [] as string[], rarity: null as number | null, grade: [] as string[]
 })
 
 const lineupViewMode = ref('batter')
@@ -639,37 +639,47 @@ const toggleSynergyFilter = (s: string) => {
   else searchQuery.synergy.push(s)
 }
 
-// 🌟 2. 필터 검색 엔진 완벽 개조 (단어 띄어쓰기 AND 검색, 등급/별 필터 완벽 호환)
+// 🌟 스킬 검색용 드롭다운 상태 및 자동완성
+const isSkillDropdownOpen = ref(false)
+const skillSearchText = ref('')
+const skillOptions = computed(() => Object.keys(SKILL_EFFECTS).sort())
+
+const filteredSkillOptions = computed(() => {
+  const query = normalizeText(skillSearchText.value)
+  if (!query) return skillOptions.value
+  return skillOptions.value.filter(s => normalizeText(s).includes(query))
+})
+const toggleSkillFilter = (s: string) => {
+  if (searchQuery.skill.includes(s)) searchQuery.skill = searchQuery.skill.filter(x => x !== s)
+  else searchQuery.skill.push(s)
+}
+
+// 🌟 2. 필터 검색 엔진 완벽 개조 (+ 스킬 조건 AND 검색 추가)
 const filteredPlayers = computed(() => {
-  // 🌟 수정됨: 쉼표(,)는 OR 검색으로, 띄어쓰기( )는 AND 검색으로 동작하도록 스마트 파싱
   const searchGroups = searchQuery.search 
     ? searchQuery.search.split(',').map(g => g.trim()).filter(Boolean).map(g => g.split(/\s+/).map(t => normalizeText(t)).filter(Boolean))
     : [];
   
   return preparedPlayers.value.filter(({ raw: p, nameNormalized, teamLowerCase, positionLowerCase, yearsNumeric, synergyNormalizedSet }) => {
-    
-    // ① 팀 필터
     if (searchQuery.team.length && !searchQuery.team.some(t => teamLowerCase.includes(toLowerCase(t)))) return false;
-    
-    // ② 별(희귀도) 필터 고장 수정: p.rarity와 p.stars 모두 호환 적용
     if (searchQuery.rarity != null && Number(p.rarity || p.stars || 1) !== Number(searchQuery.rarity)) return false;
-    
-    // ③ 등급 필터 고장 수정: 풀네임('DIGNITY')과 약자('DGN')를 모두 매핑해서 완벽 비교
     if (searchQuery.grade.length) {
        const playerGradeMapped = getMappedGrade(p.grade);
        const queryGradesMapped = searchQuery.grade.map(g => getMappedGrade(g));
        if (!queryGradesMapped.includes(playerGradeMapped)) return false;
     }
-
-    // ④ 포지션 및 시너지 필터
     if (searchQuery.position.length && !searchQuery.position.some(v => positionLowerCase.includes(toLowerCase(v)))) return false;
     if (searchQuery.synergy.length && !searchQuery.synergy.map(normalizeText).every(t => synergyNormalizedSet.has(t))) return false;
     
-    // ⑤ 🌟 핵심: 쉼표(OR) & 띄어쓰기(AND) 복합 검색 엔진!
+    // 🌟 핵심: 스킬 필터 (선택한 모든 스킬을 선수가 가지고 있어야 함)
+    if (searchQuery.skill.length > 0) {
+       const playerSkills = [...getArray(p.skill), ...getArray(p.enhancedSkill)];
+       const hasAllSkills = searchQuery.skill.every(sk => playerSkills.includes(sk));
+       if (!hasAllSkills) return false;
+    }
+
     if (searchGroups.length > 0) {
       const hay = [nameNormalized, ...teamLowerCase, ...positionLowerCase, ...Array.from(synergyNormalizedSet), ...yearsNumeric.map(String)].join(' ');
-      
-      // 여러 그룹(쉼표로 구분) 중 단 하나라도, 그 그룹 안의 모든 키워드(띄어쓰기로 구분)를 가지고 있다면 통과!
       const isMatch = searchGroups.some(tokens => tokens.every(t => hay.includes(t)));
       if (!isMatch) return false;
     }
@@ -683,7 +693,7 @@ const totalPages = computed(() => Math.max(1, Math.ceil(totalPlayers.value / pag
 const paginatedPlayers = computed(() => filteredPlayers.value.slice((currentPage.value-1)*pageSize, (currentPage.value)*pageSize))
 const goToPage = (page:number) => { if (page>=1 && page<=totalPages.value) currentPage.value = page }
 watch(searchQuery, () => { currentPage.value = 1 }, { deep: true })
-const resetFilters = () => { searchQuery.search=''; searchQuery.team=[]; searchQuery.position=[]; searchQuery.synergy=[]; searchQuery.rarity=null; searchQuery.grade=[] }
+const resetFilters = () => { searchQuery.search=''; searchQuery.team=[]; searchQuery.position=[]; searchQuery.synergy=[]; searchQuery.skill=[]; searchQuery.rarity=null; searchQuery.grade=[] }
 
 const checkSynergyInclusion = (target: string, playerSynergies: string[]) => {
   const clean = (x:string)=>String(x??'').normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[,\s클럽]/g,'').trim()
@@ -1958,28 +1968,57 @@ const getPlayerImage = (p: Raw | null) => {
                 </div>
               </div>
 
-              <!-- 시너지 검색 (드롭다운) -->
-              <div>
-                <label class="block text-[11px] font-bold text-neutral-500 mb-1.5 ml-1">시너지 검색</label>
-                <div class="relative flex flex-col gap-1" @focusout="setTimeout(() => isSynergyDropdownOpen = false, 200)">
-                  <input v-model="synergySearchText" @focus="isSynergyDropdownOpen = true" placeholder="시너지를 입력해 주세요. (클릭하여 선택)" 
-                         class="w-full px-2 py-1.5 text-[11px] border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm" />
-                  
-                  <div v-show="isSynergyDropdownOpen" class="absolute top-8 left-0 z-50 w-full bg-white dark:bg-neutral-800 border border-blue-200 dark:border-blue-800 rounded-lg shadow-xl max-h-40 overflow-y-auto custom-scrollbar">
-                    <button v-for="s in filteredSynergyOptions" :key="s" 
-                            @click="toggleSynergyFilter(s); synergySearchText=''; isSynergyDropdownOpen=false;" 
-                            class="w-full text-left px-3 py-1.5 text-[11px] text-neutral-700 dark:text-neutral-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors border-b border-neutral-100 last:border-0">
-                      {{ s }}
-                    </button>
-                    <div v-if="filteredSynergyOptions.length === 0" class="px-3 py-2 text-center text-[10px] text-neutral-400">검색 결과가 없습니다.</div>
-                  </div>
+              <!-- 🌟 시너지 & 스킬 검색 (드롭다운) -->
+              <div class="grid grid-cols-1 gap-3">
+                
+                <!-- 시너지 검색 -->
+                <div>
+                  <label class="block text-[11px] font-bold text-neutral-500 mb-1.5 ml-1">시너지 검색</label>
+                  <div class="relative flex flex-col gap-1" @focusout="setTimeout(() => isSynergyDropdownOpen = false, 200)">
+                    <input v-model="synergySearchText" @focus="isSynergyDropdownOpen = true" placeholder="시너지를 검색하세요" 
+                           class="w-full px-2 py-1.5 text-[11px] border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm" />
+                    
+                    <div v-show="isSynergyDropdownOpen" class="absolute top-8 left-0 z-50 w-full bg-white dark:bg-neutral-800 border border-blue-200 dark:border-blue-800 rounded-lg shadow-xl max-h-40 overflow-y-auto custom-scrollbar">
+                      <button v-for="s in filteredSynergyOptions" :key="s" 
+                              @click="toggleSynergyFilter(s); synergySearchText=''; isSynergyDropdownOpen=false;" 
+                              class="w-full text-left px-3 py-1.5 text-[11px] text-neutral-700 dark:text-neutral-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors border-b border-neutral-100 last:border-0">
+                        {{ s }}
+                      </button>
+                      <div v-if="filteredSynergyOptions.length === 0" class="px-3 py-2 text-center text-[10px] text-neutral-400">검색 결과가 없습니다.</div>
+                    </div>
 
-                  <div class="flex flex-wrap gap-1 mt-1">
-                     <span v-for="syn in searchQuery.synergy" :key="syn" class="px-2 py-1 text-[10px] bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-md flex items-center gap-1 font-bold border border-blue-200 dark:border-blue-800">
-                       {{ syn }} <button @click="toggleSynergyFilter(syn)" class="hover:text-red-500 font-black ml-0.5">&times;</button>
-                     </span>
+                    <div class="flex flex-wrap gap-1 mt-1">
+                       <span v-for="syn in searchQuery.synergy" :key="syn" class="px-2 py-1 text-[10px] bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-md flex items-center gap-1 font-bold border border-blue-200 dark:border-blue-800">
+                         {{ syn }} <button @click="toggleSynergyFilter(syn)" class="hover:text-red-500 font-black ml-0.5">&times;</button>
+                       </span>
+                    </div>
                   </div>
                 </div>
+
+                <!-- 🌟 스킬 검색 -->
+                <div>
+                  <label class="block text-[11px] font-bold text-amber-500 mb-1.5 ml-1 flex items-center gap-1"><Star class="w-3 h-3 text-amber-400"/>스킬 검색</label>
+                  <div class="relative flex flex-col gap-1" @focusout="setTimeout(() => isSkillDropdownOpen = false, 200)">
+                    <input v-model="skillSearchText" @focus="isSkillDropdownOpen = true" placeholder="보유 스킬을 검색하세요" 
+                           class="w-full px-2 py-1.5 text-[11px] border border-amber-300 dark:border-amber-600/50 rounded-lg bg-white dark:bg-neutral-700 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 shadow-sm" />
+                    
+                    <div v-show="isSkillDropdownOpen" class="absolute top-8 left-0 z-50 w-full bg-white dark:bg-neutral-800 border border-amber-200 dark:border-amber-800 rounded-lg shadow-xl max-h-40 overflow-y-auto custom-scrollbar">
+                      <button v-for="sk in filteredSkillOptions" :key="sk" 
+                              @click="toggleSkillFilter(sk); skillSearchText=''; isSkillDropdownOpen=false;" 
+                              class="w-full text-left px-3 py-1.5 text-[11px] text-neutral-700 dark:text-neutral-300 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors border-b border-neutral-100 last:border-0">
+                        {{ sk }}
+                      </button>
+                      <div v-if="filteredSkillOptions.length === 0" class="px-3 py-2 text-center text-[10px] text-neutral-400">검색 결과가 없습니다.</div>
+                    </div>
+
+                    <div class="flex flex-wrap gap-1 mt-1">
+                       <span v-for="sk in searchQuery.skill" :key="sk" class="px-2 py-1 text-[10px] bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 rounded-md flex items-center gap-1 font-bold border border-amber-300 dark:border-amber-800">
+                         {{ sk }} <button @click="toggleSkillFilter(sk)" class="hover:text-red-500 font-black ml-0.5">&times;</button>
+                       </span>
+                    </div>
+                  </div>
+                </div>
+
               </div>
             </div>
           </div>
