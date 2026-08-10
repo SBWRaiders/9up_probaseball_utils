@@ -2837,7 +2837,7 @@ const getPlayerImage = (p: Raw | null) => {
                         
                         <!-- 스킬 이미지 -->
                         <div class="w-14 h-14 shrink-0 rounded-lg overflow-hidden bg-[#1a1a1a] border border-indigo-300/50 dark:border-indigo-700/50 shadow-inner flex items-center justify-center relative">
-                          <div v-if="matchEnhancedSkillImage(enh)" :class="matchEnhancedSkillImage(enh)" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.75);"></div>
+                          <div v-if="matchEnhancedSkillImage(enh)" :class="matchEnhancedSkillImage(enh)" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9);"></div>
                           <Sparkles v-else class="w-6 h-6 text-indigo-400" />
                         </div>
                         
