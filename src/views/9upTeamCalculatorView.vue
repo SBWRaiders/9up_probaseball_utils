@@ -182,6 +182,10 @@ const STAT_LABELS: Record<string, string> = {
 const batterStats = ['contact', 'gapPower', 'homeRunPower', 'plateDiscipline', 'strikeoutAvoidance', 'stealing', 'baseRunning', 'defense'];
 const pitcherStats = ['movement', 'longHitSuppression', 'homeRunSuppression', 'control', 'stuff', 'defense', 'pitchLimit', 'runnerControl'];
 
+// 🌟 레이더 차트 및 스탯 박스 표시용 (인게임 순서 완벽 고증)
+const radarBatterStats = ['contact', 'homeRunPower', 'strikeoutAvoidance', 'plateDiscipline', 'gapPower'];
+const radarPitcherStats = ['movement', 'homeRunSuppression', 'stuff', 'control', 'longHitSuppression'];
+  
 const isPitcher = (p: Raw | null) => {
   if (!p) return false;
   const pos = String(p.position || '').toUpperCase();
@@ -1437,10 +1441,11 @@ const getRadarStatPoints = (slot: string) => {
   const p = lineup.value[slot];
   if (!p) return '';
   const isPit = isPitcher(p);
-  const coreStats = isPit ? pitcherStats.slice(0,5) : batterStats.slice(0,5);
+  // 🌟 변경됨: 인게임 순서가 적용된 배열 사용
+  const coreStats = isPit ? radarPitcherStats : radarBatterStats;
   const stats = computedPlayerStats.value[slot].stats;
   const values = coreStats.map(s => stats[s] || 0);
-  const maxVal = Math.max(...values, 500) * 1.1; // 최대값의 110%를 차트 끝으로 설정
+  const maxVal = Math.max(...values, 500) * 1.1; 
 
   return values.map((val, i) => {
     const r = (val / maxVal) * RADAR_RADIUS;
@@ -1454,7 +1459,8 @@ const getRadarStatDots = (slot: string) => {
   const p = lineup.value[slot];
   if (!p) return [];
   const isPit = isPitcher(p);
-  const coreStats = isPit ? pitcherStats.slice(0,5) : batterStats.slice(0,5);
+  // 🌟 변경됨: 인게임 순서가 적용된 배열 사용
+  const coreStats = isPit ? radarPitcherStats : radarBatterStats;
   const stats = computedPlayerStats.value[slot].stats;
   const values = coreStats.map(s => stats[s] || 0);
   const maxVal = Math.max(...values, 500) * 1.1;
@@ -1471,10 +1477,10 @@ const getRadarLabels = (slot: string) => {
   const p = lineup.value[slot];
   if (!p) return [];
   const isPit = isPitcher(p);
-  const coreStats = isPit ? pitcherStats.slice(0,5) : batterStats.slice(0,5);
+  // 🌟 변경됨: 인게임 순서가 적용된 배열 사용
+  const coreStats = isPit ? radarPitcherStats : radarBatterStats;
   const stats = computedPlayerStats.value[slot].stats;
   
-  // 레이블이 차트 밖으로 나가지 않도록 여백 설정
   const labelRadius = RADAR_RADIUS + 22;
 
   return coreStats.map((s, i) => {
@@ -1482,7 +1488,6 @@ const getRadarLabels = (slot: string) => {
     let x = RADAR_CENTER + labelRadius * Math.cos(rad);
     let y = RADAR_CENTER + labelRadius * Math.sin(rad);
     
-    // 글씨가 선과 겹치지 않게 미세 보정
     if (i === 0) y -= 2;
     if (i === 2 || i === 3) y += 6;
     
@@ -2608,20 +2613,20 @@ const getPlayerImage = (p: Raw | null) => {
                      </svg>
                   </div>
 
-                  <!-- 🌟 하단 스탯 박스 그리드 (인게임과 동일한 다크 그레이 톤) -->
+                  <!-- 🌟 하단 스탯 박스 그리드 (인게임 고증: 레이더 차트 배열 순서 적용) -->
                   <div class="w-full flex flex-col gap-2.5 z-10">
                      
                      <!-- 코어 5대 스탯 (상단 4개, 하단 1개 배치) -->
                      <div class="grid grid-cols-2 gap-2">
-                        <div v-for="stat in (isPitcher(lineup[selectedSlot]) ? pitcherStats.slice(0,4) : batterStats.slice(0,4))" :key="stat" 
+                        <div v-for="stat in (isPitcher(lineup[selectedSlot]) ? radarPitcherStats.slice(0,4) : radarBatterStats.slice(0,4))" :key="stat" 
                              class="flex justify-between items-center bg-white dark:bg-[#333333] rounded-lg px-3 py-2.5 border border-neutral-200 dark:border-neutral-700 shadow-sm">
                            <span class="text-xs font-bold text-neutral-500 dark:text-neutral-400">{{ STAT_LABELS[stat] || stat }}</span>
                            <span class="text-sm font-black text-neutral-800 dark:text-white">{{ computedPlayerStats[selectedSlot].stats[stat] }}</span>
                         </div>
                      </div>
                      <div class="flex justify-between items-center bg-white dark:bg-[#333333] rounded-lg px-3 py-2.5 border border-neutral-200 dark:border-neutral-700 shadow-sm w-[calc(50%-4px)]">
-                        <span class="text-xs font-bold text-neutral-500 dark:text-neutral-400">{{ STAT_LABELS[(isPitcher(lineup[selectedSlot]) ? pitcherStats : batterStats)[4]] }}</span>
-                        <span class="text-sm font-black text-neutral-800 dark:text-white">{{ computedPlayerStats[selectedSlot].stats[(isPitcher(lineup[selectedSlot]) ? pitcherStats : batterStats)[4]] }}</span>
+                        <span class="text-xs font-bold text-neutral-500 dark:text-neutral-400">{{ STAT_LABELS[(isPitcher(lineup[selectedSlot]) ? radarPitcherStats : radarBatterStats)[4]] }}</span>
+                        <span class="text-sm font-black text-neutral-800 dark:text-white">{{ computedPlayerStats[selectedSlot].stats[(isPitcher(lineup[selectedSlot]) ? radarPitcherStats : radarBatterStats)[4]] }}</span>
                      </div>
                      
                      <!-- 하단 논코어 스탯 (수비/주루 등, 3개 나란히 배치) -->
@@ -2635,6 +2640,7 @@ const getPlayerImage = (p: Raw | null) => {
                      </div>
                   </div>
                 </div>
+                
                 <!-- 타순 설정 -->
                 <div v-if="!isPitcher(lineup[selectedSlot])" class="bg-orange-50 p-2 rounded-xl border border-orange-100 flex-shrink-0">
                   <h3 class="text-sm font-bold text-orange-800 mb-1.5">타순 설정</h3>
