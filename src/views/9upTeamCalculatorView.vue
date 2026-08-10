@@ -1937,15 +1937,29 @@ const getPlayerImage = (p: Raw | null) => {
 
             <div v-show="advancedFilterOpen" class="flex flex-col gap-3 pt-2 max-h-[40vh] overflow-y-auto custom-scrollbar pr-1">
               
-              <!-- 별 갯수 (1~6성, 3칸 2줄 배열 완벽 복구) -->
+              <!-- 🌟 희귀도 (선수검색 페이지 스타일 1열 버튼 적용) -->
               <div>
-                <label class="block text-[11px] font-bold text-neutral-500 mb-1.5 ml-1">별 갯수 (희귀도)</label>
-                <div class="grid grid-cols-3 gap-1">
-                  <button v-for="star in [1,2,3,4,5,6]" :key="'star'+star" 
-                          @click="searchQuery.rarity === star ? searchQuery.rarity = null : searchQuery.rarity = star" 
-                          :class="{'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30': searchQuery.rarity === star}" 
-                          class="flex items-center justify-center py-1 border border-neutral-200 dark:border-neutral-600 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 bg-white dark:bg-neutral-800 transition-all">
-                    <Star class="w-3 h-3 fill-amber-400 text-amber-400" /> <span class="text-[10px] ml-0.5 font-bold">{{ star }}</span>
+                <label class="block text-[11px] font-bold text-neutral-500 mb-1.5 ml-1">레어도</label>
+                <div class="flex items-center justify-between gap-2 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-600 rounded-lg p-2">
+                  <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar px-1 flex-1">
+                    <div
+                      v-for="i in 6" :key="'star-'+i"
+                      class="p-1 rounded-md cursor-pointer transition-colors duration-200 hover:bg-neutral-100 dark:hover:bg-neutral-700"
+                      :title="`${i}성`"
+                      @click="searchQuery.rarity === i ? searchQuery.rarity = null : searchQuery.rarity = i"
+                    >
+                      <Star
+                        class="w-5 h-5 transition-colors duration-200"
+                        :class="i <= (searchQuery.rarity ?? 0) ? 'text-amber-400 hover:text-amber-500 fill-amber-400' : 'text-neutral-300 dark:text-neutral-600 hover:text-amber-300 fill-transparent'"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    v-if="searchQuery.rarity !== null"
+                    @click="searchQuery.rarity = null"
+                    class="px-2 py-1 text-[10px] rounded-md border border-neutral-200 dark:border-neutral-600 text-neutral-600 dark:text-neutral-300 bg-neutral-50 dark:bg-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-600 transition-colors shrink-0"
+                  >
+                    해제
                   </button>
                 </div>
               </div>
