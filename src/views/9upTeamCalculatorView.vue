@@ -639,11 +639,12 @@ const toggleSynergyFilter = (s: string) => {
   else searchQuery.synergy.push(s)
 }
 
+
 // 🌟 스킬 검색용 드롭다운 및 이미지 매칭 엔진
 const isSkillDropdownOpen = ref(false)
 const skillSearchText = ref('')
 const skillOptions = computed(() => Object.keys(SKILL_EFFECTS).sort())
-const normalSkillData = ref<any[]>([]) // 🌟 스킬 이미지 DB 상태
+const normalSkillData = ref<any[]>([])
 
 const matchSkillInfo = (skill: string) => {
   return normalSkillData.value.find((s) => s.skill === skill)?.image || ''
@@ -660,20 +661,31 @@ const toggleSkillFilter = (s: string) => {
   else searchQuery.skill.push(s)
 }
 
-// 🌟 2. 필터 검색 엔진 완벽 개조 (+ 스킬 조건 AND 검색 추가)
+// 🌟 2. 필터 검색 엔진 완벽 개조 (단어 띄어쓰기 AND 검색, 등급/별 필터 완벽 호환)
+
 const filteredPlayers = computed(() => {
+  // 🌟 수정됨: 쉼표(,)는 OR 검색으로, 띄어쓰기( )는 AND 검색으로 동작하도록 스마트 파싱
   const searchGroups = searchQuery.search 
     ? searchQuery.search.split(',').map(g => g.trim()).filter(Boolean).map(g => g.split(/\s+/).map(t => normalizeText(t)).filter(Boolean))
     : [];
   
   return preparedPlayers.value.filter(({ raw: p, nameNormalized, teamLowerCase, positionLowerCase, yearsNumeric, synergyNormalizedSet }) => {
+    
+    // ① 팀 필터
     if (searchQuery.team.length && !searchQuery.team.some(t => teamLowerCase.includes(toLowerCase(t)))) return false;
+    
+    // ② 별(희귀도) 필터 고장 수정: p.rarity와 p.stars 모두 호환 적용
     if (searchQuery.rarity != null && Number(p.rarity || p.stars || 1) !== Number(searchQuery.rarity)) return false;
+    
+    // ③ 등급 필터 고장 수정: 풀네임('DIGNITY')과 약자('DGN')를 모두 매핑해서 완벽 비교
     if (searchQuery.grade.length) {
        const playerGradeMapped = getMappedGrade(p.grade);
        const queryGradesMapped = searchQuery.grade.map(g => getMappedGrade(g));
        if (!queryGradesMapped.includes(playerGradeMapped)) return false;
     }
+
+    
+    // ④ 포지션 및 시너지 필터
     if (searchQuery.position.length && !searchQuery.position.some(v => positionLowerCase.includes(toLowerCase(v)))) return false;
     if (searchQuery.synergy.length && !searchQuery.synergy.map(normalizeText).every(t => synergyNormalizedSet.has(t))) return false;
     
@@ -684,8 +696,12 @@ const filteredPlayers = computed(() => {
        if (!hasAllSkills) return false;
     }
 
+    
+    // ⑤ 🌟 핵심: 쉼표(OR) & 띄어쓰기(AND) 복합 검색 엔진!
     if (searchGroups.length > 0) {
       const hay = [nameNormalized, ...teamLowerCase, ...positionLowerCase, ...Array.from(synergyNormalizedSet), ...yearsNumeric.map(String)].join(' ');
+      
+      // 여러 그룹(쉼표로 구분) 중 단 하나라도, 그 그룹 안의 모든 키워드(띄어쓰기로 구분)를 가지고 있다면 통과!
       const isMatch = searchGroups.some(tokens => tokens.every(t => hay.includes(t)));
       if (!isMatch) return false;
     }
@@ -1775,14 +1791,10 @@ onMounted(async () => {
 
   try {
     const [csvRes, synRes, teamRes, skillRes] = await Promise.all([
-      fetch('/DB/player_sorted.csv', { cache: 'no-store' }), 
-      fetch('/DB/synergys.json', { cache: 'no-store' }), 
-      fetch('/DB/setting.json', { cache: 'no-store' }),
-      fetch('/DB/normal_skill.json', { cache: 'no-store' }) // 🌟 스킬 이미지 DB 로드 추가!
+      fetch('/DB/player_sorted.csv', { cache: 'no-store' }), fetch('/DB/synergys.json', { cache: 'no-store' }), fetch('/DB/setting.json', { cache: 'no-store' }), fetch('/DB/normal_skill.json', { cache: 'no-store' })
     ])
     if (teamRes.ok) teamData.value = await teamRes.json()
-    if (skillRes.ok) normalSkillData.value = await skillRes.json() // 🌟 데이터 저장
-
+    if (skillRes.ok) normalSkillData.value = await skillRes.json()
     const text = await csvRes.text()
     
     // 원본 코드로 깔끔하게 복구
@@ -2028,7 +2040,6 @@ const getPlayerImage = (p: Raw | null) => {
                     </div>
                   </div>
                 </div>
-
               </div>
             </div>
           </div>
@@ -2651,6 +2662,14 @@ const getPlayerImage = (p: Raw | null) => {
                     </button>
                   </div>
                 </div>
+                </div>
+                </div>
+            
+            <div v-else class="flex h-full items-center justify-center text-neutral-400 text-sm flex-col gap-2">
+              <UserCheck class="w-10 h-10 opacity-20"/>
+              중앙에서 선수를 클릭해주세요.
+            </div>
+          </div>
         </section>
         </div> <!-- 🌟 복구 1. 좌/우/중앙 Flex 분할 컨테이너 닫기 -->
     </div> <!-- 🌟 복구 2. 전체 패널 영역 닫기 -->
