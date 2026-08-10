@@ -643,7 +643,8 @@ const toggleSynergyFilter = (s: string) => {
 // 🌟 스킬 검색용 드롭다운 및 이미지 매칭 엔진
 const isSkillDropdownOpen = ref(false)
 const skillSearchText = ref('')
-const skillOptions = computed(() => Object.keys(SKILL_EFFECTS).sort())
+const excludedFilterSkills = ['마무리', '셋업맨', '숏릴리프', '승리계투'];
+const skillOptions = computed(() => Object.keys(SKILL_EFFECTS).filter(sk => !excludedFilterSkills.includes(sk)).sort());
 const normalSkillData = ref<any[]>([])
 
 const matchSkillInfo = (skill: string) => {
