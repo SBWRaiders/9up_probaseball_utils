@@ -2176,7 +2176,7 @@ const getPlayerImage = (p: Raw | null) => {
                 <div>
                   <label class="block text-[11px] font-bold text-amber-500 mb-1.5 ml-1 flex items-center gap-1"><Star class="w-3 h-3 text-amber-400"/>스킬 필터</label>
                   
-                  <div class="overflow-y-auto overscroll-contain rounded-lg border border-neutral-200 dark:border-neutral-600 p-1.5 bg-neutral-50/50 dark:bg-neutral-800/50 max-h-56 custom-scrollbar">
+                  <div class="overflow-y-auto overscroll-contain rounded-lg border border-neutral-200 dark:border-neutral-600 p-1.5 pb-4 bg-neutral-50/50 dark:bg-neutral-800/50 max-h-56 custom-scrollbar">
                     <div class="grid grid-cols-4 gap-1.5">
                       <button
                         v-for="sk in skillOptions" :key="sk"
@@ -2187,7 +2187,7 @@ const getPlayerImage = (p: Raw | null) => {
                           : 'bg-white dark:bg-neutral-700 text-neutral-700 dark:text-neutral-200 border-neutral-200 dark:border-neutral-600 hover:bg-amber-50 dark:hover:bg-neutral-600'"
                       >
                         <!-- 🌟 실제 스킬 이미지가 렌더링 되는 곳 -->
-                        <div class="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center" :class="['bg-neutral-100 dark:bg-neutral-600', searchQuery.skill.includes(sk) ? 'ring-2 ring-white/50 bg-white/20' : '']"><div :class="`bg-${matchSkillInfo(sk)}`" style="transform: scale(0.5); transform-origin: center;"></div></div>
+                        <div class="w-8 h-8 rounded-lg" :class="['bg-neutral-100 dark:bg-neutral-600', searchQuery.skill.includes(sk) ? 'ring-2 ring-white/50 bg-white/20' : '', `bg-${matchSkillInfo(sk)}`]"></div>
                         <span class="block w-full text-center font-semibold truncate px-0.5">{{ sk }}</span>
                       </button>
                     </div>
@@ -2837,7 +2837,7 @@ const getPlayerImage = (p: Raw | null) => {
                         
                         <!-- 스킬 이미지 -->
                         <div class="w-12 h-12 shrink-0 rounded-lg overflow-hidden bg-[#1a1a1a] border border-indigo-300/50 dark:border-indigo-700/50 shadow-inner flex items-center justify-center relative">
-                          <div v-if="matchEnhancedSkillImage(enh)" :class="matchEnhancedSkillImage(enh)" style="transform: scale(0.65); transform-origin: center;"></div>
+                          <div v-if="matchEnhancedSkillImage(enh)" :class="matchEnhancedSkillImage(enh)" class="w-8 h-8 transform scale-[1.35]"></div>
                           <Sparkles v-else class="w-6 h-6 text-indigo-400" />
                         </div>
                         
@@ -2858,7 +2858,7 @@ const getPlayerImage = (p: Raw | null) => {
                   </div>
 
                   <!-- 🌟 2. 클릭해서 장착할 수 있는 스킬 목록 (이미지 갤러리) -->
-                  <div class="grid grid-cols-4 sm:grid-cols-5 gap-1.5">
+                  <div class="grid grid-cols-4 sm:grid-cols-5 gap-1.5 pb-4">
                     <button 
                       v-for="sk in getAvailableSkills(lineup[selectedSlot])" 
                       :key="sk"
@@ -2872,7 +2872,7 @@ const getPlayerImage = (p: Raw | null) => {
                       ]"
                       class="group relative inline-flex flex-col items-center justify-center gap-1 rounded-xl border py-1.5 text-[10px] font-medium select-none transition-all duration-200"
                     >
-                      <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-md overflow-hidden flex items-center justify-center" :class="['bg-neutral-200 dark:bg-neutral-600', playerBuffs[selectedSlot].selectedSkills.includes(sk) ? 'ring-2 ring-white/50 bg-white/20' : '']"><div :class="`bg-${matchSkillInfo(sk)}`" style="transform: scale(0.5); transform-origin: center;"></div></div>
+                      <div class="w-8 h-8 rounded-md" :class="['bg-neutral-200 dark:bg-neutral-600', playerBuffs[selectedSlot].selectedSkills.includes(sk) ? 'ring-2 ring-white/50 bg-white/20' : '', `bg-${matchSkillInfo(sk)}`]"></div>
                       <span class="block w-full text-center font-semibold truncate px-0.5" 
                             :class="playerBuffs[selectedSlot].selectedSkills.includes(sk) ? 'text-white' : 'text-neutral-700 dark:text-neutral-300'">{{ sk }}</span>
                       
