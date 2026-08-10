@@ -2837,13 +2837,10 @@ const getPlayerImage = (p: Raw | null) => {
                         </div>
                         
                         <!-- 스킬 이미지 -->
-                        <div class="w-12 h-12 shrink-0 rounded-lg overflow-hidden bg-[#1a1a1a] border border-indigo-300/50 dark:border-indigo-700/50 shadow-inner flex items-center justify-center relative">
-                          <!-- CSS 스프라이트 컨테이너 -->
-                          <div v-if="matchEnhancedSkillImage(enh)" class="w-full h-full flex items-center justify-center overflow-hidden">
-                            <div :class="[matchEnhancedSkillImage(enh)]" style="transform: scale(0.65); transform-origin: center;"></div>
-                          </div>
-                          <Sparkles v-else class="w-6 h-6 text-indigo-400" />
-                          
+                        <div class="w-12 h-12 sm:w-14 sm:h-14 shrink-0 rounded-xl overflow-hidden bg-[#111111] border border-indigo-300/50 dark:border-indigo-700/50 shadow-inner flex items-start justify-center relative">
+                          <!-- CSS 스프라이트에서 '고유' 글자를 잘라내기 위해 items-start와 origin-top을 사용하고 크기를 키워 꽉 채웁니다. -->
+                          <div v-if="matchEnhancedSkillImage(enh)" :class="[matchEnhancedSkillImage(enh)]" style="transform: scale(1.3); transform-origin: top center; margin-top: 2px;"></div>
+                          <Sparkles v-else class="w-6 h-6 text-indigo-400 mt-3" />
                         </div>
                         
                         <!-- 텍스트 영역 -->
@@ -2877,7 +2874,9 @@ const getPlayerImage = (p: Raw | null) => {
                       ]"
                       class="group relative inline-flex flex-col items-center justify-center gap-1 rounded-xl border py-1.5 text-[10px] font-medium select-none transition-all duration-200"
                     >
-                      <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-md overflow-hidden flex items-center justify-center" :class="['bg-neutral-200 dark:bg-neutral-600', playerBuffs[selectedSlot].selectedSkills.includes(sk) ? 'ring-2 ring-white/50 bg-white/20' : '']"><div :class="[`bg-${matchSkillInfo(sk)}`]" class="w-full h-full" style="transform: scale(1.15); transform-origin: center;"></div></div>
+                      <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-lg overflow-hidden flex items-start justify-center bg-neutral-800" :class="[playerBuffs[selectedSlot].selectedSkills.includes(sk) ? 'ring-2 ring-amber-400 bg-neutral-700' : '']">
+                        <div :class="[`bg-${matchSkillInfo(sk)}`]" style="transform: scale(1.35); transform-origin: top center; margin-top: 1px;"></div>
+                      </div>
                       <span class="block w-full text-center font-semibold truncate px-0.5" 
                             :class="playerBuffs[selectedSlot].selectedSkills.includes(sk) ? 'text-white' : 'text-neutral-700 dark:text-neutral-300'">{{ sk }}</span>
                       
