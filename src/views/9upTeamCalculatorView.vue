@@ -1423,71 +1423,75 @@ const computedPlayerStats = computed(() => {
   return result
 })
 
-// 🌟 레이더 차트 (오각형) 그리기 도우미 함수들
+// 🌟 레이더 차트 (오각형) 그리기 도우미 함수들 (인게임 2000 고정 스케일)
 const RADAR_CENTER = 100;
-const RADAR_RADIUS = 60;
+const RADAR_RADIUS = 60; // 2000 스탯일 때의 기준 반지름
 const RADAR_ANGLES = [0, 72, 144, 216, 288];
 
+// 🌟 1. 거미줄 생성 (4줄: 500, 1000, 1500, 2000)
 const getRadarWebPoints = (level: number) => {
-  const r = (RADAR_RADIUS / 5) * level;
+  const r = (RADAR_RADIUS / 4) * level; 
   return RADAR_ANGLES.map(angle => {
     const rad = (angle - 90) * (Math.PI / 180);
     return `${RADAR_CENTER + r * Math.cos(rad)},${RADAR_CENTER + r * Math.sin(rad)}`;
   }).join(' ');
 };
 
+// 🌟 2. 스탯 꼭짓점 계산 (2000 넘으면 뚫고 나감)
 const getRadarStatPoints = (slot: string) => {
   if (!slot || !computedPlayerStats.value[slot]) return '';
   const p = lineup.value[slot];
   if (!p) return '';
   const isPit = isPitcher(p);
-  // 🌟 변경됨: 인게임 순서가 적용된 배열 사용
   const coreStats = isPit ? radarPitcherStats : radarBatterStats;
   const stats = computedPlayerStats.value[slot].stats;
   const values = coreStats.map(s => stats[s] || 0);
-  const maxVal = Math.max(...values, 500) * 1.1; 
 
   return values.map((val, i) => {
-    const r = (val / maxVal) * RADAR_RADIUS;
+    // 자동 스케일링(Math.max)을 없애고 2000을 고정 기준으로 나눔!
+    const r = (val / 2000) * RADAR_RADIUS; 
     const rad = (RADAR_ANGLES[i] - 90) * (Math.PI / 180);
     return `${RADAR_CENTER + r * Math.cos(rad)},${RADAR_CENTER + r * Math.sin(rad)}`;
   }).join(' ');
 };
 
+// 🌟 3. 스탯 점(동그라미) 계산
 const getRadarStatDots = (slot: string) => {
   if (!slot || !computedPlayerStats.value[slot]) return [];
   const p = lineup.value[slot];
   if (!p) return [];
   const isPit = isPitcher(p);
-  // 🌟 변경됨: 인게임 순서가 적용된 배열 사용
   const coreStats = isPit ? radarPitcherStats : radarBatterStats;
   const stats = computedPlayerStats.value[slot].stats;
   const values = coreStats.map(s => stats[s] || 0);
-  const maxVal = Math.max(...values, 500) * 1.1;
 
   return values.map((val, i) => {
-    const r = (val / maxVal) * RADAR_RADIUS;
+    const r = (val / 2000) * RADAR_RADIUS; // 동일하게 2000 기준
     const rad = (RADAR_ANGLES[i] - 90) * (Math.PI / 180);
     return { x: RADAR_CENTER + r * Math.cos(rad), y: RADAR_CENTER + r * Math.sin(rad) };
   });
 };
 
+// 🌟 4. 스탯 텍스트 위치 계산
 const getRadarLabels = (slot: string) => {
   if (!slot || !computedPlayerStats.value[slot]) return [];
   const p = lineup.value[slot];
   if (!p) return [];
   const isPit = isPitcher(p);
-  // 🌟 변경됨: 인게임 순서가 적용된 배열 사용
   const coreStats = isPit ? radarPitcherStats : radarBatterStats;
   const stats = computedPlayerStats.value[slot].stats;
-  
-  const labelRadius = RADAR_RADIUS + 22;
 
   return coreStats.map((s, i) => {
+    const val = stats[s] || 0;
+    const r = (val / 2000) * RADAR_RADIUS;
+    // 스탯이 2000을 뚫고 나가면 글씨가 가려지지 않게 같이 밀어냄!
+    const labelRadius = Math.max(RADAR_RADIUS, r) + 18;
+
     const rad = (RADAR_ANGLES[i] - 90) * (Math.PI / 180);
     let x = RADAR_CENTER + labelRadius * Math.cos(rad);
     let y = RADAR_CENTER + labelRadius * Math.sin(rad);
     
+    // 미세 위치 보정
     if (i === 0) y -= 2;
     if (i === 2 || i === 3) y += 6;
     
@@ -2596,8 +2600,8 @@ const getPlayerImage = (p: Raw | null) => {
                      <svg viewBox="0 0 200 200" class="w-full h-full overflow-visible">
                         <!-- 차트를 화면 중앙으로 맞추기 위한 위치 보정 -->
                         <g transform="translate(0, -5)">
-                           <!-- 배경 거미줄 (5단계) -->
-                           <polygon v-for="level in 5" :key="'web'+level" :points="getRadarWebPoints(level)" fill="none" stroke="currentColor" class="text-neutral-300 dark:text-neutral-600/70" stroke-width="0.7" />
+                           <!-- 배경 거미줄 (4단계: 500, 1000, 1500, 2000) -->
+<polygon v-for="level in 4" :key="'web'+level" :points="getRadarWebPoints(level)" fill="none" stroke="currentColor" class="text-neutral-300 dark:text-neutral-600/70" stroke-width="0.7" />
                            <!-- 중심선 -->
                            <line v-for="angle in [0, 72, 144, 216, 288]" :key="'line'+angle" x1="100" y1="100" :x2="100 + 60 * Math.cos((angle - 90) * Math.PI / 180)" :y2="100 + 60 * Math.sin((angle - 90) * Math.PI / 180)" stroke="currentColor" class="text-neutral-300 dark:text-neutral-600/70" stroke-width="0.7" />
                            
