@@ -749,7 +749,9 @@ const matchSkillInfo = (skill: string) => {
 
 // 🌟 강화스킬 이미지 매칭
 const matchEnhancedSkillImage = (skill: string) => {
-  return enhancedSkillData.value.find((s) => s.enhanced_skill === skill)?.image || ''
+  const img = enhancedSkillData.value.find((s) => s.enhanced_skill === skill)?.image || '';
+  if (!img) return '';
+  return img.startsWith('bg-') ? img : `bg-${img}`;
 }
 
 // 🌟 강화스킬 효과 매칭 (레벨 연동)
