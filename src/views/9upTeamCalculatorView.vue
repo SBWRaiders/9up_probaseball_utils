@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, reactive, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, reactive, watch } from 'vue'
 import Papa from 'papaparse'
 import { Search, Calculator, Star, Shield, Zap, TrendingUp, X, Users, ArrowUpCircle, Sparkles, UserCheck, Filter, ChevronRight as ChevronRightIcon, Check, Save, FolderOpen, Download, Upload } from 'lucide-vue-next'
 
@@ -195,6 +195,23 @@ const teamData = ref<any[]>([])
 
 const advancedFilterOpen = ref(false)
 const isSynergyDropdownOpen = ref(false)
+const synergyWrapperRef = ref<HTMLElement | null>(null)
+
+const onDocClick = (ev: MouseEvent) => {
+  const t = ev.target as Node
+  if (synergyWrapperRef.value && !synergyWrapperRef.value.contains(t)) {
+    isSynergyDropdownOpen.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', onDocClick)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', onDocClick)
+})
+
 const currentPage = ref(1)
 const pageSize = 50
 const synergySearchText = ref('')
@@ -2012,7 +2029,7 @@ const getPlayerImage = (p: Raw | null) => {
                 <!-- 시너지 검색 -->
                 <div>
                   <label class="block text-[11px] font-bold text-neutral-500 mb-1.5 ml-1">시너지 검색</label>
-                  <div class="relative flex flex-col gap-1" @focusout="setTimeout(() => isSynergyDropdownOpen = false, 200)">
+                  <div ref="synergyWrapperRef" class="relative flex flex-col gap-1">
                     <input v-model="synergySearchText" @focus="isSynergyDropdownOpen = true" placeholder="시너지를 검색하세요" 
                            class="w-full px-2 py-1.5 text-[11px] border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm" />
                     
