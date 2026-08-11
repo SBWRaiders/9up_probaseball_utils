@@ -235,10 +235,15 @@ const filteredPlayers = computed(() => {
   return preparedPlayers.value
       .filter(({ raw: p, teamLc, skillLc, enhancedSkillLc, positionLc, yearsNum, nameNorm, synergyNormSet }) => {
 
-        // 🌟 수정됨: 고졸+대졸 셔틀 동시보유 필터링 (쓰레기 문자/수식어 완벽 방어 엔진)
+        // 🌟 완벽 수정됨: 데이터(JSON) 이름 규칙 "OO고 출신", "OO대 출신" 기반 100% 정확한 필터링 엔진
         if (filters.value.hsUniSynergyOnly) {
-           const hasHs = Array.from(synergyNormSet).some(s => /(고|상고|공고|고등학교)(?:\s*\(.*?\))?[^가-힣a-zA-Z0-9]*$/.test(s));
-           const hasUni = Array.from(synergyNormSet).some(s => /(대|대학교)(?:\s*\(.*?\))?[^가-힣a-zA-Z0-9]*$/.test(s));
+           let hasHs = false;
+           let hasUni = false;
+           synergyNormSet.forEach(s => {
+               if (s.endsWith('고 출신')) hasHs = true;
+               if (s.endsWith('대 출신') || s.endsWith('대학교 출신')) hasUni = true;
+           });
+           
            if (!hasHs || !hasUni) return false;
         }
 
@@ -412,6 +417,7 @@ async function loadCsv() {
   if (typeof filters.value.name !== 'string') filters.value.name = ''
   if (!Array.isArray(filters.value.synergy)) filters.value.synergy = []
   if (!Array.isArray(filters.value.search)) filters.value.search = []
+  if (typeof filters.value.hsUniSynergyOnly !== 'boolean') filters.value.hsUniSynergyOnly = false
 
   await loadSynergyOptions()
   currentPage.value = 1
