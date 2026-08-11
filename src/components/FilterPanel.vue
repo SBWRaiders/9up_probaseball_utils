@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { defineProps, defineEmits, computed, watch, onMounted, onBeforeUnmount, ref } from 'vue'
-import { Star, Search, ChevronDown } from 'lucide-vue-next'
+// 🌟 수정됨: Check 아이콘 임포트 추가! (버튼 렌더링용)
+import { Star, Search, ChevronDown, Check } from 'lucide-vue-next'
 import type { PropType } from 'vue'
 
 /* =========================
@@ -984,18 +985,20 @@ defineExpose({
         <!-- 🌟 새롭게 추가된 벤치용 고졸+대졸 셔틀 체크박스 -->
         <div class="flex flex-col h-full md:mt-0 mt-2">
           <label class="block text-[11px] font-bold text-transparent select-none mb-1 hidden md:block">필터</label>
-          <label class="flex items-center justify-center gap-1.5 h-[38px] px-3 md:px-4 rounded-md border border-neutral-200 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-800 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors shadow-sm whitespace-nowrap"
-                 :class="props.filters?.hsUniSynergyOnly ? 'ring-2 ring-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-600' : ''">
-            <input 
-              type="checkbox" 
-              class="w-3.5 h-3.5 text-indigo-600 rounded border-neutral-300 focus:ring-indigo-500 cursor-pointer"
-              :checked="props.filters?.hsUniSynergyOnly"
-              @change="update('hsUniSynergyOnly', $event.target.checked)"
-            />
+          <button 
+            type="button"
+            @click="update('hsUniSynergyOnly', !props.filters?.hsUniSynergyOnly)"
+            class="flex items-center justify-center gap-1.5 h-[38px] px-3 md:px-4 rounded-md border transition-colors shadow-sm whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            :class="props.filters?.hsUniSynergyOnly ? 'ring-2 ring-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-600' : 'border-neutral-200 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700'"
+          >
+            <div class="w-3.5 h-3.5 flex items-center justify-center rounded border"
+                 :class="props.filters?.hsUniSynergyOnly ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-neutral-300 bg-white dark:bg-neutral-900 dark:border-neutral-500'">
+              <Check v-if="props.filters?.hsUniSynergyOnly" class="w-3 h-3" stroke-width="3" />
+            </div>
             <span class="text-xs font-bold" :class="props.filters?.hsUniSynergyOnly ? 'text-indigo-700 dark:text-indigo-300' : 'text-neutral-600 dark:text-neutral-300'">
               고교+대학 보유
             </span>
-          </label>
+          </button>
         </div>
 
       </div>
