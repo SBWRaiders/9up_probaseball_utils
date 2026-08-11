@@ -824,9 +824,9 @@ defineExpose({
 
     </div> <!-- /grid -->
 
-    <!-- 🌟 수정됨: Toolbar: 이름 · 시너지 · 제외 시너지 (3칸) -->
-    <section class="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white/95 dark:bg-neutral-900/95 shadow-sm p-4">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <!-- 🌟 수정됨: Toolbar: 이름 · 시너지 · 제외 시너지 + 고졸대졸 셔틀 체크박스 -->
+    <section class="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white/95 dark:bg-neutral-900/95 shadow-sm p-3 md:p-4">
+      <div class="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_auto] gap-3 md:gap-4 items-start">
         <!-- 이름 -->
         <div>
           <!-- 🌟 중복 텍스트 버그 수정 -->
@@ -979,6 +979,23 @@ defineExpose({
               <button @click="removeExcludedTag(tag)" class="text-rose-600 hover:text-rose-800 dark:text-rose-300 dark:hover:text-rose-100 transition-colors font-black" aria-label="태그 제거">&times;</button>
             </span>
           </div>
+        </div>
+
+        <!-- 🌟 새롭게 추가된 벤치용 고졸+대졸 셔틀 체크박스 -->
+        <div class="flex flex-col h-full md:mt-0 mt-2">
+          <label class="block text-[11px] font-bold text-transparent select-none mb-1 hidden md:block">필터</label>
+          <label class="flex items-center justify-center gap-1.5 h-[38px] px-3 md:px-4 rounded-md border border-neutral-200 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-800 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors shadow-sm whitespace-nowrap"
+                 :class="props.filters?.hsUniSynergyOnly ? 'ring-2 ring-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-600' : ''">
+            <input 
+              type="checkbox" 
+              class="w-3.5 h-3.5 text-indigo-600 rounded border-neutral-300 focus:ring-indigo-500 cursor-pointer"
+              :checked="props.filters?.hsUniSynergyOnly"
+              @change="update('hsUniSynergyOnly', $event.target.checked)"
+            />
+            <span class="text-xs font-bold" :class="props.filters?.hsUniSynergyOnly ? 'text-indigo-700 dark:text-indigo-300' : 'text-neutral-600 dark:text-neutral-300'">
+              고교+대학 보유
+            </span>
+          </label>
         </div>
 
       </div>
