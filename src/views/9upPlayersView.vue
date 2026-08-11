@@ -240,6 +240,14 @@ const preparedPlayers = computed<Prepared[]>(() =>
 const filteredPlayers = computed(() => {
   return preparedPlayers.value
       .filter(({ raw: p, teamLc, skillLc, enhancedSkillLc, positionLc, yearsNum, nameNorm, synergyNormSet }) => {
+
+        // 🌟 추가됨: 고졸+대졸 시너지 셔틀 동시보유 필터링 엔진
+        if (filters.value.hsUniSynergyOnly) {
+           const hasHs = Array.from(synergyNormSet).some(s => s.endsWith('고') || s.endsWith('상고') || s.endsWith('공고'));
+           const hasUni = Array.from(synergyNormSet).some(s => s.endsWith('대') || s.endsWith('대학교'));
+           if (!hasHs || !hasUni) return false;
+        }
+
         for (const field of allFields.value) {
           const selected = filters.value[field]
           if (!selected || (Array.isArray(selected) && selected.length === 0)) continue
