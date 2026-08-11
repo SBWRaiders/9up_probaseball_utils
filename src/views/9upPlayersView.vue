@@ -234,6 +234,14 @@ const preparedPlayers = computed<Prepared[]>(() =>
 const filteredPlayers = computed(() => {
   return preparedPlayers.value
       .filter(({ raw: p, teamLc, skillLc, enhancedSkillLc, positionLc, yearsNum, nameNorm, synergyNormSet }) => {
+
+        // 🌟 수정됨: 고졸+대졸 셔틀 동시보유 필터링 (쓰레기 문자/수식어 완벽 방어 엔진)
+        if (filters.value.hsUniSynergyOnly) {
+           const hasHs = Array.from(synergyNormSet).some(s => /(고|상고|공고|고등학교)(?:\s*\(.*?\))?[^가-힣a-zA-Z0-9]*$/.test(s));
+           const hasUni = Array.from(synergyNormSet).some(s => /(대|대학교)(?:\s*\(.*?\))?[^가-힣a-zA-Z0-9]*$/.test(s));
+           if (!hasHs || !hasUni) return false;
+        }
+
         for (const field of allFields.value) {
           const selected = filters.value[field]
           if (!selected || (Array.isArray(selected) && selected.length === 0)) continue
@@ -314,7 +322,7 @@ const filteredPlayers = computed(() => {
             continue
           }
 
-          // 🌟 새로 추가됨: 시너지 제외 검색 (제외할 조건: NOT)
+          // 🌟 시너지 제외 검색 (제외할 조건: NOT)
           if (field === 'excludedSynergy') {
             if (Array.isArray(selected)) {
               const excludedTerms = selected.map(s => normText(String(s)));
