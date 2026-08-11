@@ -105,19 +105,13 @@ const normalizePosition = (position: any): string => {
 }
 
 const toArray = (v: unknown, { allowComma = true }: { allowComma?: boolean } = {}) => {
-  if (Array.isArray(v)) return v.map(x => String(x).trim()).filter(Boolean)
+  if (Array.isArray(v)) return v.map(x => String(x).replace(/[\[\]"'`]/g, '').trim()).filter(Boolean)
   if (typeof v === 'string') {
-    const t = v.trim()
-    if (t.startsWith('[') && t.endsWith(']')) {
-      try {
-        const parsed = JSON.parse(t)
-        return Array.isArray(parsed) ? parsed.map(x => String(x).trim()).filter(Boolean) : [t]
-      } catch { /* ignore */ }
-    }
+    const t = v.replace(/[\[\]"'`]/g, '').trim()
     const splitter = allowComma ? CSV_SPLIT : /[\u3001;、;]+/
     return t.split(splitter).map(s => s.trim()).filter(Boolean)
   }
-  return [String(v ?? '').trim()].filter(Boolean)
+  return [String(v ?? '').replace(/[\[\]"'`]/g, '').trim()].filter(Boolean)
 }
 
 const dedupeCI = (list: string[]) => {
@@ -240,14 +234,6 @@ const preparedPlayers = computed<Prepared[]>(() =>
 const filteredPlayers = computed(() => {
   return preparedPlayers.value
       .filter(({ raw: p, teamLc, skillLc, enhancedSkillLc, positionLc, yearsNum, nameNorm, synergyNormSet }) => {
-
-        // 🌟 추가됨: 고졸+대졸 시너지 셔틀 동시보유 필터링 엔진
-        if (filters.value.hsUniSynergyOnly) {
-           const hasHs = Array.from(synergyNormSet).some(s => s.endsWith('고') || s.endsWith('상고') || s.endsWith('공고'));
-           const hasUni = Array.from(synergyNormSet).some(s => s.endsWith('대') || s.endsWith('대학교'));
-           if (!hasHs || !hasUni) return false;
-        }
-
         for (const field of allFields.value) {
           const selected = filters.value[field]
           if (!selected || (Array.isArray(selected) && selected.length === 0)) continue
