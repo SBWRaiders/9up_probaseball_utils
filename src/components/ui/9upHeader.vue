@@ -63,7 +63,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleEscKey)
 })
 
-// 메뉴 목록 (disable 추가 및 '팀 파워 시뮬레이터(공사중)' 탭 추가)
+// 👇 여기에 '강화 시뮬레이터'가 추가되었습니다! 👇
 const menuItems = [
   { name: '공지 사항', path: '/notice', disabled: false },
   { name: '선수 검색', path: '/players', disabled: false },
@@ -71,6 +71,7 @@ const menuItems = [
   { name: '라인업 생성', path: '/lineups', disabled: false },
   { name: '스탯 계산기', path: '/calculator', disabled: false },
   { name: '팀 파워 시뮬레이터', path: '/team-calculator', disabled: false },
+  { name: '강화 시뮬레이터', path: '/enhance', disabled: false }, // 🌟 새로 추가된 메뉴 🌟
   { name: '건의 게시판', path: '/feedback', disabled: false }
 ]
 
