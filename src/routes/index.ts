@@ -26,13 +26,12 @@ const routes = [
         name: 'Lineups',
         component: () => import('@/views/9upLineupView.vue'),
     },
-    // 👇 여기에 새로운 팀 파워 시뮬레이터 탭 주소가 추가되었습니다!
+    // 👇 팀 파워 시뮬레이터
     {
         path: '/team-calculator',
         name: 'TeamCalculator',
         component: () => import('@/views/9upTeamCalculatorView.vue'),
     },
-    
     {
         path: '/players',
         name: 'Players',
@@ -43,7 +42,13 @@ const routes = [
         name: 'Feedback',
         component: () => import('@/views/9upFeedbackView.vue'),
     },
-    // 404 fallback
+    // 👇 새로 추가된 강화 시뮬레이터! (에러 없이 완벽하게 배열 안에 삽입됨)
+    {
+        path: '/enhance',
+        name: 'enhance',
+        component: () => import('@/views/EnhancementView.vue')
+    },
+    // 404 fallback (이 항목은 반드시 배열의 맨 마지막에 있어야 합니다)
     {
         path: '/:pathMatch(.*)*',
         name: 'NotFound',
@@ -54,11 +59,4 @@ const routes = [
 export const router = createRouter({
     history: createWebHistory(),
     routes,
-},
-{
-      path: '/enhance',
-      name: 'enhance',
-      component: EnhancementView
-    }
-  ]
 })
