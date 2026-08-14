@@ -63,7 +63,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleEscKey)
 })
 
-// 👇 여기에 '강화 시뮬레이터'가 추가되었습니다! 👇
+// 👇 메뉴 목록 (강화 시뮬레이터 추가됨) 👇
 const menuItems = [
   { name: '공지 사항', path: '/notice', disabled: false },
   { name: '선수 검색', path: '/players', disabled: false },
@@ -71,12 +71,12 @@ const menuItems = [
   { name: '라인업 생성', path: '/lineups', disabled: false },
   { name: '스탯 계산기', path: '/calculator', disabled: false },
   { name: '팀 파워 시뮬레이터', path: '/team-calculator', disabled: false },
-  { name: '강화 시뮬레이터', path: '/enhance', disabled: false }, // 🌟 새로 추가된 메뉴 🌟
+  { name: '강화 시뮬레이터', path: '/enhance', disabled: false }, // 🌟 새 메뉴 🌟
   { name: '건의 게시판', path: '/feedback', disabled: false }
 ]
 
 const navigate = (item: { path: string; disabled?: boolean }) => {
-  if (item.disabled) return // disabled 상태면 클릭 무시
+  if (item.disabled) return
   isSidebarOpen.value = false
   if (route.path !== item.path) {
     router.push(item.path)
@@ -85,7 +85,8 @@ const navigate = (item: { path: string; disabled?: boolean }) => {
 </script>
 
 <template>
-  <div class="relative min-h-screen bg-gray-100 dark:bg-neutral-900 text-gray-900 dark:text-neutral-100 overflow-hidden">
+  <!-- App.vue와 충돌하지 않도록 불필요한 전체화면 래퍼(min-h-screen) 제거 -->
+  <div>
     <!-- 헤더 -->
     <header class="fixed top-0 left-0 right-0 h-14 bg-white dark:bg-neutral-800 shadow z-50 px-4 flex items-center justify-between">
       <button @click="isSidebarOpen = !isSidebarOpen" class="text-gray-700 dark:text-neutral-100">
@@ -145,11 +146,6 @@ const navigate = (item: { path: string; disabled?: boolean }) => {
         </nav>
       </aside>
     </transition>
-
-    <!-- 실제 콘텐츠 -->
-    <div class="pt-14">
-      <router-view />
-    </div>
   </div>
 </template>
 
