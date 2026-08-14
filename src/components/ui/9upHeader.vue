@@ -12,11 +12,9 @@ const title = ref("9up 프로야구 유틸리티")
 // 다크모드 상태 관리
 const isDark = ref(false)
 
-// 다크모드 초기화 및 로컬스토리지에서 설정 불러오기
 const initDarkMode = () => {
   const savedTheme = localStorage.getItem('theme')
   const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-
   if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
     isDark.value = true
     document.documentElement.classList.add('dark')
@@ -26,10 +24,8 @@ const initDarkMode = () => {
   }
 }
 
-// 다크모드 토글 함수
 const toggleDarkMode = () => {
   isDark.value = !isDark.value
-
   if (isDark.value) {
     document.documentElement.classList.add('dark')
     localStorage.setItem('theme', 'dark')
@@ -47,9 +43,7 @@ const handleClickOutside = (event: MouseEvent) => {
 }
 
 const handleEscKey = (event: KeyboardEvent) => {
-  if (event.key === 'Escape') {
-    isSidebarOpen.value = false
-  }
+  if (event.key === 'Escape') isSidebarOpen.value = false
 }
 
 onMounted(() => {
@@ -63,7 +57,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleEscKey)
 })
 
-// 👇 메뉴 목록 (강화 시뮬레이터 추가됨) 👇
 const menuItems = [
   { name: '공지 사항', path: '/notice', disabled: false },
   { name: '선수 검색', path: '/players', disabled: false },
@@ -71,51 +64,40 @@ const menuItems = [
   { name: '라인업 생성', path: '/lineups', disabled: false },
   { name: '스탯 계산기', path: '/calculator', disabled: false },
   { name: '팀 파워 시뮬레이터', path: '/team-calculator', disabled: false },
-  { name: '강화 시뮬레이터', path: '/enhance', disabled: false }, // 🌟 새 메뉴 🌟
+  { name: '강화 시뮬레이터', path: '/enhance', disabled: false },
   { name: '건의 게시판', path: '/feedback', disabled: false }
 ]
 
 const navigate = (item: { path: string; disabled?: boolean }) => {
   if (item.disabled) return
   isSidebarOpen.value = false
-  if (route.path !== item.path) {
-    router.push(item.path)
-  }
+  if (route.path !== item.path) router.push(item.path)
 }
 </script>
 
 <template>
-  <!-- App.vue와 충돌하지 않도록 불필요한 전체화면 래퍼(min-h-screen) 제거 -->
   <div>
     <!-- 헤더 -->
     <header class="fixed top-0 left-0 right-0 h-14 bg-white dark:bg-neutral-800 shadow z-50 px-4 flex items-center justify-between">
       <button @click="isSidebarOpen = !isSidebarOpen" class="text-gray-700 dark:text-neutral-100">
         <component :is="isSidebarOpen ? X : Menu" class="w-6 h-6 transition-transform duration-300 cursor-pointer" />
       </button>
-      <h1 class="text-lg font-bold">{{ title }}</h1>
+      
+      <!-- 🌟 요청하신 가운데 타이틀 텍스트를 삭제했습니다 🌟 -->
+      <div></div>
 
       <!-- 다크모드 토글 버튼 -->
-      <button
-          @click="toggleDarkMode"
-          class="p-2 rounded-lg text-gray-700 dark:text-neutral-100 hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors duration-200"
-          :title="isDark ? '라이트 모드로 전환' : '다크 모드로 전환'"
-      >
+      <button @click="toggleDarkMode" class="p-2 rounded-lg text-gray-700 dark:text-neutral-100 hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors duration-200">
         <component :is="isDark ? Sun : Moon" class="w-5 h-5" />
       </button>
     </header>
 
-    <!-- 오버레이 -->
     <transition name="fade">
       <div v-if="isSidebarOpen" class="fixed inset-0 bg-black/40 z-20"></div>
     </transition>
 
-    <!-- 사이드바 -->
     <transition name="slide-smooth">
-      <aside
-          v-if="isSidebarOpen"
-          ref="sidebarRef"
-          class="fixed top-0 left-0 w-72 max-w-[90%] h-full bg-white dark:bg-neutral-800 shadow-2xl z-[99999] p-5 flex flex-col"
-      >
+      <aside v-if="isSidebarOpen" ref="sidebarRef" class="fixed top-0 left-0 w-72 max-w-[90%] h-full bg-white dark:bg-neutral-800 shadow-2xl z-[99999] p-5 flex flex-col">
         <div class="flex items-center justify-between mb-6">
           <div class="flex items-center gap-3">
             <img src="/assets/9up_app_logo.webp" alt="logo" class="w-10 h-10 rounded-md" />
@@ -125,50 +107,31 @@ const navigate = (item: { path: string; disabled?: boolean }) => {
             <X class="w-5 h-5 text-gray-700 dark:text-neutral-100 cursor-pointer" />
           </button>
         </div>
-
         <nav class="flex flex-col gap-2">
-          <button
-              v-for="(item, index) in menuItems"
-              :key="index"
-              @click="navigate(item)"
-              class="px-4 py-2 rounded-lg transition-all duration-200 font-medium text-left"
-              :class="[
-              item.disabled
-                ? 'text-neutral-400 dark:text-neutral-500 cursor-not-allowed opacity-60'
-                : route.path === item.path
-                  ? 'bg-blue-600 text-white shadow'
+          <button v-for="(item, index) in menuItems" :key="index" @click="navigate(item)"
+                  class="px-4 py-2 rounded-lg transition-all duration-200 font-medium text-left"
+                  :class="[
+              item.disabled ? 'text-neutral-400 dark:text-neutral-500 cursor-not-allowed opacity-60'
+                : route.path === item.path ? 'bg-blue-600 text-white shadow'
                   : 'text-gray-700 dark:text-neutral-200 hover:bg-gray-100 dark:hover:bg-neutral-700'
-            ]"
-              :disabled="item.disabled"
-          >
+            ]" :disabled="item.disabled">
             {{ item.name }}
           </button>
         </nav>
       </aside>
     </transition>
+
+    <!-- 🌟 pt-14를 pt-20으로 늘려서 상단 짤림 문제를 완벽하게 해결했습니다! 🌟 -->
+    <div class="pt-20 px-2 sm:px-4">
+      <router-view />
+    </div>
   </div>
 </template>
 
 <style scoped>
-.slide-smooth-enter-active,
-.slide-smooth-leave-active {
-  transition: transform 0.3s ease, opacity 0.3s ease;
-}
-.slide-smooth-enter-from {
-  transform: translateX(-100%);
-  opacity: 0;
-}
-.slide-smooth-leave-to {
-  transform: translateX(-100%);
-  opacity: 0;
-}
-
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
+.slide-smooth-enter-active, .slide-smooth-leave-active { transition: transform 0.3s ease, opacity 0.3s ease; }
+.slide-smooth-enter-from { transform: translateX(-100%); opacity: 0; }
+.slide-smooth-leave-to { transform: translateX(-100%); opacity: 0; }
+.fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
 </style>
