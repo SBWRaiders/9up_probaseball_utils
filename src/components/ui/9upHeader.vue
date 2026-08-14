@@ -77,27 +77,32 @@ const navigate = (item: { path: string; disabled?: boolean }) => {
 
 <template>
   <div>
-    <!-- 헤더 -->
-    <header class="fixed top-0 left-0 right-0 h-14 bg-white dark:bg-neutral-800 shadow z-50 px-4 flex items-center justify-between">
-      <button @click="isSidebarOpen = !isSidebarOpen" class="text-gray-700 dark:text-neutral-100">
-        <component :is="isSidebarOpen ? X : Menu" class="w-6 h-6 transition-transform duration-300 cursor-pointer" />
-      </button>
+    <!-- 🌟 플로팅 헤더: 배경줄 없애고 버튼만 둥둥 떠다니게 수정 🌟 -->
+    <!-- pointer-events-none을 줘서 버튼 사이의 투명한 공간은 클릭이 통과되도록 함 -->
+    <header class="fixed top-0 left-0 right-0 z-50 p-4 flex items-center justify-between pointer-events-none">
       
-      <!-- 🌟 요청하신 가운데 타이틀 텍스트를 삭제했습니다 🌟 -->
-      <div></div>
+      <!-- 햄버거 메뉴 버튼 (포인터 이벤트 활성화 & 뒷배경이 살짝 흐려지게 처리) -->
+      <button @click="isSidebarOpen = !isSidebarOpen" 
+              class="pointer-events-auto p-2.5 bg-white/80 dark:bg-neutral-800/80 backdrop-blur-md rounded-xl shadow-md text-gray-800 dark:text-neutral-100 hover:bg-white dark:hover:bg-neutral-700 transition-all">
+        <component :is="isSidebarOpen ? X : Menu" class="w-6 h-6" />
+      </button>
 
       <!-- 다크모드 토글 버튼 -->
-      <button @click="toggleDarkMode" class="p-2 rounded-lg text-gray-700 dark:text-neutral-100 hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors duration-200">
-        <component :is="isDark ? Sun : Moon" class="w-5 h-5" />
+      <button @click="toggleDarkMode" 
+              class="pointer-events-auto p-2.5 bg-white/80 dark:bg-neutral-800/80 backdrop-blur-md rounded-xl shadow-md text-gray-800 dark:text-neutral-100 hover:bg-white dark:hover:bg-neutral-700 transition-all">
+        <component :is="isDark ? Sun : Moon" class="w-6 h-6" />
       </button>
+
     </header>
 
+    <!-- 오버레이 -->
     <transition name="fade">
       <div v-if="isSidebarOpen" class="fixed inset-0 bg-black/40 z-20"></div>
     </transition>
 
+    <!-- 사이드바 -->
     <transition name="slide-smooth">
-      <aside v-if="isSidebarOpen" ref="sidebarRef" class="fixed top-0 left-0 w-72 max-w-[90%] h-full bg-white dark:bg-neutral-800 shadow-2xl z-[99999] p-5 flex flex-col">
+      <aside v-if="isSidebarOpen" ref="sidebarRef" class="fixed top-0 left-0 w-72 max-w-[90%] h-full bg-white dark:bg-neutral-800 shadow-2xl z-[99999] p-5 flex flex-col pointer-events-auto">
         <div class="flex items-center justify-between mb-6">
           <div class="flex items-center gap-3">
             <img src="/assets/9up_app_logo.webp" alt="logo" class="w-10 h-10 rounded-md" />
@@ -121,8 +126,8 @@ const navigate = (item: { path: string; disabled?: boolean }) => {
       </aside>
     </transition>
 
-    <!-- 🌟 pt-14를 pt-20으로 늘려서 상단 짤림 문제를 완벽하게 해결했습니다! 🌟 -->
-    <div class="pt-20 px-2 sm:px-4">
+    <!-- 🌟 실제 콘텐츠: 위쪽 여백(pt-20)을 날려버려서 페이지가 꼭대기부터 시작됨 🌟 -->
+    <div class="w-full">
       <router-view />
     </div>
   </div>
