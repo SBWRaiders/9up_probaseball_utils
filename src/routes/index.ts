@@ -54,3 +54,18 @@ export const router = createRouter({
     history: createWebHistory(),
     routes,
 })
+import { createRouter, createWebHistory } from 'vue-router'
+import EnhancementView from '@/views/EnhancementView.vue' // 위에서 저장한 경로
+
+const router = createRouter({
+  history: createWebHistory(import.meta.env.BASE_URL),
+  routes: [
+    // 기존 라우트들...
+    {
+      path: '/enhance',
+      name: 'enhance',
+      component: EnhancementView
+    }
+  ]
+})
+export default router
