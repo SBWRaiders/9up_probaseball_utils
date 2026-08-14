@@ -3,14 +3,15 @@ import { ref, computed } from 'vue'
 import { Zap, RefreshCw, ArrowRight, Check, X, Calculator, History } from 'lucide-vue-next'
 
 /* =========================
-   상수 및 확률 설정 (표 기반)
+   상수 및 확률 설정 (15강이 끝이므로 15단계까지만 설정!)
 ========================= */
 const BASE_PROBS = [
   1.0, 1.0, 0.8, 0.6, 0.5, 0.4, 0.3, 0.2, 
-  0.1, 0.075, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05
-]
+  0.1, 0.075, 0.05, 0.05, 0.05, 0.05, 0.05
+] // 총 15개 (0강->1강 ... 14강->15강)
+
 const FAIL_BONUS = 0.025 // 실패 시 2.5% 증가
-const MAX_LEVEL = 16
+const MAX_LEVEL = 15 // 🌟 최대 레벨 15강으로 수정 완료!
 
 /* =========================
    1. 강화 시뮬레이터 State
@@ -22,7 +23,6 @@ const logs = ref<{ id: number, type: 'success' | 'fail', from: number, to: numbe
 let logId = 0
 
 const currentBaseProb = computed(() => BASE_PROBS[currentLevel.value] ?? 0.05)
-// 기본 확률 + (실패 횟수 * 2.5%) -> 최대 100%
 const currentRealProb = computed(() => Math.min(1.0, currentBaseProb.value + failStack.value * FAIL_BONUS))
 
 const tryEnhance = () => {
@@ -32,7 +32,6 @@ const tryEnhance = () => {
   const r = Math.random()
   const success = r <= currentRealProb.value
 
-  // 로그 기록
   logs.value.unshift({
     id: logId++,
     type: success ? 'success' : 'fail',
@@ -42,12 +41,11 @@ const tryEnhance = () => {
     count: totalCardsUsed.value
   })
 
-  // 100개까지만 로그 유지
   if (logs.value.length > 100) logs.value.pop()
 
   if (success) {
     currentLevel.value++
-    failStack.value = 0 // 성공 시 보너스 초기화
+    failStack.value = 0 
   } else {
     failStack.value++
   }
@@ -61,15 +59,13 @@ const resetSimulator = () => {
 }
 
 /* =========================
-   2. 기대값 계산기 (표 자동 생성)
+   2. 기대값 계산기 
 ========================= */
-// 각 레벨별 기댓값을 수식으로 완벽히 재현
 const expectedValues = computed(() => {
   return BASE_PROBS.map((prob) => {
     let expectedTries = 0
     let reachProb = 1.0
     
-    // 최대 100번 시도한다고 가정하고 무한급수 계산
     for (let k = 1; k < 100; k++) {
       const currentTryProb = Math.min(1.0, prob + (k - 1) * FAIL_BONUS)
       expectedTries += k * reachProb * currentTryProb
@@ -151,7 +147,7 @@ const calculatedExpectedCards = computed(() => {
             :class="currentLevel >= MAX_LEVEL ? 'bg-neutral-300 dark:bg-neutral-800' : 'bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/30'"
           >
             <Zap class="w-6 h-6" />
-            {{ currentLevel >= MAX_LEVEL ? '최고 레벨' : '강화 시도 (카드 1장 소모)' }}
+            {{ currentLevel >= MAX_LEVEL ? '최고 레벨 (15강)' : '강화 시도 (카드 1장 소모)' }}
           </button>
           
           <div class="mt-6 text-neutral-500 font-medium">
@@ -200,15 +196,17 @@ const calculatedExpectedCards = computed(() => {
           <div class="flex items-center gap-4 mb-6">
             <div class="flex-1">
               <label class="block text-sm font-medium text-neutral-500 mb-1">시작 레벨</label>
+              <!-- 🌟 시작 레벨 옵션을 14까지만 생성되도록 수정 -->
               <select v-model="calcStartLevel" class="w-full bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500">
-                <option v-for="n in 16" :key="`start-${n-1}`" :value="n-1">+{{ n-1 }}</option>
+                <option v-for="n in MAX_LEVEL" :key="`start-${n-1}`" :value="n-1">+{{ n-1 }}</option>
               </select>
             </div>
             <ArrowRight class="w-6 h-6 text-neutral-300 mt-6" />
             <div class="flex-1">
               <label class="block text-sm font-medium text-neutral-500 mb-1">목표 레벨</label>
+              <!-- 🌟 목표 레벨 옵션을 15까지만 생성되도록 수정 -->
               <select v-model="calcTargetLevel" class="w-full bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500">
-                <option v-for="n in 16" :key="`target-${n}`" :value="n">+{{ n }}</option>
+                <option v-for="n in MAX_LEVEL" :key="`target-${n}`" :value="n">+{{ n }}</option>
               </select>
             </div>
           </div>
