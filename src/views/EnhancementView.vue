@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { 
   Zap, RefreshCw, ArrowRight, Check, X, Calculator, History, 
-  Lock, Unlock, Play, Star, Settings, Pause 
+  Lock, Unlock, Play, Star, Settings, Pause, Crown
 } from 'lucide-vue-next'
 
 const activeTab = ref<'enhance' | 'career'>('career')
@@ -14,7 +14,7 @@ const BASE_PROBS = [1.0, 0.8, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.075, 0.05, 0.05, 0
 const FAIL_BONUS = 0.025
 const MAX_LEVEL = 15
 
-const currentLevel = ref(0) // 유저가 직접 변경할 수 있도록 v-model 연결
+const currentLevel = ref(0)
 const failStack = ref(0)
 const totalCardsUsed = ref(0)
 const logs = ref<{ id: number, type: 'success' | 'fail', from: number, to: number, prob: number, count: number }[]>([])
@@ -58,11 +58,12 @@ const calculatedExpectedCards = computed(() => {
 
 
 // ==============================================
-// [2] 커리어 옵션 시뮬레이터 (세부 수치 완벽 적용)
+// [2] 커리어 옵션 시뮬레이터
 // ==============================================
 const TIERS = ['루키', '엘리트', '프로', '마스터']
-const TIER_COLORS = ['text-green-500', 'text-blue-500', 'text-purple-500', 'text-red-500']
-const TIER_BG = ['bg-green-100', 'bg-blue-100', 'bg-purple-100', 'bg-red-100']
+// 초록 -> 파랑 -> 분홍 -> 노랑 색상 적용
+const TIER_COLORS = ['text-green-600 dark:text-green-500', 'text-blue-600 dark:text-blue-500', 'text-pink-600 dark:text-pink-500', 'text-yellow-600 dark:text-yellow-500']
+const TIER_BG = ['bg-green-100 dark:bg-green-900/30', 'bg-blue-100 dark:bg-blue-900/30', 'bg-pink-100 dark:bg-pink-900/30', 'bg-yellow-100 dark:bg-yellow-900/30']
 
 const CARD_TYPES = [
   { id: 0, name: 'SEA, ASG, POS', baseAP: [1000, 2000, 10000, 50000], lockAP: [0, 30000, 150000, 500000, 1000000], lockCash: [0, 0, 0, 0, 0] },
@@ -81,7 +82,6 @@ const OPTIONS = [
 
 const selectedCardIdx = ref(0)
 const selectedCard = computed(() => CARD_TYPES[selectedCardIdx.value])
-// 옵션 데이터에 세부 수치(statVal) 추가
 const slots = ref(Array.from({ length: 5 }, (_, i) => ({ id: i, tier: 0, optId: 0, statVal: 3, isLocked: false })))
 const specialSlot = ref({ tier: 3, optId: 0, statVal: 14 })
 
@@ -89,8 +89,6 @@ const totalApSpent = ref(0)
 const totalCashSpent = ref(0)
 const specialSpinCount = ref(0)
 const apSpinCount = ref(0)
-
-const globalSetTier = ref(0) // 잠금 해제된 슬롯 일괄 등급 변경용
 
 const currentRollCostAP = computed(() => {
   const card = selectedCard.value; let lockedCount = slots.value.filter(s => s.isLocked).length
@@ -105,7 +103,6 @@ const currentRollCostCash = computed(() => {
   return lockedCount === 5 ? 0 : selectedCard.value.lockCash[lockedCount]
 })
 
-// 옵션 굴리기 (아이디와 함께 세부 수치도 계산)
 const rollOption = (tier: number) => {
   const isMaster = tier === 3; const totalWeight = isMaster ? 34 : 33; let rand = Math.random() * totalWeight
   let optId = 0
@@ -115,24 +112,32 @@ const rollOption = (tier: number) => {
     if (rand < 0) { optId = i; break }
   }
   
-  // 등급에 따른 세부 수치(Stat Value) 결정 로직
   let statVal = 0
-  if (tier === 0) statVal = [1, 2, 3][Math.floor(Math.random() * 3)] // 루키
-  else if (tier === 1) statVal = [4, 5, 6][Math.floor(Math.random() * 3)] // 엘리트
-  else if (tier === 2) statVal = [7, 8, 9][Math.floor(Math.random() * 3)] // 프로
+  if (tier === 0) statVal = [1, 2, 3][Math.floor(Math.random() * 3)] 
+  else if (tier === 1) statVal = [4, 5, 6][Math.floor(Math.random() * 3)] 
+  else if (tier === 2) statVal = [7, 8, 9][Math.floor(Math.random() * 3)] 
   else if (tier === 3) {
-    if (optId === 11) statVal = 2 // 자팀 옵션은 고정 +2
-    else statVal = [12, 13, 14][Math.floor(Math.random() * 3)] // 마스터 12~14
+    if (optId === 11) statVal = 2 
+    else statVal = [12, 13, 14][Math.floor(Math.random() * 3)] 
   }
   return { optId, statVal }
 }
 
-// 무료로 현재 잠금 안 된 슬롯들 시작 등급 세팅하기
-const applyGlobalTier = () => {
+// 🌟 개별 슬롯 클릭 시 등급 순차 변경
+const cycleSlotTier = (slot: any) => {
+  if (slot.isLocked) return
+  slot.tier = (slot.tier + 1) % 4
+  const rolled = rollOption(slot.tier)
+  slot.optId = rolled.optId
+  slot.statVal = rolled.statVal
+}
+
+// 🌟 전체 마스터 강제 세팅
+const setAllMaster = () => {
   slots.value.forEach(slot => {
     if (!slot.isLocked) {
-      slot.tier = globalSetTier.value
-      const rolled = rollOption(slot.tier)
+      slot.tier = 3
+      const rolled = rollOption(3)
       slot.optId = rolled.optId
       slot.statVal = rolled.statVal
     }
@@ -166,7 +171,6 @@ const resetCareerSim = () => {
 }
 const toggleLock = (index: number) => slots.value[index].isLocked = !slots.value[index].isLocked
 
-// 세트 효과 디테일 계산 (3,4,5,6 세트에 따른 보너스 수치)
 const setEffects = computed(() => {
   const counts: Record<number, number> = {}
   slots.value.forEach(s => counts[s.optId] = (counts[s.optId] || 0) + 1)
@@ -175,9 +179,9 @@ const setEffects = computed(() => {
     const isTeam = Number(optId) === 11
     let bonus = 0
     if (isTeam) {
-      bonus = count === 3 ? 1 : count === 4 ? 2 : count === 5 ? 3 : 4 // 자팀 세트 수치
+      bonus = count === 3 ? 1 : count === 4 ? 2 : count === 5 ? 3 : 4 
     } else {
-      bonus = count === 3 ? 5 : count === 4 ? 10 : count === 5 ? 15 : 20 // 일반 옵션 세트 수치
+      bonus = count === 3 ? 5 : count === 4 ? 10 : count === 5 ? 15 : 20 
     }
     return { name: OPTIONS[Number(optId)].name, count, bonusStr: `+${bonus}` }
   })
@@ -249,19 +253,17 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
     </div>
 
     <!-- ==============================================
-         [1] 강화 탭
+         [1] 강화 탭 
          ============================================== -->
     <div v-show="activeTab === 'enhance'" class="flex flex-col">
       <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <!-- 왼쪽 패널 -->
         <section class="flex flex-col gap-6">
           <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6 shadow-sm flex flex-col items-center shrink-0 relative">
             <RefreshCw @click="resetEnhanceSim" class="absolute top-4 right-4 w-5 h-5 cursor-pointer text-neutral-400 hover:text-blue-500" />
             
-            <!-- 🌟 유저 요청: 시작 단계 설정 기능 추가 -->
             <div class="flex flex-col items-center mb-2 bg-neutral-50 dark:bg-neutral-800 px-4 py-2 rounded-lg">
-              <label class="text-xs font-bold text-neutral-500 mb-1">시작 강화 단계 강제 세팅</label>
-              <select v-model="currentLevel" @change="failStack=0; totalCardsUsed=0;" class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-md px-4 py-1 text-sm font-bold outline-none text-center">
+              <label class="text-xs font-bold text-neutral-500 mb-1">시작 강화 단계 설정</label>
+              <select v-model="currentLevel" @change="failStack=0; totalCardsUsed=0; logs=[]" class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-md px-4 py-1 text-sm font-bold outline-none text-center hover:border-blue-500 transition-colors cursor-pointer">
                 <option v-for="n in (MAX_LEVEL+1)" :key="n-1" :value="n-1">+{{n-1}}부터 시작</option>
               </select>
             </div>
@@ -287,7 +289,6 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
           </div>
         </section>
         
-        <!-- 오른쪽 표 -->
         <section class="flex flex-col gap-6">
           <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-5 shadow-sm flex items-center justify-between shrink-0">
             <div class="flex gap-3 w-1/2">
@@ -334,15 +335,14 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
               <div class="flex justify-between" v-if="selectedCard.lockAP[4] > 0"><span>4칸 잠금 페널티:</span><strong class="text-red-500">{{ formatNum(selectedCard.lockAP[4]) }}</strong></div>
             </div>
 
-            <!-- 🌟 유저 요청: 시작 등급 세팅 기능 추가 -->
-            <div class="p-3 bg-neutral-100 dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700">
-              <label class="text-xs font-bold text-neutral-500 mb-2 block">잠금 해제된 슬롯 시작 등급 강제 세팅</label>
-              <div class="flex gap-2">
-                <select v-model="globalSetTier" class="flex-1 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-600 rounded-lg px-2 text-sm font-bold outline-none">
-                  <option v-for="(t, i) in TIERS" :key="i" :value="i">{{t}}</option>
-                </select>
-                <button @click="applyGlobalTier" class="px-4 py-2 bg-neutral-800 text-white rounded-lg text-sm font-bold hover:bg-black transition-colors">일괄 적용</button>
+            <div class="p-4 bg-neutral-100 dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 flex items-center justify-between">
+              <div class="flex flex-col">
+                <span class="text-xs font-bold text-neutral-500">AP 소모량 테스트용</span>
+                <span class="text-sm font-extrabold text-neutral-800 dark:text-neutral-200">마스터 풀 세팅</span>
               </div>
+              <button @click="setAllMaster" class="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg text-sm font-bold transition-colors flex items-center gap-1 shadow-sm">
+                <Crown class="w-4 h-4"/> 일괄 적용
+              </button>
             </div>
           </div>
           
@@ -361,7 +361,6 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
         <!-- 오른쪽 패널 -->
         <section class="lg:col-span-8 flex flex-col gap-4">
           
-          <!-- 🌟 유저 요청: 세트 효과 보너스 수치까지 자세하게 표기 -->
           <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 rounded-2xl p-4 flex items-center gap-3 shrink-0 overflow-x-auto min-h-[60px]">
             <span class="text-sm font-bold text-blue-700 dark:text-blue-400 shrink-0">적용된 세트:</span>
             <div v-for="(ef, i) in setEffects" :key="i" class="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold whitespace-nowrap shadow-sm flex items-center gap-2">
@@ -370,25 +369,30 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
             <div v-if="setEffects.length === 0" class="text-sm text-neutral-400">적용된 세트 효과가 없습니다. (3개 이상 시 발동)</div>
           </div>
 
-          <!-- 슬롯 영역 -->
           <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-5 shadow-sm flex-1 flex flex-col">
             <div class="space-y-3 flex-1 overflow-y-auto mb-4">
               <!-- 스페셜 고정 슬롯 -->
               <div class="p-3.5 bg-red-50 dark:bg-red-900/10 rounded-xl border-2 border-red-200 dark:border-red-800/30 flex items-center justify-between gap-3">
                 <div class="bg-red-500 text-white font-extrabold px-3 py-1 rounded text-sm shrink-0">고정</div>
                 <div class="flex-1 font-extrabold text-base sm:text-lg truncate text-neutral-800 dark:text-neutral-200 flex items-center justify-between pr-4">
-                  <span>{{ OPTIONS[specialSlot.optId].name }}</span>
-                  <span class="text-red-500">+{{ specialSlot.statVal }}</span>
+                  <span class="text-yellow-600 dark:text-yellow-500">{{ OPTIONS[specialSlot.optId].name }}</span>
+                  <span class="text-yellow-600 dark:text-yellow-500">+{{ specialSlot.statVal }}</span>
                 </div>
                 <button @click="spinSpecialSlot" class="px-4 py-2 bg-red-600 hover:bg-red-700 transition-colors text-white text-sm font-bold rounded-lg shadow-sm shrink-0">캐시갱신</button>
               </div>
               
-              <!-- 🌟 유저 요청: 각 옵션 우측에 상세 능력치(+12 등) 완벽 표기 -->
+              <!-- 일반 슬롯 -->
               <div v-for="slot in slots" :key="slot.id" class="flex items-center gap-3 p-3 rounded-xl border transition-all" :class="slot.isLocked ? 'bg-neutral-100 dark:bg-neutral-800 opacity-60 border-neutral-300 dark:border-neutral-700' : 'bg-white dark:bg-neutral-900 border-purple-200 dark:border-purple-800/50'">
-                <div :class="[TIER_BG[slot.tier], TIER_COLORS[slot.tier]]" class="w-16 text-center py-1.5 rounded-lg font-extrabold text-sm shadow-sm shrink-0">{{ TIERS[slot.tier] }}</div>
-                <div class="flex-1 font-bold text-base sm:text-lg truncate text-neutral-800 dark:text-neutral-200 flex justify-between items-center pr-4" :class="{'text-red-500 dark:text-red-400': slot.tier === 3}">
+                <!-- 등급 뱃지 (클릭 시 등급 변경) -->
+                <div @click="cycleSlotTier(slot)" 
+                     :class="[TIER_BG[slot.tier], TIER_COLORS[slot.tier]]" 
+                     class="w-16 text-center py-1.5 rounded-lg font-extrabold text-sm shadow-sm shrink-0 cursor-pointer hover:opacity-80 select-none transition-opacity" title="클릭하여 등급 변경">
+                  {{ TIERS[slot.tier] }}
+                </div>
+                
+                <div class="flex-1 font-bold text-base sm:text-lg truncate text-neutral-800 dark:text-neutral-200 flex justify-between items-center pr-4" :class="{'text-yellow-600 dark:text-yellow-500': slot.tier === 3}">
                   <span>{{ OPTIONS[slot.optId].name }}</span>
-                  <span :class="slot.tier === 3 ? 'text-red-500' : slot.tier === 2 ? 'text-purple-500' : slot.tier === 1 ? 'text-blue-500' : 'text-green-500'">+{{ slot.statVal }}</span>
+                  <span :class="slot.tier === 3 ? 'text-yellow-600 dark:text-yellow-500' : slot.tier === 2 ? 'text-pink-600 dark:text-pink-500' : slot.tier === 1 ? 'text-blue-600 dark:text-blue-500' : 'text-green-600 dark:text-green-500'">+{{ slot.statVal }}</span>
                 </div>
                 <button @click="toggleLock(slot.id)" class="p-2.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-400 hover:text-black dark:hover:text-white transition-colors shrink-0">
                   <Lock v-if="slot.isLocked" class="w-5 h-5 text-yellow-500" /><Unlock v-else class="w-5 h-5" />
