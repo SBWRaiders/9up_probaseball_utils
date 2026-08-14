@@ -8,7 +8,7 @@ import {
 const activeTab = ref<'enhance' | 'career'>('career')
 
 // ==============================================
-// [1] 강화 시뮬레이터 
+// [1] 강화 시뮬레이터
 // ==============================================
 const BASE_PROBS = [1.0, 0.8, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.075, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05]
 const FAIL_BONUS = 0.025
@@ -55,9 +55,8 @@ const calculatedExpectedCards = computed(() => {
   return total
 })
 
-
 // ==============================================
-// [2] 커리어 옵션 시뮬레이터 (100% 인게임 데이터 고증)
+// [2] 커리어 옵션 시뮬레이터 (100% 인게임 데이터)
 // ==============================================
 const playerType = ref<'BATTER' | 'PITCHER'>('BATTER')
 
@@ -73,7 +72,6 @@ const CARD_TYPES = [
   { id: 4, name: 'TOP, DGN', baseAP: [40000, 80000, 200000, 1000000], lockAP: [0, 0, 0, 0, 0], lockCash: [0, 5, 15, 50, 100] }
 ]
 
-// 📸 보내주신 이미지 기반 완벽 100% 데이터 매핑
 const BATTER_OPTS = [
   { id: 0, name: '전체 능력치 상승', setBonus: 6, vals: [[2,3,4], [5,6,7], [8,9,10], [12,13,14]] },
   { id: 1, name: '컨택트 능력치 상승', setBonus: 25, vals: [[5,10,14], [19,23,28], [32,37,41], [46,50,55]] },
@@ -108,7 +106,6 @@ const CURRENT_DATA = computed(() => playerType.value === 'BATTER' ? BATTER_OPTS 
 const selectedCardIdx = ref(0)
 const selectedCard = computed(() => CARD_TYPES[selectedCardIdx.value])
 
-// 초기 슬롯 세팅
 const slots = ref(Array.from({ length: 5 }, (_, i) => ({ id: i, tier: 0, optId: 0, statVal: 4, isLocked: false })))
 const specialSlot = ref({ tier: 3, optId: 0, statVal: 14 })
 
@@ -121,7 +118,7 @@ const currentRollCostAP = computed(() => {
   const card = selectedCard.value; let lockedCount = slots.value.filter(s => s.isLocked).length
   if (lockedCount === 5) return 0
   let cost = card.lockAP[lockedCount]
-  slots.value.forEach(slot => { if (!slot.isLocked) cost += card.baseAP[slot.tier] })
+  slots.value.forEach(slot => { cost += card.baseAP[slot.tier] })
   return cost
 })
 
@@ -145,8 +142,9 @@ const rollSlots = () => {
   if (lockedCount === 5) return
   let costAP = card.lockAP[lockedCount]; let costCash = card.lockCash[lockedCount]
   slots.value.forEach(slot => {
+    costAP += card.baseAP[slot.tier]
     if (!slot.isLocked) {
-      costAP += card.baseAP[slot.tier]; if (slot.tier < 3 && Math.random() < 0.01) slot.tier++
+      if (slot.tier < 3 && Math.random() < 0.01) slot.tier++
       const rolled = rollOption(slot.tier)
       slot.optId = rolled.optId; slot.statVal = rolled.statVal
     }
@@ -167,7 +165,6 @@ const resetCareerSim = () => {
 
 const toggleLock = (index: number) => slots.value[index].isLocked = !slots.value[index].isLocked
 
-// 세트 효과 디스플레이 (슬롯당 상승 X 개수)
 const setEffects = computed(() => {
   const counts: Record<number, number> = {}
   slots.value.forEach(s => counts[s.optId] = (counts[s.optId] || 0) + 1); counts[specialSlot.value.optId] = (counts[specialSlot.value.optId] || 0) + 1
@@ -181,7 +178,7 @@ const setEffects = computed(() => {
 const validateStatVal = (slot: any) => {
   if (slot.tier !== 3 && slot.optId === 11) slot.optId = 0 
   const validVals = CURRENT_DATA.value[slot.optId].vals[slot.tier]
-  if (!validVals.includes(slot.statVal)) slot.statVal = validVals[validVals.length - 1]
+  if (!validVals.includes(Number(slot.statVal))) slot.statVal = validVals[validVals.length - 1]
 }
 
 watch(playerType, () => {
@@ -189,7 +186,7 @@ watch(playerType, () => {
 })
 
 // ==============================================
-// 🌟 기대값 계산기 (시드 알고리즘으로 흔들림 완벽 차단) 🌟
+// 🌟 기대값 계산기 (고정 시드 알고리즘 적용) 🌟
 // ==============================================
 const calcTargetGoal = ref<'5MASTER' | 'TARGET_SET' | 'TARGET_3_3'>('5MASTER')
 const calcTargetSetCount = ref(3)
@@ -200,13 +197,9 @@ const calcTarget3_3_Opt2 = ref(1)
 const calcResult = ref<{ avgRolls: number, avgAp: number, avgCash: number, specialRolls: number } | null>(null)
 const isCalculating = ref(false)
 
-// 고정 시드 난수 생성기 (계산값이 바뀌지 않도록)
 function SeededRNG(seed: number) {
   let state = seed
-  return function() {
-    state = (state * 9301 + 49297) % 233280
-    return state / 233280
-  }
+  return function() { state = (state * 9301 + 49297) % 233280; return state / 233280 }
 }
 
 const runExpectedValueCalc = () => {
@@ -215,129 +208,129 @@ const runExpectedValueCalc = () => {
   
   setTimeout(() => {
     const card = selectedCard.value
-    let rng = SeededRNG(12345) // 매 계산마다 동일한 시드로 시작
+    let rng = SeededRNG(12345) 
     
-    // 1. [5마스터 도달 기댓값] : 강등이 없으므로 수학적 기댓값으로 완벽하게 계산!
-    if (calcTargetGoal.value === '5MASTER') {
-      let exactAp = 0
-      slots.value.forEach(s => {
-        if (!s.isLocked && s.tier < 3) {
-          // 루키->엘리트(100회), 엘리트->프로(100회), 프로->마스터(100회)
-          for(let t = s.tier; t < 3; t++) exactAp += 100 * card.baseAP[t]
+    let simAp = 0, simCash = 0, simRolls = 0, simSpecialRolls = 0
+    const iterations = 3000 
+    
+    for (let i = 0; i < iterations; i++) {
+      let tempSlots = slots.value.map(s => ({ ...s }))
+      let spOpt = specialSlot.value.optId
+      let r = 0, ap = 0, cash = 0, sr = 0
+      
+      if (calcTargetGoal.value === '5MASTER') {
+        while (true) {
+          if (tempSlots.every(s => s.tier === 3)) break
+          r++
+          let lc = tempSlots.filter(s => s.isLocked).length
+          let loopAp = card.lockAP[lc]
+          tempSlots.forEach(s => {
+            loopAp += card.baseAP[s.tier]
+            if (!s.isLocked) { if (s.tier < 3 && rng() < 0.01) s.tier++ }
+          })
+          ap += loopAp
+          if (r > 15000) break
         }
-      })
-      
-      let approxRolls = 0
-      const unlockedTiers = slots.value.filter(s => !s.isLocked && s.tier < 3).map(s => s.tier)
-      if (unlockedTiers.length > 0) {
-        const maxClimb = Math.max(...unlockedTiers.map(t => 3 - t))
-        if (maxClimb === 3) approxRolls = [0, 100, 150, 183, 208, 228][unlockedTiers.filter(t=>t===0).length] || 228
-        else if (maxClimb === 2) approxRolls = [0, 100, 150, 183, 208, 228][unlockedTiers.filter(t=>t<=1).length] || 150
-        else approxRolls = [0, 100, 150, 183, 208, 228][unlockedTiers.length] || 100
-      }
-      calcResult.value = { avgRolls: approxRolls, avgAp: exactAp, avgCash: 0, specialRolls: 0 }
-    } 
-    // 2. [세트 도달 (단일/3-3) 기댓값] : 고정 시드 시뮬레이션
-    else {
-      let simAp = 0, simCash = 0, simRolls = 0, simSpecialRolls = 0
-      const iterations = 2000 // 정확도와 속도를 타협한 최적의 횟수
-      
-      for (let i = 0; i < iterations; i++) {
-        let tempSlots = slots.value.map(s => ({ ...s }))
-        let spOpt = specialSlot.value.optId
-        let r = 0, ap = 0, cash = 0, sr = 0
+      } 
+      else if (calcTargetGoal.value === 'TARGET_SET') {
+        if (calcTargetSetCount.value === 6 && spOpt !== calcTargetSetOptId.value) {
+          const w = calcTargetSetOptId.value === 11 ? 1 : 3
+          sr += 1 / (w / 34)
+          spOpt = calcTargetSetOptId.value
+        }
         
-        // 3-3세트 로직
-        if (calcTargetGoal.value === 'TARGET_3_3') {
-          // 스페셜 슬롯이 1, 2 옵션 중 하나가 아니면 돌린다.
-          if (spOpt !== calcTarget3_3_Opt1.value && spOpt !== calcTarget3_3_Opt2.value) {
-            const w1 = calcTarget3_3_Opt1.value === 11 ? 1 : 3
-            const w2 = calcTarget3_3_Opt2.value === 11 ? 1 : 3
-            const prob = (w1 + w2) / 34
-            sr += 1 / prob
-            // 확률에 따라 스페셜 슬롯 배정
-            spOpt = (rng() < w1/(w1+w2)) ? calcTarget3_3_Opt1.value : calcTarget3_3_Opt2.value
+        while (true) {
+          let c = (spOpt === calcTargetSetOptId.value ? 1 : 0) + tempSlots.filter(s => s.tier === 3 && s.optId === calcTargetSetOptId.value).length
+          if (c >= calcTargetSetCount.value) break
+          
+          r++
+          let allMaster = tempSlots.every(s => s.tier === 3)
+          if (allMaster) {
+            let currentLocked = (spOpt === calcTargetSetOptId.value ? 1 : 0) + tempSlots.filter(s => s.isLocked && s.optId === calcTargetSetOptId.value).length
+            tempSlots.forEach(s => {
+              if (!s.isLocked && s.tier === 3 && s.optId === calcTargetSetOptId.value && currentLocked < calcTargetSetCount.value) {
+                s.isLocked = true; currentLocked++
+              }
+            })
           }
           
-          while (r < 10000) {
-            let c1 = tempSlots.filter(s => s.tier === 3 && s.optId === calcTarget3_3_Opt1.value).length + (spOpt === calcTarget3_3_Opt1.value ? 1 : 0)
-            let c2 = tempSlots.filter(s => s.tier === 3 && s.optId === calcTarget3_3_Opt2.value).length + (spOpt === calcTarget3_3_Opt2.value ? 1 : 0)
-            if (c1 >= 3 && c2 >= 3) break
+          let lc = tempSlots.filter(s => s.isLocked).length
+          let loopAp = card.lockAP[lc]; let loopCash = card.lockCash[lc]
+          
+          tempSlots.forEach(s => {
+            loopAp += card.baseAP[s.tier]
+            if (!s.isLocked) {
+              if (s.tier < 3 && rng() < 0.01) s.tier++
+              const rolled = rollOption(s.tier, false, rng)
+              s.optId = rolled.optId
+            }
+          })
+          ap += loopAp; cash += loopCash
+          if (r > 20000) break
+        }
+      }
+      else if (calcTargetGoal.value === 'TARGET_3_3') {
+        if (spOpt !== calcTarget3_3_Opt1.value && spOpt !== calcTarget3_3_Opt2.value) {
+          const w1 = calcTarget3_3_Opt1.value === 11 ? 1 : 3
+          const w2 = calcTarget3_3_Opt2.value === 11 ? 1 : 3
+          const prob = (w1 + w2) / 34
+          sr += 1 / prob
+          spOpt = (rng() < w1/(w1+w2)) ? calcTarget3_3_Opt1.value : calcTarget3_3_Opt2.value
+        }
+        
+        while (true) {
+          let c1 = (spOpt === calcTarget3_3_Opt1.value ? 1 : 0) + tempSlots.filter(s => s.tier === 3 && s.optId === calcTarget3_3_Opt1.value).length
+          let c2 = (spOpt === calcTarget3_3_Opt2.value ? 1 : 0) + tempSlots.filter(s => s.tier === 3 && s.optId === calcTarget3_3_Opt2.value).length
+          if (c1 >= 3 && c2 >= 3) break
+          
+          r++
+          let allMaster = tempSlots.every(s => s.tier === 3)
+          if (allMaster) {
+            let currentLocked1 = (spOpt === calcTarget3_3_Opt1.value ? 1 : 0) + tempSlots.filter(s => s.isLocked && s.optId === calcTarget3_3_Opt1.value).length
+            let currentLocked2 = (spOpt === calcTarget3_3_Opt2.value ? 1 : 0) + tempSlots.filter(s => s.isLocked && s.optId === calcTarget3_3_Opt2.value).length
             
-            r++
             tempSlots.forEach(s => {
               if (!s.isLocked && s.tier === 3) {
-                if (s.optId === calcTarget3_3_Opt1.value && c1 < 3) { s.isLocked = true; c1++ }
-                else if (s.optId === calcTarget3_3_Opt2.value && c2 < 3) { s.isLocked = true; c2++ }
+                if (s.optId === calcTarget3_3_Opt1.value && currentLocked1 < 3) { s.isLocked = true; currentLocked1++ }
+                else if (s.optId === calcTarget3_3_Opt2.value && currentLocked2 < 3) { s.isLocked = true; currentLocked2++ }
               }
             })
-            
-            let lc = tempSlots.filter(s => s.isLocked).length
-            let loopAp = card.lockAP[lc]; let loopCash = card.lockCash[lc]
-            
-            tempSlots.forEach(s => {
-              if (!s.isLocked) {
-                loopAp += card.baseAP[s.tier]
-                if (s.tier < 3 && rng() < 0.01) s.tier++
-                const rolled = rollOption(s.tier, false, rng)
-                s.optId = rolled.optId
-              }
-            })
-            ap += loopAp; cash += loopCash
-          }
-        } 
-        // N세트 로직 (6세트 포함)
-        else {
-          // 6세트거나, 스페셜슬롯을 반드시 타겟으로 맞춰야 유리한 경우
-          if (calcTargetSetCount.value === 6 && spOpt !== calcTargetSetOptId.value) {
-            const w = calcTargetSetOptId.value === 11 ? 1 : 3
-            sr += 1 / (w / 34)
-            spOpt = calcTargetSetOptId.value
           }
           
-          while (r < 10000) {
-            let c = tempSlots.filter(s => s.tier === 3 && s.optId === calcTargetSetOptId.value).length + (spOpt === calcTargetSetOptId.value ? 1 : 0)
-            if (c >= calcTargetSetCount.value) break
-            
-            r++
-            tempSlots.forEach(s => { if (!s.isLocked && s.tier === 3 && s.optId === calcTargetSetOptId.value) s.isLocked = true })
-            
-            let lc = tempSlots.filter(s => s.isLocked).length
-            let loopAp = card.lockAP[lc]; let loopCash = card.lockCash[lc]
-            
-            tempSlots.forEach(s => {
-              if (!s.isLocked) {
-                loopAp += card.baseAP[s.tier]
-                if (s.tier < 3 && rng() < 0.01) s.tier++
-                const rolled = rollOption(s.tier, false, rng)
-                s.optId = rolled.optId
-              }
-            })
-            ap += loopAp; cash += loopCash
-          }
+          let lc = tempSlots.filter(s => s.isLocked).length
+          let loopAp = card.lockAP[lc]; let loopCash = card.lockCash[lc]
+          
+          tempSlots.forEach(s => {
+            loopAp += card.baseAP[s.tier]
+            if (!s.isLocked) {
+              if (s.tier < 3 && rng() < 0.01) s.tier++
+              const rolled = rollOption(s.tier, false, rng)
+              s.optId = rolled.optId
+            }
+          })
+          ap += loopAp; cash += loopCash
+          if (r > 20000) break
         }
-        simRolls += r; simAp += ap; simCash += cash; simSpecialRolls += sr
       }
-      
-      calcResult.value = { 
-        avgRolls: Math.round(simRolls / iterations), 
-        avgAp: Math.round(simAp / iterations), 
-        avgCash: Math.round(simCash / iterations),
-        specialRolls: Math.round(simSpecialRolls / iterations)
-      }
+      simRolls += r; simAp += ap; simCash += cash; simSpecialRolls += sr
+    }
+    
+    calcResult.value = { 
+      avgRolls: Math.round(simRolls / iterations), 
+      avgAp: Math.round(simAp / iterations), 
+      avgCash: Math.round(simCash / iterations),
+      specialRolls: Math.round(simSpecialRolls / iterations)
     }
     isCalculating.value = false
   }, 50)
 }
 
-// 오토 스핀 (UI 유지)
 const isAutoModalOpen = ref(false)
 const autoTab = ref<'SET' | 'TIER' | 'OPT_MASTER'>('SET')
 const isSpinning = ref(false)
 let spinInterval: ReturnType<typeof setInterval> | null = null
-const toggleAutoSpin = () => { /* 오토 모달 오픈을 위한 UI 함수 */ }
+const toggleAutoSpin = () => { /* 자동 돌리기 모달 활성화만 수행 */ }
 const stopAutoSpin = () => { isSpinning.value = false; if (spinInterval) clearInterval(spinInterval) }
-
 const formatNum = (num: number) => new Intl.NumberFormat().format(num)
 </script>
 
@@ -352,9 +345,7 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
       </div>
     </div>
 
-    <!-- ==============================================
-         [1] 강화 탭 (유지)
-         ============================================== -->
+    <!-- [1] 강화 탭 (생략 - 기존 유지) -->
     <div v-show="activeTab === 'enhance'" class="flex flex-col max-w-6xl mx-auto w-full">
       <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <section class="flex flex-col gap-6">
@@ -412,12 +403,12 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
 
 
     <!-- ==============================================
-         [2] 커리어 탭 (3단 완벽 분리: 통계 / 슬롯 / 설정 및 계산기)
+         [2] 커리어 탭 (3단 분리 및 수치/기대값 완벽 적용)
          ============================================== -->
     <div v-show="activeTab === 'career'" class="flex flex-col w-full">
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 w-full">
         
-        <!-- [좌측] 타자투수 선택 & 파산 영수증 -->
+        <!-- [좌측] -->
         <section class="lg:col-span-3 flex flex-col gap-5">
           <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-5 shadow-sm">
             <div class="flex gap-2 mb-4 bg-neutral-100 dark:bg-neutral-800 p-1.5 rounded-xl">
@@ -452,16 +443,15 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
           </div>
         </section>
 
-        <!-- [중앙] 세트 효과 & 시뮬레이션 슬롯 -->
+        <!-- [중앙] -->
         <section class="lg:col-span-5 flex flex-col gap-4">
           
-          <!-- 🌟 완벽 고증된 세트 효과 전광판 -->
           <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 rounded-2xl p-4 flex items-center gap-3 shrink-0 overflow-x-auto min-h-[70px]">
             <span class="text-sm font-extrabold text-blue-700 dark:text-blue-400 shrink-0">적용된 세트:</span>
             <div v-for="(ef, i) in setEffects" :key="i" class="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold whitespace-nowrap shadow-sm flex items-center gap-2">
               {{ ef.name }} {{ ef.count }}셋 <span class="bg-blue-900 text-yellow-300 px-2 py-0.5 rounded text-xs border border-blue-500">{{ ef.bonusStr }}</span>
             </div>
-            <div v-if="setEffects.length === 0" class="text-xs text-neutral-400 font-medium">발동된 세트 효과가 없습니다. (3개 이상 일치 시 발동)</div>
+            <div v-if="setEffects.length === 0" class="text-xs text-neutral-400 font-medium">적용된 세트 효과가 없습니다. (3개 이상 일치 시 발동)</div>
           </div>
 
           <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-5 shadow-sm flex-1 flex flex-col">
@@ -498,10 +488,9 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
           </div>
         </section>
 
-        <!-- [우측] 슬롯 커스텀 에디터 & 고정 기대값 계산기 -->
+        <!-- [우측] -->
         <section class="lg:col-span-4 flex flex-col gap-5">
           
-          <!-- 슬롯 강제 상태 세팅 (인게임 에디터) -->
           <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-5 shadow-sm">
             <h3 class="font-extrabold text-sm flex items-center gap-2 mb-3 pb-2 border-b border-neutral-100 dark:border-neutral-800"><Edit3 class="w-4 h-4 text-blue-500"/> 내 상태 인게임 동기화 (수동 변경)</h3>
             <div class="text-[11px] text-neutral-500 mb-3">현재 게임과 똑같이 등급, 옵션, 세부 수치까지 강제로 맞추세요. (기대값 계산 시 이 상태에서 시작합니다)</div>
@@ -515,14 +504,13 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
                 <select v-model="slot.optId" @change="validateStatVal(slot)" class="w-1/2 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded text-[10px] font-bold p-1 outline-none truncate cursor-pointer">
                   <option v-for="(opt, oIdx) in CURRENT_DATA" :key="oIdx" :value="oIdx" :disabled="slot.tier !== 3 && oIdx === 11">{{opt.name}}</option>
                 </select>
-                <select v-model="slot.statVal" class="w-1/4 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded text-xs font-bold p-1 outline-none text-blue-600 cursor-pointer text-center">
+                <select v-model.number="slot.statVal" class="w-1/4 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded text-xs font-bold p-1 outline-none text-blue-600 cursor-pointer text-center">
                   <option v-for="val in CURRENT_DATA[slot.optId].vals[slot.tier]" :key="val" :value="val">+{{val}}</option>
                 </select>
               </div>
             </div>
           </div>
 
-          <!-- 🌟 완벽 구현된 기대값 계산기 🌟 -->
           <div class="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800/40 rounded-2xl p-5 shadow-sm flex-1 flex flex-col relative overflow-hidden">
             <h3 class="font-extrabold text-base flex items-center gap-2 mb-4 text-blue-700 dark:text-blue-400"><Target class="w-5 h-5"/> 커리어 목표 고정 기대값 계산기</h3>
             
@@ -531,8 +519,8 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
                 <label class="block text-sm font-bold text-neutral-700 dark:text-neutral-300 mb-1.5">어떤 목표를 계산할까요?</label>
                 <select v-model="calcTargetGoal" class="w-full bg-white dark:bg-neutral-900 border border-blue-200 dark:border-blue-800 rounded-xl p-2.5 text-sm font-bold outline-none shadow-sm cursor-pointer">
                   <option value="5MASTER">목표: 잠금 없이 모든 슬롯 '마스터' 달성</option>
-                  <option value="TARGET_SET">목표: 특정 옵션 N세트 달성 (단일 세트)</option>
-                  <option value="TARGET_3_3">목표: 3-3 듀얼 세트 달성 (두 가지 옵션 3개씩)</option>
+                  <option value="TARGET_SET">목표: 특정 옵션 N세트 달성 (잠금 비용 포함)</option>
+                  <option value="TARGET_3_3">목표: 3-3 듀얼 세트 달성 (잠금 비용 포함)</option>
                 </select>
               </div>
 
@@ -560,18 +548,18 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
 
               <!-- 가이드라인 메시지 -->
               <div v-if="calcTargetGoal === '5MASTER'" class="p-3 bg-blue-100/50 dark:bg-blue-900/30 rounded-xl border border-blue-200 dark:border-blue-800 text-xs text-blue-800 dark:text-blue-300 leading-relaxed font-medium">
-                💡 <strong class="font-bold">팩트 체크:</strong> 마스터 등급은 강등되지 않습니다. 단순히 5칸 모두 마스터에 도달하려면 <strong class="text-red-500">잠금 없이 동시에 돌리는 것</strong>이 무조건 이득입니다. 아래 수치는 강등 없음을 반영한 완벽한 고정 기대값입니다.
+                💡 <strong class="font-bold">전략 팩트 체크:</strong> 마스터 등급은 강등되지 않습니다. 단순히 5칸 모두 마스터에 도달하려면 <strong class="text-red-500">잠금 없이 동시에 돌리는 것</strong>이 100% 이득입니다. 아래 수치는 이 강등 없는 룰을 반영한 고정 기대값입니다.
               </div>
             </div>
 
             <button @click="runExpectedValueCalc" :disabled="isCalculating" class="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-extrabold text-sm shadow-md transition-colors flex justify-center items-center gap-2 disabled:opacity-50 mt-auto relative z-10">
               <BarChart class="w-5 h-5"/> 
-              {{ isCalculating ? '정밀 계산 중...' : '기대값 및 소모량 계산하기' }}
+              {{ isCalculating ? '정밀 시뮬레이션 계산 중...' : '기대값 및 소모량 계산하기' }}
             </button>
 
             <!-- 결과 출력창 -->
             <div v-if="calcResult" class="mt-4 p-4 bg-white dark:bg-neutral-900 rounded-xl border border-blue-200 dark:border-blue-800/50 shadow-inner">
-              <div class="text-center text-[11px] font-bold text-neutral-500 mb-3 border-b border-neutral-100 dark:border-neutral-800 pb-2">현재 내 슬롯 상태 기준 목표 달성 평균치</div>
+              <div class="text-center text-[11px] font-bold text-neutral-500 mb-3 border-b border-neutral-100 dark:border-neutral-800 pb-2">현재 상태를 기준으로 한 수학적 평균 도달치</div>
               
               <div class="flex justify-between items-center mb-2.5">
                 <span class="text-sm font-bold text-neutral-700 dark:text-neutral-300">평균 스핀 횟수</span>
@@ -579,14 +567,17 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
               </div>
               
               <div class="flex justify-between items-center mb-2.5">
-                <span class="text-sm font-bold text-neutral-700 dark:text-neutral-300">평균 소모 AP</span>
+                <span class="text-sm font-bold text-neutral-700 dark:text-neutral-300 flex flex-col">
+                  <span>평균 소모 AP</span>
+                  <span class="text-[10px] text-neutral-400 font-normal">5칸 동시 소모 비용 포함</span>
+                </span>
                 <span class="text-xl font-black text-yellow-500">{{ formatNum(calcResult.avgAp) }} AP</span>
               </div>
               
               <div v-if="calcTargetGoal !== '5MASTER'" class="flex justify-between items-center pt-2.5 border-t border-neutral-100 dark:border-neutral-800">
                 <span class="text-sm font-bold text-neutral-700 dark:text-neutral-300 flex flex-col">
                   <span>평균 소모 CASH</span>
-                  <span class="text-[10px] text-neutral-400 font-normal">잠금 비용 페널티</span>
+                  <span class="text-[10px] text-neutral-400 font-normal">잠금 페널티 비용</span>
                 </span>
                 <span class="text-lg font-black text-purple-500">{{ formatNum(calcResult.avgCash) }} 💎</span>
               </div>
