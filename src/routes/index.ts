@@ -55,7 +55,7 @@ export const router = createRouter({
     routes,
 })
     // 기존 라우트들...
-    {
+    ,{
       path: '/enhance',
       name: 'enhance',
       component: EnhancementView
