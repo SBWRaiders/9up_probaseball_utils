@@ -3,26 +3,27 @@ import { ref, computed } from 'vue'
 import { Zap, RefreshCw, ArrowRight, Check, X, Calculator, History } from 'lucide-vue-next'
 
 /* =========================
-   상수 및 확률 설정 (15강이 끝이므로 15단계까지만 설정!)
+   상수 및 확률 설정 (0->1 부터 14->15 까지 정확하게 15단계!)
 ========================= */
 const BASE_PROBS = [
-  1.0, 1.0, 0.8, 0.6, 0.5, 0.4, 0.3, 0.2, 
-  0.1, 0.075, 0.05, 0.05, 0.05, 0.05, 0.05
-] // 총 15개 (0강->1강 ... 14강->15강)
+  1.0, 0.8, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 
+  0.075, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05
+]
 
 const FAIL_BONUS = 0.025 // 실패 시 2.5% 증가
-const MAX_LEVEL = 15 // 🌟 최대 레벨 15강으로 수정 완료!
+const MAX_LEVEL = 15 // 최대 레벨 15강
 
 /* =========================
    1. 강화 시뮬레이터 State
 ========================= */
 const currentLevel = ref(0)
 const failStack = ref(0)
-const totalCardsUsed = ref(0)
+const totalCardsUsed = ref(0) // 강화에만 사용된 카드 수 (베이스 0강 카드는 제외)
 const logs = ref<{ id: number, type: 'success' | 'fail', from: number, to: number, prob: number, count: number }[]>([])
 let logId = 0
 
 const currentBaseProb = computed(() => BASE_PROBS[currentLevel.value] ?? 0.05)
+// 기본 확률 + (실패 횟수 * 2.5%) -> 최대 100%
 const currentRealProb = computed(() => Math.min(1.0, currentBaseProb.value + failStack.value * FAIL_BONUS))
 
 const tryEnhance = () => {
@@ -41,6 +42,7 @@ const tryEnhance = () => {
     count: totalCardsUsed.value
   })
 
+  // 100개까지만 로그 유지
   if (logs.value.length > 100) logs.value.pop()
 
   if (success) {
@@ -59,13 +61,15 @@ const resetSimulator = () => {
 }
 
 /* =========================
-   2. 기대값 계산기 
+   2. 기대값 계산기 (표 자동 생성)
 ========================= */
+// 각 레벨별 기댓값을 수식으로 재현
 const expectedValues = computed(() => {
   return BASE_PROBS.map((prob) => {
     let expectedTries = 0
     let reachProb = 1.0
     
+    // 최대 100번 시도한다고 가정하고 무한급수 계산
     for (let k = 1; k < 100; k++) {
       const currentTryProb = Math.min(1.0, prob + (k - 1) * FAIL_BONUS)
       expectedTries += k * reachProb * currentTryProb
@@ -77,7 +81,7 @@ const expectedValues = computed(() => {
 })
 
 const calcStartLevel = ref(0)
-const calcTargetLevel = ref(10)
+const calcTargetLevel = ref(15)
 
 const calculatedExpectedCards = computed(() => {
   const start = calcStartLevel.value
@@ -151,7 +155,7 @@ const calculatedExpectedCards = computed(() => {
           </button>
           
           <div class="mt-6 text-neutral-500 font-medium">
-            현재까지 소모된 카드: <span class="text-neutral-800 dark:text-neutral-200 font-bold">{{ totalCardsUsed }}</span> 장
+            현재까지 소모된 강화 재료: <span class="text-neutral-800 dark:text-neutral-200 font-bold">{{ totalCardsUsed }}</span> 장
           </div>
         </div>
 
@@ -196,7 +200,6 @@ const calculatedExpectedCards = computed(() => {
           <div class="flex items-center gap-4 mb-6">
             <div class="flex-1">
               <label class="block text-sm font-medium text-neutral-500 mb-1">시작 레벨</label>
-              <!-- 🌟 시작 레벨 옵션을 14까지만 생성되도록 수정 -->
               <select v-model="calcStartLevel" class="w-full bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500">
                 <option v-for="n in MAX_LEVEL" :key="`start-${n-1}`" :value="n-1">+{{ n-1 }}</option>
               </select>
@@ -204,7 +207,6 @@ const calculatedExpectedCards = computed(() => {
             <ArrowRight class="w-6 h-6 text-neutral-300 mt-6" />
             <div class="flex-1">
               <label class="block text-sm font-medium text-neutral-500 mb-1">목표 레벨</label>
-              <!-- 🌟 목표 레벨 옵션을 15까지만 생성되도록 수정 -->
               <select v-model="calcTargetLevel" class="w-full bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500">
                 <option v-for="n in MAX_LEVEL" :key="`target-${n}`" :value="n">+{{ n }}</option>
               </select>
@@ -212,7 +214,7 @@ const calculatedExpectedCards = computed(() => {
           </div>
           
           <div class="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-5 text-center">
-            <div class="text-sm text-blue-600 dark:text-blue-400 font-semibold mb-1">평균적으로 필요한 카드 수</div>
+            <div class="text-sm text-blue-600 dark:text-blue-400 font-semibold mb-1">평균적으로 필요한 강화 전용 카드 수</div>
             <div class="text-3xl font-black text-blue-700 dark:text-blue-300">
               {{ calculatedExpectedCards > 0 ? calculatedExpectedCards.toFixed(3) : '0.000' }} <span class="text-base font-normal">장</span>
             </div>
@@ -228,7 +230,7 @@ const calculatedExpectedCards = computed(() => {
                   <th class="py-3 px-4 font-semibold">강화 단계</th>
                   <th class="py-3 px-4 font-semibold">기본 확률</th>
                   <th class="py-3 px-4 font-semibold">1업 기대값</th>
-                  <th class="py-3 px-4 font-semibold">누적 필요 수</th>
+                  <th class="py-3 px-4 font-semibold">누적 필요 수 (베이스 +1)</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-neutral-100 dark:divide-neutral-800">
@@ -240,8 +242,10 @@ const calculatedExpectedCards = computed(() => {
                   </td>
                   <td class="py-2.5 px-4">{{ (prob * 100).toFixed(1) }}%</td>
                   <td class="py-2.5 px-4">{{ expectedValues[idx].toFixed(3) }}</td>
+                  
+                  <!-- 🌟 표의 누적 필요 수는 베이스카드 1장을 포함하여 완벽하게 이미지와 일치하도록 수정! -->
                   <td class="py-2.5 px-4 text-blue-600 dark:text-blue-400 font-semibold">
-                    {{ expectedValues.slice(0, idx + 1).reduce((a, b) => a + b, 0).toFixed(3) }}
+                    {{ (1 + expectedValues.slice(0, idx + 1).reduce((a, b) => a + b, 0)).toFixed(3) }}
                   </td>
                 </tr>
               </tbody>
