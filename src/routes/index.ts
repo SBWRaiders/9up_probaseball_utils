@@ -32,6 +32,7 @@ const routes = [
         name: 'TeamCalculator',
         component: () => import('@/views/9upTeamCalculatorView.vue'),
     },
+    
     {
         path: '/players',
         name: 'Players',
@@ -53,13 +54,11 @@ const routes = [
 export const router = createRouter({
     history: createWebHistory(),
     routes,
-})
-    // 기존 라우트들...
-    ,{
+},
+{
       path: '/enhance',
       name: 'enhance',
       component: EnhancementView
     }
   ]
 })
-export default router
