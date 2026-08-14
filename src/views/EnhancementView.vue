@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { 
   Zap, RefreshCw, ArrowRight, Check, X, Calculator, History, 
-  Lock, Unlock, Play, Star, Settings, Pause, Crown
+  Lock, Unlock, Play, Star, Settings, Pause, Edit3, Info
 } from 'lucide-vue-next'
 
 const activeTab = ref<'enhance' | 'career'>('career')
 
 // ==============================================
-// [1] 강화 시뮬레이터 
+// [1] 강화 시뮬레이터 (기존 로직 유지)
 // ==============================================
 const BASE_PROBS = [1.0, 0.8, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.075, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05]
 const FAIL_BONUS = 0.025
@@ -58,10 +58,11 @@ const calculatedExpectedCards = computed(() => {
 
 
 // ==============================================
-// [2] 커리어 옵션 시뮬레이터
+// [2] 커리어 옵션 시뮬레이터 (타자/투수 분리 및 세부 로직)
 // ==============================================
+const playerType = ref<'BATTER' | 'PITCHER'>('BATTER')
+
 const TIERS = ['루키', '엘리트', '프로', '마스터']
-// 초록 -> 파랑 -> 분홍 -> 노랑 색상 적용
 const TIER_COLORS = ['text-green-600 dark:text-green-500', 'text-blue-600 dark:text-blue-500', 'text-pink-600 dark:text-pink-500', 'text-yellow-600 dark:text-yellow-500']
 const TIER_BG = ['bg-green-100 dark:bg-green-900/30', 'bg-blue-100 dark:bg-blue-900/30', 'bg-pink-100 dark:bg-pink-900/30', 'bg-yellow-100 dark:bg-yellow-900/30']
 
@@ -73,15 +74,22 @@ const CARD_TYPES = [
   { id: 4, name: 'TOP, DGN', baseAP: [40000, 80000, 200000, 1000000], lockAP: [0, 0, 0, 0, 0], lockCash: [0, 5, 15, 50, 100] }
 ]
 
-const OPTIONS = [
-  { id: 0, name: '전체 능력치 상승' }, { id: 1, name: '컨택트/무브먼트 상승' }, { id: 2, name: '홈런/홈런억제 상승' },
-  { id: 3, name: '삼진회피/스터프 상승' }, { id: 4, name: '선구/컨트롤 상승' }, { id: 5, name: '갭파워/장타억제 상승' },
-  { id: 6, name: '지고 있을 시, 파워 상승' }, { id: 7, name: '기록 시 (안타/삼진) 파워 상승' }, { id: 8, name: '파워 높은 카드 상대 시' },
-  { id: 9, name: '박빙 상황(2점차 내) 파워' }, { id: 10, name: '파워 낮은 카드 상대 시' }, { id: 11, name: '★ 동일 팀 카드 수만큼' }
-]
+// 타자/투수 옵션 분리
+const BATTER_OPTS = ['전체 능력치 상승', '컨택트 상승', '홈런 상승', '삼진회피 상승', '선구 상승', '갭파워 상승', '지고 있을 시 파워 상승', '안타 기록 시 파워 상승', '파워 높은 상대 시 파워 상승', '박빙 상황(2점차 내) 파워', '파워 낮은 상대 시 파워 상승', '★ 동일 팀 카드 수만큼 파워']
+const PITCHER_OPTS = ['전체 능력치 상승', '무브먼트 상승', '홈런 억제 상승', '스터프 상승', '컨트롤 상승', '장타 억제 상승', '지고 있을 시 파워 상승', '삼진 기록 시 파워 상승', '파워 높은 상대 시 파워 상승', '박빙 상황(2점차 내) 파워', '파워 낮은 상대 시 파워 상승', '★ 동일 팀 카드 수만큼 파워']
+const CURRENT_OPTS = computed(() => playerType.value === 'BATTER' ? BATTER_OPTS : PITCHER_OPTS)
 
 const selectedCardIdx = ref(0)
 const selectedCard = computed(() => CARD_TYPES[selectedCardIdx.value])
+
+// 스탯 밸류 매핑 (루키, 엘리트, 프로, 마스터)
+const STAT_VALUES = [
+  [1, 2, 3], // 루키
+  [4, 5, 6], // 엘리트
+  [7, 8, 9], // 프로
+  [12, 13, 14] // 마스터 (자팀은 고정 2)
+]
+
 const slots = ref(Array.from({ length: 5 }, (_, i) => ({ id: i, tier: 0, optId: 0, statVal: 3, isLocked: false })))
 const specialSlot = ref({ tier: 3, optId: 0, statVal: 14 })
 
@@ -97,51 +105,33 @@ const currentRollCostAP = computed(() => {
   slots.value.forEach(slot => { if (!slot.isLocked) cost += card.baseAP[slot.tier] })
   return cost
 })
-
 const currentRollCostCash = computed(() => {
   const lockedCount = slots.value.filter(s => s.isLocked).length
   return lockedCount === 5 ? 0 : selectedCard.value.lockCash[lockedCount]
 })
 
+// 인게임 디테일 세트 효과 수치 로직
+const getSetBonus = (optId: number, count: number) => {
+  if (count < 3) return 0
+  const idx = count - 3 // 3셋=0, 4셋=1, 5셋=2, 6셋=3
+  if (optId === 0) return [3, 5, 7, 10][idx] // 전체능력치
+  if (optId >= 1 && optId <= 5) return [5, 8, 12, 17][idx] // 개별스탯
+  if (optId >= 6 && optId <= 10) return [6, 10, 14, 18][idx] // 조건부 파워
+  if (optId === 11) return [1, 2, 3, 4][idx] // 동일 팀
+  return 0
+}
+
 const rollOption = (tier: number) => {
   const isMaster = tier === 3; const totalWeight = isMaster ? 34 : 33; let rand = Math.random() * totalWeight
   let optId = 0
-  for (let i = 0; i < OPTIONS.length; i++) {
+  for (let i = 0; i < 12; i++) {
     if (!isMaster && i === 11) continue
     rand -= (i === 11) ? 1 : 3
     if (rand < 0) { optId = i; break }
   }
-  
-  let statVal = 0
-  if (tier === 0) statVal = [1, 2, 3][Math.floor(Math.random() * 3)] 
-  else if (tier === 1) statVal = [4, 5, 6][Math.floor(Math.random() * 3)] 
-  else if (tier === 2) statVal = [7, 8, 9][Math.floor(Math.random() * 3)] 
-  else if (tier === 3) {
-    if (optId === 11) statVal = 2 
-    else statVal = [12, 13, 14][Math.floor(Math.random() * 3)] 
-  }
+  let statVal = STAT_VALUES[tier][Math.floor(Math.random() * 3)]
+  if (tier === 3 && optId === 11) statVal = 2 // 자팀 고정
   return { optId, statVal }
-}
-
-// 🌟 개별 슬롯 클릭 시 등급 순차 변경
-const cycleSlotTier = (slot: any) => {
-  if (slot.isLocked) return
-  slot.tier = (slot.tier + 1) % 4
-  const rolled = rollOption(slot.tier)
-  slot.optId = rolled.optId
-  slot.statVal = rolled.statVal
-}
-
-// 🌟 전체 마스터 강제 세팅
-const setAllMaster = () => {
-  slots.value.forEach(slot => {
-    if (!slot.isLocked) {
-      slot.tier = 3
-      const rolled = rollOption(3)
-      slot.optId = rolled.optId
-      slot.statVal = rolled.statVal
-    }
-  })
 }
 
 const rollSlots = () => {
@@ -152,8 +142,7 @@ const rollSlots = () => {
     if (!slot.isLocked) {
       costAP += card.baseAP[slot.tier]; if (slot.tier < 3 && Math.random() < 0.01) slot.tier++
       const rolled = rollOption(slot.tier)
-      slot.optId = rolled.optId
-      slot.statVal = rolled.statVal
+      slot.optId = rolled.optId; slot.statVal = rolled.statVal
     }
   })
   totalApSpent.value += costAP; totalCashSpent.value += costCash; apSpinCount.value++
@@ -176,14 +165,8 @@ const setEffects = computed(() => {
   slots.value.forEach(s => counts[s.optId] = (counts[s.optId] || 0) + 1)
   counts[specialSlot.value.optId] = (counts[specialSlot.value.optId] || 0) + 1
   return Object.entries(counts).filter(([_, count]) => count >= 3).map(([optId, count]) => {
-    const isTeam = Number(optId) === 11
-    let bonus = 0
-    if (isTeam) {
-      bonus = count === 3 ? 1 : count === 4 ? 2 : count === 5 ? 3 : 4 
-    } else {
-      bonus = count === 3 ? 5 : count === 4 ? 10 : count === 5 ? 15 : 20 
-    }
-    return { name: OPTIONS[Number(optId)].name, count, bonusStr: `+${bonus}` }
+    const bonus = getSetBonus(Number(optId), count)
+    return { name: CURRENT_OPTS.value[Number(optId)], count, bonusStr: `+${bonus}` }
   })
 })
 
@@ -192,21 +175,16 @@ const setEffects = computed(() => {
 // ==============================================
 const isAutoModalOpen = ref(false)
 const autoTab = ref<'SET' | 'TIER' | 'OPT_MASTER' | 'OPT_PRO' | 'OPT_ELITE' | 'OPT_ROOKIE'>('OPT_MASTER')
-const setTargetCount = ref(3) 
-const setTargetOpts = ref<number[]>([]) 
-const tierTargetTier = ref(3) 
-const tierTargetCount = ref(1) 
+const setTargetCount = ref(3); const setTargetOpts = ref<number[]>([]) 
+const tierTargetTier = ref(3); const tierTargetCount = ref(1) 
 const optTargetOpts = ref<number[]>([]) 
 
 const isSpinning = ref(false)
 let spinInterval: ReturnType<typeof setInterval> | null = null
 
-const toggleOpt = (targetArray: any, id: number) => {
-  const idx = targetArray.indexOf(id)
-  if (idx > -1) targetArray.splice(idx, 1); else targetArray.push(id)
-}
+const toggleOpt = (targetArray: any, id: number) => { const idx = targetArray.indexOf(id); if (idx > -1) targetArray.splice(idx, 1); else targetArray.push(id) }
 const toggleAllOpts = (targetArray: any, tier: number) => {
-  const availableOpts = tier === 3 ? OPTIONS.map(o => o.id) : OPTIONS.filter(o => o.id !== 11).map(o => o.id)
+  const availableOpts = tier === 3 ? Array.from({length:12}, (_, i)=>i) : Array.from({length:11}, (_, i)=>i)
   if (targetArray.length === availableOpts.length) targetArray.splice(0, targetArray.length)
   else { targetArray.splice(0, targetArray.length); targetArray.push(...availableOpts) }
 }
@@ -215,8 +193,7 @@ const checkAutoStopCondition = () => {
   if (unlockedSlots.length === 0) return true
   if (autoTab.value === 'SET') {
     if (setTargetOpts.value.length === 0) return false
-    const counts: Record<number, number> = {}
-    slots.value.forEach(s => counts[s.optId] = (counts[s.optId] || 0) + 1); counts[specialSlot.value.optId] = (counts[specialSlot.value.optId] || 0) + 1
+    const counts: Record<number, number> = {}; slots.value.forEach(s => counts[s.optId] = (counts[s.optId] || 0) + 1); counts[specialSlot.value.optId] = (counts[specialSlot.value.optId] || 0) + 1
     return setTargetOpts.value.some(optId => (counts[optId] || 0) >= setTargetCount.value)
   } 
   if (autoTab.value === 'TIER') return unlockedSlots.filter(s => s.tier >= tierTargetTier.value).length >= tierTargetCount.value
@@ -231,18 +208,28 @@ const toggleAutoSpin = () => {
   if (isSpinning.value) stopAutoSpin()
   else {
     if (slots.value.every(s => s.isLocked)) return alert("모든 슬롯이 잠겨있습니다.")
-    if (autoTab.value === 'SET' && setTargetOpts.value.length === 0) return alert("목표 옵션을 선택해주세요.")
-    if (autoTab.value.startsWith('OPT_') && optTargetOpts.value.length === 0) return alert("목표 옵션을 선택해주세요.")
     isAutoModalOpen.value = false; isSpinning.value = true
     spinInterval = setInterval(() => { rollSlots(); if (checkAutoStopCondition() || totalApSpent.value > 1500000000) stopAutoSpin() }, 35) 
   }
 }
 const stopAutoSpin = () => { isSpinning.value = false; if (spinInterval) clearInterval(spinInterval) }
 const formatNum = (num: number) => new Intl.NumberFormat().format(num)
+
+// 커스텀 에디터 값 보정 로직
+const validateStatVal = (slot: any) => {
+  const isSpecial = slot.id === undefined
+  const tier = slot.tier
+  const optId = slot.optId
+  if (tier === 3 && optId === 11) slot.statVal = 2
+  else {
+    const validVals = STAT_VALUES[tier]
+    if (!validVals.includes(slot.statVal)) slot.statVal = validVals[validVals.length - 1]
+  }
+}
 </script>
 
 <template>
-  <div class="w-full max-w-7xl mx-auto px-4 sm:px-6 py-4 font-sans text-neutral-900 dark:text-neutral-100 flex flex-col min-h-screen">
+  <div class="w-full max-w-[1600px] mx-auto px-4 sm:px-6 py-4 font-sans text-neutral-900 dark:text-neutral-100 flex flex-col min-h-screen">
     
     <!-- 최상단 탭 -->
     <div class="flex justify-center shrink-0 mb-6">
@@ -253,21 +240,17 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
     </div>
 
     <!-- ==============================================
-         [1] 강화 탭 
+         [1] 강화 탭 (유지)
          ============================================== -->
-    <div v-show="activeTab === 'enhance'" class="flex flex-col">
+    <div v-show="activeTab === 'enhance'" class="flex flex-col max-w-6xl mx-auto w-full">
       <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <section class="flex flex-col gap-6">
           <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6 shadow-sm flex flex-col items-center shrink-0 relative">
             <RefreshCw @click="resetEnhanceSim" class="absolute top-4 right-4 w-5 h-5 cursor-pointer text-neutral-400 hover:text-blue-500" />
-            
             <div class="flex flex-col items-center mb-2 bg-neutral-50 dark:bg-neutral-800 px-4 py-2 rounded-lg">
-              <label class="text-xs font-bold text-neutral-500 mb-1">시작 강화 단계 설정</label>
-              <select v-model="currentLevel" @change="failStack=0; totalCardsUsed=0; logs=[]" class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-md px-4 py-1 text-sm font-bold outline-none text-center hover:border-blue-500 transition-colors cursor-pointer">
-                <option v-for="n in (MAX_LEVEL+1)" :key="n-1" :value="n-1">+{{n-1}}부터 시작</option>
-              </select>
+              <label class="text-xs font-bold text-neutral-500 mb-1">시작 단계 강제 세팅</label>
+              <select v-model="currentLevel" @change="failStack=0; totalCardsUsed=0; logs=[]" class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-md px-4 py-1 text-sm font-bold outline-none text-center hover:border-blue-500 transition-colors cursor-pointer"><option v-for="n in (MAX_LEVEL+1)" :key="n-1" :value="n-1">+{{n-1}}부터 시작</option></select>
             </div>
-
             <div class="flex items-center gap-4 text-5xl font-black my-3">
               <span :class="currentLevel >= MAX_LEVEL ? 'text-yellow-500' : 'text-neutral-400'">+{{ currentLevel }}</span>
               <ArrowRight v-if="currentLevel < MAX_LEVEL" class="w-6 h-6 text-neutral-300" />
@@ -276,7 +259,6 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
             <div class="text-lg font-bold mb-4">{{ (currentRealProb * 100).toFixed(1) }}% <span class="text-sm text-neutral-400 font-normal">(기본{{(currentBaseProb*100).toFixed(1)}}%)</span></div>
             <button @click="tryEnhance" :disabled="currentLevel >= MAX_LEVEL" class="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-lg flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"><Zap class="w-5 h-5"/> 강화 시도</button>
           </div>
-          
           <div class="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 flex flex-col h-[400px] shadow-sm">
             <div class="font-bold text-base px-4 py-3 border-b border-neutral-200 dark:border-neutral-800 flex items-center gap-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-t-2xl"><History class="w-4 h-4"/> 강화 기록</div>
             <div class="flex-1 overflow-y-auto p-3 space-y-2">
@@ -297,7 +279,6 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
             </div>
             <div class="text-3xl font-black text-blue-600">{{ calculatedExpectedCards > 0 ? calculatedExpectedCards.toFixed(1) : '0' }} <span class="text-base font-medium text-neutral-500">장</span></div>
           </div>
-          
           <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl overflow-hidden shadow-sm flex-1">
             <div class="overflow-y-auto h-full max-h-[600px]">
               <table class="w-full text-center text-sm sm:text-base">
@@ -306,10 +287,7 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
                 </thead>
                 <tbody class="divide-y divide-neutral-100 dark:divide-neutral-800">
                   <tr v-for="(prob, idx) in BASE_PROBS" :key="idx" class="hover:bg-neutral-50 dark:hover:bg-neutral-800/50">
-                    <td class="py-3 font-medium text-neutral-700 dark:text-neutral-300">+{{idx}}➔+{{idx+1}}</td>
-                    <td>{{(prob*100).toFixed(1)}}%</td>
-                    <td>{{expectedValues[idx].toFixed(1)}}</td>
-                    <td class="font-extrabold text-blue-600">{{(1 + expectedValues.slice(0, idx + 1).reduce((a, b) => a + b, 0)).toFixed(1)}}</td>
+                    <td class="py-3 font-medium text-neutral-700 dark:text-neutral-300">+{{idx}}➔+{{idx+1}}</td><td>{{(prob*100).toFixed(1)}}%</td><td>{{expectedValues[idx].toFixed(1)}}</td><td class="font-extrabold text-blue-600">{{(1 + expectedValues.slice(0, idx + 1).reduce((a, b) => a + b, 0)).toFixed(1)}}</td>
                   </tr>
                 </tbody>
               </table>
@@ -321,101 +299,153 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
 
 
     <!-- ==============================================
-         [2] 커리어 탭
+         [2] 커리어 탭 (3단 분리: 통계 / 슬롯 / 커스텀&기대값)
          ============================================== -->
-    <div v-show="activeTab === 'career'" class="flex flex-col">
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <div v-show="activeTab === 'career'" class="flex flex-col w-full">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 w-full">
         
-        <!-- 왼쪽 패널 -->
-        <section class="lg:col-span-4 flex flex-col gap-6">
+        <!-- [왼쪽] 타자/투수 선택 & 파산 영수증 -->
+        <section class="lg:col-span-3 flex flex-col gap-5">
           <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-5 shadow-sm">
-            <select v-model="selectedCardIdx" class="w-full bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-3 font-bold text-base mb-4 outline-none"><option v-for="(type, idx) in CARD_TYPES" :key="type.id" :value="idx">{{ type.name }}</option></select>
-            <div class="text-sm text-neutral-500 bg-neutral-50 dark:bg-neutral-800 p-3 rounded-xl flex flex-col gap-1 mb-4">
+            <div class="flex gap-2 mb-4 bg-neutral-100 dark:bg-neutral-800 p-1.5 rounded-xl">
+              <button @click="playerType = 'BATTER'" class="flex-1 py-1.5 rounded-lg text-sm font-bold transition-colors" :class="playerType === 'BATTER' ? 'bg-blue-500 text-white shadow-sm' : 'text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-700'">타자 (Batter)</button>
+              <button @click="playerType = 'PITCHER'" class="flex-1 py-1.5 rounded-lg text-sm font-bold transition-colors" :class="playerType === 'PITCHER' ? 'bg-red-500 text-white shadow-sm' : 'text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-700'">투수 (Pitcher)</button>
+            </div>
+            
+            <select v-model="selectedCardIdx" class="w-full bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-3 font-bold text-sm mb-4 outline-none"><option v-for="(type, idx) in CARD_TYPES" :key="type.id" :value="idx">{{ type.name }}</option></select>
+            <div class="text-[13px] text-neutral-500 bg-neutral-50 dark:bg-neutral-800 p-3 rounded-xl flex flex-col gap-1">
               <div class="flex justify-between"><span>기본 1칸:</span><strong class="text-blue-600">{{ formatNum(selectedCard.baseAP[3]) }}</strong></div>
               <div class="flex justify-between" v-if="selectedCard.lockAP[4] > 0"><span>4칸 잠금 페널티:</span><strong class="text-red-500">{{ formatNum(selectedCard.lockAP[4]) }}</strong></div>
             </div>
-
-            <div class="p-4 bg-neutral-100 dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 flex items-center justify-between">
-              <div class="flex flex-col">
-                <span class="text-xs font-bold text-neutral-500">AP 소모량 테스트용</span>
-                <span class="text-sm font-extrabold text-neutral-800 dark:text-neutral-200">마스터 풀 세팅</span>
-              </div>
-              <button @click="setAllMaster" class="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg text-sm font-bold transition-colors flex items-center gap-1 shadow-sm">
-                <Crown class="w-4 h-4"/> 일괄 적용
-              </button>
-            </div>
           </div>
           
-          <div class="bg-gradient-to-br from-neutral-900 to-neutral-800 rounded-2xl p-6 text-white shadow-xl h-fit shrink-0">
-            <div class="flex justify-between items-center mb-6"><span class="font-extrabold text-lg flex items-center gap-2"><Calculator class="w-5 h-5 text-green-400"/> 파산 영수증</span><RefreshCw @click="resetCareerSim" class="w-4 h-4 text-neutral-400 hover:text-white cursor-pointer transition-colors"/></div>
+          <div class="bg-gradient-to-br from-neutral-900 to-neutral-800 rounded-2xl p-5 text-white shadow-xl flex-1 flex flex-col justify-center relative">
+            <RefreshCw @click="resetCareerSim" class="absolute top-4 right-4 w-4 h-4 text-neutral-400 hover:text-white cursor-pointer transition-colors"/>
+            <div class="font-extrabold text-lg flex items-center gap-2 mb-6"><Calculator class="w-5 h-5 text-green-400"/> 영수증</div>
             <div class="space-y-4">
-              <div><div class="text-neutral-400 text-xs mb-1">총 AP 소모</div><div class="text-3xl font-black text-yellow-400 tracking-tight">{{ formatNum(totalApSpent) }}</div></div>
+              <div>
+                <div class="text-neutral-400 text-xs mb-1">총 스핀 횟수</div>
+                <div class="text-xl font-bold">{{ formatNum(apSpinCount) }} 회</div>
+              </div>
+              <div>
+                <div class="text-neutral-400 text-xs mb-1">총 AP 소모</div>
+                <div class="text-2xl font-black text-yellow-400 tracking-tight">{{ formatNum(totalApSpent) }}</div>
+              </div>
               <div class="flex justify-between items-end pt-4 border-t border-neutral-700">
-                <div><div class="text-neutral-400 text-xs mb-1">CASH 소모</div><div class="text-xl font-bold text-purple-400">{{ formatNum(totalCashSpent) }} 💎</div></div>
-                <div class="text-right"><div class="text-neutral-400 text-xs mb-1">캐시 갱신</div><div class="text-lg font-bold">{{ formatNum(specialSpinCount) }}회</div></div>
+                <div><div class="text-neutral-400 text-[10px] mb-1">CASH 소모</div><div class="text-lg font-bold text-purple-400">{{ formatNum(totalCashSpent) }}</div></div>
+                <div class="text-right"><div class="text-neutral-400 text-[10px] mb-1">스페셜 갱신</div><div class="text-base font-bold">{{ formatNum(specialSpinCount) }}회</div></div>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- 오른쪽 패널 -->
-        <section class="lg:col-span-8 flex flex-col gap-4">
+        <!-- [중앙] 세트 효과 & 시뮬레이션 슬롯 -->
+        <section class="lg:col-span-5 flex flex-col gap-4">
           
+          <!-- 세트 현황 (보너스 수치 포함) -->
           <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 rounded-2xl p-4 flex items-center gap-3 shrink-0 overflow-x-auto min-h-[60px]">
-            <span class="text-sm font-bold text-blue-700 dark:text-blue-400 shrink-0">적용된 세트:</span>
-            <div v-for="(ef, i) in setEffects" :key="i" class="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold whitespace-nowrap shadow-sm flex items-center gap-2">
-              {{ ef.name }} {{ ef.count }}셋 <span class="bg-blue-800 text-yellow-300 px-2 py-0.5 rounded-full text-xs border border-blue-500">{{ ef.bonusStr }}</span>
+            <span class="text-sm font-bold text-blue-700 dark:text-blue-400 shrink-0">세트:</span>
+            <div v-for="(ef, i) in setEffects" :key="i" class="bg-blue-600 text-white px-2.5 py-1 rounded-lg text-sm font-bold whitespace-nowrap shadow-sm flex items-center gap-2">
+              {{ ef.name }} {{ ef.count }}셋 <span class="bg-blue-800 text-yellow-300 px-1.5 py-0.5 rounded text-[11px] border border-blue-500">{{ ef.bonusStr }}</span>
             </div>
-            <div v-if="setEffects.length === 0" class="text-sm text-neutral-400">적용된 세트 효과가 없습니다. (3개 이상 시 발동)</div>
+            <div v-if="setEffects.length === 0" class="text-xs text-neutral-400">발동된 세트 효과가 없습니다.</div>
           </div>
 
-          <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-5 shadow-sm flex-1 flex flex-col">
-            <div class="space-y-3 flex-1 overflow-y-auto mb-4">
-              <!-- 스페셜 고정 슬롯 -->
-              <div class="p-3.5 bg-red-50 dark:bg-red-900/10 rounded-xl border-2 border-red-200 dark:border-red-800/30 flex items-center justify-between gap-3">
-                <div class="bg-red-500 text-white font-extrabold px-3 py-1 rounded text-sm shrink-0">고정</div>
-                <div class="flex-1 font-extrabold text-base sm:text-lg truncate text-neutral-800 dark:text-neutral-200 flex items-center justify-between pr-4">
-                  <span class="text-yellow-600 dark:text-yellow-500">{{ OPTIONS[specialSlot.optId].name }}</span>
+          <!-- 메인 슬롯 영역 -->
+          <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4 shadow-sm flex-1 flex flex-col">
+            <div class="space-y-2 flex-1 overflow-y-auto mb-4">
+              <!-- 스페셜 슬롯 -->
+              <div class="p-2.5 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-200 dark:border-red-800/30 flex items-center justify-between gap-3">
+                <div class="bg-red-500 text-white font-extrabold px-2.5 py-1 rounded text-xs shrink-0">고정</div>
+                <div class="flex-1 font-extrabold text-sm sm:text-base truncate text-neutral-800 dark:text-neutral-200 flex items-center justify-between pr-2">
+                  <span class="text-yellow-600 dark:text-yellow-500">{{ CURRENT_OPTS[specialSlot.optId] }}</span>
                   <span class="text-yellow-600 dark:text-yellow-500">+{{ specialSlot.statVal }}</span>
                 </div>
-                <button @click="spinSpecialSlot" class="px-4 py-2 bg-red-600 hover:bg-red-700 transition-colors text-white text-sm font-bold rounded-lg shadow-sm shrink-0">캐시갱신</button>
+                <button @click="spinSpecialSlot" class="px-3 py-1.5 bg-red-600 hover:bg-red-700 transition-colors text-white text-xs font-bold rounded-lg shadow-sm shrink-0">갱신</button>
               </div>
               
-              <!-- 일반 슬롯 -->
-              <div v-for="slot in slots" :key="slot.id" class="flex items-center gap-3 p-3 rounded-xl border transition-all" :class="slot.isLocked ? 'bg-neutral-100 dark:bg-neutral-800 opacity-60 border-neutral-300 dark:border-neutral-700' : 'bg-white dark:bg-neutral-900 border-purple-200 dark:border-purple-800/50'">
-                <!-- 등급 뱃지 (클릭 시 등급 변경) -->
-                <div @click="cycleSlotTier(slot)" 
-                     :class="[TIER_BG[slot.tier], TIER_COLORS[slot.tier]]" 
-                     class="w-16 text-center py-1.5 rounded-lg font-extrabold text-sm shadow-sm shrink-0 cursor-pointer hover:opacity-80 select-none transition-opacity" title="클릭하여 등급 변경">
-                  {{ TIERS[slot.tier] }}
-                </div>
-                
-                <div class="flex-1 font-bold text-base sm:text-lg truncate text-neutral-800 dark:text-neutral-200 flex justify-between items-center pr-4" :class="{'text-yellow-600 dark:text-yellow-500': slot.tier === 3}">
-                  <span>{{ OPTIONS[slot.optId].name }}</span>
+              <!-- 일반 AP 슬롯 -->
+              <div v-for="slot in slots" :key="slot.id" class="flex items-center gap-2 p-2 rounded-xl border transition-all" :class="slot.isLocked ? 'bg-neutral-100 dark:bg-neutral-800 opacity-60 border-neutral-300 dark:border-neutral-700' : 'bg-white dark:bg-neutral-900 border-purple-200 dark:border-purple-800/50'">
+                <!-- 인게임 UI 흉내: 등급 클릭 안함 (우측 에디터에서 관리) -->
+                <div :class="[TIER_BG[slot.tier], TIER_COLORS[slot.tier]]" class="w-14 text-center py-1 rounded-lg font-extrabold text-xs shadow-sm shrink-0">{{ TIERS[slot.tier] }}</div>
+                <div class="flex-1 font-bold text-sm sm:text-base truncate text-neutral-800 dark:text-neutral-200 flex justify-between items-center pr-2" :class="{'text-yellow-600 dark:text-yellow-500': slot.tier === 3}">
+                  <span>{{ CURRENT_OPTS[slot.optId] }}</span>
                   <span :class="slot.tier === 3 ? 'text-yellow-600 dark:text-yellow-500' : slot.tier === 2 ? 'text-pink-600 dark:text-pink-500' : slot.tier === 1 ? 'text-blue-600 dark:text-blue-500' : 'text-green-600 dark:text-green-500'">+{{ slot.statVal }}</span>
                 </div>
-                <button @click="toggleLock(slot.id)" class="p-2.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-400 hover:text-black dark:hover:text-white transition-colors shrink-0">
-                  <Lock v-if="slot.isLocked" class="w-5 h-5 text-yellow-500" /><Unlock v-else class="w-5 h-5" />
+                <button @click="toggleLock(slot.id)" class="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-400 hover:text-black dark:hover:text-white transition-colors shrink-0">
+                  <Lock v-if="slot.isLocked" class="w-4 h-4 text-yellow-500" /><Unlock v-else class="w-4 h-4" />
                 </button>
               </div>
             </div>
 
-            <!-- 하단 돌리기 버튼 -->
-            <div class="flex gap-3 shrink-0 pt-2 border-t border-neutral-100 dark:border-neutral-800">
-              <button @click="rollSlots" :disabled="isSpinning" class="w-1/2 py-3 bg-purple-600 hover:bg-purple-700 transition-colors text-white rounded-xl active:scale-95 flex flex-col items-center justify-center disabled:opacity-50 shadow-md">
-                <span class="text-base font-extrabold flex items-center gap-1.5"><Zap class="w-5 h-5"/> 수동 변경 (1회)</span>
-                <span class="text-xs font-medium text-purple-200">{{ formatNum(currentRollCostAP) }} AP 소모</span>
+            <div class="flex gap-2 shrink-0 pt-2 border-t border-neutral-100 dark:border-neutral-800">
+              <button @click="rollSlots" :disabled="isSpinning" class="w-1/2 py-2.5 bg-purple-600 hover:bg-purple-700 transition-colors text-white rounded-xl active:scale-95 flex flex-col items-center justify-center disabled:opacity-50 shadow-md">
+                <span class="text-sm font-extrabold flex items-center gap-1.5"><Zap class="w-4 h-4"/> 1회 변경</span>
+                <span class="text-[10px] font-medium text-purple-200">{{ formatNum(currentRollCostAP) }} AP</span>
               </button>
               
-              <button v-if="!isSpinning" @click="isAutoModalOpen = true" class="w-1/2 py-3 bg-neutral-800 hover:bg-black dark:bg-neutral-700 dark:hover:bg-neutral-600 transition-colors text-white font-extrabold rounded-xl flex items-center justify-center gap-2 text-base shadow-md">
-                <Settings class="w-5 h-5"/> 자동 설정
-              </button>
-              <button v-else @click="stopAutoSpin" class="w-1/2 py-3 bg-red-500 hover:bg-red-600 text-white font-extrabold rounded-xl flex items-center justify-center gap-2 text-base shadow-md animate-pulse">
-                <Pause class="w-5 h-5"/> 정지 (가챠중)
-              </button>
+              <button v-if="!isSpinning" @click="isAutoModalOpen = true" class="w-1/2 py-2.5 bg-neutral-800 hover:bg-black dark:bg-neutral-700 dark:hover:bg-neutral-600 transition-colors text-white font-extrabold rounded-xl flex items-center justify-center gap-2 text-sm shadow-md"><Settings class="w-4 h-4"/> 자동 설정</button>
+              <button v-else @click="stopAutoSpin" class="w-1/2 py-2.5 bg-red-500 hover:bg-red-600 text-white font-extrabold rounded-xl flex items-center justify-center gap-2 text-sm shadow-md animate-pulse"><Pause class="w-4 h-4"/> 정지 (가챠중)</button>
             </div>
           </div>
         </section>
+
+        <!-- [우측] 슬롯 커스텀 에디터 & 기대값 표 -->
+        <section class="lg:col-span-4 flex flex-col gap-5">
+          
+          <!-- 슬롯 수동 에디터 -->
+          <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4 shadow-sm">
+            <h3 class="font-extrabold text-sm flex items-center gap-2 mb-3 pb-2 border-b border-neutral-100 dark:border-neutral-800"><Edit3 class="w-4 h-4 text-blue-500"/> 슬롯 수동 커스텀 (인게임 상태 복사)</h3>
+            
+            <div class="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+              <div v-for="(slot, i) in [...slots, specialSlot]" :key="i" class="bg-neutral-50 dark:bg-neutral-800/50 p-2 rounded-lg border border-neutral-100 dark:border-neutral-700 flex flex-col gap-1.5">
+                <div class="text-[10px] font-bold text-neutral-400 pl-1">{{ slot.id === undefined ? '고정 마스터 슬롯' : `슬롯 ${slot.id + 1}` }}</div>
+                <div class="flex gap-1.5">
+                  <select v-model="slot.tier" @change="validateStatVal(slot)" :disabled="slot.id === undefined" class="w-1/4 bg-white dark:bg-neutral-900 border rounded text-[11px] font-bold p-1 outline-none disabled:opacity-50">
+                    <option v-for="(t, idx) in TIERS" :key="idx" :value="idx">{{t}}</option>
+                  </select>
+                  <select v-model="slot.optId" @change="validateStatVal(slot)" class="w-1/2 bg-white dark:bg-neutral-900 border rounded text-[11px] font-bold p-1 outline-none truncate">
+                    <option v-for="(opt, oIdx) in CURRENT_OPTS" :key="oIdx" :value="oIdx" :disabled="slot.tier !== 3 && oIdx === 11">{{opt}}</option>
+                  </select>
+                  <select v-model="slot.statVal" class="w-1/4 bg-white dark:bg-neutral-900 border rounded text-[11px] font-bold p-1 outline-none text-blue-600">
+                    <option v-if="slot.tier===3 && slot.optId===11" :value="2">+2</option>
+                    <option v-else v-for="val in STAT_VALUES[slot.tier]" :key="val" :value="val">+{{val}}</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 커리어 옵션 기대값 가이드 -->
+          <div class="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/30 rounded-2xl p-4 shadow-sm flex-1">
+            <h3 class="font-extrabold text-sm flex items-center gap-2 mb-3 text-blue-700 dark:text-blue-400"><Info class="w-4 h-4"/> 커리어 확률 & 기대값 가이드</h3>
+            <div class="space-y-3 text-xs text-neutral-700 dark:text-neutral-300">
+              <div class="p-2 bg-white dark:bg-neutral-900 rounded-lg shadow-sm">
+                <div class="font-bold text-blue-600 dark:text-blue-400 mb-1">📈 승급 확률 (1칸 기준)</div>
+                <ul class="list-disc pl-4 space-y-1">
+                  <li>루키 ➔ 엘리트 : <strong class="text-neutral-900 dark:text-white">평균 100회</strong> (1%)</li>
+                  <li>엘리트 ➔ 프로 : <strong class="text-neutral-900 dark:text-white">평균 100회</strong> (1%)</li>
+                  <li>프로 ➔ 마스터 : <strong class="text-neutral-900 dark:text-white">평균 100회</strong> (1%)</li>
+                  <li>루키 ➔ 마스터 (누적) : <strong class="text-red-500">평균 300회</strong> 소요</li>
+                </ul>
+              </div>
+              <div class="p-2 bg-white dark:bg-neutral-900 rounded-lg shadow-sm">
+                <div class="font-bold text-blue-600 dark:text-blue-400 mb-1">🎯 옵션 저격 확률 (마스터 기준)</div>
+                <ul class="list-disc pl-4 space-y-1">
+                  <li>일반 특정 옵션 1개 등장 : <strong class="text-neutral-900 dark:text-white">평균 약 11.3회</strong> (3/34)</li>
+                  <li>★ 동일 팀(자팀) 옵션 1개 등장 : <strong class="text-red-500">평균 34회</strong> (1/34 극악)</li>
+                </ul>
+              </div>
+              <div class="p-2 bg-white dark:bg-neutral-900 rounded-lg shadow-sm">
+                <div class="font-bold text-blue-600 dark:text-blue-400 mb-1">💡 5칸 동시 굴리기 팁</div>
+                <p class="leading-relaxed">
+                  5칸을 잠금 없이 돌릴 경우, 모두 마스터에 도달하려면 독립 시행이므로 <strong class="text-red-500">평균 약 700~800회</strong>의 스핀이 필요합니다. 1마스터 4루키가 떴다면, 과감히 마스터를 잠그고 페널티를 감수하며 올리는 것이 정신건강에 이로울 수 있습니다.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
       </div>
     </div>
   </div>
@@ -451,13 +481,13 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
               <div class="flex justify-between items-center mb-3">
                 <h3 class="font-extrabold text-sm text-cyan-600">원하는 세트 옵션 선택</h3>
                 <label class="text-xs font-bold flex items-center gap-1.5 cursor-pointer bg-neutral-100 dark:bg-neutral-800 px-2 py-1 rounded">
-                  <input type="checkbox" @change="toggleAllOpts(setTargetOpts, 3)" :checked="setTargetOpts.length === OPTIONS.length" class="accent-cyan-500">전체 선택
+                  <input type="checkbox" @change="toggleAllOpts(setTargetOpts, 3)" :checked="setTargetOpts.length === 12" class="accent-cyan-500">전체 선택
                 </label>
               </div>
               <div class="space-y-1">
-                <label v-for="opt in OPTIONS" :key="opt.id" class="flex items-center gap-2 p-2 rounded hover:bg-neutral-50 dark:hover:bg-neutral-800 cursor-pointer border-b border-neutral-100 dark:border-neutral-800">
-                  <input type="checkbox" :checked="setTargetOpts.includes(opt.id)" @change="toggleOpt(setTargetOpts, opt.id)" class="w-4 h-4 accent-cyan-500">
-                  <span class="text-sm font-semibold">{{ opt.name }}</span>
+                <label v-for="(opt, i) in CURRENT_OPTS" :key="i" class="flex items-center gap-2 p-2 rounded hover:bg-neutral-50 dark:hover:bg-neutral-800 cursor-pointer border-b border-neutral-100 dark:border-neutral-800">
+                  <input type="checkbox" :checked="setTargetOpts.includes(i)" @change="toggleOpt(setTargetOpts, i)" class="w-4 h-4 accent-cyan-500">
+                  <span class="text-sm font-semibold">{{ opt }}</span>
                 </label>
               </div>
             </div>
@@ -485,12 +515,12 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
             <div class="flex justify-between items-center mb-3 sticky top-0 bg-white dark:bg-neutral-900 py-1 z-10">
               <span class="text-sm font-extrabold text-cyan-600">{{ autoTab === 'OPT_MASTER' ? '마스터' : autoTab === 'OPT_PRO' ? '프로' : autoTab === 'OPT_ELITE' ? '엘리트' : '루키' }} 옵션 선택</span>
               <label class="text-xs font-bold flex items-center gap-1.5 cursor-pointer bg-neutral-100 dark:bg-neutral-800 px-2 py-1 rounded">
-                <input type="checkbox" @change="toggleAllOpts(optTargetOpts, autoTab === 'OPT_MASTER' ? 3 : 0)" :checked="optTargetOpts.length === (autoTab === 'OPT_MASTER' ? OPTIONS.length : OPTIONS.length - 1)" class="accent-cyan-500">전체 선택
+                <input type="checkbox" @change="toggleAllOpts(optTargetOpts, autoTab === 'OPT_MASTER' ? 3 : 0)" :checked="optTargetOpts.length === (autoTab === 'OPT_MASTER' ? 12 : 11)" class="accent-cyan-500">전체 선택
               </label>
             </div>
-            <label v-for="opt in OPTIONS" :key="opt.id" class="flex items-center gap-3 p-2 border-b border-neutral-100 dark:border-neutral-800 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors" :class="{'opacity-40 pointer-events-none': autoTab !== 'OPT_MASTER' && opt.id === 11}">
-              <input type="checkbox" :checked="optTargetOpts.includes(opt.id)" @change="toggleOpt(optTargetOpts, opt.id)" class="w-4 h-4 accent-cyan-500">
-              <span class="text-sm font-bold">{{ opt.name }}</span>
+            <label v-for="(opt, i) in CURRENT_OPTS" :key="i" class="flex items-center gap-3 p-2 border-b border-neutral-100 dark:border-neutral-800 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors" :class="{'opacity-40 pointer-events-none': autoTab !== 'OPT_MASTER' && i === 11}">
+              <input type="checkbox" :checked="optTargetOpts.includes(i)" @change="toggleOpt(optTargetOpts, i)" class="w-4 h-4 accent-cyan-500">
+              <span class="text-sm font-bold">{{ opt }}</span>
             </label>
           </div>
         </div>
