@@ -118,7 +118,7 @@ const currentRollCostAP = computed(() => {
   const card = selectedCard.value; let lockedCount = slots.value.filter(s => s.isLocked).length
   if (lockedCount === 5) return 0
   let cost = card.lockAP[lockedCount]
-  slots.value.forEach(slot => { cost += card.baseAP[slot.tier] })
+  slots.value.forEach(slot => { if(!slot.isLocked) cost += card.baseAP[slot.tier] })
   return cost
 })
 
@@ -142,8 +142,8 @@ const rollSlots = () => {
   if (lockedCount === 5) return
   let costAP = card.lockAP[lockedCount]; let costCash = card.lockCash[lockedCount]
   slots.value.forEach(slot => {
-    costAP += card.baseAP[slot.tier]
     if (!slot.isLocked) {
+      costAP += card.baseAP[slot.tier]
       if (slot.tier < 3 && Math.random() < 0.01) slot.tier++
       const rolled = rollOption(slot.tier)
       slot.optId = rolled.optId; slot.statVal = rolled.statVal
@@ -186,7 +186,7 @@ watch(playerType, () => {
 })
 
 // ==============================================
-// 🌟 고정 기대값 계산기 
+// 🌟 기대값 계산기 
 // ==============================================
 const calcTargetGoal = ref<'5MASTER' | 'TARGET_SET' | 'TARGET_3_3'>('5MASTER')
 const calcTargetSetCount = ref(3)
@@ -225,8 +225,10 @@ const runExpectedValueCalc = () => {
           let lc = tempSlots.filter(s => s.isLocked).length
           let loopAp = card.lockAP[lc]
           tempSlots.forEach(s => {
-            loopAp += card.baseAP[s.tier]
-            if (!s.isLocked) { if (s.tier < 3 && rng() < 0.01) s.tier++ }
+            if (!s.isLocked) {
+              loopAp += card.baseAP[s.tier]
+              if (s.tier < 3 && rng() < 0.01) s.tier++
+            }
           })
           ap += loopAp
           if (r > 15000) break
@@ -238,7 +240,6 @@ const runExpectedValueCalc = () => {
           sr += 1 / (w / 34)
           spOpt = calcTargetSetOptId.value
         }
-        
         while (true) {
           let c = (spOpt === calcTargetSetOptId.value ? 1 : 0) + tempSlots.filter(s => s.tier === 3 && s.optId === calcTargetSetOptId.value).length
           if (c >= calcTargetSetCount.value) break
@@ -253,13 +254,11 @@ const runExpectedValueCalc = () => {
               }
             })
           }
-          
           let lc = tempSlots.filter(s => s.isLocked).length
           let loopAp = card.lockAP[lc]; let loopCash = card.lockCash[lc]
-          
           tempSlots.forEach(s => {
-            loopAp += card.baseAP[s.tier]
             if (!s.isLocked) {
+              loopAp += card.baseAP[s.tier]
               if (s.tier < 3 && rng() < 0.01) s.tier++
               const rolled = rollOption(s.tier, false, rng)
               s.optId = rolled.optId
@@ -277,7 +276,6 @@ const runExpectedValueCalc = () => {
           sr += 1 / prob
           spOpt = (rng() < w1/(w1+w2)) ? calcTarget3_3_Opt1.value : calcTarget3_3_Opt2.value
         }
-        
         while (true) {
           let c1 = (spOpt === calcTarget3_3_Opt1.value ? 1 : 0) + tempSlots.filter(s => s.tier === 3 && s.optId === calcTarget3_3_Opt1.value).length
           let c2 = (spOpt === calcTarget3_3_Opt2.value ? 1 : 0) + tempSlots.filter(s => s.tier === 3 && s.optId === calcTarget3_3_Opt2.value).length
@@ -288,7 +286,6 @@ const runExpectedValueCalc = () => {
           if (allMaster) {
             let currentLocked1 = (spOpt === calcTarget3_3_Opt1.value ? 1 : 0) + tempSlots.filter(s => s.isLocked && s.optId === calcTarget3_3_Opt1.value).length
             let currentLocked2 = (spOpt === calcTarget3_3_Opt2.value ? 1 : 0) + tempSlots.filter(s => s.isLocked && s.optId === calcTarget3_3_Opt2.value).length
-            
             tempSlots.forEach(s => {
               if (!s.isLocked && s.tier === 3) {
                 if (s.optId === calcTarget3_3_Opt1.value && currentLocked1 < 3) { s.isLocked = true; currentLocked1++ }
@@ -296,13 +293,11 @@ const runExpectedValueCalc = () => {
               }
             })
           }
-          
           let lc = tempSlots.filter(s => s.isLocked).length
           let loopAp = card.lockAP[lc]; let loopCash = card.lockCash[lc]
-          
           tempSlots.forEach(s => {
-            loopAp += card.baseAP[s.tier]
             if (!s.isLocked) {
+              loopAp += card.baseAP[s.tier]
               if (s.tier < 3 && rng() < 0.01) s.tier++
               const rolled = rollOption(s.tier, false, rng)
               s.optId = rolled.optId
@@ -325,9 +320,70 @@ const runExpectedValueCalc = () => {
   }, 50)
 }
 
+// ==============================================
+// 🌟 자동 승급 (오토) 모달 및 로직 복구
+// ==============================================
+const isAutoModalOpen = ref(false)
+const autoTab = ref<'SET' | 'TIER' | 'OPT_MASTER' | 'OPT_PRO' | 'OPT_ELITE' | 'OPT_ROOKIE'>('SET')
+const autoTargetSetCount = ref(3)
+const autoTargetSetOpts = ref<number[]>([])
+const autoTargetTierTier = ref(3)
+const autoTargetTierCount = ref(1)
+const autoTargetOptOpts = ref<number[]>([])
+
 const isSpinning = ref(false)
 let spinInterval: ReturnType<typeof setInterval> | null = null
+
+const toggleOptAuto = (arr: number[], id: number) => {
+  const idx = arr.indexOf(id)
+  if (idx > -1) arr.splice(idx, 1)
+  else arr.push(id)
+}
+const toggleAllOptsAuto = (arr: number[], tier: number) => {
+  const available = tier === 3 ? Array.from({length:12}, (_, i)=>i) : Array.from({length:11}, (_, i)=>i)
+  if (arr.length === available.length) arr.splice(0, arr.length)
+  else { arr.splice(0, arr.length); arr.push(...available) }
+}
+
+const checkAutoStopCondition = () => {
+  const unlockedSlots = slots.value.filter(s => !s.isLocked)
+  if (unlockedSlots.length === 0) return true
+  if (autoTab.value === 'SET') {
+    if (autoTargetSetOpts.value.length === 0) return false
+    const counts: Record<number, number> = {}
+    slots.value.forEach(s => counts[s.optId] = (counts[s.optId] || 0) + 1)
+    counts[specialSlot.value.optId] = (counts[specialSlot.value.optId] || 0) + 1
+    return autoTargetSetOpts.value.some(optId => (counts[optId] || 0) >= autoTargetSetCount.value)
+  }
+  if (autoTab.value === 'TIER') {
+    return unlockedSlots.filter(s => s.tier >= autoTargetTierTier.value).length >= autoTargetTierCount.value
+  }
+  if (autoTab.value.startsWith('OPT_')) {
+    if (autoTargetOptOpts.value.length === 0) return false
+    const targetTier = autoTab.value === 'OPT_MASTER' ? 3 : autoTab.value === 'OPT_PRO' ? 2 : autoTab.value === 'OPT_ELITE' ? 1 : 0
+    return unlockedSlots.some(s => s.tier === targetTier && autoTargetOptOpts.value.includes(s.optId))
+  }
+  return false
+}
+
+const startAutoSpin = () => {
+  if (slots.value.every(s => s.isLocked)) return alert("모든 슬롯이 잠겨있습니다.")
+  if (autoTab.value === 'SET' && autoTargetSetOpts.value.length === 0) return alert("목표 옵션을 선택해주세요.")
+  if (autoTab.value.startsWith('OPT_') && autoTargetOptOpts.value.length === 0) return alert("목표 옵션을 선택해주세요.")
+  
+  isAutoModalOpen.value = false
+  isSpinning.value = true
+  
+  spinInterval = setInterval(() => {
+    rollSlots()
+    if (checkAutoStopCondition() || totalApSpent.value > 1500000000) { 
+      stopAutoSpin()
+    }
+  }, 35)
+}
+
 const stopAutoSpin = () => { isSpinning.value = false; if (spinInterval) clearInterval(spinInterval) }
+
 const formatNum = (num: number) => new Intl.NumberFormat().format(num)
 </script>
 
@@ -342,7 +398,7 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
       </div>
     </div>
 
-    <!-- [1] 강화 탭 (유지) -->
+    <!-- [1] 강화 탭 -->
     <div v-show="activeTab === 'enhance'" class="flex flex-col max-w-6xl mx-auto w-full">
       <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <section class="flex flex-col gap-6">
@@ -400,12 +456,12 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
 
 
     <!-- ==============================================
-         [2] 커리어 탭 (좌측 하단에 동기화 박스 배치, 우측은 계산기 전용)
+         [2] 커리어 탭 
          ============================================== -->
     <div v-show="activeTab === 'career'" class="flex flex-col w-full">
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 w-full">
         
-        <!-- [좌측] 타자투수 선택 & 파산 영수증 & 인게임 동기화 박스 -->
+        <!-- [좌측] 타자투수 선택 & 영수증 & 동기화 박스 -->
         <section class="lg:col-span-3 flex flex-col gap-5">
           <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4 shadow-sm">
             <div class="flex gap-2 mb-3 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-xl">
@@ -420,7 +476,6 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
             </div>
           </div>
           
-          <!-- 파산 영수증 (검은색 여백 축소) -->
           <div class="bg-gradient-to-br from-neutral-900 to-neutral-800 rounded-2xl p-4 text-white shadow-xl shrink-0">
             <div class="flex justify-between items-center mb-3"><div class="font-extrabold text-sm flex items-center gap-1.5"><Calculator class="w-4 h-4 text-green-400"/> 영수증</div><RefreshCw @click="resetCareerSim" class="w-3.5 h-3.5 text-neutral-400 hover:text-white cursor-pointer transition-colors"/></div>
             <div class="space-y-2.5 text-sm">
@@ -432,7 +487,6 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
             </div>
           </div>
 
-          <!-- 🌟 이동 완료된 인게임 동기화 박스 -->
           <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4 shadow-sm">
             <h3 class="font-extrabold text-xs flex items-center gap-1.5 mb-2 pb-1.5 border-b border-neutral-100 dark:border-neutral-800"><Edit3 class="w-3.5 h-3.5 text-blue-500"/> 내 상태 인게임 동기화 (수동 변경)</h3>
             <div class="space-y-1.5 max-h-[180px] overflow-y-auto pr-1">
@@ -489,15 +543,22 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
             </div>
 
             <div class="flex gap-3 shrink-0 pt-2 border-t border-neutral-100 dark:border-neutral-800">
-              <button @click="rollSlots" :disabled="isSpinning" class="w-full py-3 bg-purple-600 hover:bg-purple-700 transition-colors text-white rounded-xl active:scale-95 flex flex-col items-center justify-center disabled:opacity-50 shadow-md">
+              <button @click="rollSlots" :disabled="isSpinning" class="w-1/2 py-3 bg-purple-600 hover:bg-purple-700 transition-colors text-white rounded-xl active:scale-95 flex flex-col items-center justify-center disabled:opacity-50 shadow-md">
                 <span class="text-base font-extrabold flex items-center gap-1.5"><Zap class="w-5 h-5"/> 수동 변경 (1회)</span>
                 <span class="text-xs font-medium text-purple-200">{{ formatNum(currentRollCostAP) }} AP 소모</span>
+              </button>
+              
+              <button v-if="!isSpinning" @click="isAutoModalOpen = true" class="w-1/2 py-3 bg-neutral-800 hover:bg-black dark:bg-neutral-700 dark:hover:bg-neutral-600 transition-colors text-white font-extrabold rounded-xl flex items-center justify-center gap-2 text-base shadow-md">
+                <Settings class="w-5 h-5"/> 자동 설정
+              </button>
+              <button v-else @click="stopAutoSpin" class="w-1/2 py-3 bg-red-500 hover:bg-red-600 text-white font-extrabold rounded-xl flex items-center justify-center gap-2 text-base shadow-md animate-pulse">
+                <Pause class="w-5 h-5"/> 정지 (가챠중)
               </button>
             </div>
           </div>
         </section>
 
-        <!-- [우측] 상단으로 이동 완료된 고정 기대값 계산기 (우측 휠 완전 소멸) -->
+        <!-- [우측] 상단으로 이동 완료된 고정 기대값 계산기 -->
         <section class="lg:col-span-4 flex flex-col gap-5">
           <div class="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800/40 rounded-2xl p-5 shadow-sm flex-1 flex flex-col relative overflow-hidden">
             <h3 class="font-extrabold text-base flex items-center gap-2 mb-4 text-blue-700 dark:text-blue-400"><Target class="w-5 h-5"/> 커리어 목표 고정 기대값 계산기</h3>
@@ -581,6 +642,89 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
           </div>
         </section>
 
+      </div>
+    </div>
+  </div>
+
+  <!-- 🌟 자동 승급 모달 🌟 -->
+  <div v-if="isAutoModalOpen" class="fixed inset-0 bg-black/60 z-[99999] flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-[550px] overflow-hidden flex flex-col text-neutral-800 dark:text-neutral-200">
+      <div class="bg-cyan-500 p-4 text-center text-white font-extrabold text-xl">자동 승급 옵션 설정</div>
+      <div class="text-xs text-center p-2 text-neutral-500 bg-neutral-50 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700">선택한 설정이 적용될 때까지 옵션 변경이 시도됩니다.</div>
+      
+      <div class="flex h-[380px]">
+        <div class="w-[110px] bg-neutral-800 p-2 flex flex-col gap-1.5 shrink-0">
+          <button @click="autoTab = 'SET'" class="py-3 text-sm font-bold text-white rounded-md transition-colors" :class="autoTab === 'SET' ? 'bg-cyan-500 shadow-md' : 'bg-neutral-700 hover:bg-neutral-600'">세트 도달</button>
+          <button @click="autoTab = 'TIER'" class="py-3 text-sm font-bold text-white rounded-md transition-colors" :class="autoTab === 'TIER' ? 'bg-cyan-500 shadow-md' : 'bg-neutral-700 hover:bg-neutral-600'">등급 도달</button>
+          <button @click="autoTab = 'OPT_MASTER'" class="py-3 text-sm font-bold text-white rounded-md transition-colors" :class="autoTab === 'OPT_MASTER' ? 'bg-cyan-500 shadow-md' : 'bg-neutral-700 hover:bg-neutral-600'">마스터</button>
+          <button @click="autoTab = 'OPT_PRO'" class="py-3 text-sm font-bold text-white rounded-md transition-colors" :class="autoTab === 'OPT_PRO' ? 'bg-cyan-500 shadow-md' : 'bg-neutral-700 hover:bg-neutral-600'">프로</button>
+          <button @click="autoTab = 'OPT_ELITE'" class="py-3 text-sm font-bold text-white rounded-md transition-colors" :class="autoTab === 'OPT_ELITE' ? 'bg-cyan-500 shadow-md' : 'bg-neutral-700 hover:bg-neutral-600'">엘리트</button>
+          <button @click="autoTab = 'OPT_ROOKIE'" class="py-3 text-sm font-bold text-white rounded-md transition-colors" :class="autoTab === 'OPT_ROOKIE' ? 'bg-cyan-500 shadow-md' : 'bg-neutral-700 hover:bg-neutral-600'">루키</button>
+        </div>
+        
+        <div class="flex-1 p-5 overflow-y-auto bg-white dark:bg-neutral-900">
+          <div v-if="autoTab === 'SET'" class="space-y-6">
+            <div>
+              <h3 class="font-extrabold text-sm mb-3 text-cyan-600">몇 세트를 원하시나요? (고정옵션 포함)</h3>
+              <div class="flex gap-4">
+                <label v-for="n in [3,4,5,6]" :key="n" class="flex flex-col items-center gap-1.5 cursor-pointer">
+                  <input type="radio" :value="n" v-model="autoTargetSetCount" class="w-5 h-5 accent-cyan-500">
+                  <span class="text-sm font-bold">{{n}}개</span>
+                </label>
+              </div>
+            </div>
+            <div>
+              <div class="flex justify-between items-center mb-3">
+                <h3 class="font-extrabold text-sm text-cyan-600">원하는 세트 옵션 선택</h3>
+                <label class="text-xs font-bold flex items-center gap-1.5 cursor-pointer bg-neutral-100 dark:bg-neutral-800 px-2 py-1 rounded">
+                  <input type="checkbox" @change="toggleAllOptsAuto(autoTargetSetOpts, 3)" :checked="autoTargetSetOpts.length === 12" class="accent-cyan-500">전체 선택
+                </label>
+              </div>
+              <div class="space-y-1">
+                <label v-for="(opt, i) in CURRENT_DATA" :key="i" class="flex items-center gap-2 p-2 rounded hover:bg-neutral-50 dark:hover:bg-neutral-800 cursor-pointer border-b border-neutral-100 dark:border-neutral-800">
+                  <input type="checkbox" :checked="autoTargetSetOpts.includes(i)" @change="toggleOptAuto(autoTargetSetOpts, i)" class="w-4 h-4 accent-cyan-500">
+                  <span class="text-sm font-semibold">{{ opt.name }}</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="autoTab === 'TIER'" class="space-y-6">
+            <div>
+              <h3 class="font-extrabold text-sm mb-3 text-cyan-600">원하는 목표 등급 선택</h3>
+              <select v-model="autoTargetTierTier" class="w-full p-2.5 border border-neutral-300 dark:border-neutral-700 rounded-lg text-sm font-bold bg-white dark:bg-neutral-800 outline-none">
+                <option :value="3">마스터</option><option :value="2">프로</option><option :value="1">엘리트</option>
+              </select>
+            </div>
+            <div>
+              <h3 class="font-extrabold text-sm mb-3 text-cyan-600">해당 등급을 몇 개 띄울까요? (잠금 제외)</h3>
+              <div class="flex gap-4">
+                <label v-for="n in [1,2,3,4,5]" :key="n" class="flex flex-col items-center gap-1.5 cursor-pointer">
+                  <input type="radio" :value="n" v-model="autoTargetTierCount" class="w-5 h-5 accent-cyan-500">
+                  <span class="text-sm font-bold">{{n}}개</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="autoTab.startsWith('OPT_')" class="space-y-2 pb-4">
+            <div class="flex justify-between items-center mb-3 sticky top-0 bg-white dark:bg-neutral-900 py-1 z-10">
+              <span class="text-sm font-extrabold text-cyan-600">{{ autoTab === 'OPT_MASTER' ? '마스터' : autoTab === 'OPT_PRO' ? '프로' : autoTab === 'OPT_ELITE' ? '엘리트' : '루키' }} 옵션 선택</span>
+              <label class="text-xs font-bold flex items-center gap-1.5 cursor-pointer bg-neutral-100 dark:bg-neutral-800 px-2 py-1 rounded">
+                <input type="checkbox" @change="toggleAllOptsAuto(autoTargetOptOpts, autoTab === 'OPT_MASTER' ? 3 : 0)" :checked="autoTargetOptOpts.length === (autoTab === 'OPT_MASTER' ? 12 : 11)" class="accent-cyan-500">전체 선택
+              </label>
+            </div>
+            <label v-for="(opt, i) in CURRENT_DATA" :key="i" class="flex items-center gap-3 p-2 border-b border-neutral-100 dark:border-neutral-800 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors" :class="{'opacity-40 pointer-events-none': autoTab !== 'OPT_MASTER' && i === 11}">
+              <input type="checkbox" :checked="autoTargetOptOpts.includes(i)" @change="toggleOptAuto(autoTargetOptOpts, i)" class="w-4 h-4 accent-cyan-500">
+              <span class="text-sm font-bold">{{ opt.name }}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+      
+      <div class="p-4 bg-neutral-100 dark:bg-neutral-800 flex justify-between items-center shrink-0 border-t border-neutral-200 dark:border-neutral-700">
+        <button @click="isAutoModalOpen = false" class="px-6 py-2.5 text-sm font-bold bg-neutral-300 dark:bg-neutral-600 hover:bg-neutral-400 dark:hover:bg-neutral-500 rounded-lg transition-colors">취소</button>
+        <button @click="startAutoSpin" class="px-10 py-2.5 text-base font-extrabold bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg shadow-md transition-colors">시작</button>
       </div>
     </div>
   </div>
