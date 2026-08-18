@@ -56,7 +56,7 @@ const calculatedExpectedCards = computed(() => {
 })
 
 // ==============================================
-// [2] 커리어 옵션 시뮬레이터 
+// [2] 커리어 옵션 시뮬레이터 (100% 인게임 데이터 고증)
 // ==============================================
 const playerType = ref<'BATTER' | 'PITCHER'>('BATTER')
 
@@ -118,7 +118,7 @@ const currentRollCostAP = computed(() => {
   const card = selectedCard.value; let lockedCount = slots.value.filter(s => s.isLocked).length
   if (lockedCount === 5) return 0
   let cost = card.lockAP[lockedCount]
-  slots.value.forEach(slot => { if(!slot.isLocked) cost += card.baseAP[slot.tier] })
+  slots.value.forEach(slot => { if (!slot.isLocked) cost += card.baseAP[slot.tier] })
   return cost
 })
 
@@ -186,7 +186,7 @@ watch(playerType, () => {
 })
 
 // ==============================================
-// 🌟 기대값 계산기 
+// 🌟 고정 기대값 계산기 (승급 메모리 전략 포함) 🌟
 // ==============================================
 const calcTargetGoal = ref<'5MASTER' | 'TARGET_SET' | 'TARGET_3_3'>('5MASTER')
 const calcTargetSetCount = ref(3)
@@ -194,7 +194,13 @@ const calcTargetSetOptId = ref(0)
 const calcTarget3_3_Opt1 = ref(0)
 const calcTarget3_3_Opt2 = ref(1)
 
-const calcResult = ref<{ avgRolls: number, avgAp: number, avgCash: number, specialRolls: number } | null>(null)
+// 🌟 신규: 승급 메모리 사용 옵션
+const useUpgradeMemory = ref(true)
+
+const calcResult = ref<{ 
+  avgRolls: number, avgAp: number, avgCash: number, specialRolls: number,
+  memElite: number, memPro: number, memMaster: number 
+} | null>(null)
 const isCalculating = ref(false)
 
 function SeededRNG(seed: number) {
@@ -211,17 +217,30 @@ const runExpectedValueCalc = () => {
     let rng = SeededRNG(12345) 
     
     let simAp = 0, simCash = 0, simRolls = 0, simSpecialRolls = 0
+    let simMemE = 0, simMemP = 0, simMemM = 0
     const iterations = 3000 
     
     for (let i = 0; i < iterations; i++) {
       let tempSlots = slots.value.map(s => ({ ...s }))
       let spOpt = specialSlot.value.optId
       let r = 0, ap = 0, cash = 0, sr = 0
+      let mE = 0, mP = 0, mM = 0
       
       if (calcTargetGoal.value === '5MASTER') {
         while (true) {
+          // 승급 메모리 사용 로직 (마지막 1칸 남았을 때 멱살 캐리)
+          if (useUpgradeMemory.value) {
+            let rCount = tempSlots.filter(s => s.tier === 0).length
+            if (rCount === 1 && tempSlots.filter(s => s.tier >= 1).length >= 4) { tempSlots.find(s => s.tier === 0)!.tier = 1; mE++ }
+            let eCount = tempSlots.filter(s => s.tier === 1).length
+            if (eCount === 1 && tempSlots.filter(s => s.tier >= 2).length >= 4) { tempSlots.find(s => s.tier === 1)!.tier = 2; mP++ }
+            let pCount = tempSlots.filter(s => s.tier === 2).length
+            if (pCount === 1 && tempSlots.filter(s => s.tier === 3).length >= 4) { tempSlots.find(s => s.tier === 2)!.tier = 3; mM++ }
+          }
+
           if (tempSlots.every(s => s.tier === 3)) break
           r++
+          
           let lc = tempSlots.filter(s => s.isLocked).length
           let loopAp = card.lockAP[lc]
           tempSlots.forEach(s => {
@@ -240,7 +259,17 @@ const runExpectedValueCalc = () => {
           sr += 1 / (w / 34)
           spOpt = calcTargetSetOptId.value
         }
+        
         while (true) {
+          if (useUpgradeMemory.value) {
+            let rCount = tempSlots.filter(s => s.tier === 0).length
+            if (rCount === 1 && tempSlots.filter(s => s.tier >= 1).length >= 4) { tempSlots.find(s => s.tier === 0)!.tier = 1; mE++ }
+            let eCount = tempSlots.filter(s => s.tier === 1).length
+            if (eCount === 1 && tempSlots.filter(s => s.tier >= 2).length >= 4) { tempSlots.find(s => s.tier === 1)!.tier = 2; mP++ }
+            let pCount = tempSlots.filter(s => s.tier === 2).length
+            if (pCount === 1 && tempSlots.filter(s => s.tier === 3).length >= 4) { tempSlots.find(s => s.tier === 2)!.tier = 3; mM++ }
+          }
+
           let c = (spOpt === calcTargetSetOptId.value ? 1 : 0) + tempSlots.filter(s => s.tier === 3 && s.optId === calcTargetSetOptId.value).length
           if (c >= calcTargetSetCount.value) break
           
@@ -254,8 +283,10 @@ const runExpectedValueCalc = () => {
               }
             })
           }
+          
           let lc = tempSlots.filter(s => s.isLocked).length
           let loopAp = card.lockAP[lc]; let loopCash = card.lockCash[lc]
+          
           tempSlots.forEach(s => {
             if (!s.isLocked) {
               loopAp += card.baseAP[s.tier]
@@ -276,7 +307,17 @@ const runExpectedValueCalc = () => {
           sr += 1 / prob
           spOpt = (rng() < w1/(w1+w2)) ? calcTarget3_3_Opt1.value : calcTarget3_3_Opt2.value
         }
+        
         while (true) {
+          if (useUpgradeMemory.value) {
+            let rCount = tempSlots.filter(s => s.tier === 0).length
+            if (rCount === 1 && tempSlots.filter(s => s.tier >= 1).length >= 4) { tempSlots.find(s => s.tier === 0)!.tier = 1; mE++ }
+            let eCount = tempSlots.filter(s => s.tier === 1).length
+            if (eCount === 1 && tempSlots.filter(s => s.tier >= 2).length >= 4) { tempSlots.find(s => s.tier === 1)!.tier = 2; mP++ }
+            let pCount = tempSlots.filter(s => s.tier === 2).length
+            if (pCount === 1 && tempSlots.filter(s => s.tier === 3).length >= 4) { tempSlots.find(s => s.tier === 2)!.tier = 3; mM++ }
+          }
+
           let c1 = (spOpt === calcTarget3_3_Opt1.value ? 1 : 0) + tempSlots.filter(s => s.tier === 3 && s.optId === calcTarget3_3_Opt1.value).length
           let c2 = (spOpt === calcTarget3_3_Opt2.value ? 1 : 0) + tempSlots.filter(s => s.tier === 3 && s.optId === calcTarget3_3_Opt2.value).length
           if (c1 >= 3 && c2 >= 3) break
@@ -286,6 +327,7 @@ const runExpectedValueCalc = () => {
           if (allMaster) {
             let currentLocked1 = (spOpt === calcTarget3_3_Opt1.value ? 1 : 0) + tempSlots.filter(s => s.isLocked && s.optId === calcTarget3_3_Opt1.value).length
             let currentLocked2 = (spOpt === calcTarget3_3_Opt2.value ? 1 : 0) + tempSlots.filter(s => s.isLocked && s.optId === calcTarget3_3_Opt2.value).length
+            
             tempSlots.forEach(s => {
               if (!s.isLocked && s.tier === 3) {
                 if (s.optId === calcTarget3_3_Opt1.value && currentLocked1 < 3) { s.isLocked = true; currentLocked1++ }
@@ -293,8 +335,10 @@ const runExpectedValueCalc = () => {
               }
             })
           }
+          
           let lc = tempSlots.filter(s => s.isLocked).length
           let loopAp = card.lockAP[lc]; let loopCash = card.lockCash[lc]
+          
           tempSlots.forEach(s => {
             if (!s.isLocked) {
               loopAp += card.baseAP[s.tier]
@@ -308,21 +352,22 @@ const runExpectedValueCalc = () => {
         }
       }
       simRolls += r; simAp += ap; simCash += cash; simSpecialRolls += sr
+      simMemE += mE; simMemP += mP; simMemM += mM
     }
     
     calcResult.value = { 
       avgRolls: Math.round(simRolls / iterations), 
       avgAp: Math.round(simAp / iterations), 
       avgCash: Math.round(simCash / iterations),
-      specialRolls: Math.round(simSpecialRolls / iterations)
+      specialRolls: Math.round(simSpecialRolls / iterations),
+      memElite: simMemE / iterations,
+      memPro: simMemP / iterations,
+      memMaster: simMemM / iterations
     }
     isCalculating.value = false
   }, 50)
 }
 
-// ==============================================
-// 🌟 자동 승급 (오토) 모달 및 로직 복구
-// ==============================================
 const isAutoModalOpen = ref(false)
 const autoTab = ref<'SET' | 'TIER' | 'OPT_MASTER' | 'OPT_PRO' | 'OPT_ELITE' | 'OPT_ROOKIE'>('SET')
 const autoTargetSetCount = ref(3)
@@ -335,16 +380,13 @@ const isSpinning = ref(false)
 let spinInterval: ReturnType<typeof setInterval> | null = null
 
 const toggleOptAuto = (arr: number[], id: number) => {
-  const idx = arr.indexOf(id)
-  if (idx > -1) arr.splice(idx, 1)
-  else arr.push(id)
+  const idx = arr.indexOf(id); if (idx > -1) arr.splice(idx, 1); else arr.push(id)
 }
 const toggleAllOptsAuto = (arr: number[], tier: number) => {
   const available = tier === 3 ? Array.from({length:12}, (_, i)=>i) : Array.from({length:11}, (_, i)=>i)
   if (arr.length === available.length) arr.splice(0, arr.length)
   else { arr.splice(0, arr.length); arr.push(...available) }
 }
-
 const checkAutoStopCondition = () => {
   const unlockedSlots = slots.value.filter(s => !s.isLocked)
   if (unlockedSlots.length === 0) return true
@@ -355,9 +397,7 @@ const checkAutoStopCondition = () => {
     counts[specialSlot.value.optId] = (counts[specialSlot.value.optId] || 0) + 1
     return autoTargetSetOpts.value.some(optId => (counts[optId] || 0) >= autoTargetSetCount.value)
   }
-  if (autoTab.value === 'TIER') {
-    return unlockedSlots.filter(s => s.tier >= autoTargetTierTier.value).length >= autoTargetTierCount.value
-  }
+  if (autoTab.value === 'TIER') return unlockedSlots.filter(s => s.tier >= autoTargetTierTier.value).length >= autoTargetTierCount.value
   if (autoTab.value.startsWith('OPT_')) {
     if (autoTargetOptOpts.value.length === 0) return false
     const targetTier = autoTab.value === 'OPT_MASTER' ? 3 : autoTab.value === 'OPT_PRO' ? 2 : autoTab.value === 'OPT_ELITE' ? 1 : 0
@@ -365,25 +405,14 @@ const checkAutoStopCondition = () => {
   }
   return false
 }
-
 const startAutoSpin = () => {
   if (slots.value.every(s => s.isLocked)) return alert("모든 슬롯이 잠겨있습니다.")
   if (autoTab.value === 'SET' && autoTargetSetOpts.value.length === 0) return alert("목표 옵션을 선택해주세요.")
   if (autoTab.value.startsWith('OPT_') && autoTargetOptOpts.value.length === 0) return alert("목표 옵션을 선택해주세요.")
-  
-  isAutoModalOpen.value = false
-  isSpinning.value = true
-  
-  spinInterval = setInterval(() => {
-    rollSlots()
-    if (checkAutoStopCondition() || totalApSpent.value > 1500000000) { 
-      stopAutoSpin()
-    }
-  }, 35)
+  isAutoModalOpen.value = false; isSpinning.value = true
+  spinInterval = setInterval(() => { rollSlots(); if (checkAutoStopCondition() || totalApSpent.value > 1500000000) stopAutoSpin() }, 35)
 }
-
 const stopAutoSpin = () => { isSpinning.value = false; if (spinInterval) clearInterval(spinInterval) }
-
 const formatNum = (num: number) => new Intl.NumberFormat().format(num)
 </script>
 
@@ -398,7 +427,7 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
       </div>
     </div>
 
-    <!-- [1] 강화 탭 -->
+    <!-- [1] 강화 탭 (유지) -->
     <div v-show="activeTab === 'enhance'" class="flex flex-col max-w-6xl mx-auto w-full">
       <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <section class="flex flex-col gap-6">
@@ -456,14 +485,14 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
 
 
     <!-- ==============================================
-         [2] 커리어 탭 
+         [2] 커리어 탭 (레이아웃 재조립 및 우측 스크롤 제거)
          ============================================== -->
     <div v-show="activeTab === 'career'" class="flex flex-col w-full">
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 w-full">
         
-        <!-- [좌측] 타자투수 선택 & 영수증 & 동기화 박스 -->
-        <section class="lg:col-span-3 flex flex-col gap-5">
-          <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4 shadow-sm">
+        <!-- [좌측] 타자투수 선택 & 파산 영수증 & 인게임 동기화 박스 -->
+        <section class="lg:col-span-3 flex flex-col gap-4">
+          <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4 shadow-sm shrink-0">
             <div class="flex gap-2 mb-3 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-xl">
               <button @click="playerType = 'BATTER'" class="flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors" :class="playerType === 'BATTER' ? 'bg-blue-600 text-white shadow-md' : 'text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-700'">타자</button>
               <button @click="playerType = 'PITCHER'" class="flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors" :class="playerType === 'PITCHER' ? 'bg-red-500 text-white shadow-md' : 'text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-700'">투수</button>
@@ -487,7 +516,7 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
             </div>
           </div>
 
-          <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4 shadow-sm">
+          <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4 shadow-sm shrink-0">
             <h3 class="font-extrabold text-xs flex items-center gap-1.5 mb-2 pb-1.5 border-b border-neutral-100 dark:border-neutral-800"><Edit3 class="w-3.5 h-3.5 text-blue-500"/> 내 상태 인게임 동기화 (수동 변경)</h3>
             <div class="space-y-1.5 max-h-[180px] overflow-y-auto pr-1">
               <div v-for="(slot, i) in [...slots, specialSlot]" :key="i" class="flex gap-1 bg-neutral-50 dark:bg-neutral-800 p-1 rounded-lg border border-neutral-100 dark:border-neutral-700 items-center">
@@ -519,7 +548,6 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
 
           <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-5 shadow-sm flex-1 flex flex-col">
             <div class="space-y-3 flex-1 overflow-y-auto mb-4">
-              <!-- 스페셜 슬롯 -->
               <div class="p-3.5 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-200 dark:border-red-800/30 flex items-center justify-between gap-3">
                 <div class="bg-red-500 text-white font-extrabold px-3 py-1.5 rounded-md text-xs shrink-0 shadow-sm">마스터 고정</div>
                 <div class="flex-1 font-extrabold text-base sm:text-lg truncate text-neutral-800 dark:text-neutral-200 flex items-center justify-between pr-2">
@@ -529,7 +557,6 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
                 <button @click="spinSpecialSlot" class="px-4 py-2 bg-red-600 hover:bg-red-700 transition-colors text-white text-sm font-bold rounded-lg shadow-sm shrink-0">갱신</button>
               </div>
               
-              <!-- 일반 슬롯 -->
               <div v-for="slot in slots" :key="slot.id" class="flex items-center gap-3 p-3 rounded-xl border transition-all" :class="slot.isLocked ? 'bg-neutral-100 dark:bg-neutral-800 opacity-60 border-neutral-300 dark:border-neutral-700' : 'bg-white dark:bg-neutral-900 border-purple-200 dark:border-purple-800/50'">
                 <div :class="[TIER_BG[slot.tier], TIER_COLORS[slot.tier]]" class="w-16 text-center py-1.5 rounded-lg font-extrabold text-sm shadow-sm shrink-0 select-none">{{ TIERS[slot.tier] }}</div>
                 <div class="flex-1 font-bold text-base sm:text-lg truncate text-neutral-800 dark:text-neutral-200 flex justify-between items-center pr-2" :class="{'text-yellow-600 dark:text-yellow-500': slot.tier === 3}">
@@ -547,7 +574,6 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
                 <span class="text-base font-extrabold flex items-center gap-1.5"><Zap class="w-5 h-5"/> 수동 변경 (1회)</span>
                 <span class="text-xs font-medium text-purple-200">{{ formatNum(currentRollCostAP) }} AP 소모</span>
               </button>
-              
               <button v-if="!isSpinning" @click="isAutoModalOpen = true" class="w-1/2 py-3 bg-neutral-800 hover:bg-black dark:bg-neutral-700 dark:hover:bg-neutral-600 transition-colors text-white font-extrabold rounded-xl flex items-center justify-center gap-2 text-base shadow-md">
                 <Settings class="w-5 h-5"/> 자동 설정
               </button>
@@ -558,12 +584,12 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
           </div>
         </section>
 
-        <!-- [우측] 상단으로 이동 완료된 고정 기대값 계산기 -->
-        <section class="lg:col-span-4 flex flex-col gap-5">
+        <!-- [우측] 공간 낭비 없는 대화면 고정 기대값 계산기 (메모리 전략 포함) -->
+        <section class="lg:col-span-4 flex flex-col h-full">
           <div class="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800/40 rounded-2xl p-5 shadow-sm flex-1 flex flex-col relative overflow-hidden">
             <h3 class="font-extrabold text-base flex items-center gap-2 mb-4 text-blue-700 dark:text-blue-400"><Target class="w-5 h-5"/> 커리어 목표 고정 기대값 계산기</h3>
             
-            <div class="space-y-4 mb-4">
+            <div class="space-y-4 mb-4 flex-1">
               <div>
                 <label class="block text-sm font-bold text-neutral-700 dark:text-neutral-300 mb-1.5">어떤 목표를 계산할까요?</label>
                 <select v-model="calcTargetGoal" class="w-full bg-white dark:bg-neutral-900 border border-blue-200 dark:border-blue-800 rounded-xl p-2.5 text-sm font-bold outline-none shadow-sm cursor-pointer">
@@ -595,18 +621,28 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
                 </select>
               </div>
 
-              <div v-if="calcTargetGoal === '5MASTER'" class="p-3 bg-blue-100/50 dark:bg-blue-900/30 rounded-xl border border-blue-200 dark:border-blue-800 text-xs text-blue-800 dark:text-blue-300 leading-relaxed font-medium">
-                💡 <strong class="font-bold">전략 팩트 체크:</strong> 마스터 등급은 강등되지 않습니다. 단순히 5칸 모두 마스터에 도달하려면 <strong class="text-red-500">잠금 없이 동시에 돌리는 것</strong>이 100% 이득입니다.
+              <!-- 🌟 신규 추가: 승급 메모리 전략 체크박스 -->
+              <div class="pt-2">
+                <label class="flex items-start gap-2 p-3 bg-blue-100/50 dark:bg-blue-900/30 rounded-xl border border-blue-200 dark:border-blue-800 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors">
+                  <input type="checkbox" v-model="useUpgradeMemory" class="mt-0.5 w-4 h-4 accent-blue-600">
+                  <div class="flex flex-col">
+                    <span class="text-sm font-extrabold text-blue-800 dark:text-blue-300">하위 등급 1칸 남을 시 '승급 메모리' 사용</span>
+                    <span class="text-[11px] font-medium text-blue-600 dark:text-blue-400 mt-0.5 leading-relaxed">
+                      상위 등급 슬롯의 막대한 스핀 비용을 절약하기 위해, 마지막 남은 하위 등급 1개는 잠금 없이 승급 메모리로 바로 올립니다.
+                    </span>
+                  </div>
+                </label>
               </div>
+
             </div>
 
-            <button @click="runExpectedValueCalc" :disabled="isCalculating" class="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-extrabold text-sm shadow-md transition-colors flex justify-center items-center gap-2 disabled:opacity-50 mt-auto relative z-10">
+            <button @click="runExpectedValueCalc" :disabled="isCalculating" class="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-extrabold text-sm shadow-md transition-colors flex justify-center items-center gap-2 disabled:opacity-50 shrink-0">
               <BarChart class="w-5 h-5"/> 
               {{ isCalculating ? '정밀 시뮬레이션 계산 중...' : '기대값 및 소모량 계산하기' }}
             </button>
 
             <!-- 결과 출력창 -->
-            <div v-if="calcResult" class="mt-4 p-4 bg-white dark:bg-neutral-900 rounded-xl border border-blue-200 dark:border-blue-800/50 shadow-inner">
+            <div v-if="calcResult" class="mt-4 p-4 bg-white dark:bg-neutral-900 rounded-xl border border-blue-200 dark:border-blue-800/50 shadow-inner shrink-0">
               <div class="text-center text-[11px] font-bold text-neutral-500 mb-3 border-b border-neutral-100 dark:border-neutral-800 pb-2">현재 상태를 기준으로 한 수학적 평균 도달치</div>
               
               <div class="flex justify-between items-center mb-2.5">
@@ -629,10 +665,19 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
                 </span>
                 <span class="text-lg font-black text-purple-500">{{ formatNum(calcResult.avgCash) }} 💎</span>
               </div>
+
+              <!-- 메모리 사용 통계 -->
+              <div v-if="useUpgradeMemory && (calcResult.memElite > 0.05 || calcResult.memPro > 0.05 || calcResult.memMaster > 0.05)" class="pt-2.5 mt-2.5 border-t border-blue-100 dark:border-blue-900/30 space-y-1">
+                <div class="text-xs font-bold text-blue-500 mb-1.5">평균 필요 승급 메모리 (AP 절약용)</div>
+                <div class="flex justify-between text-[11px]" v-if="calcResult.memElite > 0.05"><span class="text-neutral-500">엘리트 메모리</span><span class="font-bold text-blue-600">{{ calcResult.memElite.toFixed(1) }} 개</span></div>
+                <div class="flex justify-between text-[11px]" v-if="calcResult.memPro > 0.05"><span class="text-neutral-500">프로 메모리</span><span class="font-bold text-pink-600">{{ calcResult.memPro.toFixed(1) }} 개</span></div>
+                <div class="flex justify-between text-[11px]" v-if="calcResult.memMaster > 0.05"><span class="text-neutral-500">마스터 메모리</span><span class="font-bold text-yellow-600">{{ calcResult.memMaster.toFixed(1) }} 개</span></div>
+              </div>
               
+              <!-- 6세트나 3-3세트 시 스페셜 갱신 횟수 -->
               <div v-if="calcTargetGoal !== '5MASTER' && calcResult.specialRolls > 0" class="flex justify-between items-center pt-2.5 mt-2.5 border-t border-red-100 dark:border-red-900/30">
                 <span class="text-sm font-bold text-red-500 flex flex-col">
-                  <span>스페셜 갱신 필요 횟수</span>
+                  <span>스페셜 갱신 횟수</span>
                   <span class="text-[10px] text-red-400 font-normal">목표 옵션 등장을 위한 평균치</span>
                 </span>
                 <span class="text-lg font-black text-red-500">{{ formatNum(calcResult.specialRolls) }} 회</span>
