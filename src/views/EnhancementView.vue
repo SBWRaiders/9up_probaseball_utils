@@ -198,33 +198,28 @@ watch(playerType, () => {
   slots.value.forEach(s => validateStatVal(s)); validateStatVal(specialSlot.value)
 })
 
-
 // ==============================================
-// 🔥 [강력한 정밀 시뮬레이터 4.0: 종결판] 🔥
+// 🔥 [강력한 정밀 시뮬레이터 4.1: 에프 종결판] 🔥
 // ==============================================
 
-// 목표 설정 상태
 const calcTargetType = ref<'OPTION' | 'TIER'>('OPTION')
+const requireAllMaster = ref(true) // 목표 옵션을 모두 마스터 등급으로 달성
 const calcPresets = ref<{id: number, optId: number, count: number}[]>([ { id: Date.now(), optId: 0, count: 3 } ])
 const addCalcPreset = () => { if(calcPresets.value.length < 3) calcPresets.value.push({ id: Date.now(), optId: 0, count: 3 }) }
 const removeCalcPreset = (idx: number) => { calcPresets.value.splice(idx, 1) }
 
-const calcTierTarget = ref({ tier: 3, count: 5 }) // 승급 전용 목표
-
-// 전략 및 메모리 상태
+const calcTierTarget = ref({ tier: 3, count: 5 }) 
 const useSpecialSlot = ref(true)     
 const calcLockStrategy = ref(1)      
 const userMemories = ref({ elite: 0, pro: 0, master: 0 }) 
 const calcIterations = ref(10000)    
 
-// 결과 상태
 const simRawResults = ref<any[]>([])
 const calcResult = ref<any>(null)
 const isCalculating = ref(false)
 const chartCanvas = ref<HTMLCanvasElement | null>(null)
 let chartInstance: any = null
 
-// 결과 뷰 & 운세 판독기 상태
 const resultViewMode = ref<'TOP10' | 'AVG' | 'BOT90'>('AVG')
 const userSpentAp = ref<number | null>(null)
 const myLuckPercentile = ref<number | null>(null)
@@ -282,62 +277,57 @@ const runExpectedValueCalc = () => {
       let spOpt = specialSlot.value.optId
       let r = 0, ap = 0, cash = 0, sr = 0
       
-      // 유저가 설정한 승급 메모리 수량 복사 (1번의 시행마다 리셋)
       let mems = { e: userMemories.value.elite, p: userMemories.value.pro, m: userMemories.value.master }
 
-      if (calcTargetType.value === 'TIER') {
-        const tTier = calcTierTarget.value.tier; const tCount = calcTierTarget.value.count
-        while(true) {
-          // 메모리 적용 로직 (목표 등급까지 즉시 스킵)
-          for (let s of tempSlots) {
-            if (s.tier >= tTier) continue
-            if (tTier === 3) {
-              if (s.tier === 2 && mems.m > 0) { s.tier = 3; mems.m-- }
-              else if (s.tier === 1 && mems.m > 0 && mems.p > 0) { s.tier = 3; mems.m--; mems.p-- }
-              else if (s.tier === 0 && mems.m > 0 && mems.p > 0 && mems.e > 0) { s.tier = 3; mems.m--; mems.p--; mems.e-- }
-            } else if (tTier === 2) {
-              if (s.tier === 1 && mems.p > 0) { s.tier = 2; mems.p-- }
-              else if (s.tier === 0 && mems.p > 0 && mems.e > 0) { s.tier = 2; mems.p--; mems.e-- }
-            } else if (tTier === 1) {
-              if (s.tier === 0 && mems.e > 0) { s.tier = 1; mems.e-- }
-            }
+      // 옵션 목표 사전 세팅
+      let requiredCounts: Record<number, number> = {}
+      if (calcTargetType.value === 'OPTION') {
+        calcPresets.value.forEach(p => { requiredCounts[p.optId] = (requiredCounts[p.optId] || 0) + p.count })
+      }
+      let targetIds = Object.keys(requiredCounts).map(Number)
+
+      // 특별 슬롯(조커) 우선 선점 로직
+      if (calcTargetType.value === 'OPTION' && useSpecialSlot.value && targetIds.length > 0) {
+        if (!targetIds.includes(spOpt)) {
+          while (true) {
+            sr++; let rolled = rollOption(3); spOpt = rolled.optId
+            if (targetIds.includes(spOpt)) break
           }
+        }
+      }
+
+      while (true) {
+        // [핵심 1] 유저의 승급 메모리를 즉시, 최우선으로 '체인(연쇄) 소모' 합니다.
+        for (let s of tempSlots) { if (s.tier === 0 && mems.e > 0) { s.tier = 1; mems.e-- } }
+        for (let s of tempSlots) { if (s.tier === 1 && mems.p > 0) { s.tier = 2; mems.p-- } }
+        for (let s of tempSlots) { if (s.tier === 2 && mems.m > 0) { s.tier = 3; mems.m-- } }
+
+        if (calcTargetType.value === 'TIER') {
+          // [순수 승급 목표 모드]
+          const tTier = calcTierTarget.value.tier; const tCount = calcTierTarget.value.count
           if (tempSlots.filter(s => s.tier >= tTier).length >= tCount) break
           
-          let loopAp = card.lockAP[0] // 승급만 목표면 잠금 안함
+          let loopAp = card.lockAP[0]
           for (let s of tempSlots) { loopAp += card.baseAP[s.tier]; if (s.tier < 3 && Math.random() < 0.01) s.tier++ }
           ap += loopAp; r++
           if (r > 50000) break
-        }
-      } 
-      else {
-        // === 옵션 목표 달성 모드 ===
-        let requiredCounts: Record<number, number> = {}
-        calcPresets.value.forEach(p => { requiredCounts[p.optId] = (requiredCounts[p.optId] || 0) + p.count })
-        let targetIds = Object.keys(requiredCounts).map(Number)
-
-        // 1. 특별 슬롯(조커) 우선 선점 로직
-        if (useSpecialSlot.value && targetIds.length > 0) {
-          if (!targetIds.includes(spOpt)) {
-            while (true) {
-              sr++; let rolled = rollOption(3); spOpt = rolled.optId
-              if (targetIds.includes(spOpt)) break
-            }
-          }
-        }
-
-        while (true) {
-          // 보드 카운트
+        } 
+        else {
+          // [옵션 목표 달성 모드]
           let currentCounts: Record<number, number> = {}
           if (useSpecialSlot.value && targetIds.includes(spOpt)) currentCounts[spOpt] = 1 
-          for (let s of tempSlots) { if (s.tier === 3) currentCounts[s.optId] = (currentCounts[s.optId] || 0) + 1 }
+          for (let s of tempSlots) {
+            // [핵심 2] '올 마스터' 체크 시 마스터만 인정, 해제 시 등급 무관하게 엠블럼 모양만 맞으면 인정
+            if (!requireAllMaster.value || s.tier === 3) {
+              currentCounts[s.optId] = (currentCounts[s.optId] || 0) + 1
+            }
+          }
 
-          // 목표 달성 체크
           let allMet = true
           for (let opt in requiredCounts) { if ((currentCounts[opt] || 0) < requiredCounts[opt]) { allMet = false; break } }
-          if (allMet) break
+          if (allMet) break // 목표 달성 시 종료!
 
-          // 2. 남은 필요 개수 파악
+          // 잠금 전략 로직
           let needed: Record<number, number> = {}
           for (let opt in requiredCounts) {
             let lockedCount = tempSlots.filter(s => s.isLocked && s.optId === Number(opt)).length
@@ -345,36 +335,17 @@ const runExpectedValueCalc = () => {
             needed[opt] = requiredCounts[opt] - lockedCount - spCount
           }
 
-          // 3. 잠금 판단을 위해 '안 잠긴 슬롯 중' 필요한 옵션이 뜬 애들 필터
-          let validTargets = tempSlots.filter(s => !s.isLocked && needed[s.optId] > 0)
+          // 안 잠긴 슬롯 중 필요한 옵션이 뜬 애들 필터 (올마스터 체크 시 마스터 등급일 때만 잠금 대상)
+          let validTargets = tempSlots.filter(s => !s.isLocked && needed[s.optId] > 0 && (!requireAllMaster.value || s.tier === 3))
 
-          // 4. 유저가 세팅한 메모리를 통해 "옵션은 떴는데 등급이 낮은 애들"을 즉시 마스터로 끌어올림!
-          for (let s of validTargets) {
-            if (s.tier === 3) continue
-            if (s.tier === 2 && mems.m > 0) { s.tier = 3; mems.m-- }
-            else if (s.tier === 1 && mems.m > 0 && mems.p > 0) { s.tier = 3; mems.m--; mems.p-- }
-            else if (s.tier === 0 && mems.m > 0 && mems.p > 0 && mems.e > 0) { s.tier = 3; mems.m--; mems.p--; mems.e-- }
-          }
-
-          // 메모리 적용 후 진짜 잠글 수 있는(마스터 등급인) 슬롯 재필터링
-          let lockableTargets = tempSlots.filter(s => !s.isLocked && s.tier === 3 && needed[s.optId] > 0)
-
-          // 유저가 설정한 'N개 이상 동시 출현 시 잠금' 전략 반영
-          if (lockableTargets.length >= calcLockStrategy.value) {
-            for (let s of lockableTargets) {
+          // N개 이상 동시 출현 시 잠금 적용
+          if (validTargets.length >= calcLockStrategy.value) {
+            for (let s of validTargets) {
               if (needed[s.optId] > 0) { s.isLocked = true; needed[s.optId]-- }
             }
           }
 
-          // 한 번 더 목표 달성 체크
-          currentCounts = {}
-          if (useSpecialSlot.value && targetIds.includes(spOpt)) currentCounts[spOpt] = 1 
-          for (let s of tempSlots) { if (s.tier === 3) currentCounts[s.optId] = (currentCounts[s.optId] || 0) + 1 }
-          allMet = true
-          for (let opt in requiredCounts) { if ((currentCounts[opt] || 0) < requiredCounts[opt]) { allMet = false; break } }
-          if (allMet) break
-
-          // 5. 비용 지불 후 안 잠긴 애들 돌리기
+          // 지불 & 스핀
           let lockedCount = tempSlots.filter(s => s.isLocked).length
           let loopAp = card.lockAP[lockedCount]
           let loopCash = card.lockCash[lockedCount]
@@ -395,24 +366,17 @@ const runExpectedValueCalc = () => {
       results.push({ ap, cash, sr, r })
     }
     
-    // 리얼 통계 산출 (정렬 기반)
     results.sort((a, b) => a.ap - b.ap)
-    simRawResults.value = results // 운세 판독용 저장
+    simRawResults.value = results 
     
-    const extractStat = (idx: number) => ({
-      ap: results[idx].ap, cash: results[idx].cash, sr: results[idx].sr
-    })
+    const extractStat = (idx: number) => ({ ap: results[idx].ap, cash: results[idx].cash, sr: results[idx].sr })
 
     const avgIdx = Math.floor(iterations * 0.5)
     const top10Idx = Math.floor(iterations * 0.1)
     const bot90Idx = Math.floor(iterations * 0.9)
-
     const oneTryProb = results[avgIdx].r > 0 ? (1 / results[avgIdx].r) * 100 : 0
 
-    calcResult.value = { 
-      avg: extractStat(avgIdx), top10: extractStat(top10Idx), bot90: extractStat(bot90Idx),
-      oneTryProb
-    }
+    calcResult.value = { avg: extractStat(avgIdx), top10: extractStat(top10Idx), bot90: extractStat(bot90Idx), oneTryProb }
     
     isCalculating.value = false; resultViewMode.value = 'AVG'
     nextTick(() => { renderChart(results.map(r => r.ap)) })
@@ -420,7 +384,7 @@ const runExpectedValueCalc = () => {
   }, 100)
 }
 
-// ✨ 운세 판독기 로직
+// ✨ 운세 판독기 멘트 수정 반영
 const checkMyLuck = () => {
   if (!userSpentAp.value || simRawResults.value.length === 0) return alert("시뮬레이션을 먼저 가동한 후 AP를 입력해주세요.")
   const ap = userSpentAp.value
@@ -434,12 +398,12 @@ const checkMyLuck = () => {
   else if (pct <= 20) luckTitle.value = "될놈될! 꽤 운이 좋네요 🍀"
   else if (pct <= 50) luckTitle.value = "평타 쳤습니다! 무난하네요 👍"
   else if (pct <= 85) luckTitle.value = "조금 억까 당하셨군요... 🥲"
-  else luckTitle.value = "흑우 등장... 넥슨이 사랑합니다 😭"
+  else luckTitle.value = "흑우 등장... 에프가 사랑합니다 😭"
 }
 
 
 // ==============================================
-// 🔥 각인 시뮬레이터 로직 (기존 완벽 유지)
+// 🔥 각인 시뮬레이터 로직
 // ==============================================
 const engPlayerType = ref<'BATTER' | 'PITCHER'>('BATTER')
 
@@ -479,7 +443,7 @@ const drawUltimate = () => { engPlayerType.value = Math.random() < 0.5 ? 'BATTER
 const combineUltimate = () => { if (engState.gachaCount <= 0) { engAddLog(`[경고] 주간 조합 횟수(15회)를 모두 소진했습니다. 초기화 후 시도해주세요.`, 'fail'); return }; engState.gachaCount--; engState.legendUsed += 3; if (Math.random() < 0.04) { engPlayerType.value = Math.random() < 0.5 ? 'BATTER' : 'PITCHER'; engCard.value = { grade: 'ultimate', position: engPlayerType.value === 'BATTER' ? '타자' : '투수', mainName: pickRandom(ENG_DB.value.mainTypes), mainBase: pickRandom(ENG_DB.value.ultMainValues), mainBonus: 0, subStats: [generateSubStat('ultimate', 0), generateSubStat('ultimate', 0), generateSubStat('ultimate', 0)], pctName: pickRandom(ENG_DB.value.pctConditions), pctBase: pickRandom(ENG_DB.value.pctValues), level: 0, resetCount: 0 }; engAddLog(`[대성공] 4% 확률을 뚫고 얼티밋 조합에 성공했습니다!`, 'success') } else { engAddLog(`[실패] 조합 실패... 레전드 각인 3개가 파괴되었습니다.`, 'fail') } }
 const resetGachaLimit = () => { engState.gachaCount = 15; engAddLog(`[시스템] 주간 조합 가능 횟수가 15회로 초기화되었습니다.`, 'action') }
 const enhanceCard = () => { if (!engCard.value || engCard.value.level >= 5) return; const card = engCard.value; const reqCores = ENG_COSTS.enhance[card.grade][card.level]; engState.core += reqCores; const mainIncrease = randomInt(card.grade === 'ultimate' ? 10 : 5, card.grade === 'ultimate' ? 25 : 15); card.mainBonus += mainIncrease; const targetSubIndex = Math.floor(Math.random() * 3); const targetSub = card.subStats[targetSubIndex]; const subIncrease = randomInt(targetSub.eMin, targetSub.eMax); targetSub.bonus += subIncrease; targetSub.enhanceCount++; card.level++; engAddLog(`[강화+${card.level} 성공] 메인+${mainIncrease}, [ ${targetSubIndex+1}번 부가옵션(${targetSub.name}) +${subIncrease} ] 상승!`, 'action') }
-const resetEnhanceCard = () => { if (!engCard.value || engCard.value.resetCount >= 3 || engCard.value.level === 0) return; const card = engCard.value; const reqCash = ENG_COSTS.reset[card.grade][card.level - 1]; engState.cash += reqCash; card.resetCount++; card.level = 0; card.mainBonus = 0; card.subStats.forEach(sub => { sub.bonus = 0; sub.enhanceCount = 0 }); engAddLog(`[강화 초기화] ${reqCash}캐시를 소모하여 강화를 초기화했습니다. (남은 횟수: ${3 - card.resetCount}/3)`, 'fail') }
+const resetEnhanceCard = () => { if (!engCard.value || engCard.value.resetCount >= 3 || engCard.value.level === 0) return; const card = engCard.value; const reqCash = ENG_COSTS.reset[card.grade][card.level - 1]; engState.cash += reqCash; card.resetCount++; card.level = 0; card.mainBonus = 0; card.subStats.forEach(sub => { sub.bonus = 0; sub.enhanceCount = 0 }); engAddLog(`[강화 초기화] ${reqCash}캐시 소모로 강화를 초기화했습니다. (남은 횟수: ${3 - card.resetCount}/3)`, 'fail') }
 const useRefiningStone = () => { if (!engCard.value) return; if (engCard.value.level > 0) { engAddLog(`[경고] 강화된 각인(+${engCard.value.level})에는 연성석을 사용할 수 없습니다. 초기화 후 사용하세요.`, 'fail'); return }; engState.refining++; engCard.value.subStats = [generateSubStat(engCard.value.grade, 0), generateSubStat(engCard.value.grade, 0), generateSubStat(engCard.value.grade, 0)]; engAddLog(`[연성석 사용] 부가 옵션 3개가 모두 변경되었습니다.`, 'action') }
 const useConversionStone = (index: number) => { if (!engCard.value) return; engState.conversion++; engCard.value.subStats[index] = generateSubStat(engCard.value.grade, engCard.value.subStats[index].enhanceCount); engAddLog(`[변환석 사용] ${index + 1}번 부가 옵션이 변경되었습니다.`, 'action') }
 const updateSubStatRanges = (sub: SubStat) => { const found = ENG_DB.value.subStats.find(s => s.name === sub.name); if (found && engCard.value) { const stats = engCard.value.grade === 'ultimate' ? found.ult : found.leg; sub.eMin = stats.eMin; sub.eMax = stats.eMax } }
@@ -706,6 +670,14 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
 
                 <!-- 2. 특별 슬롯 및 잠금 전략 설정 -->
                 <div class="space-y-2">
+                  <label class="flex items-start gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800/50 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors">
+                    <input type="checkbox" v-model="requireAllMaster" class="mt-0.5 w-3.5 h-3.5 accent-blue-600">
+                    <div class="flex flex-col">
+                      <span class="text-[11px] font-extrabold text-blue-800 dark:text-blue-300">목표 옵션을 모두 '마스터 등급'으로 달성 (기본값)</span>
+                      <span class="text-[9px] font-medium text-blue-600 dark:text-blue-400 mt-0.5 leading-tight">체크 해제 시 등급과 상관없이 엠블럼 모양(옵션)만 맞으면 목표 달성으로 인정합니다.</span>
+                    </div>
+                  </label>
+
                   <label class="flex items-start gap-2 p-2 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-800/50 cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors">
                     <input type="checkbox" v-model="useSpecialSlot" class="mt-0.5 w-3.5 h-3.5 accent-purple-600">
                     <div class="flex flex-col">
@@ -739,7 +711,7 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
 
               <!-- [공통] 3. 승급 메모리 소유량 입력 -->
               <div class="bg-blue-50 dark:bg-blue-900/10 p-2.5 rounded-xl border border-blue-200 dark:border-blue-800/50 shadow-sm">
-                <div class="text-[10px] font-extrabold text-blue-700 dark:text-blue-400 mb-1.5">보유 중인 승급 메모리 사용 (1% 스킵)</div>
+                <div class="text-[10px] font-extrabold text-blue-700 dark:text-blue-400 mb-1.5">보유 중인 승급 메모리 최우선 체인 소모 (1% 스킵)</div>
                 <div class="flex gap-2">
                   <div class="flex-1 flex flex-col gap-1"><label class="text-[9px] text-neutral-500 font-bold">엘리트</label><input type="number" v-model.number="userMemories.elite" min="0" class="w-full text-center text-xs font-bold p-1 rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 outline-none focus:border-blue-500"></div>
                   <div class="flex-1 flex flex-col gap-1"><label class="text-[9px] text-neutral-500 font-bold">프로</label><input type="number" v-model.number="userMemories.pro" min="0" class="w-full text-center text-xs font-bold p-1 rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 outline-none focus:border-blue-500"></div>
