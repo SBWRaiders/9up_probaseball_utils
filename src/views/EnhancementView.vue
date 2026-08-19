@@ -158,9 +158,7 @@ const rollSlots = () => {
   if (lockedCount === 5) return
   let costAP = card.lockAP[lockedCount]; let costCash = card.lockCash[lockedCount]
   slots.value.forEach(slot => {
-    // 🌟 수동 가챠 돌릴 때도 무조건 baseAP 합산
     costAP += card.baseAP[slot.tier] 
-    
     if (!slot.isLocked) {
       if (slot.tier < 3 && Math.random() < 0.01) slot.tier++
       const rolled = rollOption(slot.tier)
@@ -204,6 +202,38 @@ watch(playerType, () => {
 })
 
 // ==============================================
+// 🌟 [추가] 커리어 인게임 자동 스핀 (Auto Spin) 로직
+// ==============================================
+const isSpinning = ref(false)
+const isAutoModalOpen = ref(false)
+const autoSpinInterval = ref<any>(null)
+
+const startAutoSpin = () => {
+  isAutoModalOpen.value = false
+  isSpinning.value = true
+  autoSpinInterval.value = setInterval(() => {
+    if (!isSpinning.value) {
+      clearInterval(autoSpinInterval.value)
+      return
+    }
+    // 모든 칸이 잠겨있으면 자동 정지
+    if (slots.value.filter(s => s.isLocked).length === 5) {
+      stopAutoSpin()
+      return
+    }
+    rollSlots()
+  }, 300) // 0.3초마다 실행
+}
+
+const stopAutoSpin = () => {
+  isSpinning.value = false
+  if (autoSpinInterval.value) {
+    clearInterval(autoSpinInterval.value)
+    autoSpinInterval.value = null
+  }
+}
+
+// ==============================================
 // 🔥 [강력한 정밀 시뮬레이터 4.3: 선(先) 마스터 종결판] 🔥
 // ==============================================
 
@@ -230,9 +260,6 @@ const userSpentAp = ref<number | null>(null)
 const myLuckPercentile = ref<number | null>(null)
 const luckTitle = ref('')
 
-const isSpinning = ref(false)
-const isAutoModalOpen = ref(false)
-const stopAutoSpin = () => { isSpinning.value = false; }
 
 const renderChart = (data: number[]) => {
   if (!ChartObj || !chartCanvas.value) return
@@ -304,7 +331,6 @@ const runExpectedValueCalc = () => {
       }
 
       while (true) {
-        // 🌟 메모리 존버 로직 (이전과 동일하게 최적의 타이밍에만 소모)
         let c0 = tempSlots.filter(s => s.tier === 0).length;
         let c1 = tempSlots.filter(s => s.tier === 1).length;
         let c2 = tempSlots.filter(s => s.tier === 2).length;
@@ -334,7 +360,6 @@ const runExpectedValueCalc = () => {
           if (r > 50000) break
         } 
         else {
-          // 🌟 옵션 달성 모드
           let allMaster = tempSlots.every(s => s.tier === 3);
           
           let currentCounts: Record<number, number> = {}
@@ -350,21 +375,17 @@ const runExpectedValueCalc = () => {
             if ((currentCounts[opt] || 0) < requiredCounts[opt]) { allMet = false; break } 
           }
           
-          // 🌟 (핵심 픽스 1) '모두 마스터로 달성' 체크 시, 5마스터가 안 됐으면 달성 처리 거부!
           if (requireAllMaster.value && !allMaster) {
              allMet = false;
           }
 
-          if (allMet) break // 진짜 5마스터 + 옵션 모두 완성되었을 때만 종료!
+          if (allMet) break 
 
-          // 🌟 (핵심 픽스 2) 선(先) 마스터 달성 페이즈인지 판단
           let isPhase1 = requireAllMaster.value && !allMaster;
 
           if (isPhase1) {
-            // 페이즈 1: 5칸 모두 마스터가 될 때까지는 절대 잠그지 않고 존버 돌림 (유지비 폭탄 완벽 방어)
             tempSlots.forEach(s => s.isLocked = false);
           } else {
-            // 페이즈 2: 5칸 마스터 달성 완료! 이제부터 옵션을 찾고 잠금 시작!
             let needed: Record<number, number> = {}
             for (let opt in requiredCounts) {
               let lockedCount = tempSlots.filter(s => s.isLocked && s.optId === Number(opt)).length
@@ -386,7 +407,7 @@ const runExpectedValueCalc = () => {
           let loopCash = card.lockCash[lockedCount]
 
           for (let s of tempSlots) {
-            loopAp += card.baseAP[s.tier] // 모든 슬롯의 기본 AP 고정 합산
+            loopAp += card.baseAP[s.tier] 
             
             if (!s.isLocked) {
               if (s.tier < 3 && Math.random() < 0.01) s.tier++
@@ -486,9 +507,26 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
 </script>
 
 <template>
-  <!-- 🌟 max-w-[1600px] 족쇄 제거! w-full과 px-2로 화면 전체 모서리 끝까지 확장 🌟 -->
-  <div class="w-full mx-auto px-2 sm:px-4 py-4 font-sans text-neutral-900 dark:text-neutral-100 flex flex-col min-h-screen">
+  <!-- 🌟 화면 전체 모서리 끝까지 확장 🌟 -->
+  <div class="w-full mx-auto px-2 sm:px-4 py-4 font-sans text-neutral-900 dark:text-neutral-100 flex flex-col min-h-screen relative">
     
+    <!-- 🌟 [모달] 커리어 자동 스핀 설정 -->
+    <div v-if="isAutoModalOpen" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in">
+      <div class="bg-white dark:bg-neutral-900 rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-neutral-200 dark:border-neutral-800 text-center flex flex-col gap-4">
+        <h3 class="font-extrabold text-lg flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400"><Settings class="w-5 h-5"/> 자동 인게임 세팅 (수동)</h3>
+        <div class="text-xs text-neutral-500 bg-neutral-50 dark:bg-neutral-800 p-4 rounded-xl text-left leading-relaxed">
+          <p>원하는 옵션이 나올 때까지 수동으로 돌리고 직접 잠그면서 진행하는 방식입니다.</p>
+          <br>
+          <p class="font-bold text-blue-600 dark:text-blue-400">※ 시작 시 0.3초마다 1번씩 자동으로 AP를 소모하며 스핀이 돌아갑니다.</p>
+          <p class="text-red-500 mt-1">언제든지 '정지' 버튼을 눌러 스핀을 멈출 수 있습니다.</p>
+        </div>
+        <div class="flex gap-2 w-full mt-2">
+          <button @click="isAutoModalOpen = false" class="w-1/3 py-3.5 bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 font-bold rounded-xl transition-colors text-sm">취소</button>
+          <button @click="startAutoSpin" class="w-2/3 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl shadow-md transition-colors text-sm flex items-center justify-center gap-2"><Play class="w-4 h-4"/> 가챠 시작</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 탭 메뉴 -->
     <div class="flex justify-center shrink-0 mb-4">
       <div class="bg-white dark:bg-neutral-800 p-1.5 rounded-xl shadow-sm border border-neutral-200 dark:border-neutral-700 flex gap-1">
@@ -498,7 +536,7 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
       </div>
     </div>
 
-    <!-- [탭 1] 각인 시뮬레이터 (기존 코드 그대로 유지됨) -->
+    <!-- [탭 1] 각인 시뮬레이터 -->
     <div v-show="activeTab === 'engraving'" class="flex flex-col w-full animate-fade-in max-w-[1600px] mx-auto">
       <div class="flex justify-center mb-5">
         <div class="bg-white dark:bg-neutral-900 p-1.5 rounded-xl shadow-sm border border-neutral-200 dark:border-neutral-800 flex gap-1 w-64">
@@ -515,13 +553,40 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
         <section class="xl:col-span-9 flex flex-col gap-4">
           <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1">
             <div class="lg:col-span-7 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-5 shadow-sm flex flex-col relative"><h2 class="text-lg font-black mb-4 flex items-center gap-2"><Settings class="w-5 h-5 text-amber-500"/> 내 각인 인벤토리</h2><div v-if="!engCard" class="flex-1 border-2 border-dashed border-neutral-300 dark:border-neutral-700 rounded-2xl flex flex-col items-center justify-center text-neutral-400 min-h-[400px]"><Gem class="w-12 h-12 mb-3 opacity-20"/><p class="font-bold text-sm">장착된 각인이 없습니다.</p><p class="text-xs">좌측 획득소에서 각인을 생성해주세요.</p></div><div v-else class="flex flex-col gap-4 flex-1"><div class="bg-gradient-to-br from-neutral-800 to-black p-6 rounded-2xl border-2 shadow-xl relative overflow-hidden flex-1 flex flex-col min-h-[420px]" :class="engCard.grade === 'ultimate' ? 'border-amber-400' : 'border-neutral-500'"><Gem class="absolute -right-6 -top-6 w-40 h-40 opacity-5" :class="engCard.grade === 'ultimate' ? 'text-amber-500' : 'text-neutral-100'"/><div class="flex justify-between items-end mb-4 relative z-10"><div><div class="text-[10px] font-black px-2 py-1 rounded inline-block mb-1 shadow-sm" :class="engCard.grade === 'ultimate' ? 'bg-amber-500 text-black' : 'bg-neutral-500 text-white'">{{ engCard.grade.toUpperCase() }}</div><h3 class="text-2xl font-black text-white tracking-tight">{{ engCard.level > 0 ? `+${engCard.level} ` : '' }}{{ engCard.position }} {{ engCard.mainName }} 각인</h3></div><div class="text-right text-xs font-medium text-neutral-400">초기화 가능: <strong class="text-white">{{ 3 - engCard.resetCount }}</strong> / 3</div></div><div class="space-y-3 relative z-10 mt-2 mb-4 flex-1"><div class="flex items-center bg-white/10 rounded-xl p-3 border border-white/5 backdrop-blur-sm"><div class="w-2/5 font-bold text-amber-300 text-sm flex items-center gap-1.5"><Star class="w-4 h-4"/> 메인 스탯</div><div class="w-1/4 font-black text-white text-base">{{ engCard.mainBase }}</div><div class="flex-1 font-black text-green-400 text-right text-base">+ {{ engCard.mainBonus }}</div></div><div v-for="(sub, i) in engCard.subStats" :key="i" class="flex items-center bg-white/5 rounded-xl p-3 border border-white/5 backdrop-blur-sm hover:bg-white/10 transition-colors"><div class="w-2/5 font-medium text-neutral-300 text-[13px] truncate pr-2">{{ sub.name }}</div><div class="w-1/4 font-bold text-white text-sm">{{ sub.base }}</div><div class="w-1/4 font-bold text-green-400 text-sm">+ {{ sub.bonus }}</div><div class="flex-1 text-right"><button @click="useConversionStone(i)" class="px-2 py-1.5 bg-teal-600 hover:bg-teal-500 text-white text-[10px] font-bold rounded shadow-sm">변환</button></div></div><div v-if="engCard.grade === 'ultimate'" class="flex items-center bg-purple-900/40 rounded-xl p-3 border border-purple-500/30 backdrop-blur-sm mt-3"><div class="w-2/5 font-extrabold text-purple-300 text-[13px] flex items-center gap-1.5">조건부 효과</div><div class="w-1/4 font-black text-purple-200 text-sm">[{{ engCard.pctName }}]</div><div class="flex-1 text-right font-black text-amber-300 text-sm">{{ engCard.pctBase }}% (고정)</div></div></div></div><div class="grid grid-cols-3 gap-3 shrink-0 mt-auto"><button @click="enhanceCard" :disabled="engCard.level >= 5" class="col-span-2 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-base shadow-md transition-transform active:scale-95 disabled:opacity-50 flex justify-center items-center gap-2"><Zap class="w-5 h-5"/> {{ engCard.level >= 5 ? '강화 완료' : `강화 진행 (+${engCard.level + 1})` }}</button><button @click="resetEnhanceCard" :disabled="engCard.resetCount >= 3 || engCard.level === 0" class="col-span-1 py-4 bg-neutral-700 hover:bg-red-600 text-white rounded-xl font-bold text-[11px] shadow-md transition-colors disabled:opacity-50 flex flex-col justify-center items-center leading-tight"><span>초기화</span><span v-if="engCard.level > 0" class="text-[10px] text-red-200 mt-1">{{ ENG_COSTS.reset[engCard.grade][engCard.level - 1] }}💎</span></button><button @click="useRefiningStone" :disabled="engCard.level > 0" class="col-span-3 py-3 mt-1 border-2 border-green-500 text-green-600 dark:text-green-400 hover:bg-green-500 hover:text-white rounded-xl font-extrabold text-[13px] transition-colors disabled:opacity-50 disabled:border-neutral-600 disabled:text-neutral-500 disabled:bg-transparent">연성석 사용 (부가 옵션 3개 전체 변경 / 0강 전용)</button></div></div></div>
-            <div class="lg:col-span-5 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/50 rounded-2xl p-4 shadow-sm flex flex-col relative overflow-y-auto"><h3 class="font-extrabold text-sm flex items-center gap-1.5 mb-3 text-blue-700 dark:text-blue-400 border-b border-blue-200 dark:border-blue-800/50 pb-2"><Edit3 class="w-4 h-4"/> 내 인게임 각인 수동 세팅 (에디터)</h3><div v-if="!engCard" class="text-xs text-neutral-500 text-center py-10">각인이 먼저 생성되어야 수정할 수 있습니다.</div><div v-else class="space-y-3"><div class="bg-white dark:bg-neutral-900 p-3 rounded-xl border border-blue-100 dark:border-blue-800 shadow-sm text-xs"><div class="font-bold text-neutral-500 mb-2">기본 정보</div><div class="grid grid-cols-2 gap-2"><div><label class="block text-[10px] text-neutral-400 mb-1">등급 변경</label><select v-model="engCard.grade" class="w-full bg-neutral-50 dark:bg-neutral-800 border-none rounded p-1.5 font-bold outline-none"><option value="legend">레전드</option><option value="ultimate">얼티밋</option></select></div><div><label class="block text-[10px] text-neutral-400 mb-1">현재 강화 단계</label><select v-model.number="engCard.level" class="w-full bg-neutral-50 dark:bg-neutral-800 border-none rounded p-1.5 font-bold text-blue-600 outline-none"><option v-for="n in 6" :key="n-1" :value="n-1">+{{n-1}}강</option></select></div></div></div><div class="bg-white dark:bg-neutral-900 p-3 rounded-xl border border-blue-100 dark:border-blue-800 shadow-sm text-xs"><div class="font-bold text-amber-500 mb-2">메인 옵션 (고유)</div><div class="grid grid-cols-12 gap-2 items-center"><select v-model="engCard.mainName" class="col-span-6 bg-neutral-50 dark:bg-neutral-800 border-none rounded p-1.5 font-bold outline-none"><option v-for="name in ENG_DB.mainTypes" :key="name" :value="name">{{name}}</option></select><input type="number" v-model.number="engCard.mainBase" class="col-span-3 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-1.5 text-center font-bold outline-none" placeholder="기본"><input type="number" v-model.number="engCard.mainBonus" class="col-span-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded p-1.5 text-center font-bold text-green-600 outline-none" placeholder="추가"></div></div><div class="bg-white dark:bg-neutral-900 p-3 rounded-xl border border-blue-100 dark:border-blue-800 shadow-sm text-xs"><div class="font-bold text-neutral-500 mb-2">부가 옵션 3종</div><div class="space-y-2"><div v-for="(sub, i) in engCard.subStats" :key="i" class="grid grid-cols-12 gap-2 items-center"><select v-model="sub.name" @change="updateSubStatRanges(sub)" class="col-span-6 bg-neutral-50 dark:bg-neutral-800 border-none rounded p-1.5 font-bold outline-none truncate"><option v-for="opt in ENG_DB.subStats" :key="opt.name" :value="opt.name">{{opt.name}}</option></select><input type="number" v-model.number="sub.base" class="col-span-3 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-1.5 text-center font-bold outline-none" placeholder="기본"><input type="number" v-model.number="sub.bonus" class="col-span-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded p-1.5 text-center font-bold text-green-600 outline-none" placeholder="추가"></div></div></div><div v-if="engCard.grade === 'ultimate'" class="bg-white dark:bg-neutral-900 p-3 rounded-xl border border-purple-200 dark:border-purple-800 shadow-sm text-xs"><div class="font-bold text-purple-500 mb-2">조건부 옵션 (얼티밋)</div><div class="grid grid-cols-12 gap-2 items-center"><select v-model="engCard.pctName" class="col-span-8 bg-purple-50 dark:bg-purple-900/20 border-none rounded p-1.5 font-bold text-purple-700 dark:text-purple-300 outline-none"><option v-for="c in ENG_DB.pctConditions" :key="c" :value="c">{{c}}</option></select><select v-model.number="engCard.pctBase" class="col-span-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded p-1.5 font-bold text-center text-amber-500 outline-none"><option v-for="v in ENG_DB.pctValues" :key="v" :value="v">{{v}}%</option></select></div></div></div></div>
+            <div class="lg:col-span-5 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/50 rounded-2xl p-4 shadow-sm flex flex-col relative overflow-y-auto">
+              <h3 class="font-extrabold text-sm flex items-center gap-1.5 mb-3 text-blue-700 dark:text-blue-400 border-b border-blue-200 dark:border-blue-800/50 pb-2"><Edit3 class="w-4 h-4"/> 내 인게임 각인 수동 세팅 (에디터)</h3>
+              <div v-if="!engCard" class="text-xs text-neutral-500 text-center py-10">각인이 먼저 생성되어야 수정할 수 있습니다.</div>
+              <div v-else class="space-y-3">
+                <div class="bg-white dark:bg-neutral-900 p-3 rounded-xl border border-blue-100 dark:border-blue-800 shadow-sm text-xs">
+                  <div class="font-bold text-neutral-500 mb-2">기본 정보</div>
+                  <!-- 🌟 [수정] 3단으로 쪼개서 초기화 횟수 수동 조작칸 추가 -->
+                  <div class="grid grid-cols-3 gap-2">
+                    <div>
+                      <label class="block text-[10px] text-neutral-400 mb-1">등급 변경</label>
+                      <select v-model="engCard.grade" class="w-full bg-neutral-50 dark:bg-neutral-800 border-none rounded p-1.5 font-bold outline-none"><option value="legend">레전드</option><option value="ultimate">얼티밋</option></select>
+                    </div>
+                    <div>
+                      <label class="block text-[10px] text-neutral-400 mb-1">현재 단계</label>
+                      <select v-model.number="engCard.level" class="w-full bg-neutral-50 dark:bg-neutral-800 border-none rounded p-1.5 font-bold text-blue-600 outline-none"><option v-for="n in 6" :key="n-1" :value="n-1">+{{n-1}}강</option></select>
+                    </div>
+                    <div>
+                      <label class="block text-[10px] text-neutral-400 mb-1">초기화 사용(최대3)</label>
+                      <select v-model.number="engCard.resetCount" class="w-full bg-neutral-50 dark:bg-neutral-800 border-none rounded p-1.5 font-bold text-red-500 outline-none"><option v-for="n in 4" :key="n-1" :value="n-1">{{n-1}}회 사용</option></select>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="bg-white dark:bg-neutral-900 p-3 rounded-xl border border-blue-100 dark:border-blue-800 shadow-sm text-xs"><div class="font-bold text-amber-500 mb-2">메인 옵션 (고유)</div><div class="grid grid-cols-12 gap-2 items-center"><select v-model="engCard.mainName" class="col-span-6 bg-neutral-50 dark:bg-neutral-800 border-none rounded p-1.5 font-bold outline-none"><option v-for="name in ENG_DB.mainTypes" :key="name" :value="name">{{name}}</option></select><input type="number" v-model.number="engCard.mainBase" class="col-span-3 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-1.5 text-center font-bold outline-none" placeholder="기본"><input type="number" v-model.number="engCard.mainBonus" class="col-span-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded p-1.5 text-center font-bold text-green-600 outline-none" placeholder="추가"></div></div>
+                <div class="bg-white dark:bg-neutral-900 p-3 rounded-xl border border-blue-100 dark:border-blue-800 shadow-sm text-xs"><div class="font-bold text-neutral-500 mb-2">부가 옵션 3종</div><div class="space-y-2"><div v-for="(sub, i) in engCard.subStats" :key="i" class="grid grid-cols-12 gap-2 items-center"><select v-model="sub.name" @change="updateSubStatRanges(sub)" class="col-span-6 bg-neutral-50 dark:bg-neutral-800 border-none rounded p-1.5 font-bold outline-none truncate"><option v-for="opt in ENG_DB.subStats" :key="opt.name" :value="opt.name">{{opt.name}}</option></select><input type="number" v-model.number="sub.base" class="col-span-3 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-1.5 text-center font-bold outline-none" placeholder="기본"><input type="number" v-model.number="sub.bonus" class="col-span-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded p-1.5 text-center font-bold text-green-600 outline-none" placeholder="추가"></div></div></div>
+                <div v-if="engCard.grade === 'ultimate'" class="bg-white dark:bg-neutral-900 p-3 rounded-xl border border-purple-200 dark:border-purple-800 shadow-sm text-xs"><div class="font-bold text-purple-500 mb-2">조건부 옵션 (얼티밋)</div><div class="grid grid-cols-12 gap-2 items-center"><select v-model="engCard.pctName" class="col-span-8 bg-purple-50 dark:bg-purple-900/20 border-none rounded p-1.5 font-bold text-purple-700 dark:text-purple-300 outline-none"><option v-for="c in ENG_DB.pctConditions" :key="c" :value="c">{{c}}</option></select><select v-model.number="engCard.pctBase" class="col-span-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded p-1.5 font-bold text-center text-amber-500 outline-none"><option v-for="v in ENG_DB.pctValues" :key="v" :value="v">{{v}}%</option></select></div></div>
+              </div>
+            </div>
           </div>
         </section>
       </div>
     </div>
 
-    <!-- [탭 2] 강화 시뮬레이터 (기존 코드 그대로 유지됨) -->
+    <!-- [탭 2] 강화 시뮬레이터 -->
     <div v-show="activeTab === 'enhance'" class="flex flex-col max-w-6xl mx-auto w-full animate-fade-in">
       <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <section class="flex flex-col gap-6">
@@ -577,9 +642,8 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
       </div>
     </div>
 
-    <!-- 🔥 [탭 3] 커리어 탭 (화면 전체 꽉 차는 풀사이즈 확장 및 gap 최소화) 🔥 -->
+    <!-- [탭 3] 커리어 탭 -->
     <div v-show="activeTab === 'career'" class="flex flex-col w-full animate-fade-in">
-      <!-- 🌟 grid-cols-1에서 바로 xl 이상일 때 완벽한 4단으로 분할! (gap-3으로 틈새 축소) -->
       <div class="grid grid-cols-1 xl:grid-cols-[240px_minmax(350px,2fr)_minmax(280px,1.2fr)_minmax(280px,1.2fr)] gap-3 w-full">
         
         <!-- [1구역] 조작부 -->
