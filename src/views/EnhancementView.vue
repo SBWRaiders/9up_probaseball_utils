@@ -128,14 +128,11 @@ const totalCashSpent = ref(0)
 const specialSpinCount = ref(0)
 const apSpinCount = ref(0)
 
-// 🌟 모든 슬롯 등급의 baseAP 무조건 합산
 const currentRollCostAP = computed(() => {
   const card = selectedCard.value; let lockedCount = slots.value.filter(s => s.isLocked).length
   if (lockedCount === 5) return 0
   let cost = card.lockAP[lockedCount]
-  slots.value.forEach(slot => { 
-    cost += card.baseAP[slot.tier] 
-  })
+  slots.value.forEach(slot => { cost += card.baseAP[slot.tier] })
   return cost
 })
 
@@ -202,11 +199,20 @@ watch(playerType, () => {
 })
 
 // ==============================================
-// 🌟 [추가] 커리어 인게임 자동 스핀 (Auto Spin) 로직
+// 🌟 [추가] 커리어 인게임 자동 스핀 (조건부 정지) 로직
 // ==============================================
 const isSpinning = ref(false)
 const isAutoModalOpen = ref(false)
 const autoSpinInterval = ref<any>(null)
+
+const autoSettings = reactive({
+  stopOnTier: false,
+  targetTier: 3, // 기본 마스터
+  stopOnOption: false,
+  targetOptId: 1, // 기본 컨택트/무브먼트
+  stopOnSet: false,
+  targetSetCount: 3 // 기본 3세트
+})
 
 const startAutoSpin = () => {
   isAutoModalOpen.value = false
@@ -216,13 +222,37 @@ const startAutoSpin = () => {
       clearInterval(autoSpinInterval.value)
       return
     }
-    // 모든 칸이 잠겨있으면 자동 정지
+    
+    // 이미 다 잠겼으면 정지
     if (slots.value.filter(s => s.isLocked).length === 5) {
       stopAutoSpin()
       return
     }
+    
+    // 1. 스핀 돌리기
     rollSlots()
-  }, 300) // 0.3초마다 실행
+    
+    // 2. 결과 체크 후 정지 조건 확인
+    let shouldStop = false
+    const unlockedSlots = slots.value.filter(s => !s.isLocked)
+    
+    // [조건 1] 목표 등급 도달
+    if (autoSettings.stopOnTier && unlockedSlots.some(s => s.tier >= autoSettings.targetTier)) {
+      shouldStop = true
+    }
+    // [조건 2] 목표 옵션 도달
+    if (autoSettings.stopOnOption && unlockedSlots.some(s => s.optId === autoSettings.targetOptId)) {
+      shouldStop = true
+    }
+    // [조건 3] 목표 세트 도달 (전체 세트 개수 기준)
+    if (autoSettings.stopOnSet && setEffects.value.some(ef => ef.count >= autoSettings.targetSetCount)) {
+      shouldStop = true
+    }
+    
+    if (shouldStop) {
+      stopAutoSpin()
+    }
+  }, 300)
 }
 
 const stopAutoSpin = () => {
@@ -259,7 +289,6 @@ const resultViewMode = ref<'TOP10' | 'AVG' | 'BOT90'>('AVG')
 const userSpentAp = ref<number | null>(null)
 const myLuckPercentile = ref<number | null>(null)
 const luckTitle = ref('')
-
 
 const renderChart = (data: number[]) => {
   if (!ChartObj || !chartCanvas.value) return
@@ -507,22 +536,54 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
 </script>
 
 <template>
-  <!-- 🌟 화면 전체 모서리 끝까지 확장 🌟 -->
   <div class="w-full mx-auto px-2 sm:px-4 py-4 font-sans text-neutral-900 dark:text-neutral-100 flex flex-col min-h-screen relative">
     
-    <!-- 🌟 [모달] 커리어 자동 스핀 설정 -->
+    <!-- 🌟 [모달] 커리어 자동 스핀 설정 🌟 -->
     <div v-if="isAutoModalOpen" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in">
-      <div class="bg-white dark:bg-neutral-900 rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-neutral-200 dark:border-neutral-800 text-center flex flex-col gap-4">
-        <h3 class="font-extrabold text-lg flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400"><Settings class="w-5 h-5"/> 자동 인게임 세팅 (수동)</h3>
-        <div class="text-xs text-neutral-500 bg-neutral-50 dark:bg-neutral-800 p-4 rounded-xl text-left leading-relaxed">
-          <p>원하는 옵션이 나올 때까지 수동으로 돌리고 직접 잠그면서 진행하는 방식입니다.</p>
-          <br>
-          <p class="font-bold text-blue-600 dark:text-blue-400">※ 시작 시 0.3초마다 1번씩 자동으로 AP를 소모하며 스핀이 돌아갑니다.</p>
-          <p class="text-red-500 mt-1">언제든지 '정지' 버튼을 눌러 스핀을 멈출 수 있습니다.</p>
+      <div class="bg-white dark:bg-neutral-900 rounded-2xl w-full max-w-md shadow-2xl border border-neutral-200 dark:border-neutral-800 flex flex-col overflow-hidden">
+        <div class="p-5 border-b border-neutral-200 dark:border-neutral-800 flex justify-between items-center bg-neutral-50 dark:bg-neutral-800/50">
+          <h3 class="font-extrabold text-lg flex items-center gap-2 text-blue-600 dark:text-blue-400"><Settings class="w-5 h-5"/> 인게임 자동 스핀 설정</h3>
+          <button @click="isAutoModalOpen = false" class="text-neutral-400 hover:text-neutral-600 dark:hover:text-white transition-colors"><X class="w-5 h-5"/></button>
         </div>
-        <div class="flex gap-2 w-full mt-2">
-          <button @click="isAutoModalOpen = false" class="w-1/3 py-3.5 bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 font-bold rounded-xl transition-colors text-sm">취소</button>
-          <button @click="startAutoSpin" class="w-2/3 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl shadow-md transition-colors text-sm flex items-center justify-center gap-2"><Play class="w-4 h-4"/> 가챠 시작</button>
+        
+        <div class="p-5 space-y-4">
+          <p class="text-xs text-neutral-500 mb-2 leading-relaxed">
+            원하는 조건이 등장하면 <strong class="text-red-500">자동으로 스핀이 일시 정지</strong>됩니다.<br>잠금(Lock) 처리는 유저가 화면을 확인한 후 수동으로 진행해야 합니다.
+          </p>
+
+          <div class="space-y-2 text-sm">
+            <!-- 조건 1: 목표 등급 -->
+            <label class="flex items-center gap-3 p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-xl border border-neutral-200 dark:border-neutral-700 cursor-pointer hover:border-blue-400 transition-colors">
+              <input type="checkbox" v-model="autoSettings.stopOnTier" class="w-4 h-4 accent-blue-600 shrink-0">
+              <span class="font-bold text-neutral-700 dark:text-neutral-300 flex-1">목표 등급 등장 시 정지</span>
+              <select v-model.number="autoSettings.targetTier" class="bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-600 rounded p-1 text-xs font-bold outline-none cursor-pointer" :disabled="!autoSettings.stopOnTier">
+                <option :value="3">마스터</option><option :value="2">프로</option><option :value="1">엘리트</option>
+              </select>
+            </label>
+
+            <!-- 조건 2: 목표 옵션 -->
+            <label class="flex items-center gap-3 p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-xl border border-neutral-200 dark:border-neutral-700 cursor-pointer hover:border-blue-400 transition-colors">
+              <input type="checkbox" v-model="autoSettings.stopOnOption" class="w-4 h-4 accent-blue-600 shrink-0">
+              <span class="font-bold text-neutral-700 dark:text-neutral-300 flex-1">목표 옵션 등장 시 정지</span>
+              <select v-model.number="autoSettings.targetOptId" class="w-28 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-600 rounded p-1 text-xs font-bold outline-none truncate cursor-pointer" :disabled="!autoSettings.stopOnOption">
+                <option v-for="(opt, i) in CURRENT_DATA" :key="i" :value="i">{{opt.name}}</option>
+              </select>
+            </label>
+
+            <!-- 조건 3: 목표 세트 -->
+            <label class="flex items-center gap-3 p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-xl border border-neutral-200 dark:border-neutral-700 cursor-pointer hover:border-blue-400 transition-colors">
+              <input type="checkbox" v-model="autoSettings.stopOnSet" class="w-4 h-4 accent-blue-600 shrink-0">
+              <span class="font-bold text-neutral-700 dark:text-neutral-300 flex-1">목표 세트 달성 시 정지</span>
+              <select v-model.number="autoSettings.targetSetCount" class="bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-600 rounded p-1 text-xs font-bold outline-none cursor-pointer" :disabled="!autoSettings.stopOnSet">
+                <option :value="3">3세트</option><option :value="4">4세트</option><option :value="5">5세트</option><option :value="6">6세트</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div class="p-4 bg-neutral-100 dark:bg-neutral-800/80 border-t border-neutral-200 dark:border-neutral-800 flex gap-2">
+          <button @click="isAutoModalOpen = false" class="w-1/3 py-3 bg-white dark:bg-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-600 text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-600 font-bold rounded-xl transition-colors text-sm">취소</button>
+          <button @click="startAutoSpin" class="w-2/3 py-3 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl shadow-md transition-colors text-sm flex items-center justify-center gap-2"><Play class="w-4 h-4 fill-current"/> 가챠 시작 (0.3초)</button>
         </div>
       </div>
     </div>
