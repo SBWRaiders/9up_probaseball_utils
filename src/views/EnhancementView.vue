@@ -5,7 +5,7 @@ import {
   Lock, Unlock, Play, Star, Settings, Pause, Edit3, Target, BarChart, Info, Gem, RefreshCcw, Plus, Trash2, Search
 } from 'lucide-vue-next'
 
-const activeTab = ref<'enhance' | 'career' | 'engraving'>('engraving')
+const activeTab = ref<'enhance' | 'career' | 'engraving'>('career')
 
 // ==============================================
 // 🌟 Chart.js 동적 로딩
@@ -204,7 +204,7 @@ watch(playerType, () => {
 })
 
 // ==============================================
-// 🔥 [강력한 정밀 시뮬레이터 4.2: 진짜 존버 종결판] 🔥
+// 🔥 [강력한 정밀 시뮬레이터 4.3: 선(先) 마스터 종결판] 🔥
 // ==============================================
 
 const calcTargetType = ref<'OPTION' | 'TIER'>('OPTION')
@@ -304,24 +304,19 @@ const runExpectedValueCalc = () => {
       }
 
       while (true) {
-        // 🔥 수정된 진짜 존버 로직: 하위 등급이 전부 올라올 때까지 대기 후 완벽한 타이밍에 소모!
+        // 🌟 메모리 존버 로직 (이전과 동일하게 최적의 타이밍에만 소모)
         let c0 = tempSlots.filter(s => s.tier === 0).length;
         let c1 = tempSlots.filter(s => s.tier === 1).length;
         let c2 = tempSlots.filter(s => s.tier === 2).length;
 
-        // 1. 엘리트 메모리: 루키 수가 메모리 이하일 때 즉시 제거
         if (c0 > 0 && c0 <= mems.e) {
           for (let s of tempSlots) { if (s.tier === 0) { s.tier = 1; s.optId = rollOption(1).optId; mems.e--; } }
           c0 = 0; c1 = tempSlots.filter(s => s.tier === 1).length;
         }
-        
-        // 2. 프로 메모리: 하위(루키)가 완전히 멸종했고, 엘리트 수가 메모리 이하일 때 즉시 제거
         if (c0 === 0 && c1 > 0 && c1 <= mems.p) {
           for (let s of tempSlots) { if (s.tier === 1) { s.tier = 2; s.optId = rollOption(2).optId; mems.p--; } }
           c1 = 0; c2 = tempSlots.filter(s => s.tier === 2).length;
         }
-        
-        // 3. 마스터 메모리: 하위(루키, 엘리트)가 완전히 멸종했고, 프로 수가 메모리 이하일 때 즉시 제거
         if (c0 === 0 && c1 === 0 && c2 > 0 && c2 <= mems.m) {
           for (let s of tempSlots) { if (s.tier === 2) { s.tier = 3; s.optId = rollOption(3).optId; mems.m--; } }
         }
@@ -339,6 +334,9 @@ const runExpectedValueCalc = () => {
           if (r > 50000) break
         } 
         else {
+          // 🌟 옵션 달성 모드
+          let allMaster = tempSlots.every(s => s.tier === 3);
+          
           let currentCounts: Record<number, number> = {}
           if (useSpecialSlot.value && targetIds.includes(spOpt)) currentCounts[spOpt] = 1 
           for (let s of tempSlots) {
@@ -348,21 +346,38 @@ const runExpectedValueCalc = () => {
           }
 
           let allMet = true
-          for (let opt in requiredCounts) { if ((currentCounts[opt] || 0) < requiredCounts[opt]) { allMet = false; break } }
-          if (allMet) break 
-
-          let needed: Record<number, number> = {}
-          for (let opt in requiredCounts) {
-            let lockedCount = tempSlots.filter(s => s.isLocked && s.optId === Number(opt)).length
-            let spCount = (useSpecialSlot.value && spOpt === Number(opt)) ? 1 : 0
-            needed[opt] = requiredCounts[opt] - lockedCount - spCount
+          for (let opt in requiredCounts) { 
+            if ((currentCounts[opt] || 0) < requiredCounts[opt]) { allMet = false; break } 
+          }
+          
+          // 🌟 (핵심 픽스 1) '모두 마스터로 달성' 체크 시, 5마스터가 안 됐으면 달성 처리 거부!
+          if (requireAllMaster.value && !allMaster) {
+             allMet = false;
           }
 
-          let validTargets = tempSlots.filter(s => !s.isLocked && needed[s.optId] > 0 && (!requireAllMaster.value || s.tier === 3))
+          if (allMet) break // 진짜 5마스터 + 옵션 모두 완성되었을 때만 종료!
 
-          if (validTargets.length >= calcLockStrategy.value) {
-            for (let s of validTargets) {
-              if (needed[s.optId] > 0) { s.isLocked = true; needed[s.optId]-- }
+          // 🌟 (핵심 픽스 2) 선(先) 마스터 달성 페이즈인지 판단
+          let isPhase1 = requireAllMaster.value && !allMaster;
+
+          if (isPhase1) {
+            // 페이즈 1: 5칸 모두 마스터가 될 때까지는 절대 잠그지 않고 존버 돌림 (유지비 폭탄 완벽 방어)
+            tempSlots.forEach(s => s.isLocked = false);
+          } else {
+            // 페이즈 2: 5칸 마스터 달성 완료! 이제부터 옵션을 찾고 잠금 시작!
+            let needed: Record<number, number> = {}
+            for (let opt in requiredCounts) {
+              let lockedCount = tempSlots.filter(s => s.isLocked && s.optId === Number(opt)).length
+              let spCount = (useSpecialSlot.value && spOpt === Number(opt)) ? 1 : 0
+              needed[opt] = requiredCounts[opt] - lockedCount - spCount
+            }
+
+            let validTargets = tempSlots.filter(s => !s.isLocked && needed[s.optId] > 0 && (!requireAllMaster.value || s.tier === 3))
+
+            if (validTargets.length >= calcLockStrategy.value) {
+              for (let s of validTargets) {
+                if (needed[s.optId] > 0) { s.isLocked = true; needed[s.optId]-- }
+              }
             }
           }
 
@@ -371,8 +386,7 @@ const runExpectedValueCalc = () => {
           let loopCash = card.lockCash[lockedCount]
 
           for (let s of tempSlots) {
-            // 🌟 옵션 목표 달성 모드에서도 무조건 5칸 기본 AP 고정 합산!
-            loopAp += card.baseAP[s.tier]
+            loopAp += card.baseAP[s.tier] // 모든 슬롯의 기본 AP 고정 합산
             
             if (!s.isLocked) {
               if (s.tier < 3 && Math.random() < 0.01) s.tier++
