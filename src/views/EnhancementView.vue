@@ -200,7 +200,7 @@ watch(playerType, () => {
 })
 
 // ==============================================
-// 🔥 [강력한 정밀 시뮬레이터 로직 업데이트] 🔥
+// 🔥 [커리어 정밀 기대값 계산기 로직] 🔥
 // ==============================================
 const calcTargetGoal = ref<'5MASTER' | 'TARGET_SET' | 'TARGET_3_3'>('5MASTER')
 const calcTargetSetCount = ref(3)
@@ -208,6 +208,9 @@ const calcTargetSetOptId = ref(0)
 const calcTarget3_3_Opt1 = ref(0)
 const calcTarget3_3_Opt2 = ref(1)
 const useUpgradeMemory = ref(true)
+
+// 사용자 정의 반복 횟수 (1만번 기본)
+const calcIterations = ref(10000)
 
 const calcResult = ref<{ 
   avgRolls: number, avgAp: number, avgCash: number, specialRolls: number,
@@ -227,7 +230,6 @@ const renderChart = (data: number[]) => {
   if (!ChartObj || !chartCanvas.value) return
   if (chartInstance) chartInstance.destroy()
 
-  // 하위 1% 극단값(우주 밖으로 가는 천장)은 그래프에서 잘라내어 예쁘게 표시
   const p99 = data[Math.floor(data.length * 0.99)]
   const filteredData = data.filter(d => d <= p99)
 
@@ -257,7 +259,7 @@ const renderChart = (data: number[]) => {
       datasets: [
         {
           type: 'line', label: '목표 누적 달성률 (%)', data: cdf,
-          borderColor: '#4f46e5', backgroundColor: '#4f46e5', // 진한 인디고 (Career 테마)
+          borderColor: '#4f46e5', backgroundColor: '#4f46e5',
           borderWidth: 2, yAxisID: 'y-cdf', tension: 0.3, pointRadius: 0, fill: false
         },
         {
@@ -277,7 +279,7 @@ const renderChart = (data: number[]) => {
           titleFont: { size: 13, family: 'sans-serif' }, bodyFont: { size: 12, family: 'sans-serif' },
           callbacks: {
             title: (ctx: any) => `소모 AP: ${ctx[0].label}`,
-            label: (ctx: any) => ctx.datasetIndex === 0 ? `누적 달성률: ${ctx.raw.toFixed(2)}%` : `이 구간 달성자: ${ctx.raw}명 (1만명 기준)`
+            label: (ctx: any) => ctx.datasetIndex === 0 ? `누적 달성률: ${ctx.raw.toFixed(2)}%` : `이 구간 달성자: ${ctx.raw}명 (표본 기준)`
           }
         }
       },
@@ -298,8 +300,7 @@ const runExpectedValueCalc = () => {
     const card = selectedCard.value
     let rng = SeededRNG(12345) 
     
-    // 시뮬레이션 샘플을 10,000번으로 증가 (그래프 정밀도 향상)
-    const iterations = 10000 
+    const iterations = calcIterations.value // 유저 선택 횟수 적용
     const results = []
     
     for (let i = 0; i < iterations; i++) {
@@ -329,7 +330,7 @@ const runExpectedValueCalc = () => {
             }
           })
           ap += loopAp
-          if (r > 20000) break
+          if (r > 30000) break
         }
       } 
       else if (calcTargetGoal.value === 'TARGET_SET') {
@@ -439,8 +440,8 @@ const runExpectedValueCalc = () => {
     const top10Ap = results[Math.floor(iterations * 0.1)].ap
     const bottom90Ap = results[Math.floor(iterations * 0.9)].ap
     
-    // 1회 성공 확률 근사치 계산 (기하 분포 성질 이용)
-    const oneTryProb = (1 / avgRolls) * 100
+    // 1회 성공 확률 근사치 계산
+    const oneTryProb = avgRolls > 0 ? (1 / avgRolls) * 100 : 0
 
     calcResult.value = { 
       avgRolls: Math.round(avgRolls), avgAp: Math.round(avgAp), avgCash: Math.round(avgCash),
@@ -1009,7 +1010,8 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
               <div class="flex justify-between items-center"><span class="text-neutral-400 text-xs">스핀 횟수</span><span class="font-bold">{{ formatNum(apSpinCount) }}회</span></div>
               <div class="flex justify-between items-center"><span class="text-neutral-400 text-xs">소모 AP</span><span class="font-black text-yellow-400 text-base">{{ formatNum(totalApSpent) }}</span></div>
               <div class="flex justify-between items-center pt-2 border-t border-neutral-700 text-xs">
-                <span class="text-neutral-400">소모 CASH</span><span class="font-bold text-purple-400">{{ formatNum(totalCashSpent) }}💎 (갱신 {{ specialSpinCount }}회)</span>
+                <!-- 텍스트 "특별 커리어 교체 메모리"로 수정됨 -->
+                <span class="text-neutral-400">소모 CASH</span><span class="font-bold text-purple-400">{{ formatNum(totalCashSpent) }}💎 (교체 메모리: {{ specialSpinCount }}개)</span>
               </div>
             </div>
           </div>
@@ -1083,7 +1085,9 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
         <!-- [우측] 대화면 정밀 통계 계산기 + 차트 뷰 -->
         <section class="lg:col-span-4 flex flex-col h-full">
           <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-5 shadow-sm flex-1 flex flex-col relative overflow-hidden">
-            <h3 class="font-extrabold text-base flex items-center gap-2 mb-4 text-blue-600 dark:text-blue-400"><Target class="w-5 h-5"/> 커리어 목표 정밀 기대값 계산기</h3>
+            <h3 class="font-extrabold text-base flex items-center gap-2 mb-2 text-blue-600 dark:text-blue-400"><Target class="w-5 h-5"/> 커리어 목표 정밀 기대값 계산기</h3>
+            <!-- 현재 상태 기준 명시 추가됨 -->
+            <div class="text-[11px] font-bold text-neutral-500 mb-4 bg-neutral-50 dark:bg-neutral-800 p-2 rounded-lg">※ 현재 '인게임 동기화' 상태(잠금/등급)를 출발점으로 계산합니다.</div>
             
             <div class="space-y-4 mb-4">
               <div>
@@ -1116,30 +1120,36 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
                 </select>
               </div>
 
-              <!-- 승급 메모리 옵션 -->
-              <div class="pt-1">
-                <label class="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800/50 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors">
+              <!-- 승급 메모리 옵션 및 횟수 선택기 추가됨 -->
+              <div class="flex gap-2">
+                <label class="flex-1 flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800/50 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors">
                   <input type="checkbox" v-model="useUpgradeMemory" class="mt-0.5 w-4 h-4 accent-blue-600">
                   <div class="flex flex-col">
-                    <span class="text-sm font-extrabold text-blue-800 dark:text-blue-300">마지막 1칸 '승급 메모리' 즉시 사용</span>
+                    <span class="text-xs font-extrabold text-blue-800 dark:text-blue-300">마지막 1칸 즉시 승급</span>
                   </div>
                 </label>
+                <select v-model.number="calcIterations" class="w-1/3 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl p-2 text-xs font-bold outline-none shadow-sm cursor-pointer">
+                  <option :value="1000">1천 번</option>
+                  <option :value="10000">1만 번 (권장)</option>
+                  <option :value="50000">5만 번</option>
+                  <option :value="100000">10만 번 (렉 주의)</option>
+                </select>
               </div>
             </div>
 
             <button @click="runExpectedValueCalc" :disabled="isCalculating" class="w-full py-3.5 mb-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-extrabold text-sm shadow-md transition-transform active:scale-95 flex justify-center items-center gap-2 disabled:opacity-50 shrink-0">
               <BarChart class="w-5 h-5"/> 
-              {{ isCalculating ? '1만 번 정밀 시뮬레이션 계산 중...' : '시뮬레이션 가동 (10,000회)' }}
+              {{ isCalculating ? '정밀 시뮬레이션 계산 중...' : `시뮬레이션 가동 (${formatNum(calcIterations)}회)` }}
             </button>
 
             <!-- ✨ 통계 결과 요약표 ✨ -->
             <div v-if="calcResult" class="mb-4 bg-neutral-50 dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-4 shadow-inner">
               <div class="text-[11px] text-center text-neutral-500 mb-3 border-b border-neutral-200 dark:border-neutral-700 pb-2 font-bold flex justify-between">
                 <span>1회 시행 달성 확률: <strong class="text-indigo-500">{{ calcResult.oneTryProb.toFixed(4) }}%</strong></span>
-                <span>표본: 10,000회</span>
+                <span>표본: {{ formatNum(calcIterations) }}회</span>
               </div>
               
-              <div class="space-y-3">
+              <div class="space-y-2">
                 <!-- 상위 10% 비틱 -->
                 <div class="flex justify-between items-center bg-blue-100/50 dark:bg-blue-900/30 p-2 rounded-lg">
                   <span class="text-xs font-bold text-blue-700 dark:text-blue-400">상위 10% (운수 대통)</span>
@@ -1147,7 +1157,7 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
                 </div>
                 
                 <!-- 50% 평균 -->
-                <div class="flex justify-between items-center px-2">
+                <div class="flex justify-between items-center px-2 py-1">
                   <span class="text-sm font-extrabold text-neutral-800 dark:text-neutral-200">평균 (상위 50%)</span>
                   <span class="text-lg font-black text-indigo-600 dark:text-indigo-400">{{ formatNum(calcResult.avgAp) }} <span class="text-[10px] font-normal text-neutral-500">AP</span></span>
                 </div>
@@ -1157,11 +1167,22 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
                   <span class="text-xs font-bold text-red-600 dark:text-red-400">하위 90% (사실상 천장)</span>
                   <span class="text-sm font-black text-red-600 dark:text-red-400">{{ formatNum(calcResult.bottom90Ap) }} <span class="text-[10px] font-normal">AP</span></span>
                 </div>
+
+                <!-- 캐시 & 메모리 소모 (목표가 5마스터가 아닐 때만 노출됨) -->
+                <div v-if="calcTargetGoal !== '5MASTER'" class="flex justify-between items-center bg-purple-50 dark:bg-purple-900/20 p-2 rounded-lg border border-purple-100 dark:border-purple-900/50 mt-1">
+                  <span class="text-[11px] font-bold text-purple-600 dark:text-purple-400">평균 소모 CASH (잠금)</span>
+                  <span class="text-xs font-black text-purple-600 dark:text-purple-400">{{ formatNum(calcResult.avgCash) }} <span class="text-[9px] font-normal">💎</span></span>
+                </div>
+                
+                <div v-if="calcTargetGoal !== '5MASTER' && calcResult.specialRolls > 0" class="flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/20 p-2 rounded-lg border border-emerald-100 dark:border-emerald-900/50 mt-1">
+                  <span class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">특별 커리어 교체 메모리 소모</span>
+                  <span class="text-xs font-black text-emerald-600 dark:text-emerald-400">{{ formatNum(calcResult.specialRolls) }} <span class="text-[9px] font-normal">개</span></span>
+                </div>
               </div>
             </div>
 
             <!-- ✨ 캔버스 차트 영역 ✨ -->
-            <div class="flex-1 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-3 min-h-[220px] relative flex flex-col shadow-inner">
+            <div class="flex-1 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-3 min-h-[200px] relative flex flex-col shadow-inner">
               <div class="text-[10px] font-bold text-neutral-400 mb-1 text-center">AP 소모량 누적 확률 분포도 (CDF & Histogram)</div>
               <div class="relative flex-1 w-full h-full">
                 <canvas ref="chartCanvas"></canvas>
