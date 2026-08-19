@@ -204,7 +204,7 @@ watch(playerType, () => {
 })
 
 // ==============================================
-// 🔥 [강력한 정밀 시뮬레이터 4.1: 에프 종결판] 🔥
+// 🔥 [강력한 정밀 시뮬레이터 4.2: 진짜 존버 종결판] 🔥
 // ==============================================
 
 const calcTargetType = ref<'OPTION' | 'TIER'>('OPTION')
@@ -304,26 +304,26 @@ const runExpectedValueCalc = () => {
       }
 
       while (true) {
-        // 🔥 수정된 승급 존버 로직: "남은 하위 칸 수 <= 보유 메모리 수" 일 때만 즉시 스킵 투입! 남은 건 킵!
-        let eCount = tempSlots.filter(s => s.tier === 0).length;
-        if (eCount > 0 && eCount <= mems.e) {
-          for (let s of tempSlots) {
-            if (s.tier === 0) { s.tier = 1; s.optId = rollOption(1).optId; mems.e--; }
-          }
+        // 🔥 수정된 진짜 존버 로직: 하위 등급이 전부 올라올 때까지 대기 후 완벽한 타이밍에 소모!
+        let c0 = tempSlots.filter(s => s.tier === 0).length;
+        let c1 = tempSlots.filter(s => s.tier === 1).length;
+        let c2 = tempSlots.filter(s => s.tier === 2).length;
+
+        // 1. 엘리트 메모리: 루키 수가 메모리 이하일 때 즉시 제거
+        if (c0 > 0 && c0 <= mems.e) {
+          for (let s of tempSlots) { if (s.tier === 0) { s.tier = 1; s.optId = rollOption(1).optId; mems.e--; } }
+          c0 = 0; c1 = tempSlots.filter(s => s.tier === 1).length;
         }
         
-        let pCount = tempSlots.filter(s => s.tier === 1).length;
-        if (pCount > 0 && pCount <= mems.p) {
-          for (let s of tempSlots) {
-            if (s.tier === 1) { s.tier = 2; s.optId = rollOption(2).optId; mems.p--; }
-          }
+        // 2. 프로 메모리: 하위(루키)가 완전히 멸종했고, 엘리트 수가 메모리 이하일 때 즉시 제거
+        if (c0 === 0 && c1 > 0 && c1 <= mems.p) {
+          for (let s of tempSlots) { if (s.tier === 1) { s.tier = 2; s.optId = rollOption(2).optId; mems.p--; } }
+          c1 = 0; c2 = tempSlots.filter(s => s.tier === 2).length;
         }
         
-        let mCount = tempSlots.filter(s => s.tier === 2).length;
-        if (mCount > 0 && mCount <= mems.m) {
-          for (let s of tempSlots) {
-            if (s.tier === 2) { s.tier = 3; s.optId = rollOption(3).optId; mems.m--; }
-          }
+        // 3. 마스터 메모리: 하위(루키, 엘리트)가 완전히 멸종했고, 프로 수가 메모리 이하일 때 즉시 제거
+        if (c0 === 0 && c1 === 0 && c2 > 0 && c2 <= mems.m) {
+          for (let s of tempSlots) { if (s.tier === 2) { s.tier = 3; s.optId = rollOption(3).optId; mems.m--; } }
         }
 
         if (calcTargetType.value === 'TIER') {
