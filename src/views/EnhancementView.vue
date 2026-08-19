@@ -184,7 +184,6 @@ watch(playerType, () => {
   slots.value.forEach(s => validateStatVal(s)); validateStatVal(specialSlot.value)
 })
 
-// === [커리어 계산기 로직 복구 완료] ===
 const calcTargetGoal = ref<'5MASTER' | 'TARGET_SET' | 'TARGET_3_3'>('5MASTER')
 const calcTargetSetCount = ref(3)
 const calcTargetSetOptId = ref(0)
@@ -342,7 +341,6 @@ const runExpectedValueCalc = () => {
   }, 50)
 }
 
-// 오토 설정 관련
 const isAutoModalOpen = ref(false)
 const autoTab = ref<'SET' | 'TIER' | 'OPT_MASTER' | 'OPT_PRO' | 'OPT_ELITE' | 'OPT_ROOKIE'>('SET')
 const autoTargetSetCount = ref(3)
@@ -384,7 +382,7 @@ const stopAutoSpin = () => { isSpinning.value = false; if (spinInterval) clearIn
 
 
 // ==============================================
-// [3] 🔥 신규: 각인 시뮬레이터 로직 (타자/투수 완벽 분리 & 인게임 에디터 & 1/n 강화 수정) 🔥
+// [3] 🔥 신규: 각인 시뮬레이터 로직 (사진 데이터 100% 반영) 🔥
 // ==============================================
 const engPlayerType = ref<'BATTER' | 'PITCHER'>('BATTER')
 
@@ -404,26 +402,73 @@ const ENG_COSTS = {
   reset: { legend: [10, 20, 30, 50, 100], ultimate: [100, 200, 300, 400, 500] }
 }
 
-// [임시 텍스트] 정확한 사진을 주시면 즉시 교체해 드립니다!
 const ENG_DB = computed(() => {
   const isBatter = engPlayerType.value === 'BATTER'
+  
+  // 부가 옵션 객체 생성 헬퍼 (레전드와 얼티밋 수치 분리)
+  const createStat = (name: string, uMin: number, uMax: number, uEmin: number, uEmax: number, lMin: number, lMax: number, lEmin: number, lEmax: number) => ({
+    name, 
+    ult: { min: uMin, max: uMax, eMin: uEmin, eMax: uEmax }, 
+    leg: { min: lMin, max: lMax, eMin: lEmin, eMax: lEmax }
+  })
+
+  // 7번 ~ 13번 타자/투수 공통 범위 스탯
+  const common7to13 = [
+    createStat('수비 능력치 상승', 40, 60, 6, 15, 30, 50, 6, 10),
+    createStat('지고 있을 시 파워 상승', 40, 60, 6, 15, 30, 50, 6, 10),
+    createStat('박빙 상황(2점차 이내)에서 파워 상승', 40, 60, 6, 15, 30, 50, 6, 10),
+    createStat('자신보다 파워 높은 카드 상대 시 파워 상승', 40, 60, 6, 15, 30, 50, 6, 10),
+    createStat('자신보다 파워 낮은 카드 상대 시 파워 상승', 40, 60, 6, 15, 30, 50, 6, 10),
+    createStat('2아웃 상황에서 파워 상승', 40, 60, 6, 15, 30, 50, 6, 10)
+  ]
+
+  const batterSub = [
+    createStat('전체 능력치 상승', 3, 5, 1, 3, 2, 3, 1, 2),
+    createStat('컨택트 능력치 상승', 15, 20, 5, 10, 10, 15, 5, 8),
+    createStat('갭파워 능력치 상승', 15, 20, 5, 10, 10, 15, 5, 8),
+    createStat('홈런 능력치 상승', 15, 20, 5, 10, 10, 15, 5, 8),
+    createStat('선구 능력치 상승', 15, 20, 5, 10, 10, 15, 5, 8),
+    createStat('삼진회피 능력치 상승', 15, 20, 5, 10, 10, 15, 5, 8),
+    ...common7to13,
+    createStat('구종 스킬 가진 투수 상대 시 파워 상승', 40, 60, 6, 15, 30, 50, 6, 10),
+    createStat('출루 시 주루 상승', 25, 40, 5, 7, 15, 25, 3, 5),
+    createStat('다른 핸드타입의 투수 상대 시 파워 상승', 40, 60, 6, 15, 30, 50, 6, 10),
+    createStat('주자가 2루 또는 3루에 있을 경우, 파워 상승', 40, 60, 6, 15, 30, 50, 6, 10),
+    createStat('타점 기록 시 파워 상승', 40, 60, 6, 15, 30, 50, 6, 10),
+    createStat('주자 없을 시 파워 상승', 40, 60, 6, 15, 30, 50, 6, 10),
+    createStat('상대 팀 선발을 상대시 파워 상승', 40, 60, 6, 15, 30, 50, 6, 10),
+    createStat('경기 1회~4회까지만 파워 상승', 40, 60, 6, 15, 30, 50, 6, 10),
+    createStat('경기 5회~9회까지만 파워 상승', 40, 60, 6, 15, 30, 50, 6, 10),
+    createStat('경기 총 수익 증가', 5, 7, 2, 4, 3, 5, 1, 3)
+  ]
+
+  const pitcherSub = [
+    createStat('전체 능력치 상승', 3, 5, 1, 3, 2, 3, 1, 2),
+    createStat('무브먼트 능력치 상승', 15, 20, 5, 10, 10, 15, 5, 8),
+    createStat('장타 억제 능력치 상승', 15, 20, 5, 10, 10, 15, 5, 8),
+    createStat('홈런 억제 능력치 상승', 15, 20, 5, 10, 10, 15, 5, 8),
+    createStat('컨트롤 능력치 상승', 15, 20, 5, 10, 10, 15, 5, 8),
+    createStat('스터프 능력치 상승', 15, 20, 5, 10, 10, 15, 5, 8),
+    ...common7to13,
+    createStat('클린업 타순을 상대 시 파워 상승', 40, 60, 6, 15, 30, 50, 6, 10),
+    createStat('주자 있을 시 파워 상승', 40, 60, 6, 15, 30, 50, 6, 10),
+    createStat('같은 핸드타입의 타자 상대 시 파워 상승', 40, 60, 6, 15, 30, 50, 6, 10),
+    createStat('한계투구 능력치 상승', 10, 15, 3, 5, 6, 10, 3, 4),
+    createStat('실점한 이닝에 파워 상승', 40, 60, 6, 15, 30, 50, 6, 10),
+    createStat('등판 후 첫 타자 상대 시 파워 상승', 40, 60, 6, 15, 30, 50, 6, 10),
+    createStat('1선발, 2선발로 기용 시 파워 상승', 40, 60, 6, 15, 30, 50, 6, 10),
+    createStat('경기 1회~4회까지만 파워 상승', 40, 60, 6, 15, 30, 50, 6, 10),
+    createStat('경기 5회~9회까지만 파워 상승', 40, 60, 6, 15, 30, 50, 6, 10),
+    createStat('경기 총 수익 증가', 5, 7, 2, 4, 3, 5, 1, 3)
+  ]
+
   return {
     positions: [isBatter ? '타자' : '투수'],
-    mainTypes: isBatter 
-      ? ['컨택트', '파워', '선구안', '안타', '홈런'] // 타자 임시 메인
-      : ['구위', '무브먼트', '제구력', '탈삼진', '땅볼유도'], // 투수 임시 메인
-    pctConditions: ['MMVP', '골든글러브', '디그니티', '신인왕', '에이스', '탑클래스', '팀플레이어', '히트', '연도'],
+    mainTypes: isBatter ? ['컨택트', '갭파워', '홈런', '선구', '삼진회피'] : ['무브먼트', '장타 억제', '홈런 억제', '컨트롤', '스터프'],
+    pctConditions: ['MMVP', '골든글러브', '디그니티', '신인왕', '에이스', '탑클래스', '팀플레이어', '히트', '연도(골글)'],
     pctValues: [1, 2, 3], 
     ultMainValues: [190, 200, 210, 220, 230],
-    subStats: isBatter ? [
-      { name: '컨택트 증가(타)', min: 15, max: 20, eMin: 1, eMax: 3 }, { name: '갭파워 증가(타)', min: 15, max: 20, eMin: 1, eMax: 3 },
-      { name: '2아웃 파워(타)', min: 40, max: 60, eMin: 2, eMax: 5 }, { name: '총수익 증가(공통)', min: 10, max: 30, eMin: 1, eMax: 4 },
-      // ... 타자용 나머지 부가옵션들 임시 세팅
-    ] : [
-      { name: '변화구 능력치(투)', min: 20, max: 25, eMin: 1, eMax: 3 }, { name: '탈삼진율 증가(투)', min: 10, max: 15, eMin: 1, eMax: 2 },
-      { name: '수비 스킬 발동(투)', min: 5, max: 10, eMin: 1, eMax: 2 }, { name: '멘탈 스탯 증가(공통)', min: 15, max: 30, eMin: 2, eMax: 4 },
-      // ... 투수용 나머지 부가옵션들 임시 세팅
-    ]
+    subStats: isBatter ? batterSub : pitcherSub
   }
 })
 
@@ -435,31 +480,36 @@ const engAddLog = (msg: string, type: 'normal'|'success'|'fail'|'action' = 'norm
 const pickRandom = (arr: any[]) => arr[Math.floor(Math.random() * arr.length)]
 const randomInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min
 
-const generateSubStat = (): SubStat => {
-  // DB에서 현재 포지션에 맞는 부가 옵션 풀 가져오기
+const generateSubStat = (grade: 'legend' | 'ultimate'): SubStat => {
   const effect = pickRandom(ENG_DB.value.subStats)
-  return { name: effect.name, base: randomInt(effect.min, effect.max), bonus: 0, eMin: effect.eMin, eMax: effect.eMax }
+  const stats = grade === 'ultimate' ? effect.ult : effect.leg
+  return { name: effect.name, base: randomInt(stats.min, stats.max), bonus: 0, eMin: stats.eMin, eMax: stats.eMax }
 }
 
 const drawLegend = () => {
   engCard.value = {
     grade: 'legend', position: engPlayerType.value === 'BATTER' ? '타자' : '투수', mainName: pickRandom(ENG_DB.value.mainTypes),
-    mainBase: 200, mainBonus: 0, subStats: [generateSubStat(), generateSubStat(), generateSubStat()], level: 0, resetCount: 0
+    mainBase: 200, mainBonus: 0, subStats: [generateSubStat('legend'), generateSubStat('legend'), generateSubStat('legend')], level: 0, resetCount: 0
   }
   engAddLog(`[레전드 획득] ${engCard.value.position} ${engCard.value.mainName} 레전드 각인을 뽑았습니다!`, 'action')
+}
+
+const drawUltimate = () => {
+  engCard.value = {
+    grade: 'ultimate', position: engPlayerType.value === 'BATTER' ? '타자' : '투수', mainName: pickRandom(ENG_DB.value.mainTypes),
+    mainBase: pickRandom(ENG_DB.value.ultMainValues), mainBonus: 0,
+    subStats: [generateSubStat('ultimate'), generateSubStat('ultimate'), generateSubStat('ultimate')],
+    pctName: pickRandom(ENG_DB.value.pctConditions), pctBase: pickRandom(ENG_DB.value.pctValues), level: 0, resetCount: 0
+  }
+  engAddLog(`[얼티밋 획득] ${engCard.value.position} ${engCard.value.mainName} 얼티밋 각인을 뽑았습니다!`, 'action')
 }
 
 const combineUltimate = () => {
   if (engState.gachaCount <= 0) return alert("주간 조합 횟수를 모두 소진했습니다. 초기화 후 시도해주세요.")
   engState.gachaCount--; engState.legendUsed += 3
   if (Math.random() < 0.04) {
-    engCard.value = {
-      grade: 'ultimate', position: engPlayerType.value === 'BATTER' ? '타자' : '투수', mainName: pickRandom(ENG_DB.value.mainTypes),
-      mainBase: pickRandom(ENG_DB.value.ultMainValues), mainBonus: 0,
-      subStats: [generateSubStat(), generateSubStat(), generateSubStat()],
-      pctName: pickRandom(ENG_DB.value.pctConditions), pctBase: pickRandom(ENG_DB.value.pctValues), level: 0, resetCount: 0
-    }
-    engAddLog(`[대성공] 4% 확률을 뚫고 얼티밋 각인 획득!`, 'success')
+    drawUltimate()
+    engAddLog(`[대성공] 4% 확률을 뚫고 얼티밋 조합에 성공했습니다!`, 'success')
   } else {
     engAddLog(`[실패] 조합 실패... 레전드 각인 3개가 파괴되었습니다.`, 'fail')
   }
@@ -476,12 +526,12 @@ const enhanceCard = () => {
   const reqCores = ENG_COSTS.enhance[card.grade][card.level]
   engState.core += reqCores
   
-  // 1. 메인 스탯은 무조건 증가
-  const mainIncrease = randomInt(10, 25)
+  // 1. 메인 스탯 무조건 상승 (얼티밋 10~25)
+  const mainIncrease = randomInt(card.grade === 'ultimate' ? 10 : 5, card.grade === 'ultimate' ? 25 : 15)
   card.mainBonus += mainIncrease
 
-  // 2. 부가 옵션은 3개 중 단 1개만 (1/3 확률로 지정) 증가하도록 핵심 수정!
-  const targetSubIndex = Math.floor(Math.random() * 3) // 0, 1, 2 중 하나 선택
+  // 2. 부가 옵션은 3개 중 1/n 무작위로 1개만 상승
+  const targetSubIndex = Math.floor(Math.random() * 3)
   const targetSub = card.subStats[targetSubIndex]
   const subIncrease = randomInt(targetSub.eMin, targetSub.eMax)
   targetSub.bonus += subIncrease
@@ -503,15 +553,25 @@ const resetEnhanceCard = () => {
 const useRefiningStone = () => {
   if (!engCard.value) return
   if (engCard.value.level > 0) return alert("강화된 각인은 연성석을 사용할 수 없습니다.")
-  engState.refining++; engCard.value.subStats = [generateSubStat(), generateSubStat(), generateSubStat()]
+  engState.refining++; engCard.value.subStats = [generateSubStat(engCard.value.grade), generateSubStat(engCard.value.grade), generateSubStat(engCard.value.grade)]
   engAddLog(`[연성석 사용] 부가 옵션 3개가 모두 변경되었습니다.`, 'action')
 }
 
 const useConversionStone = (index: number) => {
   if (!engCard.value) return
   if (engCard.value.level > 0) return alert("강화된 각인은 변환석을 사용할 수 없습니다.")
-  engState.conversion++; engCard.value.subStats[index] = generateSubStat()
+  engState.conversion++; engCard.value.subStats[index] = generateSubStat(engCard.value.grade)
   engAddLog(`[변환석 사용] ${index + 1}번 부가 옵션이 변경되었습니다.`, 'action')
+}
+
+// 에디터에서 부가옵션 이름 변경 시, 내부 증가 수치(eMin, eMax) 동기화
+const updateSubStatRanges = (sub: SubStat) => {
+  const found = ENG_DB.value.subStats.find(s => s.name === sub.name)
+  if (found && engCard.value) {
+    const stats = engCard.value.grade === 'ultimate' ? found.ult : found.leg
+    sub.eMin = stats.eMin
+    sub.eMax = stats.eMax
+  }
 }
 
 const formatNum = (num: number) => new Intl.NumberFormat().format(num)
@@ -534,7 +594,7 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
          ============================================== -->
     <div v-show="activeTab === 'engraving'" class="flex flex-col w-full animate-fade-in">
       
-      <!-- 타자/투수 포지션 토글 (추가됨!) -->
+      <!-- 타자/투수 포지션 토글 -->
       <div class="flex justify-center mb-6">
         <div class="bg-white dark:bg-neutral-900 p-1.5 rounded-xl shadow-sm border border-neutral-200 dark:border-neutral-800 flex gap-1 w-64">
           <button @click="engPlayerType = 'BATTER'" class="flex-1 py-2 rounded-lg text-sm font-bold transition-colors" :class="engPlayerType === 'BATTER' ? 'bg-blue-600 text-white shadow-md' : 'text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-700'">타자 각인</button>
@@ -569,6 +629,9 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
             <button @click="drawLegend" class="w-full py-3 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl font-bold shadow-md transition-transform active:scale-95 text-sm">
               레전드 각인 뽑기
             </button>
+            <button @click="drawUltimate" class="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold shadow-md transition-transform active:scale-95 text-sm">
+              얼티밋 각인 뽑기 (확정)
+            </button>
             
             <div class="border-t border-neutral-100 dark:border-neutral-800 pt-3 mt-1">
               <div class="flex justify-between items-center mb-2">
@@ -576,7 +639,7 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
                 <span class="text-[10px] bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 rounded font-bold">주간 <span class="text-purple-500">{{ engState.gachaCount }}</span>/15</span>
               </div>
               <button @click="combineUltimate" class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold shadow-md transition-transform active:scale-95 text-sm mb-2">
-                얼티밋 조합 시도 (레전드 3개 소모)
+                얼티밋 조합 시도 (재료 3개 소모)
               </button>
               <button @click="resetGachaLimit" class="w-full py-1.5 border border-purple-200 dark:border-purple-800/50 text-purple-600 dark:text-purple-400 text-xs font-bold rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors flex justify-center items-center gap-1">
                 <RefreshCcw class="w-3 h-3"/> 주간 조합 횟수 15회 강제 초기화
@@ -707,7 +770,8 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
                   <div class="font-bold text-neutral-500 mb-2">부가 옵션 3종</div>
                   <div class="space-y-2">
                     <div v-for="(sub, i) in engCard.subStats" :key="i" class="grid grid-cols-12 gap-2 items-center">
-                      <select v-model="sub.name" class="col-span-6 bg-neutral-50 dark:bg-neutral-800 border-none rounded p-1.5 font-bold outline-none truncate"><option v-for="opt in ENG_DB.subStats" :key="opt.name" :value="opt.name">{{opt.name}}</option></select>
+                      <!-- 전체 옵션 22개가 모두 표시되며, 변경 시 eMin, eMax도 동기화 -->
+                      <select v-model="sub.name" @change="updateSubStatRanges(sub)" class="col-span-6 bg-neutral-50 dark:bg-neutral-800 border-none rounded p-1.5 font-bold outline-none truncate"><option v-for="opt in ENG_DB.subStats" :key="opt.name" :value="opt.name">{{opt.name}}</option></select>
                       <input type="number" v-model.number="sub.base" class="col-span-3 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-1.5 text-center font-bold outline-none" placeholder="기본">
                       <input type="number" v-model.number="sub.bonus" class="col-span-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded p-1.5 text-center font-bold text-green-600 outline-none" placeholder="추가">
                     </div>
@@ -880,7 +944,7 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
           </div>
         </section>
 
-        <!-- [우측] 공간 낭비 없는 대화면 고정 기대값 계산기 (메모리 전략 포함) 복구 완료! -->
+        <!-- [우측] 공간 낭비 없는 대화면 고정 기대값 계산기 (메모리 전략 포함) -->
         <section class="lg:col-span-4 flex flex-col h-full">
           <div class="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800/40 rounded-2xl p-5 shadow-sm flex-1 flex flex-col relative overflow-hidden">
             <h3 class="font-extrabold text-base flex items-center gap-2 mb-4 text-blue-700 dark:text-blue-400"><Target class="w-5 h-5"/> 커리어 목표 고정 기대값 계산기</h3>
