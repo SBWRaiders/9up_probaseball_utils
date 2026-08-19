@@ -386,7 +386,7 @@ const stopAutoSpin = () => { isSpinning.value = false; if (spinInterval) clearIn
 // ==============================================
 const engPlayerType = ref<'BATTER' | 'PITCHER'>('BATTER')
 
-interface SubStat { name: string; base: number; bonus: number; eMin: number; eMax: number }
+interface SubStat { name: string; base: number; bonus: number; eMin: number; eMax: number; enhanceCount: number }
 interface EngCard {
   grade: 'legend' | 'ultimate'; position: string; mainName: string; mainBase: number; mainBonus: number;
   subStats: SubStat[]; pctName?: string; pctBase?: number; level: number; resetCount: number;
@@ -476,41 +476,57 @@ const engAddLog = (msg: string, type: 'normal'|'success'|'fail'|'action' = 'norm
 const pickRandom = (arr: any[]) => arr[Math.floor(Math.random() * arr.length)]
 const randomInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min
 
-const generateSubStat = (grade: 'legend' | 'ultimate'): SubStat => {
+// 강화 횟수를 기억하여 1/n로 보너스를 재계산하는 핵심 로직
+const generateSubStat = (grade: 'legend' | 'ultimate', enhanceCount: number = 0): SubStat => {
   const effect = pickRandom(ENG_DB.value.subStats)
   const stats = grade === 'ultimate' ? effect.ult : effect.leg
-  return { name: effect.name, base: randomInt(stats.min, stats.max), bonus: 0, eMin: stats.eMin, eMax: stats.eMax }
+  
+  const base = randomInt(stats.min, stats.max)
+  let bonus = 0
+  
+  // 기존 누적 강화 횟수만큼 새로 1/n 굴림을 수행하여 보너스 추가
+  for (let i = 0; i < enhanceCount; i++) {
+    bonus += randomInt(stats.eMin, stats.eMax)
+  }
+  
+  return { name: effect.name, base, bonus, eMin: stats.eMin, eMax: stats.eMax, enhanceCount }
 }
 
 const drawLegend = () => {
-  engPlayerType.value = Math.random() < 0.5 ? 'BATTER' : 'PITCHER' // 50/50 확률 지정 및 탭 자동 이동
+  engPlayerType.value = Math.random() < 0.5 ? 'BATTER' : 'PITCHER'
   engCard.value = {
     grade: 'legend', position: engPlayerType.value === 'BATTER' ? '타자' : '투수', mainName: pickRandom(ENG_DB.value.mainTypes),
-    mainBase: 200, mainBonus: 0, subStats: [generateSubStat('legend'), generateSubStat('legend'), generateSubStat('legend')], level: 0, resetCount: 0
+    mainBase: 200, mainBonus: 0, subStats: [generateSubStat('legend', 0), generateSubStat('legend', 0), generateSubStat('legend', 0)], level: 0, resetCount: 0
   }
   engAddLog(`[레전드 획득] ${engCard.value.position} ${engCard.value.mainName} 레전드 각인을 뽑았습니다!`, 'action')
 }
 
 const drawUltimate = () => {
-  engPlayerType.value = Math.random() < 0.5 ? 'BATTER' : 'PITCHER' // 50/50 확률 지정 및 탭 자동 이동
+  engPlayerType.value = Math.random() < 0.5 ? 'BATTER' : 'PITCHER'
   engCard.value = {
     grade: 'ultimate', position: engPlayerType.value === 'BATTER' ? '타자' : '투수', mainName: pickRandom(ENG_DB.value.mainTypes),
     mainBase: pickRandom(ENG_DB.value.ultMainValues), mainBonus: 0,
-    subStats: [generateSubStat('ultimate'), generateSubStat('ultimate'), generateSubStat('ultimate')],
+    subStats: [generateSubStat('ultimate', 0), generateSubStat('ultimate', 0), generateSubStat('ultimate', 0)],
     pctName: pickRandom(ENG_DB.value.pctConditions), pctBase: pickRandom(ENG_DB.value.pctValues), level: 0, resetCount: 0
   }
   engAddLog(`[얼티밋 획득] ${engCard.value.position} ${engCard.value.mainName} 얼티밋 각인을 뽑았습니다!`, 'action')
 }
 
 const combineUltimate = () => {
-  if (engState.gachaCount <= 0) return alert("주간 조합 횟수를 모두 소진했습니다. 초기화 후 시도해주세요.")
+  // Alert 경고창 제거 -> 시스템 로그에만 빨간색으로 출력
+  if (engState.gachaCount <= 0) {
+    engAddLog(`[경고] 주간 조합 횟수(15회)를 모두 소진했습니다. 초기화 후 시도해주세요.`, 'fail')
+    return 
+  }
+  
   engState.gachaCount--; engState.legendUsed += 3
+  
   if (Math.random() < 0.04) {
-    engPlayerType.value = Math.random() < 0.5 ? 'BATTER' : 'PITCHER' // 50/50 확률 지정 및 탭 자동 이동
+    engPlayerType.value = Math.random() < 0.5 ? 'BATTER' : 'PITCHER'
     engCard.value = {
       grade: 'ultimate', position: engPlayerType.value === 'BATTER' ? '타자' : '투수', mainName: pickRandom(ENG_DB.value.mainTypes),
       mainBase: pickRandom(ENG_DB.value.ultMainValues), mainBonus: 0,
-      subStats: [generateSubStat('ultimate'), generateSubStat('ultimate'), generateSubStat('ultimate')],
+      subStats: [generateSubStat('ultimate', 0), generateSubStat('ultimate', 0), generateSubStat('ultimate', 0)],
       pctName: pickRandom(ENG_DB.value.pctConditions), pctBase: pickRandom(ENG_DB.value.pctValues), level: 0, resetCount: 0
     }
     engAddLog(`[대성공] 4% 확률을 뚫고 얼티밋 조합에 성공했습니다!`, 'success')
@@ -530,15 +546,14 @@ const enhanceCard = () => {
   const reqCores = ENG_COSTS.enhance[card.grade][card.level]
   engState.core += reqCores
   
-  // 1. 메인 스탯 무조건 상승 (얼티밋 10~25)
   const mainIncrease = randomInt(card.grade === 'ultimate' ? 10 : 5, card.grade === 'ultimate' ? 25 : 15)
   card.mainBonus += mainIncrease
 
-  // 2. 부가 옵션은 3개 중 1/n 무작위로 1개만 상승
   const targetSubIndex = Math.floor(Math.random() * 3)
   const targetSub = card.subStats[targetSubIndex]
   const subIncrease = randomInt(targetSub.eMin, targetSub.eMax)
   targetSub.bonus += subIncrease
+  targetSub.enhanceCount++ // 슬롯 자체의 누적 강화 횟수 증가 트래킹
 
   card.level++
   engAddLog(`[강화+${card.level} 성공] 메인+${mainIncrease}, [ ${targetSubIndex+1}번 부가옵션(${targetSub.name}) +${subIncrease} ] 상승!`, 'action')
@@ -550,21 +565,32 @@ const resetEnhanceCard = () => {
   const reqCash = ENG_COSTS.reset[card.grade][card.level - 1]
   engState.cash += reqCash
   card.resetCount++; card.level = 0; card.mainBonus = 0
-  card.subStats.forEach(sub => sub.bonus = 0)
+  card.subStats.forEach(sub => { sub.bonus = 0; sub.enhanceCount = 0 })
   engAddLog(`[강화 초기화] ${reqCash}캐시를 소모하여 강화를 초기화했습니다. (남은 횟수: ${3 - card.resetCount}/3)`, 'fail')
 }
 
 const useRefiningStone = () => {
   if (!engCard.value) return
-  if (engCard.value.level > 0) return alert("강화된 각인은 연성석을 사용할 수 없습니다.")
-  engState.refining++; engCard.value.subStats = [generateSubStat(engCard.value.grade), generateSubStat(engCard.value.grade), generateSubStat(engCard.value.grade)]
+  
+  // 1. 연성석은 0강 상태에서만 사용 가능! (강화되면 비활성화)
+  if (engCard.value.level > 0) {
+    engAddLog(`[경고] 강화된 각인(+${engCard.value.level})에는 연성석을 사용할 수 없습니다. 초기화 후 사용하세요.`, 'fail')
+    return
+  }
+  
+  engState.refining++; 
+  // 0강이므로 enhanceCount는 무조건 0
+  engCard.value.subStats = [generateSubStat(engCard.value.grade, 0), generateSubStat(engCard.value.grade, 0), generateSubStat(engCard.value.grade, 0)]
   engAddLog(`[연성석 사용] 부가 옵션 3개가 모두 변경되었습니다.`, 'action')
 }
 
 const useConversionStone = (index: number) => {
   if (!engCard.value) return
-  if (engCard.value.level > 0) return alert("강화된 각인은 변환석을 사용할 수 없습니다.")
-  engState.conversion++; engCard.value.subStats[index] = generateSubStat(engCard.value.grade)
+  
+  // 2. 변환석은 강화 상태 상관없이 언제든 사용 가능!
+  engState.conversion++; 
+  // 누적 강화 횟수(enhanceCount)를 기억하여 해당 슬롯 재굴림
+  engCard.value.subStats[index] = generateSubStat(engCard.value.grade, engCard.value.subStats[index].enhanceCount)
   engAddLog(`[변환석 사용] ${index + 1}번 부가 옵션이 변경되었습니다.`, 'action')
 }
 
@@ -581,7 +607,6 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
 </script>
 
 <template>
-  <!-- 화면 사이즈 최적화: 전체 상하 여백 늘림 (py-2 -> py-6) -->
   <div class="w-full max-w-[1600px] mx-auto px-4 sm:px-6 py-6 font-sans text-neutral-900 dark:text-neutral-100 flex flex-col min-h-screen">
     
     <!-- 최상단 통합 탭 메뉴 -->
@@ -651,7 +676,7 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
             </div>
           </div>
 
-          <!-- 로그 박스 (세로 높이 키움) -->
+          <!-- 로그 박스 -->
           <div class="bg-[#0f0f13] border border-neutral-800 rounded-2xl p-4 shadow-sm flex flex-col h-[160px]">
             <div class="text-[11px] font-bold text-neutral-500 mb-2 flex items-center gap-1.5"><History class="w-3.5 h-3.5"/> 시스템 로그</div>
             <div class="flex-1 overflow-y-auto space-y-1 font-mono text-[10px]">
@@ -664,7 +689,6 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
 
         <!-- 우측: 각인 카드 뷰 및 조작부 -->
         <section class="xl:col-span-9 flex flex-col gap-4">
-          <!-- 레이아웃 비율 조정: 인벤토리는 lg:col-span-7(넓게), 에디터는 lg:col-span-5(좁게) -->
           <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1">
             
             <!-- 왼쪽 뷰: 렌더링된 각인 카드 (넓게) -->
@@ -680,7 +704,7 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
               <!-- 생성된 각인 UI -->
               <div v-else class="flex flex-col gap-4 flex-1">
                 
-                <!-- 카드 렌더링 영역 (세로로 쭉 늘어나도록 높이 추가 min-h-[420px]) -->
+                <!-- 카드 렌더링 영역 -->
                 <div class="bg-gradient-to-br from-neutral-800 to-black p-6 rounded-2xl border-2 shadow-xl relative overflow-hidden flex-1 flex flex-col min-h-[420px]" :class="engCard.grade === 'ultimate' ? 'border-amber-400' : 'border-neutral-500'">
                   <Gem class="absolute -right-6 -top-6 w-40 h-40 opacity-5" :class="engCard.grade === 'ultimate' ? 'text-amber-500' : 'text-neutral-100'"/>
                   
@@ -695,7 +719,7 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
                     </div>
                   </div>
 
-                  <!-- 스탯 리스트 뷰 (아래로 퍼지도록 간격 늘림 space-y-3) -->
+                  <!-- 스탯 리스트 뷰 -->
                   <div class="space-y-3 relative z-10 mt-2 mb-4 flex-1">
                     <!-- 메인 스탯 -->
                     <div class="flex items-center bg-white/10 rounded-xl p-3 border border-white/5 backdrop-blur-sm">
@@ -710,7 +734,8 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
                       <div class="w-1/4 font-bold text-white text-sm">{{ sub.base }}</div>
                       <div class="w-1/4 font-bold text-green-400 text-sm">+ {{ sub.bonus }}</div>
                       <div class="flex-1 text-right">
-                        <button @click="useConversionStone(i)" :disabled="engCard.level > 0" class="px-2 py-1.5 bg-teal-600 hover:bg-teal-500 text-white text-[10px] font-bold rounded disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">변환</button>
+                        <!-- 변환석은 강화 상태 무관 상시 사용 가능! disabled 제거됨 -->
+                        <button @click="useConversionStone(i)" class="px-2 py-1.5 bg-teal-600 hover:bg-teal-500 text-white text-[10px] font-bold rounded shadow-sm">변환</button>
                       </div>
                     </div>
 
@@ -723,7 +748,7 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
                   </div>
                 </div>
 
-                <!-- 하단 컨트롤 버튼 (여백 및 패딩 최적화) -->
+                <!-- 하단 컨트롤 버튼 -->
                 <div class="grid grid-cols-3 gap-3 shrink-0 mt-auto">
                   <button @click="enhanceCard" :disabled="engCard.level >= 5" class="col-span-2 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-base shadow-md transition-transform active:scale-95 disabled:opacity-50 flex justify-center items-center gap-2">
                     <Zap class="w-5 h-5"/> {{ engCard.level >= 5 ? '강화 완료' : `강화 진행 (+${engCard.level + 1})` }}
@@ -732,14 +757,15 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
                     <span>초기화</span>
                     <span v-if="engCard.level > 0" class="text-[10px] text-red-200 mt-1">{{ ENG_COSTS.reset[engCard.grade][engCard.level - 1] }}💎</span>
                   </button>
-                  <button @click="useRefiningStone" :disabled="engCard.level > 0" class="col-span-3 py-3 mt-1 border-2 border-green-500 text-green-600 dark:text-green-400 hover:bg-green-500 hover:text-white rounded-xl font-extrabold text-[13px] transition-colors disabled:opacity-50">
-                    연성석 사용 (부가 옵션 3개 전체 초기화)
+                  <!-- 연성석은 0강 전용! 강화를 1번이라도 하면 버튼 비활성화 됨 -->
+                  <button @click="useRefiningStone" :disabled="engCard.level > 0" class="col-span-3 py-3 mt-1 border border-green-500 text-green-600 dark:text-green-400 hover:bg-green-500 hover:text-white rounded-xl font-extrabold text-[13px] transition-colors disabled:opacity-50 disabled:border-neutral-600 disabled:text-neutral-500 disabled:bg-transparent">
+                    연성석 사용 (부가 옵션 3개 전체 변경 / 0강 전용)
                   </button>
                 </div>
               </div>
             </div>
 
-            <!-- 오른쪽 뷰: 내 인게임 각인 완벽 수동 동기화 패널 (에디터, 좁게 밀착 lg:col-span-5) -->
+            <!-- 오른쪽 뷰: 내 인게임 각인 완벽 수동 동기화 패널 (에디터) -->
             <div class="lg:col-span-5 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/50 rounded-2xl p-4 shadow-sm flex flex-col relative overflow-y-auto">
               <h3 class="font-extrabold text-sm flex items-center gap-1.5 mb-3 text-blue-700 dark:text-blue-400 border-b border-blue-200 dark:border-blue-800/50 pb-2"><Edit3 class="w-4 h-4"/> 내 인게임 각인 수동 세팅 (에디터)</h3>
               
