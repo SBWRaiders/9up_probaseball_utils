@@ -476,20 +476,32 @@ const runExpectedValueCalc = () => {
       results.push({ ap, cash, sr, r })
     }
     
-    results.sort((a, b) => a.ap - b.ap)
-    simRawResults.value = results 
+    // 운세 판독기를 위해 원본 결과를 AP 기준으로 정렬 저장
+    simRawResults.value = [...results].sort((a, b) => a.ap - b.ap)
     
-    const extractStat = (idx: number) => ({ ap: results[idx].ap, cash: results[idx].cash, sr: results[idx].sr })
+    // 🔥 [수정됨] AP, CASH, SR(교체 메모리) 통계를 각각 완벽히 독립적으로 분리하여 줄세움
+    const apList = [...results].map(r => r.ap).sort((a, b) => a - b)
+    const cashList = [...results].map(r => r.cash).sort((a, b) => a - b)
+    const srList = [...results].map(r => r.sr).sort((a, b) => a - b)
 
     const avgIdx = Math.floor(iterations * 0.5)
     const top10Idx = Math.floor(iterations * 0.1)
     const bot90Idx = Math.floor(iterations * 0.9)
-    const oneTryProb = results[avgIdx].r > 0 ? (1 / results[avgIdx].r) * 100 : 0
+    
+    // 1회 성공 확률은 시도 횟수(r)의 평균값을 기준으로 계산
+    const rList = [...results].map(x => x.r).sort((a, b) => a - b)
+    const oneTryProb = rList[avgIdx] > 0 ? (1 / rList[avgIdx]) * 100 : 0
+
+    const extractStat = (idx: number) => ({ 
+      ap: apList[idx], 
+      cash: cashList[idx], 
+      sr: srList[idx] 
+    })
 
     calcResult.value = { avg: extractStat(avgIdx), top10: extractStat(top10Idx), bot90: extractStat(bot90Idx), oneTryProb }
     
     isCalculating.value = false; resultViewMode.value = 'AVG'
-    nextTick(() => { renderChart(results.map(r => r.ap)) })
+    nextTick(() => { renderChart(apList) }) // 차트는 AP 분포도를 그림
 
   }, 100)
 }
@@ -554,7 +566,6 @@ const resetGachaLimit = () => { engState.gachaCount = 15; engAddLog(`[시스템]
 const enhanceCard = () => { 
   if (!engCard.value || engCard.value.level >= 5) return; 
   const card = engCard.value; const reqCores = ENG_COSTS.enhance[card.grade][card.level]; engState.core += reqCores; 
-  // 🔥 [수정됨] 레전드 강화 수치 +10 ~ +20 반영 (얼티밋은 +10 ~ +25 유지)
   const mainIncrease = randomInt(card.grade === 'ultimate' ? 10 : 10, card.grade === 'ultimate' ? 25 : 20); 
   card.mainBonus += mainIncrease; const targetSubIndex = Math.floor(Math.random() * 3); const targetSub = card.subStats[targetSubIndex]; const subIncrease = randomInt(targetSub.eMin, targetSub.eMax); targetSub.bonus += subIncrease; targetSub.enhanceCount++; card.level++; engAddLog(`[강화+${card.level} 성공] 메인+${mainIncrease}, [ ${targetSubIndex+1}번 부가옵션(${targetSub.name}) +${subIncrease} ] 상승!`, 'action') 
 }
@@ -650,7 +661,6 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
               </div>
 
               <!-- 탭 2~6: 옵션 리스트 (세트, 마스터, 프로, 엘리트, 루키) -->
-              <!-- 🔥 [수정됨] v-if를 활용하여 빌드 시 v-model 에러 방지 -->
               <div v-else class="flex flex-col gap-0.5">
                  <label v-for="opt in CURRENT_DATA" :key="opt.id" class="flex justify-between items-center py-2 px-2 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 rounded cursor-pointer group border-b border-neutral-100 dark:border-neutral-800/50 last:border-0">
                    <span class="text-[12px] font-bold text-neutral-700 dark:text-neutral-300 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">{{ opt.name }}</span>
@@ -1003,7 +1013,7 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
                   <span class="text-xs font-black text-purple-600 dark:text-purple-400">{{ formatNum(resultViewMode === 'TOP10' ? calcResult.top10.cash : resultViewMode === 'AVG' ? calcResult.avg.cash : calcResult.bot90.cash) }} <span class="text-[8px] font-normal">💎</span></span>
                 </div>
                 
-                <div v-if="calcTargetType === 'OPTION' && (resultViewMode === 'TOP10' ? calcResult.top10.sr : resultViewMode === 'AVG' ? calcResult.avg.sr : calcResult.bot90.sr) > 0" class="flex justify-between items-center px-1 py-1 bg-emerald-50 dark:bg-emerald-900/20 rounded">
+                <div v-if="calcTargetType === 'OPTION' && (resultViewMode === 'TOP10' ? calcResult.top10.sr : resultViewMode === 'AVG' ? calcResult.avg.sr : calcResult.bot90.sr) >= 0" class="flex justify-between items-center px-1 py-1 bg-emerald-50 dark:bg-emerald-900/20 rounded">
                   <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">특별 교체 메모리 소모</span>
                   <span class="text-xs font-black text-emerald-600 dark:text-emerald-400">{{ formatNum(resultViewMode === 'TOP10' ? calcResult.top10.sr : resultViewMode === 'AVG' ? calcResult.avg.sr : calcResult.bot90.sr) }} <span class="text-[8px] font-normal">개</span></span>
                 </div>
