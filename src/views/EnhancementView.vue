@@ -23,7 +23,7 @@ onMounted(() => {
 })
 
 // ==============================================
-// [1] 강화 시뮬레이터
+// [1] 강화 시뮬레이터 (기존 로직 유지)
 // ==============================================
 const BASE_PROBS = [1.0, 0.8, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.075, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05]
 const FAIL_BONUS = 0.025
@@ -71,7 +71,7 @@ const calculatedExpectedCards = computed(() => {
 })
 
 // ==============================================
-// [2] 커리어 옵션 시뮬레이터 (기본 로직)
+// [2] 커리어 옵션 시뮬레이터 (기본 데이터)
 // ==============================================
 const playerType = ref<'BATTER' | 'PITCHER'>('BATTER')
 
@@ -199,22 +199,91 @@ watch(playerType, () => {
 })
 
 // ==============================================
-// 🌟 [추가] 커리어 인게임 자동 스핀 (조건부 정지) 로직
+// 🌟 [UI 구현] 커리어 인게임 자동 스핀 (조건부 정지) 로직
 // ==============================================
 const isSpinning = ref(false)
 const isAutoModalOpen = ref(false)
 const autoSpinInterval = ref<any>(null)
 
-const autoSettings = reactive({
-  stopOnTier: false,
-  targetTier: 3, // 기본 마스터
-  stopOnOption: false,
-  targetOptId: 1, // 기본 컨택트/무브먼트
-  stopOnSet: false,
-  targetSetCount: 3 // 기본 3세트
+// 사진에 기반한 탭 구조
+const autoMenuTab = ref<'set'|'tier'|'master'|'pro'|'elite'|'rookie'>('set')
+
+// 자동 설정 상태 저장
+const autoState = reactive({
+  // 세트 도달
+  setTargetOptions: [] as number[],
+  // 등급 도달
+  tierTargetMaster: 0,
+  tierTargetPro: 0,
+  tierTargetElite: 0,
+  // 옵션 등장 (등급별)
+  masterOptions: [] as number[],
+  proOptions: [] as number[],
+  eliteOptions: [] as number[],
+  rookieOptions: [] as number[]
 })
 
+const isAllChecked = (tabOptions: number[]) => tabOptions.length === CURRENT_DATA.value.length
+const toggleAll = (tab: 'set'|'master'|'pro'|'elite'|'rookie', isChecked: boolean) => {
+  const allIds = CURRENT_DATA.value.map(opt => opt.id)
+  if (tab === 'set') autoState.setTargetOptions = isChecked ? [...allIds] : []
+  if (tab === 'master') autoState.masterOptions = isChecked ? [...allIds] : []
+  if (tab === 'pro') autoState.proOptions = isChecked ? [...allIds] : []
+  if (tab === 'elite') autoState.eliteOptions = isChecked ? [...allIds] : []
+  if (tab === 'rookie') autoState.rookieOptions = isChecked ? [...allIds] : []
+}
+
+const getTierCount = (tierIdx: number) => slots.value.filter(s => s.tier >= tierIdx).length // 해당 등급 이상 포함
+
+const checkAutoStopCondition = () => {
+  const unlockedSlots = slots.value.filter(s => !s.isLocked)
+  if (unlockedSlots.length === 0) return true // 다 잠기면 멈춤
+
+  // 1. 세트 도달 체크
+  if (autoState.setTargetOptions.length > 0) {
+     for (const ef of setEffects.value) {
+       // 이름으로 optId 역추적
+       const optId = CURRENT_DATA.value.findIndex(o => o.name === ef.name)
+       if (autoState.setTargetOptions.includes(optId)) return true
+     }
+  }
+
+  // 2. 등급 도달 체크 (마스터, 프로, 엘리트 개수) - 상위 등급 포함
+  if (autoState.tierTargetMaster > 0 && getTierCount(3) >= autoState.tierTargetMaster) return true
+  if (autoState.tierTargetPro > 0 && getTierCount(2) >= autoState.tierTargetPro) return true
+  if (autoState.tierTargetElite > 0 && getTierCount(1) >= autoState.tierTargetElite) return true
+
+  // 3. 마스터 옵션 등장 체크
+  if (autoState.masterOptions.length > 0) {
+    if (unlockedSlots.some(s => s.tier === 3 && autoState.masterOptions.includes(s.optId))) return true
+  }
+  // 4. 프로 옵션 등장 체크
+  if (autoState.proOptions.length > 0) {
+    if (unlockedSlots.some(s => s.tier === 2 && autoState.proOptions.includes(s.optId))) return true
+  }
+  // 5. 엘리트 옵션 등장 체크
+  if (autoState.eliteOptions.length > 0) {
+    if (unlockedSlots.some(s => s.tier === 1 && autoState.eliteOptions.includes(s.optId))) return true
+  }
+  // 6. 루키 옵션 등장 체크
+  if (autoState.rookieOptions.length > 0) {
+    if (unlockedSlots.some(s => s.tier === 0 && autoState.rookieOptions.includes(s.optId))) return true
+  }
+
+  return false
+}
+
 const startAutoSpin = () => {
+  // 하나라도 설정된 게 있는지 검사 (없으면 안 돌아감)
+  const isAnySet = autoState.setTargetOptions.length > 0 || 
+                   autoState.tierTargetMaster > 0 || autoState.tierTargetPro > 0 || autoState.tierTargetElite > 0 ||
+                   autoState.masterOptions.length > 0 || autoState.proOptions.length > 0 || autoState.eliteOptions.length > 0 || autoState.rookieOptions.length > 0;
+  
+  if (!isAnySet) {
+    alert("자동 승급 옵션 또는 목표 등급을 하나 이상 설정해주세요.")
+    return
+  }
+
   isAutoModalOpen.value = false
   isSpinning.value = true
   autoSpinInterval.value = setInterval(() => {
@@ -223,33 +292,11 @@ const startAutoSpin = () => {
       return
     }
     
-    // 이미 다 잠겼으면 정지
-    if (slots.value.filter(s => s.isLocked).length === 5) {
-      stopAutoSpin()
-      return
-    }
-    
     // 1. 스핀 돌리기
     rollSlots()
     
-    // 2. 결과 체크 후 정지 조건 확인
-    let shouldStop = false
-    const unlockedSlots = slots.value.filter(s => !s.isLocked)
-    
-    // [조건 1] 목표 등급 도달
-    if (autoSettings.stopOnTier && unlockedSlots.some(s => s.tier >= autoSettings.targetTier)) {
-      shouldStop = true
-    }
-    // [조건 2] 목표 옵션 도달
-    if (autoSettings.stopOnOption && unlockedSlots.some(s => s.optId === autoSettings.targetOptId)) {
-      shouldStop = true
-    }
-    // [조건 3] 목표 세트 도달 (전체 세트 개수 기준)
-    if (autoSettings.stopOnSet && setEffects.value.some(ef => ef.count >= autoSettings.targetSetCount)) {
-      shouldStop = true
-    }
-    
-    if (shouldStop) {
+    // 2. 조건 확인
+    if (checkAutoStopCondition()) {
       stopAutoSpin()
     }
   }, 300)
@@ -538,52 +585,107 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
 <template>
   <div class="w-full mx-auto px-2 sm:px-4 py-4 font-sans text-neutral-900 dark:text-neutral-100 flex flex-col min-h-screen relative">
     
-    <!-- 🌟 [모달] 커리어 자동 스핀 설정 🌟 -->
-    <div v-if="isAutoModalOpen" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in">
-      <div class="bg-white dark:bg-neutral-900 rounded-2xl w-full max-w-md shadow-2xl border border-neutral-200 dark:border-neutral-800 flex flex-col overflow-hidden">
-        <div class="p-5 border-b border-neutral-200 dark:border-neutral-800 flex justify-between items-center bg-neutral-50 dark:bg-neutral-800/50">
-          <h3 class="font-extrabold text-lg flex items-center gap-2 text-blue-600 dark:text-blue-400"><Settings class="w-5 h-5"/> 인게임 자동 스핀 설정</h3>
-          <button @click="isAutoModalOpen = false" class="text-neutral-400 hover:text-neutral-600 dark:hover:text-white transition-colors"><X class="w-5 h-5"/></button>
+    <!-- 🌟 [모달] 커리어 자동 스핀 설정 (인게임 완벽 복제) 🌟 -->
+    <div v-if="isAutoModalOpen" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+      <div class="bg-white dark:bg-[#1a1b1e] rounded-xl w-full max-w-[600px] shadow-2xl border border-blue-200/50 dark:border-blue-900/30 flex flex-col overflow-hidden">
+        
+        <!-- 모달 헤더 -->
+        <div class="bg-gradient-to-b from-blue-400 to-cyan-500 p-3.5 flex justify-between items-center text-white shadow-sm">
+          <div class="w-8"></div> <!-- 밸런스용 빈 공간 -->
+          <h3 class="font-extrabold text-[15px] tracking-wide text-center flex-1">자동 승급 옵션 설정</h3>
+          <button @click="isAutoModalOpen = false" class="text-white hover:text-blue-100 transition-colors w-8 flex justify-end"><X class="w-5 h-5"/></button>
         </div>
         
-        <div class="p-5 space-y-4">
-          <p class="text-xs text-neutral-500 mb-2 leading-relaxed">
-            원하는 조건이 등장하면 <strong class="text-red-500">자동으로 스핀이 일시 정지</strong>됩니다.<br>잠금(Lock) 처리는 유저가 화면을 확인한 후 수동으로 진행해야 합니다.
+        <!-- 서브 텍스트 -->
+        <div class="text-center py-3 bg-white dark:bg-[#1a1b1e] border-b border-neutral-100 dark:border-neutral-800">
+          <p class="text-[11px] font-bold text-neutral-600 dark:text-neutral-400 leading-tight">
+            잠금 상태를 제외한 모든 커리어 승급 옵션이<br>
+            선택한 등급 및 옵션의 설정이 적용될 때까지 변경이 시도됩니다.
           </p>
+        </div>
 
-          <div class="space-y-2 text-sm">
-            <!-- 조건 1: 목표 등급 -->
-            <label class="flex items-center gap-3 p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-xl border border-neutral-200 dark:border-neutral-700 cursor-pointer hover:border-blue-400 transition-colors">
-              <input type="checkbox" v-model="autoSettings.stopOnTier" class="w-4 h-4 accent-blue-600 shrink-0">
-              <span class="font-bold text-neutral-700 dark:text-neutral-300 flex-1">목표 등급 등장 시 정지</span>
-              <select v-model.number="autoSettings.targetTier" class="bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-600 rounded p-1 text-xs font-bold outline-none cursor-pointer" :disabled="!autoSettings.stopOnTier">
-                <option :value="3">마스터</option><option :value="2">프로</option><option :value="1">엘리트</option>
-              </select>
-            </label>
+        <!-- 메인 콘텐츠 영역 (좌측 탭 + 우측 상세) -->
+        <div class="flex h-[340px] bg-neutral-50 dark:bg-[#151619]">
+          
+          <!-- 좌측 탭 메뉴 -->
+          <div class="w-[120px] bg-neutral-100 dark:bg-[#1f2024] flex flex-col p-2 gap-1.5 border-r border-neutral-200 dark:border-neutral-800 shrink-0">
+            <button v-for="(label, key) in { set: '세트 도달', tier: '등급 도달', master: '마스터', pro: '프로', elite: '엘리트', rookie: '루키' }" :key="key" 
+                    @click="autoMenuTab = key as any"
+                    class="py-2.5 px-2 rounded font-extrabold text-[12px] transition-all text-center border relative"
+                    :class="autoMenuTab === key ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white border-blue-400 shadow-md translate-x-1' : 'bg-white dark:bg-[#2a2b30] text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-[#303136]'">
+              {{ label }}
+              <!-- 활성화된 탭 우측 포인트 디자인 -->
+              <div v-if="autoMenuTab === key" class="absolute -right-2 top-1/2 -translate-y-1/2 w-0 h-0 border-y-[6px] border-y-transparent border-l-[6px] border-l-cyan-500"></div>
+            </button>
+          </div>
+          
+          <!-- 우측 상세 내용 -->
+          <div class="flex-1 p-0 flex flex-col bg-white dark:bg-[#1a1b1e] relative">
+            
+            <!-- [전체 선택] 헤더 (등급 도달 탭 제외) -->
+            <div v-if="autoMenuTab !== 'tier'" class="flex justify-end p-2 border-b border-neutral-100 dark:border-neutral-800 absolute top-0 right-0 left-0 bg-white/90 dark:bg-[#1a1b1e]/90 backdrop-blur z-10">
+               <label class="flex items-center gap-1.5 cursor-pointer px-2">
+                 <span class="text-[11px] font-bold text-neutral-500">전체</span>
+                 <input type="checkbox" :checked="autoMenuTab === 'set' ? isAllChecked(autoState.setTargetOptions) : autoMenuTab === 'master' ? isAllChecked(autoState.masterOptions) : autoMenuTab === 'pro' ? isAllChecked(autoState.proOptions) : autoMenuTab === 'elite' ? isAllChecked(autoState.eliteOptions) : isAllChecked(autoState.rookieOptions)" 
+                        @change="(e) => toggleAll(autoMenuTab as any, (e.target as HTMLInputElement).checked)"
+                        class="w-3.5 h-3.5 accent-cyan-500 rounded cursor-pointer">
+               </label>
+            </div>
 
-            <!-- 조건 2: 목표 옵션 -->
-            <label class="flex items-center gap-3 p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-xl border border-neutral-200 dark:border-neutral-700 cursor-pointer hover:border-blue-400 transition-colors">
-              <input type="checkbox" v-model="autoSettings.stopOnOption" class="w-4 h-4 accent-blue-600 shrink-0">
-              <span class="font-bold text-neutral-700 dark:text-neutral-300 flex-1">목표 옵션 등장 시 정지</span>
-              <select v-model.number="autoSettings.targetOptId" class="w-28 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-600 rounded p-1 text-xs font-bold outline-none truncate cursor-pointer" :disabled="!autoSettings.stopOnOption">
-                <option v-for="(opt, i) in CURRENT_DATA" :key="i" :value="i">{{opt.name}}</option>
-              </select>
-            </label>
+            <!-- 내용 스크롤 영역 -->
+            <div class="flex-1 overflow-y-auto px-4 pb-4 pt-10">
+              
+              <!-- 탭 1: 등급 도달 -->
+              <div v-if="autoMenuTab === 'tier'" class="space-y-6 pt-2">
+                <div class="space-y-3">
+                  <div class="font-extrabold text-sm text-neutral-800 dark:text-neutral-200 border-b border-neutral-200 dark:border-neutral-700 pb-1">마스터 <span class="text-[9px] font-normal text-neutral-400 ml-1">(순수 마스터 개수)</span></div>
+                  <div class="flex gap-4 px-2">
+                    <label v-for="n in 5" :key="n" class="flex items-center gap-1.5 cursor-pointer group">
+                      <span class="text-xs font-bold text-neutral-600 dark:text-neutral-400 group-hover:text-cyan-500">{{n}}개</span>
+                      <input type="checkbox" :checked="autoState.tierTargetMaster === n" @change="autoState.tierTargetMaster = (autoState.tierTargetMaster === n ? 0 : n)" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
+                    </label>
+                  </div>
+                </div>
+                <div class="space-y-3">
+                  <div class="font-extrabold text-sm text-neutral-800 dark:text-neutral-200 border-b border-neutral-200 dark:border-neutral-700 pb-1">프로 <span class="text-[9px] font-normal text-neutral-400 ml-1">(프로+마스터 포함)</span></div>
+                  <div class="flex gap-4 px-2">
+                    <label v-for="n in 5" :key="n" class="flex items-center gap-1.5 cursor-pointer group">
+                      <span class="text-xs font-bold text-neutral-600 dark:text-neutral-400 group-hover:text-cyan-500">{{n}}개</span>
+                      <input type="checkbox" :checked="autoState.tierTargetPro === n" @change="autoState.tierTargetPro = (autoState.tierTargetPro === n ? 0 : n)" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
+                    </label>
+                  </div>
+                </div>
+                <div class="space-y-3">
+                  <div class="font-extrabold text-sm text-neutral-800 dark:text-neutral-200 border-b border-neutral-200 dark:border-neutral-700 pb-1">엘리트 <span class="text-[9px] font-normal text-neutral-400 ml-1">(엘리트+프로+마스터 포함)</span></div>
+                  <div class="flex gap-4 px-2">
+                    <label v-for="n in 5" :key="n" class="flex items-center gap-1.5 cursor-pointer group">
+                      <span class="text-xs font-bold text-neutral-600 dark:text-neutral-400 group-hover:text-cyan-500">{{n}}개</span>
+                      <input type="checkbox" :checked="autoState.tierTargetElite === n" @change="autoState.tierTargetElite = (autoState.tierTargetElite === n ? 0 : n)" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
+                    </label>
+                  </div>
+                </div>
+              </div>
 
-            <!-- 조건 3: 목표 세트 -->
-            <label class="flex items-center gap-3 p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-xl border border-neutral-200 dark:border-neutral-700 cursor-pointer hover:border-blue-400 transition-colors">
-              <input type="checkbox" v-model="autoSettings.stopOnSet" class="w-4 h-4 accent-blue-600 shrink-0">
-              <span class="font-bold text-neutral-700 dark:text-neutral-300 flex-1">목표 세트 달성 시 정지</span>
-              <select v-model.number="autoSettings.targetSetCount" class="bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-600 rounded p-1 text-xs font-bold outline-none cursor-pointer" :disabled="!autoSettings.stopOnSet">
-                <option :value="3">3세트</option><option :value="4">4세트</option><option :value="5">5세트</option><option :value="6">6세트</option>
-              </select>
-            </label>
+              <!-- 탭 2~6: 옵션 리스트 (세트, 마스터, 프로, 엘리트, 루키) -->
+              <div v-else class="flex flex-col gap-0.5">
+                 <label v-for="opt in CURRENT_DATA" :key="opt.id" class="flex justify-between items-center py-2 px-2 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 rounded cursor-pointer group border-b border-neutral-100 dark:border-neutral-800/50 last:border-0">
+                   <span class="text-[12px] font-bold text-neutral-700 dark:text-neutral-300 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">{{ opt.name }}</span>
+                   <input type="checkbox" :value="opt.id" 
+                          v-model="autoMenuTab === 'set' ? autoState.setTargetOptions : autoMenuTab === 'master' ? autoState.masterOptions : autoMenuTab === 'pro' ? autoState.proOptions : autoMenuTab === 'elite' ? autoState.eliteOptions : autoState.rookieOptions" 
+                          class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
+                 </label>
+              </div>
+
+            </div>
           </div>
         </div>
 
-        <div class="p-4 bg-neutral-100 dark:bg-neutral-800/80 border-t border-neutral-200 dark:border-neutral-800 flex gap-2">
-          <button @click="isAutoModalOpen = false" class="w-1/3 py-3 bg-white dark:bg-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-600 text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-600 font-bold rounded-xl transition-colors text-sm">취소</button>
-          <button @click="startAutoSpin" class="w-2/3 py-3 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl shadow-md transition-colors text-sm flex items-center justify-center gap-2"><Play class="w-4 h-4 fill-current"/> 가챠 시작 (0.3초)</button>
+        <!-- 하단 시작 버튼 영역 -->
+        <div class="p-3 bg-neutral-100 dark:bg-[#1f2024] border-t border-neutral-200 dark:border-neutral-800 flex justify-between items-center px-6">
+          <span class="text-[10px] font-bold text-neutral-500">재화 부족 시 자동 종료 됩니다.</span>
+          <button @click="startAutoSpin" class="px-10 py-2.5 bg-gradient-to-b from-teal-400 to-cyan-600 hover:from-teal-300 hover:to-cyan-500 text-white font-extrabold text-[13px] rounded-sm shadow-md transition-all active:scale-95 tracking-widest border border-cyan-300/30">
+            시작
+          </button>
         </div>
       </div>
     </div>
@@ -952,7 +1054,15 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
 </template>
 
 <style scoped>
-.animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
+.animate-fade-in { animation: fadeIn 0.2s ease-in-out; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* 커스텀 스크롤바 */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+.dark ::-webkit-scrollbar-thumb { background: #334155; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #475569; }
 </style>
