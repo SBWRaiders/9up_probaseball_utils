@@ -289,7 +289,7 @@ const stopAutoSpin = () => {
 }
 
 // ==============================================
-// 🔥 [강력한 정밀 시뮬레이터 4.3]
+// 🔥 [강력한 정밀 시뮬레이터 4.3] (존버 메타 & 통계 분리 완벽 적용)
 // ==============================================
 
 const calcTargetType = ref<'OPTION' | 'TIER'>('OPTION')
@@ -384,6 +384,9 @@ const runExpectedValueCalc = () => {
         }
       }
 
+      // 🔥 [핵심 로직] 이미 잠긴 슬롯이 있거나, 1개 전략이면 허들은 이미 넘은 상태 (마무리 모드)
+      let hasBrokenHurdle = tempSlots.some(s => s.isLocked) || calcLockStrategy.value <= 1;
+
       while (true) {
         let c0 = tempSlots.filter(s => s.tier === 0).length;
         let c1 = tempSlots.filter(s => s.tier === 1).length;
@@ -428,30 +431,36 @@ const runExpectedValueCalc = () => {
           for (let opt in requiredCounts) { 
             if ((currentCounts[opt] || 0) < requiredCounts[opt]) { allMet = false; break } 
           }
-          
-          if (requireAllMaster.value && !allMaster) {
-             allMet = false;
-          }
+          if (requireAllMaster.value && !allMaster) allMet = false;
 
           if (allMet) break 
 
-          let isPhase1 = requireAllMaster.value && !allMaster;
+          let isTierPhase = requireAllMaster.value && !allMaster;
 
-          if (isPhase1) {
+          if (isTierPhase) {
             tempSlots.forEach(s => s.isLocked = false);
           } else {
             let needed: Record<number, number> = {}
             for (let opt in requiredCounts) {
-              let lockedCount = tempSlots.filter(s => s.isLocked && s.optId === Number(opt)).length
+              let lockedCount = tempSlots.filter(s => s.isLocked && s.optId === Number(opt) && (!requireAllMaster.value || s.tier === 3)).length
               let spCount = (useSpecialSlot.value && spOpt === Number(opt)) ? 1 : 0
               needed[opt] = requiredCounts[opt] - lockedCount - spCount
             }
 
             let validTargets = tempSlots.filter(s => !s.isLocked && needed[s.optId] > 0 && (!requireAllMaster.value || s.tier === 3))
 
-            if (validTargets.length >= calcLockStrategy.value) {
+            // 🔥 [존버 전략 로직] 허들을 넘었으면 즉시 1개 모드, 아니면 세팅값 유지
+            let currentStrategy = hasBrokenHurdle ? 1 : calcLockStrategy.value;
+
+            if (validTargets.length >= currentStrategy) {
+              hasBrokenHurdle = true; // 문턱(허들)을 부수고 존버 성공!
+              
+              // 대박(초과)이 터졌더라도 needed(필요 목표치) 한도 내에서 싹 다 잠금! (개이득)
               for (let s of validTargets) {
-                if (needed[s.optId] > 0) { s.isLocked = true; needed[s.optId]-- }
+                if (needed[s.optId] > 0) { 
+                  s.isLocked = true; 
+                  needed[s.optId]--; 
+                }
               }
             }
           }
@@ -470,7 +479,7 @@ const runExpectedValueCalc = () => {
           }
 
           ap += loopAp; cash += loopCash; r++
-          if (r > 40000) break 
+          if (r > 60000) break 
         }
       }
       results.push({ ap, cash, sr, r })
@@ -719,7 +728,6 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
               <div v-else class="space-y-3">
                 <div class="bg-white dark:bg-neutral-900 p-3 rounded-xl border border-blue-100 dark:border-blue-800 shadow-sm text-xs">
                   <div class="font-bold text-neutral-500 mb-2">기본 정보</div>
-                  <!-- 🌟 [수정] 3단으로 쪼개서 초기화 횟수 수동 조작칸 추가 -->
                   <div class="grid grid-cols-3 gap-2">
                     <div>
                       <label class="block text-[10px] text-neutral-400 mb-1">등급 변경</label>
