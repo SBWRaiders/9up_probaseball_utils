@@ -23,7 +23,7 @@ onMounted(() => {
 })
 
 // ==============================================
-// [1] 강화 시뮬레이터 (기존 로직 유지)
+// [1] 강화 시뮬레이터
 // ==============================================
 const BASE_PROBS = [1.0, 0.8, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.075, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05]
 const FAIL_BONUS = 0.025
@@ -205,18 +205,13 @@ const isSpinning = ref(false)
 const isAutoModalOpen = ref(false)
 const autoSpinInterval = ref<any>(null)
 
-// 사진에 기반한 탭 구조
 const autoMenuTab = ref<'set'|'tier'|'master'|'pro'|'elite'|'rookie'>('set')
 
-// 자동 설정 상태 저장
 const autoState = reactive({
-  // 세트 도달
   setTargetOptions: [] as number[],
-  // 등급 도달
   tierTargetMaster: 0,
   tierTargetPro: 0,
   tierTargetElite: 0,
-  // 옵션 등장 (등급별)
   masterOptions: [] as number[],
   proOptions: [] as number[],
   eliteOptions: [] as number[],
@@ -233,39 +228,32 @@ const toggleAll = (tab: 'set'|'master'|'pro'|'elite'|'rookie', isChecked: boolea
   if (tab === 'rookie') autoState.rookieOptions = isChecked ? [...allIds] : []
 }
 
-const getTierCount = (tierIdx: number) => slots.value.filter(s => s.tier >= tierIdx).length // 해당 등급 이상 포함
+const getTierCount = (tierIdx: number) => slots.value.filter(s => s.tier >= tierIdx).length 
 
 const checkAutoStopCondition = () => {
   const unlockedSlots = slots.value.filter(s => !s.isLocked)
-  if (unlockedSlots.length === 0) return true // 다 잠기면 멈춤
+  if (unlockedSlots.length === 0) return true 
 
-  // 1. 세트 도달 체크
   if (autoState.setTargetOptions.length > 0) {
      for (const ef of setEffects.value) {
-       // 이름으로 optId 역추적
        const optId = CURRENT_DATA.value.findIndex(o => o.name === ef.name)
        if (autoState.setTargetOptions.includes(optId)) return true
      }
   }
 
-  // 2. 등급 도달 체크 (마스터, 프로, 엘리트 개수) - 상위 등급 포함
   if (autoState.tierTargetMaster > 0 && getTierCount(3) >= autoState.tierTargetMaster) return true
   if (autoState.tierTargetPro > 0 && getTierCount(2) >= autoState.tierTargetPro) return true
   if (autoState.tierTargetElite > 0 && getTierCount(1) >= autoState.tierTargetElite) return true
 
-  // 3. 마스터 옵션 등장 체크
   if (autoState.masterOptions.length > 0) {
     if (unlockedSlots.some(s => s.tier === 3 && autoState.masterOptions.includes(s.optId))) return true
   }
-  // 4. 프로 옵션 등장 체크
   if (autoState.proOptions.length > 0) {
     if (unlockedSlots.some(s => s.tier === 2 && autoState.proOptions.includes(s.optId))) return true
   }
-  // 5. 엘리트 옵션 등장 체크
   if (autoState.eliteOptions.length > 0) {
     if (unlockedSlots.some(s => s.tier === 1 && autoState.eliteOptions.includes(s.optId))) return true
   }
-  // 6. 루키 옵션 등장 체크
   if (autoState.rookieOptions.length > 0) {
     if (unlockedSlots.some(s => s.tier === 0 && autoState.rookieOptions.includes(s.optId))) return true
   }
@@ -274,7 +262,6 @@ const checkAutoStopCondition = () => {
 }
 
 const startAutoSpin = () => {
-  // 하나라도 설정된 게 있는지 검사 (없으면 안 돌아감)
   const isAnySet = autoState.setTargetOptions.length > 0 || 
                    autoState.tierTargetMaster > 0 || autoState.tierTargetPro > 0 || autoState.tierTargetElite > 0 ||
                    autoState.masterOptions.length > 0 || autoState.proOptions.length > 0 || autoState.eliteOptions.length > 0 || autoState.rookieOptions.length > 0;
@@ -291,27 +278,18 @@ const startAutoSpin = () => {
       clearInterval(autoSpinInterval.value)
       return
     }
-    
-    // 1. 스핀 돌리기
     rollSlots()
-    
-    // 2. 조건 확인
-    if (checkAutoStopCondition()) {
-      stopAutoSpin()
-    }
+    if (checkAutoStopCondition()) stopAutoSpin()
   }, 300)
 }
 
 const stopAutoSpin = () => {
   isSpinning.value = false
-  if (autoSpinInterval.value) {
-    clearInterval(autoSpinInterval.value)
-    autoSpinInterval.value = null
-  }
+  if (autoSpinInterval.value) { clearInterval(autoSpinInterval.value); autoSpinInterval.value = null }
 }
 
 // ==============================================
-// 🔥 [강력한 정밀 시뮬레이터 4.3: 선(先) 마스터 종결판] 🔥
+// 🔥 [강력한 정밀 시뮬레이터 4.3]
 // ==============================================
 
 const calcTargetType = ref<'OPTION' | 'TIER'>('OPTION')
@@ -484,7 +462,6 @@ const runExpectedValueCalc = () => {
 
           for (let s of tempSlots) {
             loopAp += card.baseAP[s.tier] 
-            
             if (!s.isLocked) {
               if (s.tier < 3 && Math.random() < 0.01) s.tier++
               const rolled = rollOption(s.tier)
@@ -574,7 +551,13 @@ const drawLegend = () => { engPlayerType.value = Math.random() < 0.5 ? 'BATTER' 
 const drawUltimate = () => { engPlayerType.value = Math.random() < 0.5 ? 'BATTER' : 'PITCHER'; engCard.value = { grade: 'ultimate', position: engPlayerType.value === 'BATTER' ? '타자' : '투수', mainName: pickRandom(ENG_DB.value.mainTypes), mainBase: pickRandom(ENG_DB.value.ultMainValues), mainBonus: 0, subStats: [generateSubStat('ultimate', 0), generateSubStat('ultimate', 0), generateSubStat('ultimate', 0)], pctName: pickRandom(ENG_DB.value.pctConditions), pctBase: pickRandom(ENG_DB.value.pctValues), level: 0, resetCount: 0 }; engAddLog(`[얼티밋 획득] ${engCard.value.position} ${engCard.value.mainName} 얼티밋 각인을 뽑았습니다!`, 'action') }
 const combineUltimate = () => { if (engState.gachaCount <= 0) { engAddLog(`[경고] 주간 조합 횟수(15회)를 모두 소진했습니다. 초기화 후 시도해주세요.`, 'fail'); return }; engState.gachaCount--; engState.legendUsed += 3; if (Math.random() < 0.04) { engPlayerType.value = Math.random() < 0.5 ? 'BATTER' : 'PITCHER'; engCard.value = { grade: 'ultimate', position: engPlayerType.value === 'BATTER' ? '타자' : '투수', mainName: pickRandom(ENG_DB.value.mainTypes), mainBase: pickRandom(ENG_DB.value.ultMainValues), mainBonus: 0, subStats: [generateSubStat('ultimate', 0), generateSubStat('ultimate', 0), generateSubStat('ultimate', 0)], pctName: pickRandom(ENG_DB.value.pctConditions), pctBase: pickRandom(ENG_DB.value.pctValues), level: 0, resetCount: 0 }; engAddLog(`[대성공] 4% 확률을 뚫고 얼티밋 조합에 성공했습니다!`, 'success') } else { engAddLog(`[실패] 조합 실패... 레전드 각인 3개가 파괴되었습니다.`, 'fail') } }
 const resetGachaLimit = () => { engState.gachaCount = 15; engAddLog(`[시스템] 주간 조합 가능 횟수가 15회로 초기화되었습니다.`, 'action') }
-const enhanceCard = () => { if (!engCard.value || engCard.value.level >= 5) return; const card = engCard.value; const reqCores = ENG_COSTS.enhance[card.grade][card.level]; engState.core += reqCores; const mainIncrease = randomInt(card.grade === 'ultimate' ? 10 : 5, card.grade === 'ultimate' ? 25 : 15); card.mainBonus += mainIncrease; const targetSubIndex = Math.floor(Math.random() * 3); const targetSub = card.subStats[targetSubIndex]; const subIncrease = randomInt(targetSub.eMin, targetSub.eMax); targetSub.bonus += subIncrease; targetSub.enhanceCount++; card.level++; engAddLog(`[강화+${card.level} 성공] 메인+${mainIncrease}, [ ${targetSubIndex+1}번 부가옵션(${targetSub.name}) +${subIncrease} ] 상승!`, 'action') }
+const enhanceCard = () => { 
+  if (!engCard.value || engCard.value.level >= 5) return; 
+  const card = engCard.value; const reqCores = ENG_COSTS.enhance[card.grade][card.level]; engState.core += reqCores; 
+  // 🔥 [수정됨] 레전드 강화 수치 +10 ~ +20 반영 (얼티밋은 +10 ~ +25 유지)
+  const mainIncrease = randomInt(card.grade === 'ultimate' ? 10 : 10, card.grade === 'ultimate' ? 25 : 20); 
+  card.mainBonus += mainIncrease; const targetSubIndex = Math.floor(Math.random() * 3); const targetSub = card.subStats[targetSubIndex]; const subIncrease = randomInt(targetSub.eMin, targetSub.eMax); targetSub.bonus += subIncrease; targetSub.enhanceCount++; card.level++; engAddLog(`[강화+${card.level} 성공] 메인+${mainIncrease}, [ ${targetSubIndex+1}번 부가옵션(${targetSub.name}) +${subIncrease} ] 상승!`, 'action') 
+}
 const resetEnhanceCard = () => { if (!engCard.value || engCard.value.resetCount >= 3 || engCard.value.level === 0) return; const card = engCard.value; const reqCash = ENG_COSTS.reset[card.grade][card.level - 1]; engState.cash += reqCash; card.resetCount++; card.level = 0; card.mainBonus = 0; card.subStats.forEach(sub => { sub.bonus = 0; sub.enhanceCount = 0 }); engAddLog(`[강화 초기화] ${reqCash}캐시 소모로 강화를 초기화했습니다. (남은 횟수: ${3 - card.resetCount}/3)`, 'fail') }
 const useRefiningStone = () => { if (!engCard.value) return; if (engCard.value.level > 0) { engAddLog(`[경고] 강화된 각인(+${engCard.value.level})에는 연성석을 사용할 수 없습니다. 초기화 후 사용하세요.`, 'fail'); return }; engState.refining++; engCard.value.subStats = [generateSubStat(engCard.value.grade, 0), generateSubStat(engCard.value.grade, 0), generateSubStat(engCard.value.grade, 0)]; engAddLog(`[연성석 사용] 부가 옵션 3개가 모두 변경되었습니다.`, 'action') }
 const useConversionStone = (index: number) => { if (!engCard.value) return; engState.conversion++; engCard.value.subStats[index] = generateSubStat(engCard.value.grade, engCard.value.subStats[index].enhanceCount); engAddLog(`[변환석 사용] ${index + 1}번 부가 옵션이 변경되었습니다.`, 'action') }
@@ -667,12 +650,16 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
               </div>
 
               <!-- 탭 2~6: 옵션 리스트 (세트, 마스터, 프로, 엘리트, 루키) -->
+              <!-- 🔥 [수정됨] v-if를 활용하여 빌드 시 v-model 에러 방지 -->
               <div v-else class="flex flex-col gap-0.5">
                  <label v-for="opt in CURRENT_DATA" :key="opt.id" class="flex justify-between items-center py-2 px-2 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 rounded cursor-pointer group border-b border-neutral-100 dark:border-neutral-800/50 last:border-0">
                    <span class="text-[12px] font-bold text-neutral-700 dark:text-neutral-300 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">{{ opt.name }}</span>
-                   <input type="checkbox" :value="opt.id" 
-       v-model="autoState[autoMenuTab === 'set' ? 'setTargetOptions' : autoMenuTab + 'Options']" 
-       class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
+                   
+                   <input v-if="autoMenuTab === 'set'" type="checkbox" :value="opt.id" v-model="autoState.setTargetOptions" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
+                   <input v-else-if="autoMenuTab === 'master'" type="checkbox" :value="opt.id" v-model="autoState.masterOptions" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
+                   <input v-else-if="autoMenuTab === 'pro'" type="checkbox" :value="opt.id" v-model="autoState.proOptions" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
+                   <input v-else-if="autoMenuTab === 'elite'" type="checkbox" :value="opt.id" v-model="autoState.eliteOptions" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
+                   <input v-else-if="autoMenuTab === 'rookie'" type="checkbox" :value="opt.id" v-model="autoState.rookieOptions" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
                  </label>
               </div>
 
