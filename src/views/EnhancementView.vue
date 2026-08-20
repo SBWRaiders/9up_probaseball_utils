@@ -671,8 +671,8 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
                  <label v-for="opt in CURRENT_DATA" :key="opt.id" class="flex justify-between items-center py-2 px-2 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 rounded cursor-pointer group border-b border-neutral-100 dark:border-neutral-800/50 last:border-0">
                    <span class="text-[12px] font-bold text-neutral-700 dark:text-neutral-300 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">{{ opt.name }}</span>
                    <input type="checkbox" :value="opt.id" 
-                          v-model="autoMenuTab === 'set' ? autoState.setTargetOptions : autoMenuTab === 'master' ? autoState.masterOptions : autoMenuTab === 'pro' ? autoState.proOptions : autoMenuTab === 'elite' ? autoState.eliteOptions : autoState.rookieOptions" 
-                          class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
+       v-model="autoState[autoMenuTab === 'set' ? 'setTargetOptions' : autoMenuTab + 'Options']" 
+       class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
                  </label>
               </div>
 
