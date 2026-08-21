@@ -110,7 +110,7 @@ function toggleExpanded(index: number) {
 </script>
 
 <template>
-  <div v-if="items.length !=0" class="max-w-[1280px] mx-auto p-2">
+  <div v-if="items.length !=0" class="max-w-[1600px] w-full mx-auto p-2">
     <!-- 모바일/태블릿: 카드 리스트 -->
     <div class="grid gap-3 md:hidden">
       <article
@@ -227,7 +227,7 @@ function toggleExpanded(index: number) {
                 col === 'position' ? 'w-[120px]' :
                 col === 'handType' ? 'w-[120px]' :
                 col === 'pitchingType' ? 'w-[140px]' :
-                col === 'synergy' ? 'w-[360px]' :
+                col === 'synergy' ? 'w-[600px]' :
                 col === 'open' ? 'w-[90px]' :
                 'w-[140px]'
               ]"
@@ -353,7 +353,7 @@ function toggleExpanded(index: number) {
       <PlayerDetail :player="selectedItem" />
     </SideModal>
   </div>
-  <div v-else class="max-w-[1280px] h-[700px] mx-auto p-2 text-center">
+  <div v-else class="max-w-[1600px] w-full h-[700px] mx-auto p-2 text-center">
     <span class="text-xl font-bold">
       조건에 맞는 선수가 없어요.
     </span>
