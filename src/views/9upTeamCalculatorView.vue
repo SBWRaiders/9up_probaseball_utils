@@ -330,21 +330,21 @@ const globalBuffs = reactive({
 })
 
 const TACTICS_INFO = [
-  { id:0, name: '마음껏 휘둘러라', type: '타자', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,25,40,70,120,200], condVals: [0,25,40,70,120,200], descBase: (v) => `클린업 홈런파워 +${v}`, descCond: (v) => `클린업 홈런3회 달성시 하위타선 컨택트 +${v}` },
-  { id:1, name: '연결고리', type: '타자', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,20,30,50,90,150], condVals: [0,10,20,35,60,100], descBase: (v) => `9,1,2번 컨택트 +${v}`, descCond: (v) => `9,1,2번 안타3회 달성시 클린업 갭파워 +${v}` },
-  { id:2, name: '하위 타선의 반란', type: '타자', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,10,25,35,60,100], condVals: [0,25,40,70,120,200], descBase: (v) => `하위타선 컨택트 +${v}`, descCond: (v) => `하위타선 안타3회 달성시 상위타선 선구 +${v}` },
-  { id:3, name: '끈질긴 승부', type: '타자', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,10,15,25,40,70], condVals: [0,5,10,18,30,50], descBase: (v) => `상위/하위타선 선구 +${v}`, descCond: (v) => `상위/하위 볼넷3회 달성시 전체타자 컨택트 +${v}` },
-  { id:4, name: '배럴 타구 생산', type: '타자', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,10,15,25,40,70], condVals: [0,3,6,10,18,30], descBase: (v) => `전체타자 갭파워 +${v}`, descCond: (v) => `전체 2루타 3회 달성시 전체타자 컨택트 +${v}` },
-  { id:5, name: '존에 욱여넣어라', type: '투수', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,15,25,45,70,120], condVals: [0,40,65,100,180,300], descBase: (v) => `선발 컨트롤 +${v}`, descCond: (v) => `선발투수 탈삼진3회 달성시 전체야수 수비 +${v}` },
-  { id:6, name: '벌떼 야구', type: '투수', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,20,30,50,90,150], condVals: [0,25,40,70,120,200], descBase: (v) => `계투 투수파워 +${v}`, descCond: (v) => `계투 탈삼진2회 달성시 계투 무브먼트 +${v}` },
-  { id:7, name: '이닝이터', type: '투수', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,2,3,5,9,15], condVals: [0,20,30,50,90,150], descBase: (v) => `선발 한계투구 +${v}`, descCond: (v) => `선발 6이닝 달성시 선발 투수파워 +${v}` },
-  { id:8, name: '감독 마운드 방문', type: '투수', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,20,30,50,90,150], condVals: [0,20,30,50,90,150], descBase: (v) => `투수 컨트롤 +${v} (득점권비율 곱연산)`, descCond: (v) => `득점권 피안타/볼넷시 투수 홈런억제 +${v}` },
-  { id:9, name: '좌우놀이', type: '투수', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,25,40,70,120,200], condVals: [0,15,25,45,70,120], descBase: (v) => `계투 투수파워 +${v}`, descCond: (v) => `계투 아웃카운트1개 달성시 계투 무브먼트 +${v}` },
-  { id:10, name: '작전 야구', type: '운영', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,15,25,45,70,120], condVals: [0,60,100,180,300,500], descBase: (v) => `상하위타선 선구 +${v}`, descCond: (v) => `번트성공시 작전 성공률 증가 (조건부)` },
-  { id:11, name: '발야구', type: '운영', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,5,8,15,25,40], condVals: [0,25,40,70,120,200], descBase: (v) => `상하위타선 주루/도루 +${v}`, descCond: (v) => `도루성공시 클린업 갭·홈런파워 +${v}` },
-  { id:12, name: '라인 수비', type: '운영', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,15,25,45,70,120], condVals: [0,15,25,45,70,120], descBase: (v) => `투수 장타억제 +${v} (클린업비율 곱연산)`, descCond: (v) => `투수 범타/탈삼진시 계투 무브먼트 +${v}` },
-  { id:13, name: '기본기 중시', type: '운영', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,40,65,100,180,300], condVals: [0,40,65,100,180,300], descBase: (v) => `야수 수비 +${v}`, descCond: (v) => `외야어시스트/병살시 셋업·마무리 투수파워 +${v}` },
-  { id:14, name: '내야 시프트', type: '운영', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,40,65,100,180,300], condVals: [0,20,30,50,90,150], descBase: (v) => `내야수 수비 +${v}`, descCond: (v) => `내야땅볼/병살시 선발 컨·스 +${v}` }
+  { id:0, name: '마음껏 휘둘러라', type: '타자', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,25,40,70,120,200], condVals: [0,25,40,70,120,200], descBase: (v) => `클린업(3~5번) 홈런 +${v}`, descCond: (v) => `클린업(3~5번) 홈런 3회시 하위(6~9번) 컨택트 +${v}` },
+  { id:1, name: '연결고리', type: '타자', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,20,30,50,90,150], condVals: [0,10,20,35,60,100], descBase: (v) => `9, 1, 2번 타순 컨택트 +${v}`, descCond: (v) => `9, 1, 2번 타순 4출루시 클린업(3~5번) 갭 파워 +${v}` },
+  { id:2, name: '하위 타선의 반란', type: '타자', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,10,25,35,60,100], condVals: [0,25,40,70,120,200], descBase: (v) => `하위 타선(6~9번) 컨택트 +${v}`, descCond: (v) => `하위 타선 4안타시 상위 타선(1,2번) 선구 +${v}` },
+  { id:3, name: '끈질긴 승부', type: '타자', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,10,15,25,40,70], condVals: [0,5,10,18,30,50], descBase: (v) => `전체 타자 선구 +${v}`, descCond: (v) => `팀 볼넷 5회 달성 시 전체 타자 컨택트 +${v}` },
+  { id:4, name: '배럴 타구 생산', type: '타자', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,10,15,25,40,70], condVals: [0,3,6,10,18,30], descBase: (v) => `전체 타자 갭 파워 +${v}`, descCond: (v) => `팀 2루타 3회 달성 시 전체 타자 컨택트 +${v}` },
+  { id:5, name: '존에 욱여넣어라', type: '투수', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,15,25,45,70,120], condVals: [0,40,65,100,180,300], descBase: (v) => `선발투수 컨트롤 +${v}`, descCond: (v) => `선발 볼넷 0개인 경우 전체 야수(투타전체) 수비 +${v}` },
+  { id:6, name: '벌떼 야구', type: '투수', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,20,30,50,90,150], condVals: [0,25,40,70,120,200], descBase: (v) => `계투진 파워 +${v}`, descCond: (v) => `6회 이전 계투 등판 시 계투진 무브먼트 +${v}` },
+  { id:7, name: '이닝이터', type: '투수', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,2,3,5,9,15], condVals: [0,20,30,50,90,150], descBase: (v) => `선발투수 한계 투구 +${v}`, descCond: (v) => `선발 90구 이상 투구 시 선발 파워 +${v}` },
+  { id:8, name: '감독 마운드 방문', type: '투수', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,20,30,50,90,150], condVals: [0,20,30,50,90,150], descBase: (v) => `득점권 상황 투수 컨트롤 +${v}`, descCond: (v) => `득점권 무실점 이닝 2회 달성 시 투수진 홈런 억제 +${v}` },
+  { id:9, name: '좌우놀이', type: '투수', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,25,40,70,120,200], condVals: [0,15,25,45,70,120], descBase: (v) => `계투진에 좌/우/언더 각각 있을 시 계투 파워 +${v}`, descCond: (v) => `계투진의 동일 핸드타입 타자 상대 시 무브먼트 +${v}` },
+  { id:10, name: '작전 야구', type: '운영', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,15,25,45,70,120], condVals: [0,60,100,180,300,500], descBase: (v) => `상위(1,2번)/하위타선(6~9번) 선구 +${v}`, descCond: (v) => `희생번트 성공 직후 다음 타자 파워 +${v}` },
+  { id:11, name: '발야구', type: '운영', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,5,8,15,25,40], condVals: [0,25,40,70,120,200], descBase: (v) => `상위(1,2번)/하위타선(6~9번) 도루, 주루 +${v}`, descCond: (v) => `도루 성공 직후 다음 타자 갭 파워, 홈런 +${v}` },
+  { id:12, name: '라인 수비', type: '운영', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,15,25,45,70,120], condVals: [0,15,25,45,70,120], descBase: (v) => `클린업(3~5번) 상대 장타 억제 +${v}`, descCond: (v) => `6회까지 클린업 장타 3개 미만 시 계투진 무브먼트 +${v}` },
+  { id:13, name: '기본기 중시', type: '운영', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,40,65,100,180,300], condVals: [0,40,65,100,180,300], descBase: (v) => `전체 야수(투타전체) 수비 +${v}`, descCond: (v) => `6회까지 실책 0개인 경우 셋업, 마무리 파워 +${v}` },
+  { id:14, name: '내야 시프트', type: '운영', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,40,65,100,180,300], condVals: [0,20,30,50,90,150], descBase: (v) => `내야수(1/2/3루,유격) 수비 +${v}`, descCond: (v) => `3회까지 안타 4개 미만인 경우 선발 컨트롤, 스터프 +${v}` }
 ];
 
 const totalTacticPt = computed(() => 2 + (globalBuffs.managerEnhance * 2) + (globalBuffs.managerBreakthrough * 4));
@@ -1536,7 +1536,7 @@ const computedPlayerStats = computed(() => {
         if (tLv[0] > 0 && isBatter && isCleanup) tacticFlat.homeRunPower += TACTICS_INFO[0].baseVals[tLv[0]];
         if (tLv[1] > 0 && isBatter && is912) tacticFlat.contact += TACTICS_INFO[1].baseVals[tLv[1]];
         if (tLv[2] > 0 && isBatter && isLower) tacticFlat.contact += TACTICS_INFO[2].baseVals[tLv[2]];
-        if (tLv[3] > 0 && isBatter && (isUpper || isLower)) tacticFlat.plateDiscipline += TACTICS_INFO[3].baseVals[tLv[3]];
+        if (tLv[3] > 0 && isBatter) tacticFlat.plateDiscipline += TACTICS_INFO[3].baseVals[tLv[3]];
         if (tLv[4] > 0 && isBatter) tacticFlat.gapPower += TACTICS_INFO[4].baseVals[tLv[4]];
         
         if (tLv[5] > 0 && isSp) tacticFlat.control += TACTICS_INFO[5].baseVals[tLv[5]];
