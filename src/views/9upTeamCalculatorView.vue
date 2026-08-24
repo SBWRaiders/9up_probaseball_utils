@@ -1771,8 +1771,7 @@ const applyLoadedData = (data: any) => {
 
 // 🌟 라인업 초기화 (각인 장비는 무조건 유지!) 🌟
 const resetLineup = () => {
-  if(!confirm('라인업의 모든 선수를 비우시겠습니까?
-(포지션에 장착된 각인 수치는 그대로 유지됩니다)')) return;
+  if(!confirm('라인업의 모든 선수를 비우시겠습니까?\n(포지션에 장착된 각인 수치는 그대로 유지됩니다)')) return;
   Object.keys(lineup.value).forEach(slot => {
     lineup.value[slot] = null;
     if (playerBuffs.value[slot]) {
@@ -1799,8 +1798,7 @@ const resetLineup = () => {
 
 // 🌟 다중 페이지 저장 (이름 지정) 🌟
 const saveToLocalStorage = () => {
-  const saveName = prompt('저장할 라인업 이름을 입력하세요:
-(예: 국대전용, 홈런타자세팅 등)');
+  const saveName = prompt('저장할 라인업 이름을 입력하세요:\n(예: 국대전용, 홈런타자세팅 등)');
   if (!saveName) return;
   const saveData = { lineup: lineup.value, playerBuffs: playerBuffs.value, globalBuffs: globalBuffs, imprintInventory: imprintInventory.value }
   let saves = JSON.parse(localStorage.getItem('9up_multi_saves') || '{}')
@@ -1829,8 +1827,7 @@ const loadSpecificSave = (saveName: string) => {
 };
 
 const deleteSpecificSave = (saveName: string) => {
-  if (!confirm(`정말로 '${saveName}' 라인업을 삭제하시겠습니까?
-(삭제 후에는 복구할 수 없습니다)`)) return;
+  if (!confirm(`정말로 '${saveName}' 라인업을 삭제하시겠습니까?\n(삭제 후에는 복구할 수 없습니다)`)) return;
   const saves = JSON.parse(localStorage.getItem('9up_multi_saves') || '{}');
   delete saves[saveName]; 
   localStorage.setItem('9up_multi_saves', JSON.stringify(saves));
@@ -1885,15 +1882,13 @@ const importFromFile = (event: Event) => {
       
       // 파일 안에 다중 저장 데이터가 포함되어 있다면 알림창에 내용 추가!
       const msg = data.multiSaves && Object.keys(data.multiSaves).length > 0
-        ? '✅ 파일 불러오기 완료!
-(다중 저장 목록도 무사히 복구되었습니다!)'
+        ? '✅ 파일 불러오기 완료!\n(다중 저장 목록도 무사히 복구되었습니다!)'
         : '✅ 파일에서 라인업을 성공적으로 불러왔습니다!';
       alert(msg)
       
     } catch (err: any) {
       console.error("파일 파싱 에러:", err)
-      alert('❌ 파일 불러오기 실패: 형식이 맞지 않거나 손상된 파일입니다.
-(' + err.message + ')')
+      alert('❌ 파일 불러오기 실패: 형식이 맞지 않거나 손상된 파일입니다.\n(' + err.message + ')')
     } finally {
       if (fileInput.value) fileInput.value.value = ''
     }
