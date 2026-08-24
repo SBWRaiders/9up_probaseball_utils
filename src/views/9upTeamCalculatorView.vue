@@ -2685,11 +2685,11 @@ const getPlayerImage = (p: Raw | null) => {
                          </div>
                          <select v-model.number="globalBuffs.tacticLevels[i]" class="text-[11px] sm:text-xs border rounded p-1 font-bold outline-none" :class="[globalBuffs.managerEnhance < tac.req[globalBuffs.tacticLevels[i]] ? 'text-red-500 border-red-300' : 'text-indigo-700 border-indigo-200 bg-indigo-50', globalBuffs.tacticLevels[i] === 0 ? 'text-neutral-500 bg-white border-neutral-200' : '']">
                             <option :value="0">Lv.0</option>
-                            <option :value="1" :disabled="globalBuffs.managerEnhance < tac.req[1]">Lv.1 ({{ tac.pt[1] }}pt)</option>
-                            <option :value="2" :disabled="globalBuffs.managerEnhance < tac.req[2]">Lv.2 ({{ tac.pt[2] }}pt)</option>
-                            <option :value="3" :disabled="globalBuffs.managerEnhance < tac.req[3]">Lv.3 ({{ tac.pt[3] }}pt)</option>
-                            <option :value="4" :disabled="globalBuffs.managerEnhance < tac.req[4]">Lv.4 ({{ tac.pt[4] }}pt)</option>
-                            <option :value="5" :disabled="globalBuffs.managerEnhance < tac.req[5]">Lv.5 ({{ tac.pt[5] }}pt)</option>
+                            <option :value="1" :disabled="globalBuffs.managerEnhance < tac.req[1]">Lv.1 ({{ tac.pt[1] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[1]"> / 🔒{{tac.req[1]}}강 필요</template>)</option>
+                            <option :value="2" :disabled="globalBuffs.managerEnhance < tac.req[2]">Lv.2 ({{ tac.pt[2] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[2]"> / 🔒{{tac.req[2]}}강 필요</template>)</option>
+                            <option :value="3" :disabled="globalBuffs.managerEnhance < tac.req[3]">Lv.3 ({{ tac.pt[3] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[3]"> / 🔒{{tac.req[3]}}강 필요</template>)</option>
+                            <option :value="4" :disabled="globalBuffs.managerEnhance < tac.req[4]">Lv.4 ({{ tac.pt[4] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[4]"> / 🔒{{tac.req[4]}}강 필요</template>)</option>
+                            <option :value="5" :disabled="globalBuffs.managerEnhance < tac.req[5]">Lv.5 ({{ tac.pt[5] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[5]"> / 🔒{{tac.req[5]}}강 필요</template>)</option>
                          </select>
                       </div>
                       
