@@ -321,8 +321,44 @@ const globalBuffs = reactive({
   amplifiedMasteryIndex: -1,
   // 🌟 바인더 100레벨 기본값 + 5x5 빙고판 데이터 배열
   binderLevel: 100, 
-  binderMatrix: Array(5).fill(0).map(() => ({ team: '', position: '', player: '', year: '', grade: '' }))
+  binderMatrix: Array(5).fill(0).map(() => ({ team: '', position: '', player: '', year: '', grade: '' })),
+  // 🌟 감독 전술 지시 데이터
+  managerBreakthrough: 0,
+  tacticLevels: Array(15).fill(0),
+  tacticScoringRate: 50,
+  tacticCleanupRate: 40
 })
+
+const TACTICS_INFO = [
+  { id:0, name: '마음껏 휘둘러라', type: '타자', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,25,40,70,120,200], condVals: [0,25,40,70,120,200], descBase: (v) => `클린업 홈런파워 +${v}`, descCond: (v) => `클린업 홈런3회 달성시 하위타선 컨택트 +${v}` },
+  { id:1, name: '연결고리', type: '타자', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,20,30,50,90,150], condVals: [0,10,20,35,60,100], descBase: (v) => `9,1,2번 컨택트 +${v}`, descCond: (v) => `9,1,2번 안타3회 달성시 클린업 갭파워 +${v}` },
+  { id:2, name: '하위 타선의 반란', type: '타자', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,10,25,35,60,100], condVals: [0,25,40,70,120,200], descBase: (v) => `하위타선 컨택트 +${v}`, descCond: (v) => `하위타선 안타3회 달성시 상위타선 선구 +${v}` },
+  { id:3, name: '끈질긴 승부', type: '타자', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,10,15,25,40,70], condVals: [0,5,10,18,30,50], descBase: (v) => `상위/하위타선 선구 +${v}`, descCond: (v) => `상위/하위 볼넷3회 달성시 전체타자 컨택트 +${v}` },
+  { id:4, name: '배럴 타구 생산', type: '타자', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,10,15,25,40,70], condVals: [0,3,6,10,18,30], descBase: (v) => `전체타자 갭파워 +${v}`, descCond: (v) => `전체 2루타 3회 달성시 전체타자 컨택트 +${v}` },
+  { id:5, name: '존에 욱여넣어라', type: '투수', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,15,25,45,70,120], condVals: [0,40,65,100,180,300], descBase: (v) => `선발 컨트롤 +${v}`, descCond: (v) => `선발투수 탈삼진3회 달성시 전체야수 수비 +${v}` },
+  { id:6, name: '벌떼 야구', type: '투수', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,20,30,50,90,150], condVals: [0,25,40,70,120,200], descBase: (v) => `계투 투수파워 +${v}`, descCond: (v) => `계투 탈삼진2회 달성시 계투 무브먼트 +${v}` },
+  { id:7, name: '이닝이터', type: '투수', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,2,3,5,9,15], condVals: [0,20,30,50,90,150], descBase: (v) => `선발 한계투구 +${v}`, descCond: (v) => `선발 6이닝 달성시 선발 투수파워 +${v}` },
+  { id:8, name: '감독 마운드 방문', type: '투수', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,20,30,50,90,150], condVals: [0,20,30,50,90,150], descBase: (v) => `투수 컨트롤 +${v} (득점권비율 곱연산)`, descCond: (v) => `득점권 피안타/볼넷시 투수 홈런억제 +${v}` },
+  { id:9, name: '좌우놀이', type: '투수', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,25,40,70,120,200], condVals: [0,15,25,45,70,120], descBase: (v) => `계투 투수파워 +${v}`, descCond: (v) => `계투 아웃카운트1개 달성시 계투 무브먼트 +${v}` },
+  { id:10, name: '작전 야구', type: '운영', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,15,25,45,70,120], condVals: [0,60,100,180,300,500], descBase: (v) => `상하위타선 선구 +${v}`, descCond: (v) => `번트성공시 작전 성공률 증가 (조건부)` },
+  { id:11, name: '발야구', type: '운영', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,5,8,15,25,40], condVals: [0,25,40,70,120,200], descBase: (v) => `상하위타선 주루/도루 +${v}`, descCond: (v) => `도루성공시 클린업 갭·홈런파워 +${v}` },
+  { id:12, name: '라인 수비', type: '운영', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,15,25,45,70,120], condVals: [0,15,25,45,70,120], descBase: (v) => `투수 장타억제 +${v} (클린업비율 곱연산)`, descCond: (v) => `투수 범타/탈삼진시 계투 무브먼트 +${v}` },
+  { id:13, name: '기본기 중시', type: '운영', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,40,65,100,180,300], condVals: [0,40,65,100,180,300], descBase: (v) => `야수 수비 +${v}`, descCond: (v) => `외야어시스트/병살시 셋업·마무리 투수파워 +${v}` },
+  { id:14, name: '내야 시프트', type: '운영', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,40,65,100,180,300], condVals: [0,20,30,50,90,150], descBase: (v) => `내야수 수비 +${v}`, descCond: (v) => `내야땅볼/병살시 선발 컨·스 +${v}` }
+];
+
+const totalTacticPt = computed(() => 2 + (globalBuffs.managerEnhance * 2) + (globalBuffs.managerBreakthrough * 4));
+const usedTacticPt = computed(() => {
+  let sum = 0;
+  if(globalBuffs.tacticLevels) {
+    globalBuffs.tacticLevels.forEach((lv, i) => {
+      if(lv > 0 && TACTICS_INFO[i]) sum += TACTICS_INFO[i].pt[lv];
+    });
+  }
+  return sum;
+});
+const remainingTacticPt = computed(() => totalTacticPt.value - usedTacticPt.value);
+
 
 const playerBuffs = ref<Record<string, PlayerBuff>>({})
 
@@ -644,7 +680,7 @@ const isSkillActive = (skillName: string, slot: string, battingOrder: number | n
 }
 
 const toLowerCase = (s: unknown): string => String(s ?? '').toLowerCase().trim()
-const normalizeText = (text: unknown): string => String(text ?? '').normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, ' ').trim().toLowerCase()
+const normalizeText = (text: unknown): string => String(text ?? '').normalize('NFKC').replace(/[​-‍﻿]/g, '').replace(/\s+/g, ' ').trim().toLowerCase()
 const getCleanArray = (value: any): string[] => {
   if (!value) return []
   let str = Array.isArray(value) ? value.join(',') : String(value)
@@ -857,7 +893,7 @@ watch(searchQuery, () => { currentPage.value = 1 }, { deep: true })
 const resetFilters = () => { searchQuery.search=''; searchQuery.team=[]; searchQuery.position=[]; searchQuery.synergy=[]; searchQuery.skill=[]; searchQuery.rarity=null; searchQuery.grade=[] }
 
 const checkSynergyInclusion = (target: string, playerSynergies: string[]) => {
-  const clean = (x:string)=>String(x??'').normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[,\s클럽]/g,'').trim()
+  const clean = (x:string)=>String(x??'').normalize('NFKC').replace(/[​-‍﻿]/g,'').replace(/[,\s클럽]/g,'').trim()
   const keyClean = clean(target)
   
   if (keyClean === '신') {
@@ -1475,6 +1511,46 @@ const computedPlayerStats = computed(() => {
       managerMainStat = table[level].main; managerSubStat = table[level].sub;
       managerMainName = MANAGER_TYPES[typeStr].main; managerSubName = MANAGER_TYPES[typeStr].sub;
     }
+    
+    // 🌟 감독 전술 지시 상시효과 자동 계산 🌟
+    let tacticFlat = {
+       homeRunPower: 0, contact: 0, plateDiscipline: 0, gapPower: 0,
+       control: 0, pitchLimit: 0, baseRunning: 0, stealing: 0,
+       longHitSuppression: 0, defense: 0, pitcherPower: 0
+    };
+    
+    if (globalBuffs.tacticLevels) {
+        const tLv = globalBuffs.tacticLevels;
+        const bOrder = buffs.battingOrder;
+        const isSp = slot.startsWith('SP');
+        const isRp = slot.startsWith('RP');
+        const isBatter = !isPitcher(p);
+        const isUpper = bOrder === 1 || bOrder === 2;
+        const isCleanup = bOrder === 3 || bOrder === 4 || bOrder === 5;
+        const isLower = bOrder === 6 || bOrder === 7 || bOrder === 8 || bOrder === 9;
+        const is912 = bOrder === 9 || bOrder === 1 || bOrder === 2;
+        const posArr = getArray(p.position).map(normalizePosition);
+        const isInfield = posArr.some(x => ['1B','2B','3B','SS','C'].includes(x));
+        
+        // 상시효과(조건부효과는 팀 파워에 제외됨)
+        if (tLv[0] > 0 && isBatter && isCleanup) tacticFlat.homeRunPower += TACTICS_INFO[0].baseVals[tLv[0]];
+        if (tLv[1] > 0 && isBatter && is912) tacticFlat.contact += TACTICS_INFO[1].baseVals[tLv[1]];
+        if (tLv[2] > 0 && isBatter && isLower) tacticFlat.contact += TACTICS_INFO[2].baseVals[tLv[2]];
+        if (tLv[3] > 0 && isBatter && (isUpper || isLower)) tacticFlat.plateDiscipline += TACTICS_INFO[3].baseVals[tLv[3]];
+        if (tLv[4] > 0 && isBatter) tacticFlat.gapPower += TACTICS_INFO[4].baseVals[tLv[4]];
+        
+        if (tLv[5] > 0 && isSp) tacticFlat.control += TACTICS_INFO[5].baseVals[tLv[5]];
+        if (tLv[6] > 0 && isRp) tacticFlat.pitcherPower += TACTICS_INFO[6].baseVals[tLv[6]];
+        if (tLv[7] > 0 && isSp) tacticFlat.pitchLimit += TACTICS_INFO[7].baseVals[tLv[7]];
+        if (tLv[8] > 0 && (isSp || isRp)) tacticFlat.control += TACTICS_INFO[8].baseVals[tLv[8]] * (globalBuffs.tacticScoringRate / 100);
+        if (tLv[9] > 0 && isRp) tacticFlat.pitcherPower += TACTICS_INFO[9].baseVals[tLv[9]];
+        
+        if (tLv[10] > 0 && isBatter && (isUpper || isLower)) tacticFlat.plateDiscipline += TACTICS_INFO[10].baseVals[tLv[10]];
+        if (tLv[11] > 0 && isBatter && (isUpper || isLower)) { tacticFlat.baseRunning += TACTICS_INFO[11].baseVals[tLv[11]]; tacticFlat.stealing += TACTICS_INFO[11].baseVals[tLv[11]]; }
+        if (tLv[12] > 0 && (isSp || isRp)) tacticFlat.longHitSuppression += TACTICS_INFO[12].baseVals[tLv[12]] * (globalBuffs.tacticCleanupRate / 100);
+        if (tLv[13] > 0 && isBatter) tacticFlat.defense += TACTICS_INFO[13].baseVals[tLv[13]];
+        if (tLv[14] > 0 && isBatter && isInfield) tacticFlat.defense += TACTICS_INFO[14].baseVals[tLv[14]];
+    }
 
     let finalTotal = 0
     const stats: Record<string, number> = {}
@@ -1515,7 +1591,7 @@ const computedPlayerStats = computed(() => {
       if (s === managerSubName) val += managerSubStat;
       
       val += Number(buffs.careerStats?.[s] || 0) + Number(buffs.imprintStats?.[s] || 0)
-      val += coreStatSum + Number(imprintStatBonus[s] || 0) + Number(careerStatBonus[s] || 0)
+      val += coreStatSum + Number(imprintStatBonus[s] || 0) + Number(careerStatBonus[s] || 0) + Number(tacticFlat[s] || 0)
 
       stats[s] = Math.round(val)
       finalTotal += val
@@ -1528,13 +1604,13 @@ const computedPlayerStats = computed(() => {
       if (s === managerMainName) val += managerMainStat;
       if (s === managerSubName) val += managerSubStat;
       val += Number(buffs.careerStats?.[s] || 0) + Number(buffs.imprintStats?.[s] || 0)
-      val += Number(imprintStatBonus[s] || 0)
+      val += Number(imprintStatBonus[s] || 0) + Number(tacticFlat[s] || 0)
 
       stats[s] = Math.round(val)
       finalTotal += val
     })
 
-    finalTotal += imprintGeneralPower;
+    finalTotal += imprintGeneralPower + (tacticFlat.pitcherPower || 0);
     result[slot] = { power: Math.round(finalTotal), stats }
   })
   return result
@@ -1676,6 +1752,10 @@ const applyLoadedData = (data: any) => {
     // 🌟 바인더 설정값도 파일에서 복구!
     if (data.globalBuffs.binderLevel === undefined) data.globalBuffs.binderLevel = 100;
     if (!data.globalBuffs.binderMatrix) data.globalBuffs.binderMatrix = Array(5).fill(0).map(() => ({ team: '', position: '', player: '', year: '', grade: '' }));
+    if (!data.globalBuffs.tacticLevels) data.globalBuffs.tacticLevels = Array(15).fill(0);
+    if (data.globalBuffs.managerBreakthrough === undefined) data.globalBuffs.managerBreakthrough = 0;
+    if (data.globalBuffs.tacticScoringRate === undefined) data.globalBuffs.tacticScoringRate = 50;
+    if (data.globalBuffs.tacticCleanupRate === undefined) data.globalBuffs.tacticCleanupRate = 40;
     
     Object.assign(globalBuffs, JSON.parse(JSON.stringify(data.globalBuffs)));
   }
@@ -1691,7 +1771,8 @@ const applyLoadedData = (data: any) => {
 
 // 🌟 라인업 초기화 (각인 장비는 무조건 유지!) 🌟
 const resetLineup = () => {
-  if(!confirm('라인업의 모든 선수를 비우시겠습니까?\n(포지션에 장착된 각인 수치는 그대로 유지됩니다)')) return;
+  if(!confirm('라인업의 모든 선수를 비우시겠습니까?
+(포지션에 장착된 각인 수치는 그대로 유지됩니다)')) return;
   Object.keys(lineup.value).forEach(slot => {
     lineup.value[slot] = null;
     if (playerBuffs.value[slot]) {
@@ -1718,7 +1799,8 @@ const resetLineup = () => {
 
 // 🌟 다중 페이지 저장 (이름 지정) 🌟
 const saveToLocalStorage = () => {
-  const saveName = prompt('저장할 라인업 이름을 입력하세요:\n(예: 국대전용, 홈런타자세팅 등)');
+  const saveName = prompt('저장할 라인업 이름을 입력하세요:
+(예: 국대전용, 홈런타자세팅 등)');
   if (!saveName) return;
   const saveData = { lineup: lineup.value, playerBuffs: playerBuffs.value, globalBuffs: globalBuffs, imprintInventory: imprintInventory.value }
   let saves = JSON.parse(localStorage.getItem('9up_multi_saves') || '{}')
@@ -1747,7 +1829,8 @@ const loadSpecificSave = (saveName: string) => {
 };
 
 const deleteSpecificSave = (saveName: string) => {
-  if (!confirm(`정말로 '${saveName}' 라인업을 삭제하시겠습니까?\n(삭제 후에는 복구할 수 없습니다)`)) return;
+  if (!confirm(`정말로 '${saveName}' 라인업을 삭제하시겠습니까?
+(삭제 후에는 복구할 수 없습니다)`)) return;
   const saves = JSON.parse(localStorage.getItem('9up_multi_saves') || '{}');
   delete saves[saveName]; 
   localStorage.setItem('9up_multi_saves', JSON.stringify(saves));
@@ -1802,13 +1885,15 @@ const importFromFile = (event: Event) => {
       
       // 파일 안에 다중 저장 데이터가 포함되어 있다면 알림창에 내용 추가!
       const msg = data.multiSaves && Object.keys(data.multiSaves).length > 0
-        ? '✅ 파일 불러오기 완료!\n(다중 저장 목록도 무사히 복구되었습니다!)'
+        ? '✅ 파일 불러오기 완료!
+(다중 저장 목록도 무사히 복구되었습니다!)'
         : '✅ 파일에서 라인업을 성공적으로 불러왔습니다!';
       alert(msg)
       
     } catch (err: any) {
       console.error("파일 파싱 에러:", err)
-      alert('❌ 파일 불러오기 실패: 형식이 맞지 않거나 손상된 파일입니다.\n(' + err.message + ')')
+      alert('❌ 파일 불러오기 실패: 형식이 맞지 않거나 손상된 파일입니다.
+(' + err.message + ')')
     } finally {
       if (fileInput.value) fileInput.value.value = ''
     }
@@ -2555,6 +2640,80 @@ const getPlayerImage = (p: Raw | null) => {
                      <input type="number" min="0" max="15" v-model.number="globalBuffs.managerEnhance" class="w-full px-2 py-1.5 text-center bg-white border rounded text-xs"/>
                    </div>
                  </div>
+              </div>
+              
+              <!-- 🌟 감독 전술 지시 (스킬트리) -->
+              <div class="bg-indigo-50 dark:bg-indigo-900/10 p-3 rounded-xl border border-indigo-100 dark:border-indigo-800 shadow-sm flex-shrink-0 mt-3">
+                <div class="flex justify-between items-center mb-2">
+                  <h3 class="text-sm font-bold text-indigo-800 dark:text-indigo-300 flex items-center gap-1"><TrendingUp class="w-4 h-4"/> 전술 지시 스킬트리</h3>
+                  <div class="text-[10px] sm:text-xs font-bold bg-white px-2 py-1 rounded shadow-sm border transition-colors" :class="remainingTacticPt < 0 ? 'text-red-500 border-red-300 bg-red-50' : 'text-indigo-600 border-indigo-200'">
+                     PT: {{ usedTacticPt }} / {{ totalTacticPt }} (잔여: {{ remainingTacticPt }})
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 mb-3">
+                  <div class="flex flex-col gap-1">
+                    <label class="text-[10px] font-bold text-neutral-500">감독 돌파 단계 (0~6)</label>
+                    <input type="number" min="0" max="6" v-model.number="globalBuffs.managerBreakthrough" class="w-full px-2 py-1.5 text-center bg-white border rounded text-xs"/>
+                  </div>
+                  <!-- 감독 강화는 기존 위에 있는 managerEnhance 변수 사용 -->
+                  <div class="flex flex-col gap-1 opacity-70">
+                    <label class="text-[10px] font-bold text-neutral-500">감독 강화 단계 (0~15)</label>
+                    <div class="w-full px-2 py-1.5 text-center bg-neutral-100 border rounded text-xs text-neutral-500 font-bold tracking-tight">※위탁 연동 ({{globalBuffs.managerEnhance}}강)</div>
+                  </div>
+                </div>
+
+                <div class="flex flex-col gap-1 mb-2 bg-white p-2 rounded border border-indigo-100 shadow-sm">
+                   <div class="text-[11px] font-bold text-indigo-700 mb-1">🎯 상황별 조건부 반영 비율 조절</div>
+                   <div class="flex gap-2">
+                      <div class="flex-1 flex flex-col gap-0.5">
+                         <label class="text-[9px] text-neutral-500">득점권 상황 확률(%)</label>
+                         <input type="number" min="0" max="100" v-model.number="globalBuffs.tacticScoringRate" class="w-full px-2 py-1 bg-neutral-50 border rounded text-xs text-center font-bold text-indigo-600 outline-none focus:border-indigo-500 focus:bg-white transition-colors"/>
+                      </div>
+                      <div class="flex-1 flex flex-col gap-0.5">
+                         <label class="text-[9px] text-neutral-500">클린업 상대 확률(%)</label>
+                         <input type="number" min="0" max="100" v-model.number="globalBuffs.tacticCleanupRate" class="w-full px-2 py-1 bg-neutral-50 border rounded text-xs text-center font-bold text-indigo-600 outline-none focus:border-indigo-500 focus:bg-white transition-colors"/>
+                      </div>
+                   </div>
+                   <p class="text-[9px] text-neutral-400 mt-1 leading-tight font-medium">
+                     💡 팁: 우리 팀 투수진이 강력해서 위기가 잘 안 온다면 '득점권' 확률을 낮추고, 불펜이 불안하다면 올려서 투명하게 시뮬레이션 하세요!
+                   </p>
+                </div>
+
+                <!-- 전술 목록 (스크롤) -->
+                <div class="flex flex-col gap-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
+                   <div v-for="(tac, i) in TACTICS_INFO" :key="'tac'+i" class="bg-white border rounded-lg p-2 shadow-sm transition-all" :class="globalBuffs.tacticLevels[i] > 0 ? 'border-indigo-300 bg-indigo-50/20' : 'border-neutral-200'">
+                      <div class="flex justify-between items-center mb-1">
+                         <div class="flex items-center gap-1.5">
+                           <span class="text-[9px] px-1.5 py-0.5 bg-neutral-100 rounded font-black border" :class="tac.type==='타자'?'text-orange-600 border-orange-200':tac.type==='투수'?'text-blue-600 border-blue-200':'text-emerald-600 border-emerald-200'">{{ tac.type }}</span>
+                           <span class="text-[11px] sm:text-xs font-bold text-neutral-800">{{ tac.name }}</span>
+                         </div>
+                         <select v-model.number="globalBuffs.tacticLevels[i]" class="text-[11px] sm:text-xs border rounded p-1 font-bold outline-none" :class="[globalBuffs.managerEnhance < tac.req[globalBuffs.tacticLevels[i]] ? 'text-red-500 border-red-300' : 'text-indigo-700 border-indigo-200 bg-indigo-50', globalBuffs.tacticLevels[i] === 0 ? 'text-neutral-500 bg-white border-neutral-200' : '']">
+                            <option :value="0">Lv.0</option>
+                            <option :value="1" :disabled="globalBuffs.managerEnhance < tac.req[1]">Lv.1 ({{ tac.pt[1] }}pt)</option>
+                            <option :value="2" :disabled="globalBuffs.managerEnhance < tac.req[2]">Lv.2 ({{ tac.pt[2] }}pt)</option>
+                            <option :value="3" :disabled="globalBuffs.managerEnhance < tac.req[3]">Lv.3 ({{ tac.pt[3] }}pt)</option>
+                            <option :value="4" :disabled="globalBuffs.managerEnhance < tac.req[4]">Lv.4 ({{ tac.pt[4] }}pt)</option>
+                            <option :value="5" :disabled="globalBuffs.managerEnhance < tac.req[5]">Lv.5 ({{ tac.pt[5] }}pt)</option>
+                         </select>
+                      </div>
+                      
+                      <!-- 스탯 설명 박스 -->
+                      <div class="flex flex-col gap-0.5 p-1.5 rounded border transition-colors" :class="globalBuffs.tacticLevels[i] > 0 ? 'bg-indigo-50 border-indigo-100' : 'bg-neutral-50 border-neutral-100'">
+                         <div class="text-[10px] font-bold flex items-center justify-between" :class="globalBuffs.tacticLevels[i] > 0 ? 'text-indigo-700' : 'text-neutral-500'">
+                            <span>[상시] {{ tac.descBase(tac.baseVals[globalBuffs.tacticLevels[i]]) }}</span>
+                         </div>
+                         <div class="text-[10px] font-medium flex items-center justify-between" :class="globalBuffs.tacticLevels[i] > 0 ? 'text-indigo-900/70' : 'text-neutral-400'">
+                            <span>[조건] {{ tac.descCond(tac.condVals[globalBuffs.tacticLevels[i]]) }}</span>
+                         </div>
+                      </div>
+                      
+                      <!-- 경고 메시지 -->
+                      <div v-if="globalBuffs.managerEnhance < tac.req[globalBuffs.tacticLevels[i]]" class="text-[9px] text-red-500 font-bold mt-1 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">
+                         ⚠️ 강화 부족: 인게임 발동 불가 (최소 {{ tac.req[globalBuffs.tacticLevels[i]] }}강 필요)
+                      </div>
+                   </div>
+                </div>
               </div>
               
               <!-- 활성화된 팀 시너지 영역 -->
