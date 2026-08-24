@@ -1530,7 +1530,7 @@ const computedPlayerStats = computed(() => {
         const isLower = bOrder === 6 || bOrder === 7 || bOrder === 8 || bOrder === 9;
         const is912 = bOrder === 9 || bOrder === 1 || bOrder === 2;
         const posArr = getArray(p.position).map(normalizePosition);
-        const isInfield = posArr.some(x => ['1B','2B','3B','SS','C'].includes(x));
+        const isInfield = posArr.some(x => ['1B','2B','3B','SS'].includes(x));
         
         // 상시효과(조건부효과는 팀 파워에 제외됨)
         if (tLv[0] > 0 && isBatter && isCleanup) tacticFlat.homeRunPower += TACTICS_INFO[0].baseVals[tLv[0]];
@@ -1548,7 +1548,7 @@ const computedPlayerStats = computed(() => {
         if (tLv[10] > 0 && isBatter && (isUpper || isLower)) tacticFlat.plateDiscipline += TACTICS_INFO[10].baseVals[tLv[10]];
         if (tLv[11] > 0 && isBatter && (isUpper || isLower)) { tacticFlat.baseRunning += TACTICS_INFO[11].baseVals[tLv[11]]; tacticFlat.stealing += TACTICS_INFO[11].baseVals[tLv[11]]; }
         if (tLv[12] > 0 && (isSp || isRp)) tacticFlat.longHitSuppression += TACTICS_INFO[12].baseVals[tLv[12]] * (globalBuffs.tacticCleanupRate / 100);
-        if (tLv[13] > 0 && isBatter) tacticFlat.defense += TACTICS_INFO[13].baseVals[tLv[13]];
+        if (tLv[13] > 0) tacticFlat.defense += TACTICS_INFO[13].baseVals[tLv[13]]; // 야수는 투수, 포수 모두 포함
         if (tLv[14] > 0 && isBatter && isInfield) tacticFlat.defense += TACTICS_INFO[14].baseVals[tLv[14]];
     }
 
