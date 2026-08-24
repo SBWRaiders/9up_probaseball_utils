@@ -325,8 +325,8 @@ const globalBuffs = reactive({
   // 🌟 감독 전술 지시 데이터
   managerBreakthrough: 0,
   tacticLevels: Array(15).fill(0),
-  tacticScoringRate: 50,
-  tacticCleanupRate: 40
+  tacticBaseRates: { scoring: 50, cleanup: 40 },
+  tacticCondRates: [5, 24.5, 20, 24.5, 21, 7.5, 30, 25.5, 25, 50, 0, 0, 50, 60, 32.5]
 })
 
 const TACTICS_INFO = [
@@ -1512,12 +1512,9 @@ const computedPlayerStats = computed(() => {
       managerMainName = MANAGER_TYPES[typeStr].main; managerSubName = MANAGER_TYPES[typeStr].sub;
     }
     
-    // 🌟 감독 전술 지시 상시효과 자동 계산 🌟
-    let tacticFlat = {
-       homeRunPower: 0, contact: 0, plateDiscipline: 0, gapPower: 0,
-       control: 0, pitchLimit: 0, baseRunning: 0, stealing: 0,
-       longHitSuppression: 0, defense: 0, pitcherPower: 0
-    };
+        // 🌟 감독 전술 지시 상시효과 자동 계산 🌟
+    let tacticFlat: Record<string, number> = {};
+    let tacticCondExpected: Record<string, number> = {};
     
     if (globalBuffs.tacticLevels) {
         const tLv = globalBuffs.tacticLevels;
@@ -1532,24 +1529,49 @@ const computedPlayerStats = computed(() => {
         const posArr = getArray(p.position).map(normalizePosition);
         const isInfield = posArr.some(x => ['1B','2B','3B','SS'].includes(x));
         
-        // 상시효과(조건부효과는 팀 파워에 제외됨)
-        if (tLv[0] > 0 && isBatter && isCleanup) tacticFlat.homeRunPower += TACTICS_INFO[0].baseVals[tLv[0]];
-        if (tLv[1] > 0 && isBatter && is912) tacticFlat.contact += TACTICS_INFO[1].baseVals[tLv[1]];
-        if (tLv[2] > 0 && isBatter && isLower) tacticFlat.contact += TACTICS_INFO[2].baseVals[tLv[2]];
-        if (tLv[3] > 0 && isBatter) tacticFlat.plateDiscipline += TACTICS_INFO[3].baseVals[tLv[3]];
-        if (tLv[4] > 0 && isBatter) tacticFlat.gapPower += TACTICS_INFO[4].baseVals[tLv[4]];
+        const rates = globalBuffs.tacticCondRates;
+        const addCond = (stat: string, val: number) => { tacticCondExpected[stat] = (tacticCondExpected[stat] || 0) + val; };
         
-        if (tLv[5] > 0 && isSp) tacticFlat.control += TACTICS_INFO[5].baseVals[tLv[5]];
-        if (tLv[6] > 0 && isRp) tacticFlat.pitcherPower += TACTICS_INFO[6].baseVals[tLv[6]];
-        if (tLv[7] > 0 && isSp) tacticFlat.pitchLimit += TACTICS_INFO[7].baseVals[tLv[7]];
-        if (tLv[8] > 0 && (isSp || isRp)) tacticFlat.control += TACTICS_INFO[8].baseVals[tLv[8]] * (globalBuffs.tacticScoringRate / 100);
-        if (tLv[9] > 0 && isRp) tacticFlat.pitcherPower += TACTICS_INFO[9].baseVals[tLv[9]];
+        // 🌟 상시 효과 (Base) 계산
+        if (tLv[0] > 0 && isBatter && isCleanup) tacticFlat.homeRunPower = (tacticFlat.homeRunPower || 0) + TACTICS_INFO[0].baseVals[tLv[0]];
+        if (tLv[1] > 0 && isBatter && is912) tacticFlat.contact = (tacticFlat.contact || 0) + TACTICS_INFO[1].baseVals[tLv[1]];
+        if (tLv[2] > 0 && isBatter && isLower) tacticFlat.contact = (tacticFlat.contact || 0) + TACTICS_INFO[2].baseVals[tLv[2]];
+        if (tLv[3] > 0 && isBatter) tacticFlat.plateDiscipline = (tacticFlat.plateDiscipline || 0) + TACTICS_INFO[3].baseVals[tLv[3]];
+        if (tLv[4] > 0 && isBatter) tacticFlat.gapPower = (tacticFlat.gapPower || 0) + TACTICS_INFO[4].baseVals[tLv[4]];
         
-        if (tLv[10] > 0 && isBatter && (isUpper || isLower)) tacticFlat.plateDiscipline += TACTICS_INFO[10].baseVals[tLv[10]];
-        if (tLv[11] > 0 && isBatter && (isUpper || isLower)) { tacticFlat.baseRunning += TACTICS_INFO[11].baseVals[tLv[11]]; tacticFlat.stealing += TACTICS_INFO[11].baseVals[tLv[11]]; }
-        if (tLv[12] > 0 && (isSp || isRp)) tacticFlat.longHitSuppression += TACTICS_INFO[12].baseVals[tLv[12]] * (globalBuffs.tacticCleanupRate / 100);
-        if (tLv[13] > 0) tacticFlat.defense += TACTICS_INFO[13].baseVals[tLv[13]]; // 야수는 투수, 포수 모두 포함
-        if (tLv[14] > 0 && isBatter && isInfield) tacticFlat.defense += TACTICS_INFO[14].baseVals[tLv[14]];
+        if (tLv[5] > 0 && isSp) tacticFlat.control = (tacticFlat.control || 0) + TACTICS_INFO[5].baseVals[tLv[5]];
+        if (tLv[6] > 0 && isRp) tacticFlat.pitcherPower = (tacticFlat.pitcherPower || 0) + TACTICS_INFO[6].baseVals[tLv[6]];
+        if (tLv[7] > 0 && isSp) tacticFlat.pitchLimit = (tacticFlat.pitchLimit || 0) + TACTICS_INFO[7].baseVals[tLv[7]];
+        
+        // 상시(조건연동) 효과 - 8번, 12번은 상시 파워에 반영됨 (유저 조절 비율 곱)
+        if (tLv[8] > 0 && (isSp || isRp)) tacticFlat.control = (tacticFlat.control || 0) + TACTICS_INFO[8].baseVals[tLv[8]] * (globalBuffs.tacticBaseRates.scoring / 100);
+        if (tLv[12] > 0 && (isSp || isRp)) tacticFlat.longHitSuppression = (tacticFlat.longHitSuppression || 0) + TACTICS_INFO[12].baseVals[tLv[12]] * (globalBuffs.tacticBaseRates.cleanup / 100);
+        
+        if (tLv[9] > 0 && isRp) tacticFlat.pitcherPower = (tacticFlat.pitcherPower || 0) + TACTICS_INFO[9].baseVals[tLv[9]];
+        
+        if (tLv[10] > 0 && isBatter && (isUpper || isLower)) tacticFlat.plateDiscipline = (tacticFlat.plateDiscipline || 0) + TACTICS_INFO[10].baseVals[tLv[10]];
+        if (tLv[11] > 0 && isBatter && (isUpper || isLower)) { tacticFlat.baseRunning = (tacticFlat.baseRunning || 0) + TACTICS_INFO[11].baseVals[tLv[11]]; tacticFlat.stealing = (tacticFlat.stealing || 0) + TACTICS_INFO[11].baseVals[tLv[11]]; }
+        if (tLv[13] > 0) tacticFlat.defense = (tacticFlat.defense || 0) + TACTICS_INFO[13].baseVals[tLv[13]];
+        if (tLv[14] > 0 && isBatter && isInfield) tacticFlat.defense = (tacticFlat.defense || 0) + TACTICS_INFO[14].baseVals[tLv[14]];
+
+        // 🌟 조건부 달성 효과 (Conditional) 계산 (깡파워에서는 제외, 세부 스탯과 오각형 레이더 차트에만 기댓값으로 반영)
+        if (tLv[0] > 0 && isBatter && isLower) addCond('contact', TACTICS_INFO[0].condVals[tLv[0]] * (rates[0] / 100));
+        if (tLv[1] > 0 && isBatter && isCleanup) addCond('gapPower', TACTICS_INFO[1].condVals[tLv[1]] * (rates[1] / 100));
+        if (tLv[2] > 0 && isBatter && isUpper) addCond('plateDiscipline', TACTICS_INFO[2].condVals[tLv[2]] * (rates[2] / 100));
+        if (tLv[3] > 0 && isBatter) addCond('contact', TACTICS_INFO[3].condVals[tLv[3]] * (rates[3] / 100));
+        if (tLv[4] > 0 && isBatter) addCond('contact', TACTICS_INFO[4].condVals[tLv[4]] * (rates[4] / 100));
+        
+        if (tLv[5] > 0) addCond('defense', TACTICS_INFO[5].condVals[tLv[5]] * (rates[5] / 100));
+        if (tLv[6] > 0 && isRp) addCond('movement', TACTICS_INFO[6].condVals[tLv[6]] * (rates[6] / 100));
+        if (tLv[7] > 0 && isSp) addCond('pitcherPower', TACTICS_INFO[7].condVals[tLv[7]] * (rates[7] / 100));
+        if (tLv[8] > 0 && (isSp || isRp)) addCond('homeRunSuppression', TACTICS_INFO[8].condVals[tLv[8]] * (rates[8] / 100));
+        if (tLv[9] > 0 && isRp) addCond('movement', TACTICS_INFO[9].condVals[tLv[9]] * (rates[9] / 100));
+        
+        if (tLv[10] > 0 && isBatter) addCond('batterPower', TACTICS_INFO[10].condVals[tLv[10]] * (rates[10] / 100));
+        if (tLv[11] > 0 && isBatter) { addCond('gapPower', TACTICS_INFO[11].condVals[tLv[11]] * (rates[11] / 100)); addCond('homeRunPower', TACTICS_INFO[11].condVals[tLv[11]] * (rates[11] / 100)); }
+        if (tLv[12] > 0 && isRp) addCond('movement', TACTICS_INFO[12].condVals[tLv[12]] * (rates[12] / 100));
+        if (tLv[13] > 0 && (slot === 'RP3' || slot === 'RP4')) addCond('pitcherPower', TACTICS_INFO[13].condVals[tLv[13]] * (rates[13] / 100));
+        if (tLv[14] > 0 && isSp) { addCond('control', TACTICS_INFO[14].condVals[tLv[14]] * (rates[14] / 100)); addCond('stuff', TACTICS_INFO[14].condVals[tLv[14]] * (rates[14] / 100)); }
     }
 
     let finalTotal = 0
@@ -1593,8 +1615,9 @@ const computedPlayerStats = computed(() => {
       val += Number(buffs.careerStats?.[s] || 0) + Number(buffs.imprintStats?.[s] || 0)
       val += coreStatSum + Number(imprintStatBonus[s] || 0) + Number(careerStatBonus[s] || 0) + Number(tacticFlat[s] || 0)
 
-      stats[s] = Math.round(val)
       finalTotal += val
+      // 🌟 로비 파워(finalTotal)에는 안 들어가지만, 유저가 보기 편하게 세부 스탯에는 조건부 기댓값을 얹어줍니다.
+      stats[s] = Math.round(val + Number(tacticCondExpected[s] || 0))
     })
     
     nonCoreStats.forEach(s => {
@@ -1606,11 +1629,15 @@ const computedPlayerStats = computed(() => {
       val += Number(buffs.careerStats?.[s] || 0) + Number(buffs.imprintStats?.[s] || 0)
       val += Number(imprintStatBonus[s] || 0) + Number(tacticFlat[s] || 0)
 
-      stats[s] = Math.round(val)
       finalTotal += val
+      stats[s] = Math.round(val + Number(tacticCondExpected[s] || 0))
     })
 
     finalTotal += imprintGeneralPower + (tacticFlat.pitcherPower || 0);
+    
+    // 🌟 10번 전술 조건부 타자 파워 기댓값 추가 (로비 파워 제외, 디스플레이용)
+    if (!isPit && tacticCondExpected.batterPower) finalTotal += tacticCondExpected.batterPower;
+    if (isPit && tacticCondExpected.pitcherPower) finalTotal += tacticCondExpected.pitcherPower;
     result[slot] = { power: Math.round(finalTotal), stats }
   })
   return result
@@ -1754,8 +1781,8 @@ const applyLoadedData = (data: any) => {
     if (!data.globalBuffs.binderMatrix) data.globalBuffs.binderMatrix = Array(5).fill(0).map(() => ({ team: '', position: '', player: '', year: '', grade: '' }));
     if (!data.globalBuffs.tacticLevels) data.globalBuffs.tacticLevels = Array(15).fill(0);
     if (data.globalBuffs.managerBreakthrough === undefined) data.globalBuffs.managerBreakthrough = 0;
-    if (data.globalBuffs.tacticScoringRate === undefined) data.globalBuffs.tacticScoringRate = 50;
-    if (data.globalBuffs.tacticCleanupRate === undefined) data.globalBuffs.tacticCleanupRate = 40;
+    if (!data.globalBuffs.tacticBaseRates) data.globalBuffs.tacticBaseRates = { scoring: data.globalBuffs.tacticScoringRate ?? 50, cleanup: data.globalBuffs.tacticCleanupRate ?? 40 };
+    if (!data.globalBuffs.tacticCondRates) data.globalBuffs.tacticCondRates = [5, 24.5, 20, 24.5, 21, 7.5, 30, 25.5, 25, 50, 0, 0, 50, 60, 32.5];
     
     Object.assign(globalBuffs, JSON.parse(JSON.stringify(data.globalBuffs)));
   }
@@ -2658,21 +2685,40 @@ const getPlayerImage = (p: Raw | null) => {
                   </div>
                 </div>
 
-                <div class="flex flex-col gap-1 mb-2 bg-white p-2 rounded border border-indigo-100 shadow-sm">
-                   <div class="text-[11px] font-bold text-indigo-700 mb-1">🎯 상황별 조건부 반영 비율 조절</div>
-                   <div class="flex gap-2">
-                      <div class="flex-1 flex flex-col gap-0.5">
-                         <label class="text-[9px] text-neutral-500">득점권 상황 확률(%)</label>
-                         <input type="number" min="0" max="100" v-model.number="globalBuffs.tacticScoringRate" class="w-full px-2 py-1 bg-neutral-50 border rounded text-xs text-center font-bold text-indigo-600 outline-none focus:border-indigo-500 focus:bg-white transition-colors"/>
-                      </div>
-                      <div class="flex-1 flex flex-col gap-0.5">
-                         <label class="text-[9px] text-neutral-500">클린업 상대 확률(%)</label>
-                         <input type="number" min="0" max="100" v-model.number="globalBuffs.tacticCleanupRate" class="w-full px-2 py-1 bg-neutral-50 border rounded text-xs text-center font-bold text-indigo-600 outline-none focus:border-indigo-500 focus:bg-white transition-colors"/>
-                      </div>
-                   </div>
-                   <p class="text-[9px] text-neutral-400 mt-1 leading-tight font-medium">
-                     💡 팁: 우리 팀 투수진이 강력해서 위기가 잘 안 온다면 '득점권' 확률을 낮추고, 불펜이 불안하다면 올려서 투명하게 시뮬레이션 하세요!
-                   </p>
+                <!-- 궁극의 커스텀 UI: 모달 대신 아코디언으로 17개 옵션 전부 조절 가능하게 변경 -->
+                <div class="flex flex-col mb-2 bg-white rounded border border-indigo-100 shadow-sm overflow-hidden">
+                   <details class="group">
+                     <summary class="text-[11px] font-bold text-indigo-700 p-2 cursor-pointer bg-indigo-50/50 flex justify-between items-center outline-none">
+                       <span>🎯 궁극의 커스텀: 조건부 발생 확률 상세 조절</span>
+                       <ChevronRightIcon class="w-3 h-3 transition-transform group-open:rotate-90"/>
+                     </summary>
+                     <div class="p-2 flex flex-col gap-2 max-h-[250px] overflow-y-auto custom-scrollbar border-t border-indigo-100 bg-neutral-50/50">
+                       <div class="text-[9px] text-neutral-500 font-bold mb-1 leading-tight border-b pb-1">
+                         ※ 기댓값을 위해 엑셀 원본의 발생 확률×잔여이닝(%)이 기본값으로 세팅되어 있습니다.<br>
+                         ※ 개인 덱 상황에 맞춰 자유롭게 세부 확률을 조절해 보세요.
+                       </div>
+                       
+                       <div class="flex flex-col gap-1.5">
+                         <div class="text-[10px] font-black text-indigo-900 border-b border-indigo-100 pb-0.5">■ 상시 효과 (상황 연동)</div>
+                         <div class="flex justify-between items-center text-[10px]">
+                           <span class="text-neutral-700">8번. 득점권 상황 도래 확률</span>
+                           <div class="flex items-center gap-1"><input type="number" step="0.1" v-model.number="globalBuffs.tacticBaseRates.scoring" class="w-12 text-center border rounded p-0.5 outline-none font-bold text-indigo-600">%</div>
+                         </div>
+                         <div class="flex justify-between items-center text-[10px]">
+                           <span class="text-neutral-700">12번. 클린업 타선 상대 확률</span>
+                           <div class="flex items-center gap-1"><input type="number" step="0.1" v-model.number="globalBuffs.tacticBaseRates.cleanup" class="w-12 text-center border rounded p-0.5 outline-none font-bold text-indigo-600">%</div>
+                         </div>
+                       </div>
+                       
+                       <div class="flex flex-col gap-1.5 mt-2">
+                         <div class="text-[10px] font-black text-amber-600 border-b border-amber-100 pb-0.5">■ 조건 달성 효과</div>
+                         <div v-for="(tac, i) in TACTICS_INFO" :key="'prob'+i" class="flex justify-between items-center text-[10px]">
+                           <span class="text-neutral-700 truncate pr-2 flex-1" :title="tac.descCond(tac.condVals[1])">{{ i+1 }}번. {{ tac.name }} 성공</span>
+                           <div class="flex items-center gap-1 shrink-0"><input type="number" step="0.1" v-model.number="globalBuffs.tacticCondRates[i]" class="w-12 text-center border rounded p-0.5 outline-none font-bold text-amber-600">%</div>
+                         </div>
+                       </div>
+                     </div>
+                   </details>
                 </div>
 
                 <!-- 전술 목록 (스크롤) -->
