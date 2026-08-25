@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "chart.js": "^4.5.0",
+    "firebase": "^10.13.0",
     "lucide-vue-next": "^0.534.0",
     "marked": "^16.2.0",
     "nvm": "^0.0.4",
