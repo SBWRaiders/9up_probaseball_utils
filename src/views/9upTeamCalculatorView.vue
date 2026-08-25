@@ -783,6 +783,23 @@ const matchSkillInfo = (skill: string) => {
   return normalSkillData.value.find((s) => s.skill === skill)?.image || ''
 }
 
+const getNormalSkillDescription = (skillName: string) => {
+  const data = normalSkillData.value.find(s => s.skill === skillName);
+  if (data && data.description) return data.description;
+  if (data && data.effect) return data.effect;
+  
+  const eff = SKILL_EFFECTS[skillName];
+  if (!eff) return '설명 정보 없음';
+  
+  const parts = [];
+  if (eff.powerPercent) parts.push(`파워 +${eff.powerPercent}%`);
+  for (const [k, v] of Object.entries(eff.stats || {})) {
+    parts.push(`${STAT_LABELS[k] || k} +${v}`);
+  }
+  return parts.join(', ') || '특수 조건 발동 스킬';
+}
+
+
 // 🌟 강화스킬 이미지 매칭
 const matchEnhancedSkillImage = (skill: string) => {
   const img = enhancedSkillData.value.find((s) => s.enhanced_skill === skill)?.image || '';
@@ -3080,7 +3097,14 @@ const getPlayerImage = (p: Raw | null) => {
                       <span v-if="playerBuffs[selectedSlot].selectedSkills.includes(sk) && !isSkillActive(sk, selectedSlot, playerBuffs[selectedSlot].battingOrder)" 
                             class="absolute -top-1.5 -right-1.5 bg-white text-red-600 border border-red-500 text-[9px] font-black px-1 rounded-full shadow-sm whitespace-nowrap z-10 scale-90 origin-bottom-left">
                         불일치
-                      </span>
+                      </span>                  
+                      <!-- 🌟 스킬 효과 툴팁 (마우스 오버 시 표시) -->
+                      <div class="absolute bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center z-50 w-max max-w-[160px] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <div class="bg-neutral-800 dark:bg-white text-white dark:text-neutral-900 text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-xl break-keep text-center leading-snug whitespace-pre-wrap border border-neutral-700 dark:border-neutral-200">
+                          {{ getNormalSkillDescription(sk) }}
+                        </div>
+                        <div class="w-2.5 h-2.5 bg-neutral-800 dark:bg-white rotate-45 -mt-1.5 border-r border-b border-neutral-700 dark:border-neutral-200"></div>
+                      </div>
                     </button>
                   </div>
                 </div>
