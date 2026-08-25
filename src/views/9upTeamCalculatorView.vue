@@ -786,22 +786,32 @@ const matchSkillInfo = (skill: string) => {
 const getNormalSkillDescription = (skillName: string) => {
   const data = normalSkillData.value.find(s => s.skill === skillName);
   
-  // 🌟 감성적인 문구(description) 대신 직관적인 실제 효과(effect)를 1순위로 표시!
+  // 🌟 1순위: DB에 있는 'effect' 값을 그대로 출력합니다. (인게임 툴팁과 100% 동일하게)
   if (data && data.effect) {
-    // 쉼표 단위로 띄어쓰기를 살짝 넣어서 가독성 및 줄바꿈을 개선합니다.
-    return data.effect.replace(/,/g, ', ');
+    if (Array.isArray(data.effect)) {
+       return data.effect.map(e => `- ${e}`).join('
+');
+    }
+    // 문자열이라면 줄바꿈 문자를 살려줍니다.
+    return String(data.effect).replace(/,/g, ', ').replace(/
+/g, '
+- ');
   }
   
-  // 만약 effect가 없다면 계산기의 스탯 수치를 활용
+  // 🌟 2순위: DB에 effect가 없다면 계산기 내부 스탯을 읽어와서 출력합니다.
   const eff = SKILL_EFFECTS[skillName];
-  if (!eff) return data?.description || '설명 정보 없음';
-  
-  const parts = [];
-  if (eff.powerPercent) parts.push(`파워 +${eff.powerPercent}%`);
-  for (const [k, v] of Object.entries(eff.stats || {})) {
-    parts.push(`${STAT_LABELS[k] || k} +${v}`);
+  if (eff) {
+    const parts = [];
+    if (eff.powerPercent) parts.push(`- 파워 +${eff.powerPercent}%`);
+    for (const [k, v] of Object.entries(eff.stats || {})) {
+      parts.push(`- ${STAT_LABELS[k] || k} +${v}`);
+    }
+    if (parts.length > 0) return parts.join('
+');
   }
-  return parts.join(', ') || '특수 조건 발동 스킬';
+
+  // 🌟 3순위: 아무런 효과 데이터가 없으면 감성 문구라도 띄워줍니다.
+  return data?.description ? `- ${data.description}` : '- 특수 조건 발동 스킬';
 }
 
 
@@ -3104,11 +3114,11 @@ const getPlayerImage = (p: Raw | null) => {
                         불일치
                       </span>                  
                       <!-- 🌟 스킬 효과 툴팁 (마우스 오버 시 표시) -->
-                      <div class="absolute bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center z-50 w-max max-w-[160px] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                        <div class="bg-neutral-800 dark:bg-white text-white dark:text-neutral-900 text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-xl break-keep text-center leading-snug whitespace-pre-wrap border border-neutral-700 dark:border-neutral-200">
+                      <div class="absolute bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center z-50 w-max max-w-[200px] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <div class="bg-neutral-900 dark:bg-white text-neutral-100 dark:text-neutral-900 text-[11px] font-medium px-3 py-2 rounded-lg shadow-xl text-left leading-relaxed whitespace-pre-wrap border border-neutral-700 dark:border-neutral-200 tracking-tight">
                           {{ getNormalSkillDescription(sk) }}
                         </div>
-                        <div class="w-2.5 h-2.5 bg-neutral-800 dark:bg-white rotate-45 -mt-1.5 border-r border-b border-neutral-700 dark:border-neutral-200"></div>
+                        <div class="w-2.5 h-2.5 bg-neutral-900 dark:bg-white rotate-45 -mt-1.5 border-r border-b border-neutral-700 dark:border-neutral-200"></div>
                       </div>
                     </button>
                   </div>
