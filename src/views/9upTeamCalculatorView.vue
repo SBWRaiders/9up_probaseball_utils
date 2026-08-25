@@ -789,13 +789,10 @@ const getNormalSkillDescription = (skillName: string) => {
   // 🌟 1순위: DB에 있는 'effect' 값을 그대로 출력합니다. (인게임 툴팁과 100% 동일하게)
   if (data && data.effect) {
     if (Array.isArray(data.effect)) {
-       return data.effect.map(e => `- ${e}`).join('
-');
+       return data.effect.map(e => `- ${e}`).join('\n');
     }
     // 문자열이라면 줄바꿈 문자를 살려줍니다.
-    return String(data.effect).replace(/,/g, ', ').replace(/
-/g, '
-- ');
+    return String(data.effect).replace(/,/g, ', ').replace(/\n/g, '\n- ');
   }
   
   // 🌟 2순위: DB에 effect가 없다면 계산기 내부 스탯을 읽어와서 출력합니다.
@@ -806,8 +803,7 @@ const getNormalSkillDescription = (skillName: string) => {
     for (const [k, v] of Object.entries(eff.stats || {})) {
       parts.push(`- ${STAT_LABELS[k] || k} +${v}`);
     }
-    if (parts.length > 0) return parts.join('
-');
+    if (parts.length > 0) return parts.join('\n');
   }
 
   // 🌟 3순위: 아무런 효과 데이터가 없으면 감성 문구라도 띄워줍니다.
