@@ -786,13 +786,17 @@ const matchSkillInfo = (skill: string) => {
 const getNormalSkillDescription = (skillName: string) => {
   const data = normalSkillData.value.find(s => s.skill === skillName);
   
-  // 🌟 1순위: DB에 있는 'effect' 값을 그대로 출력합니다. (인게임 툴팁과 100% 동일하게)
-  if (data && data.effect) {
-    if (Array.isArray(data.effect)) {
-       return data.effect.map(e => `- ${e}`).join('\n');
+  // 🌟 1순위: DB에 있는 'effects' (또는 'effect') 값을 그대로 출력합니다. (인게임 툴팁과 100% 동일하게)
+  const effectText = data?.effects || data?.effect;
+  if (effectText) {
+    if (Array.isArray(effectText)) {
+       return effectText.map(e => e.startsWith('-') ? e : `- ${e}`).join('
+');
     }
     // 문자열이라면 줄바꿈 문자를 살려줍니다.
-    return String(data.effect).replace(/,/g, ', ').replace(/\n/g, '\n- ');
+    return String(effectText).replace(/\n/g, '
+'); // JSON에서 
+으로 들어온 걸 진짜 줄바꿈으로 변환
   }
   
   // 🌟 2순위: DB에 effect가 없다면 계산기 내부 스탯을 읽어와서 출력합니다.
@@ -803,11 +807,12 @@ const getNormalSkillDescription = (skillName: string) => {
     for (const [k, v] of Object.entries(eff.stats || {})) {
       parts.push(`- ${STAT_LABELS[k] || k} +${v}`);
     }
-    if (parts.length > 0) return parts.join('\n');
+    if (parts.length > 0) return parts.join('
+');
   }
 
-  // 🌟 3순위: 아무런 효과 데이터가 없으면 감성 문구라도 띄워줍니다.
-  return data?.description ? `- ${data.description}` : '- 특수 조건 발동 스킬';
+  // 🌟 3순위: 아무런 효과 데이터가 없으면 특수 스킬로 표시
+  return '- 특수 조건 발동 스킬';
 }
 
 
