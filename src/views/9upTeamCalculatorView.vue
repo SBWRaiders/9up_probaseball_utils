@@ -785,11 +785,16 @@ const matchSkillInfo = (skill: string) => {
 
 const getNormalSkillDescription = (skillName: string) => {
   const data = normalSkillData.value.find(s => s.skill === skillName);
-  if (data && data.description) return data.description;
-  if (data && data.effect) return data.effect;
   
+  // 🌟 감성적인 문구(description) 대신 직관적인 실제 효과(effect)를 1순위로 표시!
+  if (data && data.effect) {
+    // 쉼표 단위로 띄어쓰기를 살짝 넣어서 가독성 및 줄바꿈을 개선합니다.
+    return data.effect.replace(/,/g, ', ');
+  }
+  
+  // 만약 effect가 없다면 계산기의 스탯 수치를 활용
   const eff = SKILL_EFFECTS[skillName];
-  if (!eff) return '설명 정보 없음';
+  if (!eff) return data?.description || '설명 정보 없음';
   
   const parts = [];
   if (eff.powerPercent) parts.push(`파워 +${eff.powerPercent}%`);
