@@ -18,7 +18,7 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+const auth = getAuth(app); // <-- export 단어 삭제!
 const provider = new GoogleAuthProvider();
 
 const user = ref<User | null>(null);
