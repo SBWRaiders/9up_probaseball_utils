@@ -2484,6 +2484,25 @@ const generateAutoLineup = () => {
      }
   });
   
+  
+  // 7. 타순 및 추천 스킬 자동 배치 엔진 (타순 스킬 및 램프 활성화)
+  const batterSlots = ['C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH'];
+  batterSlots.forEach((slot, idx) => {
+      const p = newLineup[slot];
+      if (p && playerBuffs.value[deckId][slot]) {
+          // 타순 1~9번 부여
+          playerBuffs.value[deckId][slot].battingOrder = idx + 1;
+          
+          // 추천 스킬 자동 장착 (보유한 일반 스킬 중 최대 개수만큼 자동 선택)
+          const avail = getAvailableSkills(p);
+          const rarity = parseInt(String(p.rarity || 1), 10) || 1;
+          const maxSkills = Math.min(3, Math.max(1, rarity - 1));
+          if (avail.length > 0 && playerBuffs.value[deckId][slot].selectedSkills.length === 0) {
+              playerBuffs.value[deckId][slot].selectedSkills = avail.slice(0, maxSkills);
+          }
+      }
+  });
+
   showAutoLineupModal.value = false;
   showToast('✨ 1티어 추천 라인업이 완벽하게 세팅되었습니다!', 'success');
 };
