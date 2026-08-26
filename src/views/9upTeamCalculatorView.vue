@@ -397,8 +397,8 @@ const TACTICS_INFO = [
 const totalTacticPt = computed(() => 2 + (globalBuffsAll[activeDeck.value].managerEnhance * 2) + (globalBuffsAll[activeDeck.value].managerBreakthrough * 4));
 const usedTacticPt = computed(() => {
   let sum = 0;
-  if(globalBuffs.tacticLevels) {
-    globalBuffs.tacticLevels.forEach((lv, i) => {
+  if(globalBuffsAll[activeDeck.value].tacticLevels) {
+    globalBuffsAll[activeDeck.value].tacticLevels.forEach((lv, i) => {
       if(lv > 0 && TACTICS_INFO[i]) sum += TACTICS_INFO[i].pt[lv];
     });
   }
