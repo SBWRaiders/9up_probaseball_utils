@@ -134,6 +134,17 @@ const getCareerSetEffectText = (careers: CareerSlot[] | undefined) => {
   return effects.join(', ');
 }
 // ========================================================
+// 🌟 커스텀 토스트 알림 시스템 (alert 대체) 🌟
+interface Toast { id: number; msg: string; type: 'success' | 'error' | 'info'; }
+const toasts = ref<Toast[]>([]);
+let toastCounter = 0;
+const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'info') => {
+  const id = toastCounter++;
+  toasts.value.push({ id, msg, type });
+  setTimeout(() => {
+    toasts.value = toasts.value.filter(t => t.id !== id);
+  }, 3000); // 3초 후 자동 삭제
+};
 
 // 🌟 1. 등급 맵핑 함수 (grade 필터 버그 및 이미지 출력 공통 사용)
 const getMappedGrade = (grade: unknown) => {
@@ -201,7 +212,7 @@ const getRadarWebPoints = (level: number) => {
 
 const getRadarStatPoints = (slot: string) => {
   if (!slot || !computedPlayerStats.value[slot]) return '';
-  const p = lineup.value[slot];
+  const p = lineups.value[deckId][slot];
   if (!p) return '';
   const isPit = isPitcher(p);
   const coreStats = isPit ? radarPitcherStats : radarBatterStats;
@@ -217,7 +228,7 @@ const getRadarStatPoints = (slot: string) => {
 
 const getRadarStatDots = (slot: string) => {
   if (!slot || !computedPlayerStats.value[slot]) return [];
-  const p = lineup.value[slot];
+  const p = lineups.value[deckId][slot];
   if (!p) return [];
   const isPit = isPitcher(p);
   const coreStats = isPit ? radarPitcherStats : radarBatterStats;
@@ -233,7 +244,7 @@ const getRadarStatDots = (slot: string) => {
 
 const getRadarLabels = (slot: string) => {
   if (!slot || !computedPlayerStats.value[slot]) return [];
-  const p = lineup.value[slot];
+  const p = lineups.value[deckId][slot];
   if (!p) return [];
   const isPit = isPitcher(p);
   const coreStats = isPit ? radarPitcherStats : radarBatterStats;
@@ -306,40 +317,26 @@ const searchQuery = reactive({
 const lineupViewMode = ref('batter')
 const selectedSlot = ref<string | null>(null)
 const isManualSelection = ref(false)
-
-const currentDeck = ref<'DH1' | 'DH2'>('DH1')
-
-const createEmptyLineup = () => ({
+const activeDeck = ref<1|2>(1);
+const lineups = ref({ 1: {
   C: null, '1B': null, '2B': null, '3B': null, SS: null,
   LF: null, CF: null, RF: null, DH: null,
   SP1: null, SP2: null, SP3: null, SP4: null, SP5: null,
   RP1: null, RP2: null, RP3: null, RP4: null, RP5: null, RP6: null,
   BENCH1: null, BENCH2: null, BENCH3: null, BENCH4: null,
   BENCH5: null, BENCH6: null, BENCH7: null, BENCH8: null
+} as Record<string, Raw | null>,
+  2: {
+    C: null, '1B': null, '2B': null, '3B': null, SS: null,
+    LF: null, CF: null, RF: null, DH: null,
+    SP1: null, SP2: null, SP3: null, SP4: null, SP5: null,
+    RP1: null, RP2: null, RP3: null, RP4: null, RP5: null, RP6: null,
+    BENCH1: null, BENCH2: null, BENCH3: null, BENCH4: null,
+    BENCH5: null, BENCH6: null, BENCH7: null, BENCH8: null
+  } as Record<string, Raw | null>
 })
 
-const lineups = ref({
-  DH1: createEmptyLineup(),
-  DH2: createEmptyLineup()
-}) as any;
-
-const lineup = computed({
-  get: () => lineups.value[currentDeck.value],
-  set: (val) => { lineups.value[currentDeck.value] = val }
-});
-
-const playerBuffsAll = ref({
-  DH1: {},
-  DH2: {}
-}) as any;
-
-const playerBuffs = computed({
-  get: () => playerBuffsAll.value[currentDeck.value],
-  set: (val) => { playerBuffsAll.value[currentDeck.value] = val }
-});
-
-
-const globalBuffs = reactive({
+const globalBuffsAll = reactive({ 1: {
   teamLevel: 100, preferredTeam: [] as string[], clanBuff: 15, managerType: '', managerEnhance: 0,
   synergyMasteries: ['', '', '', '', ''],
   amplifiedMasteryIndex: -1,
@@ -351,6 +348,32 @@ const globalBuffs = reactive({
   tacticLevels: Array(15).fill(0),
   tacticBaseRates: { scoring: 50, cleanup: 40 },
   tacticCondRates: [5, 24.5, 20, 24.5, 21, 7.5, 30, 25.5, 25, 50, 0, 0, 50, 60, 32.5]
+  },
+  2: {
+    teamLevel: 100, preferredTeam: [] as string[], clanBuff: 15, managerType: '', managerEnhance: 0,
+    synergyMasteries: ['', '', '', '', ''],
+    amplifiedMasteryIndex: -1,
+    binderLevel: 100, 
+    binderMatrix: Array(5).fill(0).map(() => ({ team: '', position: '', player: '', year: '', grade: '' })),
+    managerBreakthrough: 0,
+    tacticLevels: Array(15).fill(0),
+    tacticBaseRates: { scoring: 50, cleanup: 40 },
+    tacticCondRates: [5, 24.5, 20, 24.5, 21, 7.5, 30, 25.5, 25, 50, 0, 0, 50, 60, 32.5]
+  }
+})
+
+
+const lineup = computed({
+  get: () => lineups.value[activeDeck.value],
+  set: (val) => lineups.value[activeDeck.value] = val
+})
+const playerBuffs = computed({
+  get: () => allPlayerBuffs.value[activeDeck.value],
+  set: (val) => allPlayerBuffs.value[activeDeck.value] = val
+})
+const globalBuffs = computed({
+  get: () => globalBuffsAll[activeDeck.value],
+  set: (val) => globalBuffsAll[activeDeck.value] = val
 })
 
 const TACTICS_INFO = [
@@ -371,7 +394,7 @@ const TACTICS_INFO = [
   { id:14, name: '내야 시프트', type: '운영', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,40,65,100,180,300], condVals: [0,20,30,50,90,150], descBase: (v) => `내야수(1/2/3루,유격) 수비 +${v}`, descCond: (v) => `3회까지 안타 4개 미만인 경우 선발 컨트롤, 스터프 +${v}` }
 ];
 
-const totalTacticPt = computed(() => 2 + (globalBuffs.managerEnhance * 2) + (globalBuffs.managerBreakthrough * 4));
+const totalTacticPt = computed(() => 2 + (globalBuffsAll[deckId].managerEnhance * 2) + (globalBuffs.managerBreakthrough * 4));
 const usedTacticPt = computed(() => {
   let sum = 0;
   if(globalBuffs.tacticLevels) {
@@ -384,7 +407,7 @@ const usedTacticPt = computed(() => {
 const remainingTacticPt = computed(() => totalTacticPt.value - usedTacticPt.value);
 
 
-
+const allPlayerBuffs = ref<Record<1|2, Record<string, PlayerBuff>>>({ 1: {}, 2: {} })
 
 // 🌟 9up 인게임 고증: 각인(Imprint) 시스템 상태 및 로직 🌟
 type ImprintRole = '타자' | '투수'; 
@@ -446,7 +469,7 @@ const updateSubOptionsCount = () => {
 };
 
 const createImprint = () => {
-  if (!newImprint.value.name.trim()) return alert('각인 이름을 입력해주세요!');
+  if (!newImprint.value.name.trim()) return showToast('각인 이름을 입력해주세요!', 'error');
   const imp: Imprint = {
     id: Date.now().toString(),
     name: newImprint.value.name.trim(),
@@ -465,7 +488,7 @@ const createImprint = () => {
   }
   
   imprintInventory.value.push(imp);
-  alert(`[${imp.role}용 - ${imp.mainStat}] 각인이 생성되었습니다!`);
+  showToast(`[${imp.role}용 - ${imp.mainStat}] 각인이 생성되었습니다!`, 'success');
 };
 
 const deleteImprint = (id: string) => {
@@ -493,22 +516,22 @@ const equipImprint = (imprint: Imprint) => {
   
   const isPitcherSlot = pos.startsWith('SP') || pos.startsWith('RP');
   const targetRole = isPitcherSlot ? '투수' : '타자';
-  if (imprint.role !== targetRole) return alert(`장착 실패! ${targetRole}용 각인만 낄 수 있습니다!`);
+  if (imprint.role !== targetRole) return showToast(`장착 실패! ${targetRole}용 각인만 낄 수 있습니다!`, 'error');
 
   if (!playerBuffs.value[pos]) playerBuffs.value[pos] = {};
   const currentBuffs = playerBuffs.value[pos];
   
   const otherImprint = slot === 1 ? currentBuffs.imprint2 : currentBuffs.imprint1;
 
-  if (otherImprint?.id === imprint.id) return alert('이미 반대쪽 슬롯에 장착된 각인입니다.');
+  if (otherImprint?.id === imprint.id) return showToast('이미 반대쪽 슬롯에 장착된 각인입니다.', 'error');
 
   // 🌟 핵심 방어막: 주옵션 중복 장착 절대 불가!
   if (otherImprint?.mainStat === imprint.mainStat) {
-    return alert(`장착 실패! 이미 반대쪽 슬롯에 [${imprint.mainStat}] 주옵션 각인이 장착되어 있습니다. (동일 주옵 중복 장착 불가)`);
+    return showToast(`장착 실패! 동일 주옵션 중복 장착 불가`, 'error');
   }
 
   if (imprint.grade === '얼티밋' && p.grade !== 'Dignity') { 
-    if (otherImprint?.grade === '얼티밋') return alert('디그니티 등급이 아닌 선수는 얼티밋 각인을 1개만 장착할 수 있습니다!');
+    if (otherImprint?.grade === '얼티밋') return showToast('디그니티 등급이 아닌 선수는 얼티밋 각인을 1개만 장착할 수 있습니다!', 'error');
   }
 
   if (slot === 1) playerBuffs.value[pos].imprint1 = imprint;
@@ -897,7 +920,12 @@ const toggleSynergyFilter = (s: string) => {
 const isSkillDropdownOpen = ref(false)
 const skillSearchText = ref('')
 const excludedFilterSkills = ['마무리', '셋업맨', '숏릴리프', '승리계투'];
-const skillOptions = computed(() => Object.keys(SKILL_EFFECTS).filter(sk => !excludedFilterSkills.includes(sk)).sort());
+const skillOptions = computed(() => {
+  const dbSkills = normalSkillData.value.map(s => s.skill);
+  const hardcodedSkills = Object.keys(SKILL_EFFECTS);
+  const allSkills = Array.from(new Set([...dbSkills, ...hardcodedSkills]));
+  return allSkills.filter(sk => !excludedFilterSkills.includes(sk)).sort();
+});
 
 const filteredSkillOptions = computed(() => {
   const query = normalizeText(skillSearchText.value)
@@ -1036,8 +1064,9 @@ const compareCondition = (op: CountOp, lhs: number, rhs?: number, max?: number):
 }
 
 // 🌟 시너지 마스터리 증폭 및 인원수 차감 계산 적용 🌟
-const activeTeamSynergies = computed(() => {
-  const lineupPlayers = Object.values(lineup.value).filter(Boolean) as Raw[]
+const activeTeamSynergies = computed(() => getActiveTeamSynergies(activeDeck.value));
+const getActiveTeamSynergies = (deckId: 1 | 2) => {
+  const lineupPlayers = Object.values(lineups.value[deckId]).filter(Boolean) as Raw[]
   const result: { name: string, bonuses: { stat: string, bonus: JsonBonus }[], matchedPlayers: string[] }[] = []
   for (const s of synergys.value) {
     const name = String(s.synergy).trim()
@@ -1056,10 +1085,10 @@ const activeTeamSynergies = computed(() => {
     // 마스터리 인원 보정 및 증폭 확인
     let masteryCount = 0;
     let isAmplified = false;
-    globalBuffs.synergyMasteries.forEach((m, idx) => {
+    globalBuffsAll[deckId].synergyMasteries.forEach((m, idx) => {
       if (m === name) {
         masteryCount++;
-        if (globalBuffs.amplifiedMasteryIndex === idx) isAmplified = true;
+        if (globalBuffsAll[deckId].amplifiedMasteryIndex === idx) isAmplified = true;
       }
     });
 
@@ -1096,8 +1125,9 @@ const activeTeamSynergies = computed(() => {
   return result
 })
 
-const pendingTeamSynergies = computed(() => {
-  const lineupPlayers = Object.values(lineup.value).filter(Boolean) as Raw[]
+const pendingTeamSynergies = computed(() => getPendingTeamSynergies(activeDeck.value));
+const getPendingTeamSynergies = (deckId: 1 | 2) => {
+  const lineupPlayers = Object.values(lineups.value[deckId]).filter(Boolean) as Raw[]
   const result: { name: string, current: number, required: number, matchedPlayers: string[] }[] = []
   
   for (const s of synergys.value) {
@@ -1115,7 +1145,7 @@ const pendingTeamSynergies = computed(() => {
     const count = matchedPlayers.length
     
     let masteryCount = 0;
-    globalBuffs.synergyMasteries.forEach(m => {
+    globalBuffsAll[deckId].synergyMasteries.forEach(m => {
       if (m === name) masteryCount++;
     });
     const effectiveCount = count + masteryCount;
@@ -1168,14 +1198,14 @@ const getTeamLevelPower = (level: number, isPref: boolean) => {
   return isPref ? prefPwr : otherPwr;
 };
 
-const getSameTeamCount = (p: Raw | null) => {
+const getSameTeamCount = (p: Raw | null, deckId: 1 | 2) => {
   if (!p) return 0;
   const myTeams = toArray(p.team).map(toLowerCase);
   let validTeamIds = new Set<string>(myTeams);
   groupedTeams.filter(g => g.id.some(id => myTeams.includes(id))).forEach(g => g.id.forEach(id => validTeamIds.add(id)));
 
   let count = 0;
-  Object.values(lineup.value).forEach(other => {
+  Object.values(lineups.value[deckId]).forEach(other => {
      if (other) {
         const otherTeams = toArray(other.team).map(toLowerCase);
         if (otherTeams.some(t => validTeamIds.has(t))) count++;
@@ -1220,7 +1250,7 @@ const getSynergyType = (synName: string, conditions: any[]) => {
 }
 
 // 각 선수가 특정 시너지를 받고 있는지 확인 (개인설정 탭 용도)
-const isPlayerReceivingSynergy = (p: Raw, synName: string) => {
+const isPlayerReceivingSynergy = (p: Raw, synName: string, deckId: 1|2) => {
   if (!p) return false;
   const hasSynergy = checkSynergyInclusion(synName, getArray(p.synergy));
   if (!hasSynergy) return false;
@@ -1277,11 +1307,11 @@ const getPendingSynergyText = (synName: string) => {
 }
   
 // 🌟 기존 코드: 절대 지우지 말고 그대로 두세요! (파워 계산기 엔진)
-const getPlayerSynergySum = (p: Raw | null, unit: 'fixed' | 'percent') => {
+const getPlayerSynergySum = (p: Raw | null, unit: 'fixed' | 'percent', deckId: 1|2) => {
   if (!p) return 0;
   let total = 0;
-  activeTeamSynergies.value.forEach(syn => {
-    if (isPlayerReceivingSynergy(p, syn.name)) {
+  getActiveTeamSynergies(deckId).forEach(syn => {
+    if (isPlayerReceivingSynergy(p, syn.name, deckId)) {
       syn.bonuses.forEach(b => {
         if (b.stat === 'power' && b.bonus.unit === unit) total += b.bonus.value;
       });
@@ -1296,7 +1326,7 @@ const getPlayerSynergies = (p: Raw) => {
   return p.synergy.split(',').map(s => s.trim()).filter(Boolean)
 }
 
-const calculateTeamPlayerDignityBuff = (p: Raw) => {
+const calculateTeamPlayerDignityBuff = (p: Raw, deckId: 1|2) => {
   if (!p) return 0;
   const pTeams = toArray(p.team).map(toLowerCase);
   let validTeamIds = new Set<string>(pTeams);
@@ -1305,12 +1335,12 @@ const calculateTeamPlayerDignityBuff = (p: Raw) => {
   let maxTeamPlayerPower = 0;
   let totalDignityPower = 0;
 
-  Object.entries(lineup.value).forEach(([slotKey, other]) => {
+  Object.entries(lineups.value[deckId]).forEach(([slotKey, other]) => {
      if (other) {
         const otherTeams = toArray(other.team).map(toLowerCase);
         if (otherTeams.some(t => validTeamIds.has(t))) {
            const oGrade = String(other.grade).toUpperCase();
-           const oBuffs = playerBuffs.value[slotKey];
+           const oBuffs = allPlayerBuffs.value[deckId][slotKey];
            const enhanceLvl = oBuffs?.enhancementLevel || 0;
 
            if (oGrade === 'TEA') {
@@ -1446,14 +1476,14 @@ const getBinderMatchCount = (val: string, p: Raw, type: string) => {
   return false;
 }
 
-const getPlayerBinderPower = (p: Raw | null) => {
+const getPlayerBinderPower = (p: Raw | null, deckId: 1|2) => {
   if (!p) return 0;
-  const binderBase = (globalBuffs.binderLevel || 0) * 5; 
+  const binderBase = (globalBuffsAll[deckId].binderLevel || 0) * 5; 
   let binderMatrixSum = 0;
   
-  if (globalBuffs.binderMatrix && globalBuffs.binderMatrix.length === 5) {
+  if (globalBuffsAll[deckId].binderMatrix && globalBuffsAll[deckId].binderMatrix.length === 5) {
     const matchCounts = { team: 0, position: 0, player: 0, year: 0, grade: 0 };
-    globalBuffs.binderMatrix.forEach(row => {
+    globalBuffsAll[deckId].binderMatrix.forEach(row => {
       // 🌟 이제 스탯 쪼가리(p.year)가 아니라 선수 본체(p)를 엔진에 집어넣어 등급까지 깐깐하게 검사합니다!
       if (row.team && getBinderMatchCount(row.team, p, 'team')) matchCounts.team++;
       if (row.position && getBinderMatchCount(row.position, p, 'position')) matchCounts.position++;
@@ -1485,75 +1515,16 @@ const binderYearOptions = computed(() => {
   return Array.from(years).sort((a, b) => Number(b) - Number(a));
 });  
   
-
-const getComputedPlayerStats = (deck: 'DH1'|'DH2') => {
-  const curLineup = lineups.value[deck];
-  const curBuffs = playerBuffsAll.value[deck];
+const computedPlayerStats = computed(() => getComputedPlayerStats(activeDeck.value));
+const getComputedPlayerStats = (deckId: 1 | 2) => {
   const result: Record<string, { power: number, stats: Record<string, number> }> = {}
-  
-  // Need to evaluate activeTeamSynergies for this deck
-  const lineupPlayers = Object.values(curLineup).filter(Boolean) as Raw[]
-  const activeSyns: any[] = []
-  
-  for (const s of synergys.value) {
-    const name = String(s.synergy).trim()
-    const synType = getSynergyType(name, s.conditions)
-    const matchedPlayers = lineupPlayers.filter(p => {
-      if (!checkSynergyInclusion(name, getArray(p.synergy))) return false;
-      const pIsPit = isPitcher(p);
-      if (pIsPit && synType === 'batter') return false;
-      if (!pIsPit && synType === 'pitcher') return false;
-      return true;
-    })
-    const count = matchedPlayers.length
-
-    let masteryCount = 0;
-    let isAmplified = false;
-    globalBuffs.synergyMasteries.forEach((m, idx) => {
-      if (m === name) {
-        masteryCount++;
-        if (globalBuffs.amplifiedMasteryIndex === idx) isAmplified = true;
-      }
-    });
-
-    const effectiveCount = count + masteryCount;
-
-    if (effectiveCount > 0) {
-       const matched = (s.conditions||[]).filter(c => {
-          const op = c.count?.op as CountOp
-          return op === 'between' 
-            ? compareCondition('between', effectiveCount, c.count?.min, c.count?.max) 
-            : compareCondition(op, effectiveCount, c.count?.value)
-       })
-       
-       if (matched.length > 0) {
-         const getThreshold = (c: any) => c.count?.op === 'between' ? (c.count?.max || 0) : (c.count?.value || 0)
-         const maxThreshold = Math.max(...matched.map(getThreshold))
-         const highestTierConditions = matched.filter(c => getThreshold(c) === maxThreshold)
-         
-         activeSyns.push({ 
-           name, 
-           bonuses: highestTierConditions.map(c => {
-             let bVal = c.bonus.value;
-             if (isAmplified && c.stat === 'power') {
-               if (c.bonus.unit === 'percent') bVal += 0.5;
-               else if (c.bonus.unit === 'fixed') bVal += 50;
-             }
-             return { stat: c.stat, bonus: { unit: c.bonus.unit, value: bVal } }
-           }),
-           matchedPlayers: matchedPlayers.map(p => p.name)
-         })
-       }
-    }
-  }
-  
-  // Power calculation loop
-  Object.keys(curLineup).forEach(slot => {
-    const p = curLineup[slot]
+  Object.keys(lineups.value[deckId]).forEach(slot => {
+    const p = lineups.value[deckId][slot]
     if (!p) return
-    const buffs = curBuffs[slot]
+    const buffs = allPlayerBuffs.value[deckId][slot]
     if (!buffs) return
 
+    // 🌟 안전장치: 구버전 세이브파일 호환을 위해 커리어 배열이 없으면 자동 생성
     if (!buffs.careers) buffs.careers = Array(6).fill(null).map(() => ({ grade: '마스터', statType: '', value: 0 }));
 
     const isPit = isPitcher(p);
@@ -1564,21 +1535,20 @@ const getComputedPlayerStats = (deck: 'DH1'|'DH2') => {
     nonCoreStats.forEach(s => baseSum += Number(p[s] || 0))
     
     const pTeams = toArray(p.team).map(toLowerCase);
-    const isMyTeam = (globalBuffs.preferredTeam || []).some(t => pTeams.includes(t));
-    const appliedTeamLevelBuff = getTeamLevelPower(globalBuffs.teamLevel, isMyTeam);
+    const isMyTeam = (globalBuffsAll[deckId].preferredTeam || []).some(t => pTeams.includes(t));
+    const appliedTeamLevelBuff = getTeamLevelPower(globalBuffsAll[deckId].teamLevel, isMyTeam);
     const growthA = Number(Math.max(0, buffs.playerLevel - 1) * 10) + buffs.collectionBuff + appliedTeamLevelBuff + buffs.careerLevelBuff + (buffs.enhancementLevel * getEnhanceMultiplier(p))
-    const autoBinderPower = getPlayerBinderPower(p);
+    const autoBinderPower = getPlayerBinderPower(p, deckId);
     const legacyBinderBuff = buffs.binderBuff === 537 ? 0 : (buffs.binderBuff || 0);
-    const flatC = legacyBinderBuff + autoBinderPower + globalBuffs.clanBuff + buffs.careerAllStatFlat + getBreakthroughFixed(p, buffs.breakthroughLevel)
+    const flatC = legacyBinderBuff + autoBinderPower + globalBuffsAll[deckId].clanBuff + buffs.careerAllStatFlat + getBreakthroughFixed(p, buffs.breakthroughLevel)
     
     const is1st2ndSP = slot === 'SP1' || slot === 'SP2';
     const imprintStarterAddedPower = is1st2ndSP ? buffs.imprintStarterPower : 0;
     
     let autoSynergyFixed = 0, autoSynergyPercent = 0, skillPowerPercent = 0, statSpecificSkillPercents: Record<string, number> = {}
-    activeSyns.forEach(syn => {
-      const hasSynergy = checkSynergyInclusion(syn.name, getArray(p.synergy));
-      if (hasSynergy) {
-        syn.bonuses.forEach((b: any) => {
+    getActiveTeamSynergies(deckId).forEach(syn => {
+      if (isPlayerReceivingSynergy(p, syn.name, deckId)) {
+        syn.bonuses.forEach(b => {
            if (b.stat === 'power') {
             if (b.bonus.unit === 'fixed') autoSynergyFixed += b.bonus.value
             else if (b.bonus.unit === 'percent') autoSynergyPercent += b.bonus.value
@@ -1587,23 +1557,14 @@ const getComputedPlayerStats = (deck: 'DH1'|'DH2') => {
       }
     })
     
-    // 🌟 Same team count for this specific deck
-    let ST = 0;
-    let validTeamIds = new Set<string>(pTeams);
-    groupedTeams.filter(g => g.id.some(id => pTeams.includes(id))).forEach(g => g.id.forEach(id => validTeamIds.add(id)));
-    Object.values(curLineup).forEach(other => {
-       if (other) {
-          const otherTeams = toArray((other as any).team).map(toLowerCase);
-          if (otherTeams.some(t => validTeamIds.has(t))) ST++;
-       }
-    });
-
+    // 🌟 커리어 장착 시스템 스탯/파워 자동 계산 로직 🌟
+    const ST = getSameTeamCount(p, deckId);
     let careerStatBonus: Record<string, number> = {};
     let careerGeneralStat = 0; 
     let careerTeamPowerBonus = 0; 
     const careerTypeCounts: Record<string, number> = {};
 
-    buffs.careers.forEach((c: any) => {
+    buffs.careers.forEach(c => {
        if (!c.statType) return;
        careerTypeCounts[c.statType] = (careerTypeCounts[c.statType] || 0) + 1;
        if (c.statType === '전체 능력치') careerGeneralStat += c.value;
@@ -1614,6 +1575,7 @@ const getComputedPlayerStats = (deck: 'DH1'|'DH2') => {
        }
     });
 
+    // 🌟 커리어 세트 효과 발동 (3칸 이상)
     Object.entries(careerTypeCounts).forEach(([type, count]) => {
        if (count >= 3) {
            if (type === '전체 능력치') careerGeneralStat += (count === 6 ? 30 : count * 6);
@@ -1625,35 +1587,14 @@ const getComputedPlayerStats = (deck: 'DH1'|'DH2') => {
        }
     });
 
-    let maxTeamPlayerPower = 0;
-    let totalDignityPower = 0;
-    Object.entries(curLineup).forEach(([slotKey, other]) => {
-       if (other) {
-          const otherTeams = toArray((other as any).team).map(toLowerCase);
-          if (otherTeams.some(t => validTeamIds.has(t))) {
-             const oGrade = String((other as any).grade).toUpperCase();
-             const oBuffs = curBuffs[slotKey];
-             const enhanceLvl = oBuffs?.enhancementLevel || 0;
-
-             if (oGrade === 'TEA') {
-               const power = 8 + Math.min(15, Math.max(0, enhanceLvl));
-               if (power > maxTeamPlayerPower) maxTeamPlayerPower = power;
-             } else if (oGrade === 'DGN') {
-               const safeEnhance = Math.min(10, Math.max(0, enhanceLvl));
-               const power = safeEnhance === 0 ? 5 : (safeEnhance * 10);
-               totalDignityPower += power;
-             }
-          }
-       }
-    });
-    const autoTeamDignityBuff = maxTeamPlayerPower + totalDignityPower;
-
+    const autoTeamDignityBuff = calculateTeamPlayerDignityBuff(p, deckId);
     const pGrade = String(p.grade || '').toUpperCase();
     const dynamicHitAceBuff = ['HIT', 'ACE', 'GG'].includes(pGrade) ? ST * 32 : 0;
     
+    // 기존의 수동 careerTeamCount를 지우고, 커리어 장착 파워(careerTeamPowerBonus)로 대체!
     const growthB = careerTeamPowerBonus + dynamicHitAceBuff + autoTeamDignityBuff + autoSynergyFixed + imprintStarterAddedPower;
     
-    buffs.selectedSkills.forEach((s: string) => {
+    buffs.selectedSkills.forEach(s => {
       if (isSkillActive(s, slot, buffs.battingOrder)) {
          const eff = SKILL_EFFECTS[s]
          if (eff) {
@@ -1667,20 +1608,21 @@ const getComputedPlayerStats = (deck: 'DH1'|'DH2') => {
     const globalBonusTotal = globalPercentPool * (globalPercent / 100)
     
     let managerMainStat = 0; let managerSubStat = 0; let managerMainName = ''; let managerSubName = '';
-    if (globalBuffs.managerType) {
-      const isMy = globalBuffs.managerType.startsWith('my_');
-      const typeStr = globalBuffs.managerType.split('_')[1];
+    if (globalBuffsAll[deckId].managerType) {
+      const isMy = globalBuffsAll[deckId].managerType.startsWith('my_');
+      const typeStr = globalBuffsAll[deckId].managerType.split('_')[1];
       const table = isMy ? MANAGER_STATS_MY : MANAGER_STATS_COM;
-      const level = Math.min(15, Math.max(0, globalBuffs.managerEnhance || 0));
+      const level = Math.min(15, Math.max(0, globalBuffsAll[deckId].managerEnhance || 0));
       managerMainStat = table[level].main; managerSubStat = table[level].sub;
       managerMainName = MANAGER_TYPES[typeStr].main; managerSubName = MANAGER_TYPES[typeStr].sub;
     }
     
+        // 🌟 감독 전술 지시 상시효과 자동 계산 🌟
     let tacticFlat: Record<string, number> = {};
     let tacticCondExpected: Record<string, number> = {};
     
-    if (globalBuffs.tacticLevels) {
-        const tLv = globalBuffs.tacticLevels;
+    if (globalBuffsAll[deckId].tacticLevels) {
+        const tLv = globalBuffsAll[deckId].tacticLevels;
         const bOrder = buffs.battingOrder;
         const isSp = slot.startsWith('SP');
         const isRp = slot.startsWith('RP');
@@ -1692,9 +1634,10 @@ const getComputedPlayerStats = (deck: 'DH1'|'DH2') => {
         const posArr = getArray(p.position).map(normalizePosition);
         const isInfield = posArr.some(x => ['1B','2B','3B','SS'].includes(x));
         
-        const rates = globalBuffs.tacticCondRates;
+        const rates = globalBuffsAll[deckId].tacticCondRates;
         const addCond = (stat: string, val: number) => { tacticCondExpected[stat] = (tacticCondExpected[stat] || 0) + val; };
         
+        // 🌟 상시 효과 (Base) 계산
         if (tLv[0] > 0 && isBatter && isCleanup) tacticFlat.homeRunPower = (tacticFlat.homeRunPower || 0) + TACTICS_INFO[0].baseVals[tLv[0]];
         if (tLv[1] > 0 && isBatter && is912) tacticFlat.contact = (tacticFlat.contact || 0) + TACTICS_INFO[1].baseVals[tLv[1]];
         if (tLv[2] > 0 && isBatter && isLower) tacticFlat.contact = (tacticFlat.contact || 0) + TACTICS_INFO[2].baseVals[tLv[2]];
@@ -1705,8 +1648,9 @@ const getComputedPlayerStats = (deck: 'DH1'|'DH2') => {
         if (tLv[6] > 0 && isRp) tacticFlat.pitcherPower = (tacticFlat.pitcherPower || 0) + TACTICS_INFO[6].baseVals[tLv[6]];
         if (tLv[7] > 0 && isSp) tacticFlat.pitchLimit = (tacticFlat.pitchLimit || 0) + TACTICS_INFO[7].baseVals[tLv[7]];
         
-        if (tLv[8] > 0 && (isSp || isRp)) tacticFlat.control = (tacticFlat.control || 0) + TACTICS_INFO[8].baseVals[tLv[8]] * (globalBuffs.tacticBaseRates.scoring / 100);
-        if (tLv[12] > 0 && (isSp || isRp)) tacticFlat.longHitSuppression = (tacticFlat.longHitSuppression || 0) + TACTICS_INFO[12].baseVals[tLv[12]] * (globalBuffs.tacticBaseRates.cleanup / 100);
+        // 상시(조건연동) 효과 - 8번, 12번은 상시 파워에 반영됨 (유저 조절 비율 곱)
+        if (tLv[8] > 0 && (isSp || isRp)) tacticFlat.control = (tacticFlat.control || 0) + TACTICS_INFO[8].baseVals[tLv[8]] * (globalBuffsAll[deckId].tacticBaseRates.scoring / 100);
+        if (tLv[12] > 0 && (isSp || isRp)) tacticFlat.longHitSuppression = (tacticFlat.longHitSuppression || 0) + TACTICS_INFO[12].baseVals[tLv[12]] * (globalBuffsAll[deckId].tacticBaseRates.cleanup / 100);
         
         if (tLv[9] > 0 && isRp) tacticFlat.pitcherPower = (tacticFlat.pitcherPower || 0) + TACTICS_INFO[9].baseVals[tLv[9]];
         
@@ -1715,6 +1659,7 @@ const getComputedPlayerStats = (deck: 'DH1'|'DH2') => {
         if (tLv[13] > 0) tacticFlat.defense = (tacticFlat.defense || 0) + TACTICS_INFO[13].baseVals[tLv[13]];
         if (tLv[14] > 0 && isBatter && isInfield) tacticFlat.defense = (tacticFlat.defense || 0) + TACTICS_INFO[14].baseVals[tLv[14]];
 
+        // 🌟 조건부 달성 효과 (Conditional) 계산 (깡파워에서는 제외, 세부 스탯과 오각형 레이더 차트에만 기댓값으로 반영)
         if (tLv[0] > 0 && isBatter && isLower) addCond('contact', TACTICS_INFO[0].condVals[tLv[0]] * (rates[0] / 100));
         if (tLv[1] > 0 && isBatter && isCleanup) addCond('gapPower', TACTICS_INFO[1].condVals[tLv[1]] * (rates[1] / 100));
         if (tLv[2] > 0 && isBatter && isUpper) addCond('plateDiscipline', TACTICS_INFO[2].condVals[tLv[2]] * (rates[2] / 100));
@@ -1761,6 +1706,7 @@ const getComputedPlayerStats = (deck: 'DH1'|'DH2') => {
       applyImp(buffs.imprint1); applyImp(buffs.imprint2);
     }
 
+    // 🌟 커리어 전능 스탯 합산
     let coreStatSum = Number(buffs.imprintCoreStat || 0) + Number(buffs.careerCoreStat || 0) + careerGeneralStat;
 
     coreStats.forEach(s => {
@@ -1775,6 +1721,7 @@ const getComputedPlayerStats = (deck: 'DH1'|'DH2') => {
       val += coreStatSum + Number(imprintStatBonus[s] || 0) + Number(careerStatBonus[s] || 0) + Number(tacticFlat[s] || 0)
 
       finalTotal += val
+      // 🌟 로비 파워(finalTotal)에는 안 들어가지만, 유저가 보기 편하게 세부 스탯에는 조건부 기댓값을 얹어줍니다.
       stats[s] = Math.round(val + Number(tacticCondExpected[s] || 0))
     })
     
@@ -1793,39 +1740,33 @@ const getComputedPlayerStats = (deck: 'DH1'|'DH2') => {
 
     finalTotal += imprintGeneralPower + (tacticFlat.pitcherPower || 0);
     
+    // 🌟 10번 전술 조건부 타자 파워 기댓값 추가 (로비 파워 제외, 디스플레이용)
     if (!isPit && tacticCondExpected.batterPower) finalTotal += tacticCondExpected.batterPower;
     if (isPit && tacticCondExpected.pitcherPower) finalTotal += tacticCondExpected.pitcherPower;
     result[slot] = { power: Math.round(finalTotal), stats }
   })
   return result
+})
+
+const calculatePlayerPower = (p: Raw, slot: string) => getComputedPlayerStats(activeDeck.value)[slot]?.power || 0
+
+const getDeckTotalPower = (deckId: 1|2) => {
+  let sum = 0;
+  const stats = getComputedPlayerStats(deckId);
+  Object.keys(lineups.value[deckId]).forEach(slot => {
+    if (slot.startsWith('BENCH')) return;
+    sum += stats[slot]?.power || 0;
+  });
+  return sum;
 }
-
-const computedPlayerStatsDH1 = computed(() => getComputedPlayerStats('DH1'));
-const computedPlayerStatsDH2 = computed(() => getComputedPlayerStats('DH2'));
-const computedPlayerStats = computed(() => currentDeck.value === 'DH1' ? computedPlayerStatsDH1.value : computedPlayerStatsDH2.value);
-
-const teamTotalPowerDH1 = computed(() => {
-  let sum = 0;
-  Object.keys(lineups.value.DH1).forEach(slot => {
-    if (slot.startsWith('BENCH')) return;
-    sum += computedPlayerStatsDH1.value[slot]?.power || 0;
-  });
-  return sum;
-});
-
-const teamTotalPowerDH2 = computed(() => {
-  let sum = 0;
-  Object.keys(lineups.value.DH2).forEach(slot => {
-    if (slot.startsWith('BENCH')) return;
-    sum += computedPlayerStatsDH2.value[slot]?.power || 0;
-  });
-  return sum;
-});
-
-
-const calculatePlayerPower = (p: Raw, slot: string) => computedPlayerStats.value[slot]?.power || 0
-
-
+const teamTotalPower = computed(() => {
+  let sum = 0
+  Object.keys(lineups.value[deckId]).forEach(slot => {
+    if (slot.startsWith('BENCH')) return 
+    sum += getComputedPlayerStats(activeDeck.value)[slot]?.power || 0
+  })
+  return sum
+})
 
 const isSamePlayer = (p1: Raw, p2: Raw) => {
   return p1.id === p2.id;
@@ -1850,28 +1791,20 @@ const getAvailableSlot = (basePos: string): string => {
   return basePos
 }
 
-// 🌟 2. 클릭으로 배치할 때 포지션 제한 룰 적용 및 탭 자동 이동
 
-const isCardInOtherDeck = (p: Raw) => {
-  if (!p) return false;
-  const otherDeck = currentDeck.value === 'DH1' ? 'DH2' : 'DH1';
-  const otherLineup = lineups.value[otherDeck];
-  // 🌟 핵심: 카드 고유 ID로 비교
-  const getCardKey = (card: Raw) => `${card.playerId || card.id}_${card.grade}_${card.year}`;
-  const targetKey = getCardKey(p);
-  
-  return Object.values(otherLineup).some((existing: any) => {
-    if (!existing) return false;
-    return getCardKey(existing) === targetKey;
-  });
+const isCardInOtherDeck = (p: Raw, currentDeck: 1 | 2) => {
+  const otherDeck = currentDeck === 1 ? 2 : 1;
+  return Object.values(lineups.value[otherDeck]).some((otherP: any) => otherP && isSamePlayer(otherP, p));
 }
 
+// 🌟 2. 클릭으로 배치할 때 포지션 제한 룰 적용 및 탭 자동 이동
 const assignPlayerToSlot = (posOrSlot: string, p: Raw) => {
-  if (isCardInOtherDeck(p)) {
-      alert('🚫 이미 다른 덱(DH1/DH2)에 배치된 동일한 카드입니다!');
-      return;
+  if (isCardInOtherDeck(p, activeDeck.value)) {
+    showToast(`이미 다른 덱(DH${activeDeck.value === 1 ? 2 : 1})에 배치된 동일한 카드입니다!`, 'error');
+    return;
   }
   const targetSlot = getAvailableSlot(posOrSlot)
+
   
   if (!isValidSlotForPlayer(p, targetSlot)) return;
 
@@ -1962,25 +1895,18 @@ const selectSlot = (slot: string) => {
 const fileInput = ref<HTMLInputElement | null>(null)
 
 // 🌟 1. 공통 데이터 불러오기 (데이터 꼬임 방지 강력 버전) 🌟
-
+// 🌟 1. 공통 데이터 불러오기 (데이터 꼬임 방지 강력 버전) 🌟
 const applyLoadedData = (data: any) => {
   if (data.lineups) lineups.value = JSON.parse(JSON.stringify(data.lineups));
-  else if (data.lineup) lineups.value.DH1 = JSON.parse(JSON.stringify(data.lineup)); // 하위 호환
+  else if (data.lineup) lineups.value[1] = JSON.parse(JSON.stringify(data.lineup)); // 하위호환
 
-  if (data.playerBuffsAll) playerBuffsAll.value = JSON.parse(JSON.stringify(data.playerBuffsAll));
-  else if (data.playerBuffs) playerBuffsAll.value.DH1 = JSON.parse(JSON.stringify(data.playerBuffs)); // 하위 호환
+  if (data.allPlayerBuffs) allPlayerBuffs.value = JSON.parse(JSON.stringify(data.allPlayerBuffs));
+  else if (data.playerBuffs) allPlayerBuffs.value[1] = JSON.parse(JSON.stringify(data.playerBuffs)); // 하위호환
 
-  if (data.globalBuffs) {
-    if (!data.globalBuffs.synergyMasteries) data.globalBuffs.synergyMasteries = ['', '', '', '', ''];
-    if (data.globalBuffs.amplifiedMasteryIndex === undefined) data.globalBuffs.amplifiedMasteryIndex = -1;
-    if (data.globalBuffs.binderLevel === undefined) data.globalBuffs.binderLevel = 100;
-    if (!data.globalBuffs.binderMatrix) data.globalBuffs.binderMatrix = Array(5).fill(0).map(() => ({ team: '', position: '', player: '', year: '', grade: '' }));
-    if (!data.globalBuffs.tacticLevels) data.globalBuffs.tacticLevels = Array(15).fill(0);
-    if (data.globalBuffs.managerBreakthrough === undefined) data.globalBuffs.managerBreakthrough = 0;
-    if (!data.globalBuffs.tacticBaseRates) data.globalBuffs.tacticBaseRates = { scoring: data.globalBuffs.tacticScoringRate ?? 50, cleanup: data.globalBuffs.tacticCleanupRate ?? 40 };
-    if (!data.globalBuffs.tacticCondRates) data.globalBuffs.tacticCondRates = [5, 24.5, 20, 24.5, 21, 7.5, 30, 25.5, 25, 50, 0, 0, 50, 60, 32.5];
-    
-    Object.assign(globalBuffs, JSON.parse(JSON.stringify(data.globalBuffs)));
+  if (data.globalBuffsAll) {
+    Object.assign(globalBuffsAll, JSON.parse(JSON.stringify(data.globalBuffsAll)));
+  } else if (data.globalBuffs) {
+    Object.assign(globalBuffsAll[1], JSON.parse(JSON.stringify(data.globalBuffs))); // 하위호환
   }
   if (data.imprintInventory) imprintInventory.value = JSON.parse(JSON.stringify(data.imprintInventory));
 
@@ -1994,9 +1920,8 @@ const applyLoadedData = (data: any) => {
 
 // 🌟 라인업 초기화 (각인 장비는 무조건 유지!) 🌟
 const resetLineup = () => {
-  if(!confirm(`현재 화면에 보이는 [${currentDeck.value}] 덱의 모든 선수를 비우시겠습니까?
-(포지션에 장착된 각인 수치는 그대로 유지됩니다)`)) return;
-  Object.keys(lineup.value).forEach(slot => {
+  if(!confirm('라인업의 모든 선수를 비우시겠습니까?\n(포지션에 장착된 각인 수치는 그대로 유지됩니다)')) return;
+  Object.keys(lineups.value[deckId]).forEach(slot => {
     lineup.value[slot] = null;
     if (playerBuffs.value[slot]) {
       const b = playerBuffs.value[slot];
@@ -2006,12 +1931,12 @@ const resetLineup = () => {
         imprintStarterPower: b.imprintStarterPower, careerAllStatFlat: 0, 
         imprintCoreStat: b.imprintCoreStat, careerCoreStat: 0,
         selectedSkills: [], 
-        battingOrder: b.battingOrder, 
+        battingOrder: b.battingOrder, // 타순 유지
         playerLevel: 100, collectionBuff: 1200, careerLevelBuff: 149,
         binderBuff: 537, ultimateImprintPercent: b.ultimateImprintPercent,
         imprintStats: savedImprintStats, careerStats: {},
-        imprint1: b.imprint1, 
-        imprint2: b.imprint2  
+        imprint1: b.imprint1, // 🌟 여기서도 각인 1 유지!
+        imprint2: b.imprint2  // 🌟 여기서도 각인 2 유지!
       }
     }
   })
@@ -2020,16 +1945,15 @@ const resetLineup = () => {
   rightPanelTab.value = 'global';
 }
 
-
 // 🌟 다중 페이지 저장 (이름 지정) 🌟
 const saveToLocalStorage = () => {
   const saveName = prompt('저장할 라인업 이름을 입력하세요:\n(예: 국대전용, 홈런타자세팅 등)');
   if (!saveName) return;
-  const saveData = { lineups: lineups.value, playerBuffsAll: playerBuffsAll.value, globalBuffs: globalBuffs, imprintInventory: imprintInventory.value }
+  const saveData = { lineups: lineups.value, allPlayerBuffs: allPlayerBuffs.value, globalBuffsAll: globalBuffsAll, imprintInventory: imprintInventory.value }
   let saves = JSON.parse(localStorage.getItem('9up_multi_saves') || '{}')
   saves[saveName] = saveData
   localStorage.setItem('9up_multi_saves', JSON.stringify(saves))
-  alert(`'${saveName}' 라인업이 브라우저에 저장되었습니다.`)
+  showToast(`'${saveName}' 라인업이 브라우저에 저장되었습니다.`, 'success');
 }
 
 // 🌟 다중 페이지 불러오기 및 관리 (모달 UI 엔진) 🌟
@@ -2046,7 +1970,7 @@ const loadSpecificSave = (saveName: string) => {
   const saves = JSON.parse(localStorage.getItem('9up_multi_saves') || '{}');
   if (saves[saveName]) {
     applyLoadedData(saves[saveName]);
-    alert(`'${saveName}' 라인업을 성공적으로 불러왔습니다.`);
+    showToast(`'${saveName}' 라인업을 성공적으로 불러왔습니다.`, 'success');
     showSaveManager.value = false;
   }
 };
@@ -2071,8 +1995,8 @@ const exportToFile = () => {
   // 현재 데이터 + 각인 보관함 + 다중 저장 리스트 전부 묶기!
   const saveData = { 
     lineups: lineups.value, 
-    playerBuffsAll: playerBuffsAll.value, 
-    globalBuffs: globalBuffs, 
+    allPlayerBuffs: allPlayerBuffs.value, 
+    globalBuffsAll: globalBuffsAll, 
     imprintInventory: imprintInventory.value,
     multiSaves: multiSaves 
   }
@@ -2109,11 +2033,11 @@ const importFromFile = (event: Event) => {
       const msg = data.multiSaves && Object.keys(data.multiSaves).length > 0
         ? '✅ 파일 불러오기 완료!\n(다중 저장 목록도 무사히 복구되었습니다!)'
         : '✅ 파일에서 라인업을 성공적으로 불러왔습니다!';
-      alert(msg)
+      showToast(msg, 'success');
       
     } catch (err: any) {
       console.error("파일 파싱 에러:", err)
-      alert('❌ 파일 불러오기 실패: 형식이 맞지 않거나 손상된 파일입니다.\n(' + err.message + ')')
+      showToast('파일 불러오기 실패: 형식이 맞지 않거나 손상된 파일입니다.', 'error');
     } finally {
       if (fileInput.value) fileInput.value.value = ''
     }
@@ -2123,8 +2047,8 @@ const importFromFile = (event: Event) => {
 
 // 🌟 새로고침/재접속 시 데이터가 날아가지 않도록 실시간 백업 🌟
 // 감시망(watch)에 imprintInventory를 추가해서 각인을 만들거나 삭제할 때마다 즉시 자동 저장됩니다.
-watch([lineups, playerBuffsAll, globalBuffs, imprintInventory], () => {
-  const autoSaveData = { lineups: lineups.value, playerBuffsAll: playerBuffsAll.value, globalBuffs: globalBuffs, imprintInventory: imprintInventory.value }
+watch([lineups, allPlayerBuffs, globalBuffsAll, imprintInventory], () => {
+  const autoSaveData = { lineups: lineups.value, allPlayerBuffs: allPlayerBuffs.value, globalBuffsAll: globalBuffsAll, imprintInventory: imprintInventory.value }
   localStorage.setItem('9up_auto_save', JSON.stringify(autoSaveData))
 }, { deep: true })
   
@@ -2305,7 +2229,7 @@ const getPlayerImage = (p: Raw | null) => {
 </script>
 
 <template>
-  <div class="bg-neutral-50 dark:bg-neutral-900 h-screen w-full overflow-hidden transition-colors flex flex-col font-sans">
+  <div class="bg-neutral-50 dark:bg-neutral-900 h-screen overflow-hidden transition-colors flex flex-col font-sans">
     
     <!-- 헤더 영역 -->
     <header class="bg-gradient-to-r from-blue-700 to-indigo-800 text-white shadow-md flex-shrink-0 z-20">
@@ -2328,14 +2252,15 @@ const getPlayerImage = (p: Raw | null) => {
              <button @click="resetLineup" class="p-1.5 text-rose-300 hover:text-white hover:bg-rose-500/50 rounded-md transition-colors flex items-center gap-1" title="각인 유지하고 라인업 초기화"><X class="w-3.5 h-3.5" /><span class="text-[10px] font-bold hidden sm:block">초기화</span></button>
           </div>
 
-          <div class="flex items-center gap-2">
-            <div class="flex items-center bg-black/20 rounded-xl px-3 py-1 border border-white/10 shadow-inner transition-colors" :class="currentDeck === 'DH1' ? 'ring-1 ring-blue-400 bg-blue-900/40' : ''">
-              <span class="text-blue-200 text-[11px] font-semibold mr-2">DH1 파워</span>
-              <span class="text-lg font-black tabular-nums tracking-tight" :class="currentDeck === 'DH1' ? 'text-amber-300' : 'text-amber-300/50'">{{ teamTotalPowerDH1.toLocaleString() }}</span>
+          <div class="flex items-center bg-black/20 rounded-xl px-3 py-1.5 border border-white/10 shadow-inner gap-4">
+            <div class="flex flex-col items-end">
+              <span class="text-indigo-200 text-[10px] font-bold leading-none mb-0.5">DH1 팀 파워</span>
+              <span class="text-base font-black text-amber-300 tabular-nums tracking-tight leading-none">{{ getDeckTotalPower(1).toLocaleString() }}</span>
             </div>
-            <div class="flex items-center bg-black/20 rounded-xl px-3 py-1 border border-white/10 shadow-inner transition-colors" :class="currentDeck === 'DH2' ? 'ring-1 ring-emerald-400 bg-emerald-900/40' : ''">
-              <span class="text-emerald-200 text-[11px] font-semibold mr-2">DH2 파워</span>
-              <span class="text-lg font-black tabular-nums tracking-tight" :class="currentDeck === 'DH2' ? 'text-amber-300' : 'text-amber-300/50'">{{ teamTotalPowerDH2.toLocaleString() }}</span>
+            <div class="w-px h-6 bg-white/20"></div>
+            <div class="flex flex-col items-end">
+              <span class="text-emerald-200 text-[10px] font-bold leading-none mb-0.5">DH2 팀 파워</span>
+              <span class="text-base font-black text-emerald-300 tabular-nums tracking-tight leading-none">{{ getDeckTotalPower(2).toLocaleString() }}</span>
             </div>
           </div>
         </div>
@@ -2573,18 +2498,17 @@ const getPlayerImage = (p: Raw | null) => {
         <!-- 중앙: 라인업 보드 (flex-1 독식) -->
         <!-- ========================================== -->
         <section class="flex-1 flex flex-col rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 min-h-0 shadow-sm overflow-hidden relative">
-          <div class="flex items-center bg-neutral-100 dark:bg-neutral-700/50 p-1 border-b border-neutral-200 dark:border-neutral-700 flex-shrink-0 gap-1 overflow-x-auto no-scrollbar">
-            <!-- 🌟 DH1 / DH2 듀얼 덱 스위치 -->
-            <div class="flex bg-indigo-100 dark:bg-indigo-900/40 p-0.5 rounded-lg border border-indigo-200 dark:border-indigo-800 shrink-0">
-               <button @click="currentDeck = 'DH1'; selectedSlot = null; isManualSelection = false;" :class="currentDeck === 'DH1' ? 'bg-indigo-600 text-white shadow-md' : 'text-indigo-700 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-800/50'" class="px-4 py-1.5 text-xs font-black rounded-md transition-all">DH1 덱</button>
-               <button @click="currentDeck = 'DH2'; selectedSlot = null; isManualSelection = false;" :class="currentDeck === 'DH2' ? 'bg-emerald-600 text-white shadow-md' : 'text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-800/50'" class="px-4 py-1.5 text-xs font-black rounded-md transition-all">DH2 덱</button>
+          <div class="flex items-center bg-neutral-100 dark:bg-neutral-700/50 p-1 border-b border-neutral-200 dark:border-neutral-700 flex-shrink-0 gap-1.5 overflow-x-auto no-scrollbar">
+            <div class="flex bg-neutral-200/80 dark:bg-neutral-800 rounded-lg p-0.5 shrink-0">
+              <button @click="activeDeck = 1" :class="activeDeck === 1 ? 'bg-indigo-600 text-white shadow-sm font-bold' : 'text-neutral-500 hover:bg-neutral-300 dark:hover:bg-neutral-700 font-medium'" class="px-3 py-1.5 text-[11px] sm:text-xs rounded-md transition-all whitespace-nowrap">DH1 덱</button>
+              <button @click="activeDeck = 2" :class="activeDeck === 2 ? 'bg-emerald-600 text-white shadow-sm font-bold' : 'text-neutral-500 hover:bg-neutral-300 dark:hover:bg-neutral-700 font-medium'" class="px-3 py-1.5 text-[11px] sm:text-xs rounded-md transition-all whitespace-nowrap">DH2 덱</button>
             </div>
-            
-            <div class="w-px h-4 bg-neutral-300 dark:bg-neutral-600 mx-1 shrink-0"></div>
-            
-            <button @click="lineupViewMode = 'batter'" :class="lineupViewMode === 'batter' ? 'bg-white dark:bg-neutral-600 shadow-sm font-bold text-blue-600' : 'text-neutral-500'" class="flex-1 py-1.5 text-[11px] sm:text-xs rounded-lg transition-all whitespace-nowrap">타자 라인업</button>
-            <button @click="lineupViewMode = 'pitcher'" :class="lineupViewMode === 'pitcher' ? 'bg-white dark:bg-neutral-600 shadow-sm font-bold text-blue-600' : 'text-neutral-500'" class="flex-1 py-1.5 text-[11px] sm:text-xs rounded-lg transition-all whitespace-nowrap">투수 라인업</button>
-            <button @click="lineupViewMode = 'bench'" :class="lineupViewMode === 'bench' ? 'bg-white dark:bg-neutral-600 shadow-sm font-bold text-blue-600' : 'text-neutral-500'" class="flex-1 py-1.5 text-[11px] sm:text-xs rounded-lg transition-all whitespace-nowrap">벤치</button>
+            <div class="w-px h-4 bg-neutral-300 dark:bg-neutral-600 shrink-0 hidden sm:block"></div>
+            <div class="flex flex-1 gap-0.5">
+              <button @click="lineupViewMode = 'batter'" :class="lineupViewMode === 'batter' ? 'bg-white dark:bg-neutral-600 shadow-sm font-bold text-blue-600' : 'text-neutral-500'" class="flex-1 py-1.5 text-[11px] sm:text-xs rounded-lg transition-all whitespace-nowrap">타자 라인업</button>
+              <button @click="lineupViewMode = 'pitcher'" :class="lineupViewMode === 'pitcher' ? 'bg-white dark:bg-neutral-600 shadow-sm font-bold text-blue-600' : 'text-neutral-500'" class="flex-1 py-1.5 text-[11px] sm:text-xs rounded-lg transition-all whitespace-nowrap">투수 라인업</button>
+              <button @click="lineupViewMode = 'bench'" :class="lineupViewMode === 'bench' ? 'bg-white dark:bg-neutral-600 shadow-sm font-bold text-blue-600' : 'text-neutral-500'" class="flex-1 py-1.5 text-[11px] sm:text-xs rounded-lg transition-all whitespace-nowrap">벤치</button>
+            </div>
           </div>
 
           <div class="flex-1 overflow-hidden p-2 bg-neutral-50/30 dark:bg-neutral-900/30 flex flex-col items-center justify-center">
@@ -2786,11 +2710,11 @@ const getPlayerImage = (p: Raw | null) => {
                 <div class="space-y-1.5">
                   <div v-for="i in 5" :key="i" class="flex items-center gap-2">
                     <span class="text-[10px] font-bold text-neutral-500 w-6">칸 {{ i }}</span>
-                    <input list="synergy-list" v-model="globalBuffs.synergyMasteries[i-1]" placeholder="시너지 검색..." class="w-full px-2 py-1.5 bg-white border rounded text-xs"/>
+                    <input list="synergy-list" v-model="globalBuffsAll[deckId].synergyMasteries[i-1]" placeholder="시너지 검색..." class="w-full px-2 py-1.5 bg-white border rounded text-xs"/>
                     <label class="flex items-center justify-center cursor-pointer bg-white px-2 py-1.5 rounded border transition-colors shrink-0 select-none"
-                           :class="globalBuffs.amplifiedMasteryIndex === i - 1 ? 'border-indigo-500 bg-indigo-100 dark:bg-indigo-900/50 shadow-inner' : 'border-neutral-200 hover:bg-neutral-50'">
-                      <input type="checkbox" :checked="globalBuffs.amplifiedMasteryIndex === i - 1" @change="globalBuffs.amplifiedMasteryIndex = $event.target.checked ? i - 1 : -1" class="hidden" />
-                      <span class="text-[10px] font-black tracking-tight" :class="globalBuffs.amplifiedMasteryIndex === i - 1 ? 'text-indigo-700 dark:text-indigo-300' : 'text-neutral-400'">증폭</span>
+                           :class="globalBuffsAll[deckId].amplifiedMasteryIndex === i - 1 ? 'border-indigo-500 bg-indigo-100 dark:bg-indigo-900/50 shadow-inner' : 'border-neutral-200 hover:bg-neutral-50'">
+                      <input type="checkbox" :checked="globalBuffsAll[deckId].amplifiedMasteryIndex === i - 1" @change="globalBuffsAll[deckId].amplifiedMasteryIndex = $event.target.checked ? i - 1 : -1" class="hidden" />
+                      <span class="text-[10px] font-black tracking-tight" :class="globalBuffsAll[deckId].amplifiedMasteryIndex === i - 1 ? 'text-indigo-700 dark:text-indigo-300' : 'text-neutral-400'">증폭</span>
                     </label>
                   </div>
                   <div class="text-[9px] text-indigo-600 font-bold mt-1">※ '증폭' 버튼을 누르면 해당 시너지가 증폭됩니다. (최대 1개 지정, 다시 누르면 해제)</div>
@@ -2803,7 +2727,7 @@ const getPlayerImage = (p: Raw | null) => {
                 
                 <div class="grid grid-cols-3 gap-2 mb-3">
                   <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">팀 레벨 (1~100)</label><input type="number" min="1" max="100" v-model.number="globalBuffs.teamLevel" class="w-full px-2 py-1 text-center bg-white border rounded text-xs"/></div>
-                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">클랜 레벨 파워</label><input type="number" v-model.number="globalBuffs.clanBuff" class="w-full px-2 py-1 text-center bg-white border rounded text-xs"/></div>
+                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">클랜 레벨 파워</label><input type="number" v-model.number="globalBuffsAll[deckId].clanBuff" class="w-full px-2 py-1 text-center bg-white border rounded text-xs"/></div>
                   <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-indigo-600">바인더 레벨</label><input type="number" min="1" max="100" v-model.number="globalBuffs.binderLevel" class="w-full px-2 py-1 text-center bg-indigo-100 border border-indigo-300 rounded text-xs font-black text-indigo-800 outline-none"/></div>
                 </div>
                 
@@ -2873,7 +2797,7 @@ const getPlayerImage = (p: Raw | null) => {
                    </div>
                    <div class="flex flex-col gap-1">
                      <label class="text-[10px] font-bold text-neutral-500">강화 레벨 (0~15)</label>
-                     <input type="number" min="0" max="15" v-model.number="globalBuffs.managerEnhance" class="w-full px-2 py-1.5 text-center bg-white border rounded text-xs"/>
+                     <input type="number" min="0" max="15" v-model.number="globalBuffsAll[deckId].managerEnhance" class="w-full px-2 py-1.5 text-center bg-white border rounded text-xs"/>
                    </div>
                  </div>
               </div>
@@ -2895,7 +2819,7 @@ const getPlayerImage = (p: Raw | null) => {
                   <!-- 감독 강화는 기존 위에 있는 managerEnhance 변수 사용 -->
                   <div class="flex flex-col gap-1 opacity-70">
                     <label class="text-[10px] font-bold text-neutral-500">감독 강화 단계 (0~15)</label>
-                    <div class="w-full px-2 py-1.5 text-center bg-neutral-100 border rounded text-xs text-neutral-500 font-bold tracking-tight">※위탁 연동 ({{globalBuffs.managerEnhance}}강)</div>
+                    <div class="w-full px-2 py-1.5 text-center bg-neutral-100 border rounded text-xs text-neutral-500 font-bold tracking-tight">※위탁 연동 ({{globalBuffsAll[deckId].managerEnhance}}강)</div>
                   </div>
                 </div>
 
@@ -2916,11 +2840,11 @@ const getPlayerImage = (p: Raw | null) => {
                          <div class="text-[10px] font-black text-indigo-900 border-b border-indigo-100 pb-0.5">■ 상시 효과 (상황 연동)</div>
                          <div class="flex justify-between items-center text-[10px]">
                            <span class="text-neutral-700">8번. 득점권 상황 도래 확률</span>
-                           <div class="flex items-center gap-1"><input type="number" step="0.1" v-model.number="globalBuffs.tacticBaseRates.scoring" class="w-12 text-center border rounded p-0.5 outline-none font-bold text-indigo-600">%</div>
+                           <div class="flex items-center gap-1"><input type="number" step="0.1" v-model.number="globalBuffsAll[deckId].tacticBaseRates.scoring" class="w-12 text-center border rounded p-0.5 outline-none font-bold text-indigo-600">%</div>
                          </div>
                          <div class="flex justify-between items-center text-[10px]">
                            <span class="text-neutral-700">12번. 클린업 타선 상대 확률</span>
-                           <div class="flex items-center gap-1"><input type="number" step="0.1" v-model.number="globalBuffs.tacticBaseRates.cleanup" class="w-12 text-center border rounded p-0.5 outline-none font-bold text-indigo-600">%</div>
+                           <div class="flex items-center gap-1"><input type="number" step="0.1" v-model.number="globalBuffsAll[deckId].tacticBaseRates.cleanup" class="w-12 text-center border rounded p-0.5 outline-none font-bold text-indigo-600">%</div>
                          </div>
                        </div>
                        
@@ -2943,13 +2867,13 @@ const getPlayerImage = (p: Raw | null) => {
                            <span class="text-[9px] px-1.5 py-0.5 bg-neutral-100 rounded font-black border" :class="tac.type==='타자'?'text-orange-600 border-orange-200':tac.type==='투수'?'text-blue-600 border-blue-200':'text-emerald-600 border-emerald-200'">{{ tac.type }}</span>
                            <span class="text-[11px] sm:text-xs font-bold text-neutral-800">{{ tac.name }}</span>
                          </div>
-                         <select v-model.number="globalBuffs.tacticLevels[i]" class="text-[11px] sm:text-xs border rounded p-1 font-bold outline-none" :class="[globalBuffs.managerEnhance < tac.req[globalBuffs.tacticLevels[i]] ? 'text-red-500 border-red-300' : 'text-indigo-700 border-indigo-200 bg-indigo-50', globalBuffs.tacticLevels[i] === 0 ? 'text-neutral-500 bg-white border-neutral-200' : '']">
+                         <select v-model.number="globalBuffs.tacticLevels[i]" class="text-[11px] sm:text-xs border rounded p-1 font-bold outline-none" :class="[globalBuffsAll[deckId].managerEnhance < tac.req[globalBuffs.tacticLevels[i]] ? 'text-red-500 border-red-300' : 'text-indigo-700 border-indigo-200 bg-indigo-50', globalBuffs.tacticLevels[i] === 0 ? 'text-neutral-500 bg-white border-neutral-200' : '']">
                             <option :value="0">Lv.0</option>
-                            <option :value="1" :disabled="globalBuffs.managerEnhance < tac.req[1]">Lv.1 ({{ tac.pt[1] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[1]"> / 🔒{{tac.req[1]}}강 필요</template>)</option>
-                            <option :value="2" :disabled="globalBuffs.managerEnhance < tac.req[2]">Lv.2 ({{ tac.pt[2] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[2]"> / 🔒{{tac.req[2]}}강 필요</template>)</option>
-                            <option :value="3" :disabled="globalBuffs.managerEnhance < tac.req[3]">Lv.3 ({{ tac.pt[3] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[3]"> / 🔒{{tac.req[3]}}강 필요</template>)</option>
-                            <option :value="4" :disabled="globalBuffs.managerEnhance < tac.req[4]">Lv.4 ({{ tac.pt[4] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[4]"> / 🔒{{tac.req[4]}}강 필요</template>)</option>
-                            <option :value="5" :disabled="globalBuffs.managerEnhance < tac.req[5]">Lv.5 ({{ tac.pt[5] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[5]"> / 🔒{{tac.req[5]}}강 필요</template>)</option>
+                            <option :value="1" :disabled="globalBuffsAll[deckId].managerEnhance < tac.req[1]">Lv.1 ({{ tac.pt[1] }}pt<template v-if="globalBuffsAll[deckId].managerEnhance < tac.req[1]"> / 🔒{{tac.req[1]}}강 필요</template>)</option>
+                            <option :value="2" :disabled="globalBuffsAll[deckId].managerEnhance < tac.req[2]">Lv.2 ({{ tac.pt[2] }}pt<template v-if="globalBuffsAll[deckId].managerEnhance < tac.req[2]"> / 🔒{{tac.req[2]}}강 필요</template>)</option>
+                            <option :value="3" :disabled="globalBuffsAll[deckId].managerEnhance < tac.req[3]">Lv.3 ({{ tac.pt[3] }}pt<template v-if="globalBuffsAll[deckId].managerEnhance < tac.req[3]"> / 🔒{{tac.req[3]}}강 필요</template>)</option>
+                            <option :value="4" :disabled="globalBuffsAll[deckId].managerEnhance < tac.req[4]">Lv.4 ({{ tac.pt[4] }}pt<template v-if="globalBuffsAll[deckId].managerEnhance < tac.req[4]"> / 🔒{{tac.req[4]}}강 필요</template>)</option>
+                            <option :value="5" :disabled="globalBuffsAll[deckId].managerEnhance < tac.req[5]">Lv.5 ({{ tac.pt[5] }}pt<template v-if="globalBuffsAll[deckId].managerEnhance < tac.req[5]"> / 🔒{{tac.req[5]}}강 필요</template>)</option>
                          </select>
                       </div>
                       
@@ -2964,7 +2888,7 @@ const getPlayerImage = (p: Raw | null) => {
                       </div>
                       
                       <!-- 경고 메시지 -->
-                      <div v-if="globalBuffs.managerEnhance < tac.req[globalBuffs.tacticLevels[i]]" class="text-[9px] text-red-500 font-bold mt-1 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">
+                      <div v-if="globalBuffsAll[deckId].managerEnhance < tac.req[globalBuffs.tacticLevels[i]]" class="text-[9px] text-red-500 font-bold mt-1 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">
                          ⚠️ 강화 부족: 인게임 발동 불가 (최소 {{ tac.req[globalBuffs.tacticLevels[i]] }}강 필요)
                       </div>
                    </div>
@@ -3592,6 +3516,19 @@ const getPlayerImage = (p: Raw | null) => {
     </div>
   </div>
 
+  <!-- 🌟 자동 사라짐 토스트 (Toast) 알림 UI 🌟 -->
+  <div class="fixed bottom-6 right-6 z-[999999] flex flex-col gap-2.5 pointer-events-none">
+    <transition-group name="toast">
+      <div v-for="toast in toasts" :key="toast.id"
+           class="px-4 py-3.5 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] font-bold text-[13px] sm:text-sm text-white flex items-center gap-3 pointer-events-auto border border-white/10"
+           :class="toast.type === 'error' ? 'bg-neutral-800/95' : 'bg-neutral-800/95'">
+         <span class="text-xl leading-none" v-if="toast.type === 'error'">🚫</span>
+         <span class="text-xl leading-none" v-else>✅</span>
+         <span class="tracking-tight drop-shadow-md pr-1">{{ toast.msg }}</span>
+      </div>
+    </transition-group>
+  </div>
+
   <!-- 🌟 글로벌 스킬 툴팁 (화면 밖 잘림 완벽 방지) 🌟 -->
   <div v-if="tooltipState.show" 
        class="fixed z-[99999] pointer-events-none drop-shadow-2xl transition-all duration-75"
@@ -3609,6 +3546,19 @@ const getPlayerImage = (p: Raw | null) => {
 </template>
 
 <style scoped>
+<style scoped>
+.toast-enter-active,
+.toast-leave-active {
+  transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.toast-enter-from {
+  opacity: 0;
+  transform: translateX(30px) scale(0.95);
+}
+.toast-leave-to {
+  opacity: 0;
+  transform: translateY(-20px) scale(0.95);
+}
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
 ::-webkit-scrollbar { display: none; }
