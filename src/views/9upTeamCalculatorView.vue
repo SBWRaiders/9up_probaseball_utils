@@ -790,12 +790,10 @@ const getNormalSkillDescription = (skillName: string) => {
   const effectText = data?.effects || data?.effect;
   if (effectText) {
     if (Array.isArray(effectText)) {
-       return effectText.map(e => e.startsWith('-') ? e : `- ${e}`).join('
-');
+       return effectText.map(e => e.startsWith('-') ? e : `- ${e}`).join('\n');
     }
     // 문자열이라면 줄바꿈 문자를 살려줍니다.
-    return String(effectText).replace(/\n/g, '
-'); // JSON에서 
+    return String(effectText).replace(/\\n/g, '\n'); // JSON에서 
 으로 들어온 걸 진짜 줄바꿈으로 변환
   }
   
@@ -807,8 +805,7 @@ const getNormalSkillDescription = (skillName: string) => {
     for (const [k, v] of Object.entries(eff.stats || {})) {
       parts.push(`- ${STAT_LABELS[k] || k} +${v}`);
     }
-    if (parts.length > 0) return parts.join('
-');
+    if (parts.length > 0) return parts.join('\n');
   }
 
   // 🌟 3순위: 아무런 효과 데이터가 없으면 특수 스킬로 표시
