@@ -2829,9 +2829,9 @@ const getPlayerImage = (p: Raw | null) => {
                 <h3 class="text-[11px] font-bold text-indigo-800 dark:text-indigo-300 mb-2 flex items-center gap-1"><Zap class="w-3 h-3"/> 팀플/디그니티 버프 자동 적용</h3>
                 <div class="grid grid-cols-2 gap-2">
                   <template v-for="teamId in Array.from(new Set(Object.values(lineup).filter(Boolean).flatMap(p => toArray(p.team).map(toLowerCase))))" :key="teamId">
-                     <div v-if="calculateTeamPlayerDignityBuff({ team: teamId }) > 0" class="flex justify-between items-center text-[10px] bg-white dark:bg-neutral-800 px-2 py-1.5 rounded border shadow-sm flex-shrink-0">
+                     <div v-if="calculateTeamPlayerDignityBuff({ team: teamId }, activeDeck) > 0" class="flex justify-between items-center text-[10px] bg-white dark:bg-neutral-800 px-2 py-1.5 rounded border shadow-sm flex-shrink-0">
                        <span class="font-bold text-neutral-700">{{ findTeamName(teamId) }}</span>
-                       <span class="text-indigo-600 font-black">+{{ calculateTeamPlayerDignityBuff({ team: teamId }) }}</span>
+                       <span class="text-indigo-600 font-black">+{{ calculateTeamPlayerDignityBuff({ team: teamId }, activeDeck) }}</span>
                      </div>
                   </template>
                 </div>
@@ -3120,7 +3120,7 @@ const getPlayerImage = (p: Raw | null) => {
                     <div class="flex flex-col gap-0.5"><label class="text-xs font-bold text-neutral-500">커리어 레벨 파워</label><input type="number" v-model.number="playerBuffs[selectedSlot].careerLevelBuff" class="w-full px-2 py-1.5 text-center bg-white border rounded text-sm font-semibold"/></div>
                     <div class="flex flex-col gap-0.5">
                       <label class="text-xs font-bold text-indigo-500 flex items-center justify-center gap-1">바인더 파워 <Zap class="w-3 h-3"/></label>
-                      <div class="w-full px-2 py-1.5 text-center bg-indigo-50 border border-indigo-200 rounded text-sm font-black text-indigo-700 shadow-inner">+{{ getPlayerBinderPower(lineup[selectedSlot]) }}</div>
+                      <div class="w-full px-2 py-1.5 text-center bg-indigo-50 border border-indigo-200 rounded text-sm font-black text-indigo-700 shadow-inner">+{{ getPlayerBinderPower(lineup[selectedSlot], activeDeck) }}</div>
                     </div>
                   </div>
 
@@ -3174,11 +3174,11 @@ const getPlayerImage = (p: Raw | null) => {
                   <div class="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-indigo-100">
                     <div class="flex flex-col gap-0.5">
                       <label class="text-[11px] font-bold text-neutral-500">총 시너지 깡파워</label>
-                      <div class="w-full px-2 py-1.5 text-center bg-indigo-100 border border-indigo-200 rounded text-sm font-black text-indigo-800">+{{ getPlayerSynergySum(lineup[selectedSlot], 'fixed') }}</div>
+                      <div class="w-full px-2 py-1.5 text-center bg-indigo-100 border border-indigo-200 rounded text-sm font-black text-indigo-800">+{{ getPlayerSynergySum(lineup[selectedSlot], 'fixed', activeDeck) }}</div>
                     </div>
                     <div class="flex flex-col gap-0.5">
                       <label class="text-[11px] font-bold text-neutral-500">총 시너지 %파워</label>
-                      <div class="w-full px-2 py-1.5 text-center bg-indigo-100 border border-indigo-200 rounded text-sm font-black text-indigo-800">+{{ getPlayerSynergySum(lineup[selectedSlot], 'percent') }}%</div>
+                      <div class="w-full px-2 py-1.5 text-center bg-indigo-100 border border-indigo-200 rounded text-sm font-black text-indigo-800">+{{ getPlayerSynergySum(lineup[selectedSlot], 'percent', activeDeck) }}%</div>
                     </div>
                   </div>
                 </div>
