@@ -1895,33 +1895,45 @@ const selectSlot = (slot: string) => {
 const fileInput = ref<HTMLInputElement | null>(null)
 
 // 🌟 1. 공통 데이터 불러오기 (데이터 꼬임 방지 강력 버전) 🌟
-// 🌟 1. 공통 데이터 불러오기 (데이터 꼬임 방지 강력 버전) 🌟
 const applyLoadedData = (data: any) => {
   try {
-    if (data.lineups) lineups.value = JSON.parse(JSON.stringify(data.lineups));
-    else if (data.lineup) lineups.value[1] = JSON.parse(JSON.stringify(data.lineup)); // 하위호환
-    
-    // 🚨 [핵심 해결] 과거의 손상된 세이브 파일이 로드될 때 2번 덱이 증발하여 화면이 하얗게 멈추는 에러 방지!
+    // 🚨 [핵심 원인 해결] Vue의 반응성(Reactivity) 특징 때문에 객체가 완전히 교체되는 찰나의 순간,
+    // 2번 덱이 비어있으면 화면 렌더링이 중단(Crash)되어 하얀 화면이 뜹니다.
+    // 이를 방지하기 위해 1, 2번 덱이 모두 꽉 채워진 "완전한 객체"를 미리 만든 후 한 번에 덮어씌웁니다.
     const emptyLineup = { C: null, '1B': null, '2B': null, '3B': null, SS: null, LF: null, CF: null, RF: null, DH: null, SP1: null, SP2: null, SP3: null, SP4: null, SP5: null, RP1: null, RP2: null, RP3: null, RP4: null, RP5: null, RP6: null, BENCH1: null, BENCH2: null, BENCH3: null, BENCH4: null, BENCH5: null, BENCH6: null, BENCH7: null, BENCH8: null };
-    if (!lineups.value[1]) lineups.value[1] = JSON.parse(JSON.stringify(emptyLineup));
-    if (!lineups.value[2]) lineups.value[2] = JSON.parse(JSON.stringify(emptyLineup));
-
-    if (data.allPlayerBuffs) allPlayerBuffs.value = JSON.parse(JSON.stringify(data.allPlayerBuffs));
-    else if (data.playerBuffs) allPlayerBuffs.value[1] = JSON.parse(JSON.stringify(data.playerBuffs)); // 하위호환
-    if (!allPlayerBuffs.value[1]) allPlayerBuffs.value[1] = {};
-    if (!allPlayerBuffs.value[2]) allPlayerBuffs.value[2] = {};
-
-    if (data.globalBuffsAll) {
-      Object.assign(globalBuffsAll, JSON.parse(JSON.stringify(data.globalBuffsAll)));
-    } else if (data.globalBuffs) {
-      Object.assign(globalBuffsAll[1], JSON.parse(JSON.stringify(data.globalBuffs))); // 하위호환
+    
+    // 1️⃣ 라인업 덮어씌우기 (안전 결합)
+    let loadedLineups = { 1: JSON.parse(JSON.stringify(emptyLineup)), 2: JSON.parse(JSON.stringify(emptyLineup)) };
+    if (data.lineups) {
+      if (data.lineups[1]) loadedLineups[1] = data.lineups[1];
+      if (data.lineups[2]) loadedLineups[2] = data.lineups[2];
+    } else if (data.lineup) {
+      loadedLineups[1] = data.lineup; // 구버전 세이브 호환
     }
-    const defaultGlobal = { teamLevel: 100, preferredTeam: [], clanBuff: 15, managerType: '', managerEnhance: 0, synergyMasteries: ['', '', '', '', ''], amplifiedMasteryIndex: -1, binderLevel: 100, binderMatrix: Array(5).fill(0).map(() => ({ team: '', position: '', player: '', year: '', grade: '' })), managerBreakthrough: 0, tacticLevels: Array(15).fill(0), tacticBaseRates: { scoring: 50, cleanup: 40 }, tacticCondRates: [5, 24.5, 20, 24.5, 21, 7.5, 30, 25.5, 25, 50, 0, 0, 50, 60, 32.5] };
-    if (!globalBuffsAll[1] || Object.keys(globalBuffsAll[1]).length === 0) globalBuffsAll[1] = JSON.parse(JSON.stringify(defaultGlobal));
-    if (!globalBuffsAll[2] || Object.keys(globalBuffsAll[2]).length === 0) globalBuffsAll[2] = JSON.parse(JSON.stringify(defaultGlobal));
+    lineups.value = loadedLineups;
 
+    // 2️⃣ 버프 덮어씌우기 (안전 결합)
+    let loadedAllPlayerBuffs = { 1: {}, 2: {} };
+    if (data.allPlayerBuffs) {
+      if (data.allPlayerBuffs[1]) loadedAllPlayerBuffs[1] = data.allPlayerBuffs[1];
+      if (data.allPlayerBuffs[2]) loadedAllPlayerBuffs[2] = data.allPlayerBuffs[2];
+    } else if (data.playerBuffs) {
+      loadedAllPlayerBuffs[1] = data.playerBuffs; // 구버전 세이브 호환
+    }
+    allPlayerBuffs.value = loadedAllPlayerBuffs;
+
+    // 3️⃣ 글로벌 설정 덮어씌우기 (안전 결합)
+    if (data.globalBuffsAll) {
+      if (data.globalBuffsAll[1]) Object.assign(globalBuffsAll[1], data.globalBuffsAll[1]);
+      if (data.globalBuffsAll[2]) Object.assign(globalBuffsAll[2], data.globalBuffsAll[2]);
+    } else if (data.globalBuffs) {
+      Object.assign(globalBuffsAll[1], data.globalBuffs); // 구버전 세이브 호환
+    }
+
+    // 4️⃣ 각인 보관함
     if (data.imprintInventory) imprintInventory.value = JSON.parse(JSON.stringify(data.imprintInventory));
 
+    // 5️⃣ 다중 세이브 슬롯 (로컬 스토리지에 병합)
     if (data.multiSaves && Object.keys(data.multiSaves).length > 0) {
       const existingSaves = JSON.parse(localStorage.getItem('9up_multi_saves') || '{}');
       const mergedSaves = { ...existingSaves, ...data.multiSaves };
@@ -2170,12 +2182,7 @@ onMounted(async () => {
   // 🌟 사이트 켜자마자 자동 백업된 데이터 복구 🌟
   const saved = localStorage.getItem('9up_auto_save')
   if (saved) {
-    try { 
-      applyLoadedData(JSON.parse(saved)) 
-    } catch(e) {
-      console.error("저장된 데이터 파싱 오류", e);
-      localStorage.removeItem('9up_auto_save');
-    }
+    try { applyLoadedData(JSON.parse(saved)) } catch(e) {}
   }
 
   try {
