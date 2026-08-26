@@ -1788,7 +1788,9 @@ const teamTotalPower = computed(() => {
 })
 
 const isSamePlayer = (p1: Raw, p2: Raw) => {
-  return p1.id === p2.id;
+  if (!p1 || !p2) return false;
+  // 이름이 같거나 id가 같으면 동일 선수로 판별 (연도별 카드 중복 방지)
+  return p1.id === p2.id || String(p1.name).trim() === String(p2.name).trim();
 }
 
 const getAvailableSlot = (basePos: string): string => {
@@ -2344,6 +2346,20 @@ const generateAutoLineup = () => {
   const emptyLineup: Record<string, any> = { C: null, '1B': null, '2B': null, '3B': null, SS: null, LF: null, CF: null, RF: null, DH: null, SP1: null, SP2: null, SP3: null, SP4: null, SP5: null, RP1: null, RP2: null, RP3: null, RP4: null, RP5: null, RP6: null, BENCH1: null, BENCH2: null, BENCH3: null, BENCH4: null, BENCH5: null, BENCH6: null, BENCH7: null, BENCH8: null };
   const newLineup = { ...emptyLineup };
   const usedIds = new Set<string>();
+  const usedNames = new Set<string>();
+
+  const markUsed = (p: any) => {
+    if (!p) return;
+    usedIds.add(p.id);
+    if (p.name) usedNames.add(String(p.name).trim());
+  };
+
+  const isAlreadyUsed = (p: any) => {
+    if (!p) return true;
+    if (isAlreadyUsed(p)) return true;
+    if (p.name && usedNames.has(String(p.name).trim())) return true;
+    return false;
+  };
 
   // 1. DGN 배치
   const dgnPlayers = preparedPlayers.value.filter(p => autoLineupSelectedDgnIds.value.includes(p.raw.id)).map(p => p.raw);
@@ -2360,7 +2376,7 @@ const generateAutoLineup = () => {
           if(assigned) break;
       }
       if(!assigned && !isPitcher(dgn) && !newLineup['DH']) { newLineup['DH'] = dgn; assigned = true; }
-      if(assigned) usedIds.add(dgn.id);
+      if(assigned) markUsed(dgn);
   });
 
   // 2. 주전 후보군 필터링 (DGN, TOP, ACE, HIT, GG, ROY)
@@ -2384,18 +2400,18 @@ const generateAutoLineup = () => {
 
   mainBatters.forEach(slot => {
       if (newLineup[slot]) return;
-      const best = teamPlayers.find(p => !usedIds.has(p.id) && !isPitcher(p) && (getPlayerPositions(p).includes(slot) || slot === 'DH'));
-      if (best) { newLineup[slot] = best; usedIds.add(best.id); }
+      const best = teamPlayers.find(p => !isAlreadyUsed(p) && !isPitcher(p) && (getPlayerPositions(p).includes(slot) || slot === 'DH'));
+      if (best) { newLineup[slot] = best; markUsed(best); }
   });
   mainSPs.forEach(slot => {
       if (newLineup[slot]) return;
-      const best = teamPlayers.find(p => !usedIds.has(p.id) && isPitcher(p) && getPlayerPositions(p).includes('SP'));
-      if (best) { newLineup[slot] = best; usedIds.add(best.id); }
+      const best = teamPlayers.find(p => !isAlreadyUsed(p) && isPitcher(p) && getPlayerPositions(p).includes('SP'));
+      if (best) { newLineup[slot] = best; markUsed(best); }
   });
   mainRPs.forEach(slot => {
       if (newLineup[slot]) return;
-      const best = teamPlayers.find(p => !usedIds.has(p.id) && isPitcher(p) && getPlayerPositions(p).includes('RP'));
-      if (best) { newLineup[slot] = best; usedIds.add(best.id); }
+      const best = teamPlayers.find(p => !isAlreadyUsed(p) && isPitcher(p) && getPlayerPositions(p).includes('RP'));
+      if (best) { newLineup[slot] = best; markUsed(best); }
   });
 
   // 4. 팀플(TEA) 벤치 1번 고정
@@ -2405,9 +2421,9 @@ const generateAutoLineup = () => {
   ).map(p => p.raw);
   teamTEAs.sort((a, b) => getRawScore(b) - getRawScore(a));
   if (teamTEAs.length > 0) {
-      const bestTEA = teamTEAs.find(p => !usedIds.has(p.id)) || teamTEAs[0];
+      const bestTEA = teamTEAs.find(p => !isAlreadyUsed(p)) || teamTEAs[0];
       newLineup['BENCH1'] = bestTEA;
-      usedIds.add(bestTEA.id);
+      markUsed(bestTEA);
   }
 
   // 5. 남은 벤치 (시너지 위주)
@@ -2426,7 +2442,7 @@ const generateAutoLineup = () => {
       
       for (let i=0; i<Math.min(300, allOtherPlayers.length); i++) {
           const p = allOtherPlayers[i];
-          if (usedIds.has(p.id)) continue;
+          if (isAlreadyUsed(p)) continue;
           let score = 0;
           getSynergyTags(p).forEach(s => {
               if (currentSynCounts[s] > 0) score += currentSynCounts[s]; 
@@ -2435,7 +2451,7 @@ const generateAutoLineup = () => {
       }
       if (bestBench) {
           newLineup[`BENCH${benchIdx}`] = bestBench;
-          usedIds.add(bestBench.id);
+          markUsed(bestBench);
           getSynergyTags(bestBench).forEach(s => { currentSynCounts[s] = (currentSynCounts[s] || 0) + 1; });
       }
   }
