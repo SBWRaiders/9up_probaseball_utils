@@ -1787,10 +1787,17 @@ const teamTotalPower = computed(() => {
   return sum
 })
 
+const getBasePlayerName = (name: any) => {
+  if (!name) return '';
+  return String(name).normalize('NFKC').replace(/['‘’`"\s]\d{2,4}$/, '').replace(/['‘’`"\s]\d{2,4}/g, '').trim();
+};
+
 const isSamePlayer = (p1: Raw, p2: Raw) => {
   if (!p1 || !p2) return false;
-  // 이름이 같거나 id가 같으면 동일 선수로 판별 (연도별 카드 중복 방지)
-  return p1.id === p2.id || String(p1.name).trim() === String(p2.name).trim();
+  if (p1.id === p2.id) return true;
+  const n1 = getBasePlayerName(p1.name);
+  const n2 = getBasePlayerName(p2.name);
+  return n1.length > 0 && n1 === n2;
 }
 
 const getAvailableSlot = (basePos: string): string => {
@@ -2351,13 +2358,15 @@ const generateAutoLineup = () => {
   const markUsed = (p: any) => {
     if (!p) return;
     usedIds.add(p.id);
-    if (p.name) usedNames.add(String(p.name).trim());
+    const baseName = getBasePlayerName(p.name);
+    if (baseName) usedNames.add(baseName);
   };
 
   const isAlreadyUsed = (p: any) => {
     if (!p) return true;
     if (usedIds.has(p.id)) return true;
-    if (p.name && usedNames.has(String(p.name).trim())) return true;
+    const baseName = getBasePlayerName(p.name);
+    if (baseName && usedNames.has(baseName)) return true;
     return false;
   };
 
