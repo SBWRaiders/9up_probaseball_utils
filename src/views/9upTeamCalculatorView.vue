@@ -1123,7 +1123,7 @@ const getActiveTeamSynergies = (deckId: 1 | 2) => {
     }
   }
   return result
-})
+}
 
 const pendingTeamSynergies = computed(() => getPendingTeamSynergies(activeDeck.value));
 const getPendingTeamSynergies = (deckId: 1 | 2) => {
@@ -1182,7 +1182,7 @@ const getPendingTeamSynergies = (deckId: 1 | 2) => {
     }
   }
   return result
-})
+}
 
 const getTeamLevelPower = (level: number, isPref: boolean) => {
   const l = Math.min(100, Math.max(0, level || 0));
@@ -1746,7 +1746,7 @@ const getComputedPlayerStats = (deckId: 1 | 2) => {
     result[slot] = { power: Math.round(finalTotal), stats }
   })
   return result
-})
+}
 
 const calculatePlayerPower = (p: Raw, slot: string) => getComputedPlayerStats(activeDeck.value)[slot]?.power || 0
 
