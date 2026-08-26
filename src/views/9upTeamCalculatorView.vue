@@ -2356,28 +2356,30 @@ const generateAutoLineup = () => {
   
   const emptyLineup: Record<string, any> = { C: null, '1B': null, '2B': null, '3B': null, SS: null, LF: null, CF: null, RF: null, DH: null, SP1: null, SP2: null, SP3: null, SP4: null, SP5: null, RP1: null, RP2: null, RP3: null, RP4: null, RP5: null, RP6: null, BENCH1: null, BENCH2: null, BENCH3: null, BENCH4: null, BENCH5: null, BENCH6: null, BENCH7: null, BENCH8: null };
   const newLineup = { ...emptyLineup };
+  
   const usedIds = new Set<string>();
-  const usedPlayerIds = new Set<string>();
+  const usedPlayerNames = new Set<string>();
 
   const markUsed = (p: any) => {
     if (!p) return;
     usedIds.add(p.id);
     if (p.playerId) {
-      usedPlayerIds.add(String(p.playerId).trim());
-    } else if (p.name) {
-      usedPlayerIds.add(getBasePlayerName(p.name));
+      usedPlayerNames.add(String(p.playerId).trim());
+    }
+    if (p.name) {
+      usedPlayerNames.add(getBasePlayerName(p.name));
     }
   };
 
   const isAlreadyUsed = (p: any) => {
     if (!p) return true;
     if (usedIds.has(p.id)) return true;
-    if (p.playerId && usedPlayerIds.has(String(p.playerId).trim())) return true;
-    if (p.name && usedPlayerIds.has(getBasePlayerName(p.name))) return true;
+    if (p.playerId && usedPlayerNames.has(String(p.playerId).trim())) return true;
+    if (p.name && usedPlayerNames.has(getBasePlayerName(p.name))) return true;
     return false;
   };
 
-  // 1. DGN 배치
+  // 1. 선택된 디그니티(DGN) 카드 먼저 최우선 배치
   const dgnPlayers = preparedPlayers.value.filter(p => autoLineupSelectedDgnIds.value.includes(p.raw.id)).map(p => p.raw);
   dgnPlayers.forEach(dgn => {
       const posList = getPlayerPositions(dgn);
@@ -2395,84 +2397,66 @@ const generateAutoLineup = () => {
       if(assigned) markUsed(dgn);
   });
 
-  // 2. 주전 후보군 필터링 (DGN, TOP, ACE, HIT, GG, ROY)
-  const validGrades = ['TOP', 'ACE', 'HIT', 'GG', 'ROY'];
-  let teamPlayers = preparedPlayers.value.filter(p => 
+  // 2. 후보 선수단 풀 확보 (팀 및 유효 등급: TOP, ACE, HIT, GG, ROY, TEA)
+  const validGrades = ['TOP', 'ACE', 'HIT', 'GG', 'ROY', 'TEA', 'DGN'];
+  let allCandidates = preparedPlayers.value.filter(p => 
       p.teamLowerCase.some(t => teamIds.includes(t)) && 
       validGrades.includes(getMappedGrade(p.raw.grade))
   ).map(p => p.raw);
   
-  const getRawScore = (p: any) => {
-       const r = Number(p.rarity || 1) * 10000;
-       const s = (Number(p.contact||0) + Number(p.homeRunPower||0) + Number(p.movement||0) + Number(p.stuff||0));
+  // 종합 스코어 계산 (레어도 + 5대 스탯 합산)
+  const getPowerScore = (p: any) => {
+       const r = Number(p.rarity || 1) * 15000;
+       const s = (Number(p.contact||0) + Number(p.homeRunPower||0) + Number(p.gapPower||0) + Number(p.movement||0) + Number(p.stuff||0) + Number(p.control||0));
        return r + s;
   };
-  teamPlayers.sort((a, b) => getRawScore(b) - getRawScore(a));
+  allCandidates.sort((a, b) => getPowerScore(b) - getPowerScore(a));
 
-  // 3. 주전 빈칸 채우기
+  // 3. 주전 타자 포지션 채우기 (중복 선수 절대 불가)
   const mainBatters = ['C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH'];
-  const mainSPs = ['SP1', 'SP2', 'SP3', 'SP4', 'SP5'];
-  const mainRPs = ['RP1', 'RP2', 'RP3', 'RP4', 'RP5', 'RP6'];
-
   mainBatters.forEach(slot => {
       if (newLineup[slot]) return;
-      const best = teamPlayers.find(p => !isAlreadyUsed(p) && !isPitcher(p) && (getPlayerPositions(p).includes(slot) || slot === 'DH'));
-      if (best) { newLineup[slot] = best; markUsed(best); }
+      // 이미 사용된 선수가 아닌 후보 중 포지션이 맞거나 DH가 가능한 최고 스펙 선수 선택
+      const best = allCandidates.find(p => !isAlreadyUsed(p) && !isPitcher(p) && (getPlayerPositions(p).includes(slot) || slot === 'DH'));
+      if (best) { 
+          newLineup[slot] = best; 
+          markUsed(best); 
+      }
   });
+
+  // 4. 선발 투수(SP1 ~ SP5) 채우기
+  const mainSPs = ['SP1', 'SP2', 'SP3', 'SP4', 'SP5'];
   mainSPs.forEach(slot => {
       if (newLineup[slot]) return;
-      const best = teamPlayers.find(p => !isAlreadyUsed(p) && isPitcher(p) && getPlayerPositions(p).includes('SP'));
-      if (best) { newLineup[slot] = best; markUsed(best); }
+      const best = allCandidates.find(p => !isAlreadyUsed(p) && isPitcher(p) && getPlayerPositions(p).includes('SP'));
+      if (best) { 
+          newLineup[slot] = best; 
+          markUsed(best); 
+      }
   });
+
+  // 5. 계투 및 마무리(RP1 ~ RP6) 채우기
+  const mainRPs = ['RP1', 'RP2', 'RP3', 'RP4', 'RP5', 'RP6'];
   mainRPs.forEach(slot => {
       if (newLineup[slot]) return;
-      const best = teamPlayers.find(p => !isAlreadyUsed(p) && isPitcher(p) && getPlayerPositions(p).includes('RP'));
-      if (best) { newLineup[slot] = best; markUsed(best); }
-  });
-
-  // 4. 팀플(TEA) 벤치 1번 고정
-  const teamTEAs = preparedPlayers.value.filter(p => 
-      p.teamLowerCase.some(t => teamIds.includes(t)) && 
-      getMappedGrade(p.raw.grade) === 'TEA'
-  ).map(p => p.raw);
-  teamTEAs.sort((a, b) => getRawScore(b) - getRawScore(a));
-  if (teamTEAs.length > 0) {
-      const bestTEA = teamTEAs.find(p => !isAlreadyUsed(p)) || teamTEAs[0];
-      newLineup['BENCH1'] = bestTEA;
-      markUsed(bestTEA);
-  }
-
-  // 5. 남은 벤치 (시너지 위주)
-  const getSynergyTags = (p: any) => getArray(p.synergy).map(s => String(s).normalize('NFKC').replace(/[​-‍﻿]/g,'').replace(/[,\s클럽]/g,'').trim());
-  let currentSynCounts: Record<string, number> = {};
-  Object.values(newLineup).forEach(p => {
-       if(p) getSynergyTags(p).forEach(s => { currentSynCounts[s] = (currentSynCounts[s] || 0) + 1; });
-  });
-
-  const allOtherPlayers = preparedPlayers.value.filter(p => !usedIds.has(p.raw.id)).map(p => p.raw);
-  
-  for (let benchIdx = 2; benchIdx <= 8; benchIdx++) {
-      if (newLineup[`BENCH${benchIdx}`]) continue;
-      let bestBench = null;
-      let bestScore = -1;
-      
-      for (let i=0; i<Math.min(300, allOtherPlayers.length); i++) {
-          const p = allOtherPlayers[i];
-          if (isAlreadyUsed(p)) continue;
-          let score = 0;
-          getSynergyTags(p).forEach(s => {
-              if (currentSynCounts[s] > 0) score += currentSynCounts[s]; 
-          });
-          if (score > bestScore) { bestScore = score; bestBench = p; }
+      const best = allCandidates.find(p => !isAlreadyUsed(p) && isPitcher(p) && (getPlayerPositions(p).includes('RP') || isPitcher(p)));
+      if (best) { 
+          newLineup[slot] = best; 
+          markUsed(best); 
       }
-      if (bestBench) {
-          newLineup[`BENCH${benchIdx}`] = bestBench;
-          markUsed(bestBench);
-          getSynergyTags(bestBench).forEach(s => { currentSynCounts[s] = (currentSynCounts[s] || 0) + 1; });
+  });
+
+  // 6. 벤치 멤버 (BENCH1 ~ BENCH8) 채우기
+  for (let i = 1; i <= 8; i++) {
+      if (newLineup[`BENCH${i}`]) continue;
+      const best = allCandidates.find(p => !isAlreadyUsed(p));
+      if (best) {
+          newLineup[`BENCH${i}`] = best;
+          markUsed(best);
       }
   }
 
-  // 6. 적용
+  // 7. 덱에 최종 반영
   lineups.value[deckId] = newLineup as any;
   Object.keys(newLineup).forEach(k => {
      if(newLineup[k]) {
@@ -2484,28 +2468,38 @@ const generateAutoLineup = () => {
      }
   });
   
-  
-  // 7. 타순 및 추천 스킬 자동 배치 엔진 (타순 스킬 및 램프 활성화)
-  const batterSlots = ['C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH'];
-  batterSlots.forEach((slot, idx) => {
+  // 8. 🌟 타순(1~9번) 및 추천 스킬 스마트 최적화 자동 세팅
+  // 타순 전략: 1~2번(컨택/출루형), 3~5번(클린업 파워형), 6~9번(하위타선)
+  const filledBatters = mainBatters.filter(slot => newLineup[slot]);
+  // 파워 및 컨택 스코어 기준으로 정렬하여 최적의 타순 배정
+  filledBatters.sort((a, b) => {
+      const pa = newLineup[a];
+      const pb = newLineup[b];
+      const scoreA = Number(pa.contact||0) + Number(pa.homeRunPower||0);
+      const scoreB = Number(pb.contact||0) + Number(pb.homeRunPower||0);
+      return scoreB - scoreA;
+  });
+
+  filledBatters.forEach((slot, idx) => {
       const p = newLineup[slot];
       if (p && playerBuffs.value[deckId][slot]) {
-          // 타순 1~9번 부여
+          // 1번부터 9번까지 타순 순차 부여
           playerBuffs.value[deckId][slot].battingOrder = idx + 1;
           
-          // 추천 스킬 자동 장착 (보유한 일반 스킬 중 최대 개수만큼 자동 선택)
+          // 추천 스킬(일반 스킬) 중 레어도가 허용하는 최대 개수만큼 자동 장착
           const avail = getAvailableSkills(p);
           const rarity = parseInt(String(p.rarity || 1), 10) || 1;
           const maxSkills = Math.min(3, Math.max(1, rarity - 1));
-          if (avail.length > 0 && playerBuffs.value[deckId][slot].selectedSkills.length === 0) {
+          if (avail.length > 0) {
               playerBuffs.value[deckId][slot].selectedSkills = avail.slice(0, maxSkills);
           }
       }
   });
 
   showAutoLineupModal.value = false;
-  showToast('✨ 1티어 추천 라인업이 완벽하게 세팅되었습니다!', 'success');
+  showToast('✨ 최적 스킬 및 타순이 반영된 1티어 추천 라인업 완성!', 'success');
 };
+;
 
 // ========================================================
 // 🌟 나만의 관리자 모드 (환경 변수 + 이스터 에그) 🌟
