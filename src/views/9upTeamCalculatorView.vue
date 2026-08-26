@@ -662,6 +662,104 @@ const SKILL_EFFECTS: Record<string, any> = {
   "하이볼 히터": {"powerPercent": 0, "stats": {"contact": 10.0, "strikeoutAvoidance": 5.0, "homeRunPower": -5.0}}
 }
 
+
+const normalSkillData = ref<any[]>([])
+const enhancedSkillData = ref<any[]>([])
+
+const matchSkillInfo = (skill: string) => {
+  return normalSkillData.value.find((s) => s.skill === skill)?.image || ''
+}
+
+const getNormalSkillDescription = (skillName: string) => {
+  const data = normalSkillData.value.find(s => s.skill === skillName);
+  
+  const effectText = data?.effects || data?.effect;
+  if (effectText) {
+    if (Array.isArray(effectText)) {
+       return effectText.map(e => e.startsWith('-') ? e : `- ${e}`).join('\n');
+    }
+    return String(effectText).replace(/\\n/g, '\n');
+  }
+  
+  const eff = SKILL_EFFECTS[skillName];
+  if (eff) {
+    const parts = [];
+    if (eff.powerPercent) parts.push(`- 파워 +${eff.powerPercent}%`);
+    for (const [k, v] of Object.entries(eff.stats || {})) {
+      parts.push(`- ${STAT_LABELS[k] || k} +${v}`);
+    }
+    if (parts.length > 0) return parts.join('\n');
+  }
+
+  return '- 특수 조건 발동 스킬';
+}
+
+const matchEnhancedSkillImage = (skill: string) => {
+  const img = enhancedSkillData.value.find((s) => s.enhanced_skill === skill)?.image || '';
+  if (!img) return '';
+  return img.startsWith('bg-') ? img : `bg-${img}`;
+}
+
+const getEnhancedSkillEffect = (skillName: string, level: number) => {
+  const data = enhancedSkillData.value.find((s) => s.enhanced_skill === skillName);
+  if (!data) return '효과 정보를 불러올 수 없습니다.';
+
+  const list = data.effects_by_level || data.effects || data.levels;
+  if (Array.isArray(list) && list.length > 0) {
+    const idx = Math.min(Math.max(0, level), list.length - 1);
+    return list[idx] || list[list.length - 1] || '';
+  }
+  if (list && typeof list === 'object') {
+    if (list[level]) return list[level];
+    if (list[String(level)]) return list[String(level)];
+  }
+  const exactKeys = [`lv${level}`, `lv_${level}`, `Lv${level}`, `Lv_${level}`, `level${level}`, `level_${level}`, `effect${level}`, `effect_${level}`, `eff${level}`, `eff_${level}`];
+  for (const k of exactKeys) {
+    if (data[k]) return data[k];
+  }
+  if (level === 0) {
+    if (data['기본']) return data['기본'];
+    if (data.base) return data.base;
+  }
+  return data.description || '해당 레벨의 효과 데이터가 없습니다.';
+}
+
+const tooltipState = reactive({
+  show: false,
+  skill: '',
+  x: 0,
+  y: 0,
+  transform: 'translate(-50%, -100%)',
+  arrowLeft: '50%'
+});
+
+const showSkillTooltip = (e: MouseEvent, sk: string) => {
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  let x = rect.left + rect.width / 2;
+  let y = rect.top;
+  let transform = 'translate(-50%, -100%)';
+  let arrowLeft = '50%';
+
+  if (x < 130) {
+    transform = 'translate(-20%, -100%)';
+    arrowLeft = '20%';
+  } else if (window.innerWidth - x < 130) {
+    transform = 'translate(-80%, -100%)';
+    arrowLeft = '80%';
+  }
+
+  tooltipState.skill = sk;
+  tooltipState.x = x;
+  tooltipState.y = y;
+  tooltipState.transform = transform;
+  tooltipState.arrowLeft = arrowLeft;
+  tooltipState.show = true;
+};
+
+const hideSkillTooltip = () => {
+  tooltipState.show = false;
+};
+
 const isSkillActive = (skillName: string, slot: string, battingOrder: number | null) => {
   const s = slot.toUpperCase()
   if (skillName === '에이스' || skillName === '원투펀치') return s === 'SP1' || s === 'SP2'
@@ -776,54 +874,6 @@ const isSkillDropdownOpen = ref(false)
 const skillSearchText = ref('')
 const excludedFilterSkills = ['마무리', '셋업맨', '숏릴리프', '승리계투'];
 const skillOptions = computed(() => Object.keys(SKILL_EFFECTS).filter(sk => !excludedFilterSkills.includes(sk)).sort());
-const normalSkillData = ref<any[]>([])
-const enhancedSkillData = ref<any[]>([]) // 🌟 추가됨: 강화스킬 DB
-
-const matchSkillInfo = (skill: string) => {
-  return normalSkillData.value.find((s) => s.skill === skill)?.image || ''
-}
-
-// 🌟 강화스킬 이미지 매칭
-const matchEnhancedSkillImage = (skill: string) => {
-  const img = enhancedSkillData.value.find((s) => s.enhanced_skill === skill)?.image || '';
-  if (!img) return '';
-  return img.startsWith('bg-') ? img : `bg-${img}`;
-}
-
-// 🌟 강화스킬 효과 매칭 (레벨 연동)
-const getEnhancedSkillEffect = (skillName: string, level: number) => {
-  const data = enhancedSkillData.value.find((s) => s.enhanced_skill === skillName);
-  if (!data) return '효과 정보를 불러올 수 없습니다.';
-
-  // 1. 🌟 핵심: enhanced_skill.json의 실제 키값인 'effects_by_level' 배열 완벽 지원!
-  const list = data.effects_by_level || data.effects || data.levels;
-  if (Array.isArray(list) && list.length > 0) {
-    const idx = Math.min(Math.max(0, level), list.length - 1);
-    return list[idx] || list[list.length - 1] || '';
-  }
-
-  // 2. 객체 형태인 경우
-  if (list && typeof list === 'object') {
-    if (list[level]) return list[level];
-    if (list[String(level)]) return list[String(level)];
-  }
-
-  // 3. 플랫 키 매칭
-  const exactKeys = [
-    `lv${level}`, `lv_${level}`, `Lv${level}`, `Lv_${level}`, `level${level}`, `level_${level}`,
-    `effect${level}`, `effect_${level}`, `eff${level}`, `eff_${level}`
-  ];
-  for (const k of exactKeys) {
-    if (data[k]) return data[k];
-  }
-
-  if (level === 0) {
-    if (data['기본']) return data['기본'];
-    if (data.base) return data.base;
-  }
-
-  return data.description || '해당 레벨의 효과 데이터가 없습니다.';
-}
 
 const filteredSkillOptions = computed(() => {
   const query = normalizeText(skillSearchText.value)
@@ -2288,6 +2338,8 @@ const getPlayerImage = (p: Raw | null) => {
                       <button
                         v-for="sk in skillOptions" :key="sk"
                         @click="toggleSkillFilter(sk)"
+                        @mouseenter="showSkillTooltip($event, sk)"
+                        @mouseleave="hideSkillTooltip"
                         class="group relative inline-flex flex-col items-center justify-center gap-1 rounded-xl border py-1.5 text-[10px] font-medium select-none focus:outline-none transition-all duration-200"
                         :class="searchQuery.skill.includes(sk)
                           ? 'bg-amber-500 text-white border-amber-500 shadow-md dark:bg-amber-600 dark:border-amber-600'
@@ -3063,6 +3115,9 @@ const getPlayerImage = (p: Raw | null) => {
                       v-for="sk in getAvailableSkills(lineup[selectedSlot])" 
                       :key="sk"
                       @click="togglePlayerSkill(sk)"
+                      @mouseenter="showSkillTooltip($event, sk)"
+                      @mouseleave="hideSkillTooltip"
+
                       :class="[
                         playerBuffs[selectedSlot].selectedSkills.includes(sk) 
                           ? 'bg-indigo-600 text-white border-indigo-600 shadow-md dark:bg-indigo-700 dark:border-indigo-700' 
@@ -3373,6 +3428,21 @@ const getPlayerImage = (p: Raw | null) => {
          </div>
       </div>
     </div>
+  </div>
+
+  <!-- 🌟 글로벌 스킬 툴팁 (화면 밖 잘림 완벽 방지) 🌟 -->
+  <div v-if="tooltipState.show" 
+       class="fixed z-[99999] pointer-events-none drop-shadow-2xl transition-all duration-75"
+       :style="{ 
+         top: (tooltipState.y - 8) + 'px', 
+         left: tooltipState.x + 'px',
+         transform: tooltipState.transform
+       }">
+      <div class="bg-neutral-900 dark:bg-white text-neutral-100 dark:text-neutral-900 text-[11px] font-medium px-3 py-2.5 rounded-xl shadow-2xl text-left leading-relaxed whitespace-pre-wrap border border-neutral-700 dark:border-neutral-200 tracking-tight w-max max-w-[240px]">
+        {{ getNormalSkillDescription(tooltipState.skill) }}
+      </div>
+      <div class="absolute bottom-0 w-3 h-3 bg-neutral-900 dark:bg-white rotate-45 border-r border-b border-neutral-700 dark:border-neutral-200"
+           :style="{ left: tooltipState.arrowLeft, transform: 'translate(-50%, 50%)' }"></div>
   </div>
 </template>
 
