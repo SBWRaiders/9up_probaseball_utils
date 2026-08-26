@@ -2445,6 +2445,28 @@ const generateAutoLineup = () => {
   showToast('✨ 1티어 추천 라인업이 완벽하게 세팅되었습니다!', 'success');
 }
 
+
+// ========================================================
+// 🌟 나만의 관리자 모드 (이스터 에그) 🌟
+// ========================================================
+const isAdmin = ref(localStorage.getItem('9up_admin_unlocked') === 'true');
+let titleClickCount = 0;
+let titleClickTimer: any = null;
+
+const handleTitleClick = () => {
+  titleClickCount++;
+  if (titleClickTimer) clearTimeout(titleClickTimer);
+  titleClickTimer = setTimeout(() => { titleClickCount = 0; }, 1500); // 1.5초 내에 연속 클릭해야 함
+
+  if (titleClickCount >= 5) {
+    isAdmin.value = !isAdmin.value;
+    localStorage.setItem('9up_admin_unlocked', String(isAdmin.value));
+    if (isAdmin.value) showToast('관리자 모드 활성화: AI 자동 편성 기능이 켜졌습니다! 🚀', 'success');
+    else showToast('관리자 모드 비활성화: AI 기능을 숨깁니다. 🔒', 'info');
+    titleClickCount = 0;
+  }
+};
+
 </script>
 
 <template>
@@ -2455,7 +2477,7 @@ const generateAutoLineup = () => {
       <div class="w-full px-2 py-1.5 flex items-center justify-between">
         <div class="flex items-center gap-3">
           <Calculator class="w-5 h-5 text-blue-200" />
-          <h1 class="text-lg font-bold tracking-tight">9UP 팀 파워 시뮬레이터</h1>
+          <h1 @click="handleTitleClick" class="text-lg font-bold tracking-tight cursor-pointer select-none">9UP 팀 파워 시뮬레이터</h1>
         </div>
         <div class="flex items-center gap-2">
           <input type="file" ref="fileInput" accept=".json" class="hidden" @change="importFromFile" />
@@ -2511,7 +2533,7 @@ const generateAutoLineup = () => {
             </div>
             
             
-            <button @click="showAutoLineupModal = true" class="w-full mb-3 bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-black py-2.5 rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] flex items-center justify-center gap-2 hover:from-indigo-500 hover:to-blue-500 hover:-translate-y-0.5 transition-all">
+            <button v-if="isAdmin" @click="showAutoLineupModal = true" class="w-full mb-3 bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-black py-2.5 rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] flex items-center justify-center gap-2 hover:from-indigo-500 hover:to-blue-500 hover:-translate-y-0.5 transition-all">
                <Sparkles class="w-4 h-4 text-amber-300" /> AI 실전 1티어 추천 라인업 편성
             </button>
             
@@ -2987,7 +3009,7 @@ const generateAutoLineup = () => {
                     </div>
                   
   <!-- 🌟 AI 추천 라인업 생성 모달 -->
-  <div v-if="showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+  <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
     <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
       <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
         <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
@@ -3065,7 +3087,7 @@ const generateAutoLineup = () => {
                      </div>
                   
   <!-- 🌟 AI 추천 라인업 생성 모달 -->
-  <div v-if="showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+  <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
     <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
       <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
         <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
@@ -3226,7 +3248,7 @@ const generateAutoLineup = () => {
                             <option :value="0">Lv.0</option>
                             <option :value="1" :disabled="globalBuffsAll[activeDeck].managerEnhance < tac.req[1]">Lv.1 ({{ tac.pt[1] }}pt<template v-if="globalBuffsAll[activeDeck].managerEnhance < tac.req[1]"> / 🔒{{tac.req[1]}}강 필요
   <!-- 🌟 AI 추천 라인업 생성 모달 -->
-  <div v-if="showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+  <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
     <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
       <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
         <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
@@ -3292,7 +3314,7 @@ const generateAutoLineup = () => {
 </template>)</option>
                             <option :value="2" :disabled="globalBuffsAll[activeDeck].managerEnhance < tac.req[2]">Lv.2 ({{ tac.pt[2] }}pt<template v-if="globalBuffsAll[activeDeck].managerEnhance < tac.req[2]"> / 🔒{{tac.req[2]}}강 필요
   <!-- 🌟 AI 추천 라인업 생성 모달 -->
-  <div v-if="showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+  <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
     <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
       <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
         <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
@@ -3358,7 +3380,7 @@ const generateAutoLineup = () => {
 </template>)</option>
                             <option :value="3" :disabled="globalBuffsAll[activeDeck].managerEnhance < tac.req[3]">Lv.3 ({{ tac.pt[3] }}pt<template v-if="globalBuffsAll[activeDeck].managerEnhance < tac.req[3]"> / 🔒{{tac.req[3]}}강 필요
   <!-- 🌟 AI 추천 라인업 생성 모달 -->
-  <div v-if="showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+  <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
     <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
       <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
         <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
@@ -3424,7 +3446,7 @@ const generateAutoLineup = () => {
 </template>)</option>
                             <option :value="4" :disabled="globalBuffsAll[activeDeck].managerEnhance < tac.req[4]">Lv.4 ({{ tac.pt[4] }}pt<template v-if="globalBuffsAll[activeDeck].managerEnhance < tac.req[4]"> / 🔒{{tac.req[4]}}강 필요
   <!-- 🌟 AI 추천 라인업 생성 모달 -->
-  <div v-if="showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+  <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
     <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
       <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
         <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
@@ -3490,7 +3512,7 @@ const generateAutoLineup = () => {
 </template>)</option>
                             <option :value="5" :disabled="globalBuffsAll[activeDeck].managerEnhance < tac.req[5]">Lv.5 ({{ tac.pt[5] }}pt<template v-if="globalBuffsAll[activeDeck].managerEnhance < tac.req[5]"> / 🔒{{tac.req[5]}}강 필요
   <!-- 🌟 AI 추천 라인업 생성 모달 -->
-  <div v-if="showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+  <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
     <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
       <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
         <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
@@ -3874,7 +3896,7 @@ const generateAutoLineup = () => {
                       </div>
                     
   <!-- 🌟 AI 추천 라인업 생성 모달 -->
-  <div v-if="showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+  <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
     <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
       <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
         <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
@@ -4014,7 +4036,7 @@ const generateAutoLineup = () => {
                <option value="컨택">컨택</option><option value="갭파워">갭파워</option><option value="홈런파워">홈런파워</option><option value="선구">선구</option><option value="삼진회피">삼진회피</option>
              
   <!-- 🌟 AI 추천 라인업 생성 모달 -->
-  <div v-if="showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+  <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
     <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
       <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
         <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
@@ -4082,7 +4104,7 @@ const generateAutoLineup = () => {
                <option value="무브먼트">무브먼트</option><option value="장타억제">장타억제</option><option value="홈런억제">홈런억제</option><option value="컨트롤">컨트롤</option><option value="스터프">스터프</option>
              
   <!-- 🌟 AI 추천 라인업 생성 모달 -->
-  <div v-if="showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+  <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
     <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
       <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
         <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
@@ -4159,7 +4181,7 @@ const generateAutoLineup = () => {
                 <option value="컨택">컨택</option><option value="갭파워">갭파워</option><option value="홈런파워">홈런파워</option><option value="선구">선구</option><option value="삼진회피">삼진회피</option>
               
   <!-- 🌟 AI 추천 라인업 생성 모달 -->
-  <div v-if="showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+  <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
     <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
       <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
         <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
@@ -4227,7 +4249,7 @@ const generateAutoLineup = () => {
                 <option value="무브먼트">무브먼트</option><option value="장타억제">장타억제</option><option value="홈런억제">홈런억제</option><option value="컨트롤">컨트롤</option><option value="스터프">스터프</option><option value="한계투구 증가">한계투구 증가</option><option value="1~2선발시 파워증가">1~2선발시 파워증가</option>
               
   <!-- 🌟 AI 추천 라인업 생성 모달 -->
-  <div v-if="showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+  <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
     <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
       <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
         <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
@@ -4457,7 +4479,7 @@ const generateAutoLineup = () => {
                            </div>
                         
   <!-- 🌟 AI 추천 라인업 생성 모달 -->
-  <div v-if="showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+  <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
     <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
       <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
         <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
@@ -4615,7 +4637,7 @@ const generateAutoLineup = () => {
   </div>
 
   <!-- 🌟 AI 추천 라인업 생성 모달 -->
-  <div v-if="showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+  <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
     <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
       <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
         <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
