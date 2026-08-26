@@ -874,54 +874,6 @@ const isSkillDropdownOpen = ref(false)
 const skillSearchText = ref('')
 const excludedFilterSkills = ['마무리', '셋업맨', '숏릴리프', '승리계투'];
 const skillOptions = computed(() => Object.keys(SKILL_EFFECTS).filter(sk => !excludedFilterSkills.includes(sk)).sort());
-const normalSkillData = ref<any[]>([])
-const enhancedSkillData = ref<any[]>([]) // 🌟 추가됨: 강화스킬 DB
-
-const matchSkillInfo = (skill: string) => {
-  return normalSkillData.value.find((s) => s.skill === skill)?.image || ''
-}
-
-// 🌟 강화스킬 이미지 매칭
-const matchEnhancedSkillImage = (skill: string) => {
-  const img = enhancedSkillData.value.find((s) => s.enhanced_skill === skill)?.image || '';
-  if (!img) return '';
-  return img.startsWith('bg-') ? img : `bg-${img}`;
-}
-
-// 🌟 강화스킬 효과 매칭 (레벨 연동)
-const getEnhancedSkillEffect = (skillName: string, level: number) => {
-  const data = enhancedSkillData.value.find((s) => s.enhanced_skill === skillName);
-  if (!data) return '효과 정보를 불러올 수 없습니다.';
-
-  // 1. 🌟 핵심: enhanced_skill.json의 실제 키값인 'effects_by_level' 배열 완벽 지원!
-  const list = data.effects_by_level || data.effects || data.levels;
-  if (Array.isArray(list) && list.length > 0) {
-    const idx = Math.min(Math.max(0, level), list.length - 1);
-    return list[idx] || list[list.length - 1] || '';
-  }
-
-  // 2. 객체 형태인 경우
-  if (list && typeof list === 'object') {
-    if (list[level]) return list[level];
-    if (list[String(level)]) return list[String(level)];
-  }
-
-  // 3. 플랫 키 매칭
-  const exactKeys = [
-    `lv${level}`, `lv_${level}`, `Lv${level}`, `Lv_${level}`, `level${level}`, `level_${level}`,
-    `effect${level}`, `effect_${level}`, `eff${level}`, `eff_${level}`
-  ];
-  for (const k of exactKeys) {
-    if (data[k]) return data[k];
-  }
-
-  if (level === 0) {
-    if (data['기본']) return data['기본'];
-    if (data.base) return data.base;
-  }
-
-  return data.description || '해당 레벨의 효과 데이터가 없습니다.';
-}
 
 const filteredSkillOptions = computed(() => {
   const query = normalizeText(skillSearchText.value)
@@ -3165,6 +3117,7 @@ const getPlayerImage = (p: Raw | null) => {
                       @click="togglePlayerSkill(sk)"
                       @mouseenter="showSkillTooltip($event, sk)"
                       @mouseleave="hideSkillTooltip"
+
                       :class="[
                         playerBuffs[selectedSlot].selectedSkills.includes(sk) 
                           ? 'bg-indigo-600 text-white border-indigo-600 shadow-md dark:bg-indigo-700 dark:border-indigo-700' 
