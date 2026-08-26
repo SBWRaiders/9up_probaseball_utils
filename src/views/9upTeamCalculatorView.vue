@@ -212,7 +212,7 @@ const getRadarWebPoints = (level: number) => {
 
 const getRadarStatPoints = (slot: string) => {
   if (!slot || !computedPlayerStats.value[slot]) return '';
-  const p = lineups.value[deckId][slot];
+  const p = lineups.value[activeDeck.value][slot];
   if (!p) return '';
   const isPit = isPitcher(p);
   const coreStats = isPit ? radarPitcherStats : radarBatterStats;
@@ -228,7 +228,7 @@ const getRadarStatPoints = (slot: string) => {
 
 const getRadarStatDots = (slot: string) => {
   if (!slot || !computedPlayerStats.value[slot]) return [];
-  const p = lineups.value[deckId][slot];
+  const p = lineups.value[activeDeck.value][slot];
   if (!p) return [];
   const isPit = isPitcher(p);
   const coreStats = isPit ? radarPitcherStats : radarBatterStats;
@@ -244,7 +244,7 @@ const getRadarStatDots = (slot: string) => {
 
 const getRadarLabels = (slot: string) => {
   if (!slot || !computedPlayerStats.value[slot]) return [];
-  const p = lineups.value[deckId][slot];
+  const p = lineups.value[activeDeck.value][slot];
   if (!p) return [];
   const isPit = isPitcher(p);
   const coreStats = isPit ? radarPitcherStats : radarBatterStats;
@@ -394,7 +394,7 @@ const TACTICS_INFO = [
   { id:14, name: '내야 시프트', type: '운영', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,40,65,100,180,300], condVals: [0,20,30,50,90,150], descBase: (v) => `내야수(1/2/3루,유격) 수비 +${v}`, descCond: (v) => `3회까지 안타 4개 미만인 경우 선발 컨트롤, 스터프 +${v}` }
 ];
 
-const totalTacticPt = computed(() => 2 + (globalBuffsAll[deckId].managerEnhance * 2) + (globalBuffs.managerBreakthrough * 4));
+const totalTacticPt = computed(() => 2 + (globalBuffsAll[activeDeck.value].managerEnhance * 2) + (globalBuffsAll[activeDeck.value].managerBreakthrough * 4));
 const usedTacticPt = computed(() => {
   let sum = 0;
   if(globalBuffs.tacticLevels) {
@@ -1920,10 +1920,10 @@ const applyLoadedData = (data: any) => {
 
 // 🌟 라인업 초기화 (각인 장비는 무조건 유지!) 🌟
 const resetLineup = () => {
-  if(!confirm('라인업의 모든 선수를 비우시겠습니까?\n(포지션에 장착된 각인 수치는 그대로 유지됩니다)')) return;
-  Object.keys(lineups.value[deckId]).forEach(slot => {
-    lineup.value[slot] = null;
-    if (playerBuffs.value[slot]) {
+  if(!confirm(`현재 선택된 [DH${activeDeck.value}] 덱의 모든 선수를 비우시겠습니까?\n(포지션에 장착된 각인 수치는 그대로 유지됩니다)`)) return;
+  Object.keys(lineups.value[activeDeck.value]).forEach(slot => {
+    lineups.value[activeDeck.value][slot] = null;
+    if (allPlayerBuffs.value[activeDeck.value][slot]) {
       const b = playerBuffs.value[slot];
       const savedImprintStats = { ...b.imprintStats }
       playerBuffs.value[slot] = {
@@ -2726,9 +2726,9 @@ const getPlayerImage = (p: Raw | null) => {
                 <h3 class="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-2 flex items-center gap-1"><Users class="w-4 h-4"/> 공통 버프 및 바인더 설정</h3>
                 
                 <div class="grid grid-cols-3 gap-2 mb-3">
-                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">팀 레벨 (1~100)</label><input type="number" min="1" max="100" v-model.number="globalBuffs.teamLevel" class="w-full px-2 py-1 text-center bg-white border rounded text-xs"/></div>
+                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">팀 레벨 (1~100)</label><input type="number" min="1" max="100" v-model.number="globalBuffsAll[activeDeck].teamLevel" class="w-full px-2 py-1 text-center bg-white border rounded text-xs"/></div>
                   <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">클랜 레벨 파워</label><input type="number" v-model.number="globalBuffsAll[activeDeck].clanBuff" class="w-full px-2 py-1 text-center bg-white border rounded text-xs"/></div>
-                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-indigo-600">바인더 레벨</label><input type="number" min="1" max="100" v-model.number="globalBuffs.binderLevel" class="w-full px-2 py-1 text-center bg-indigo-100 border border-indigo-300 rounded text-xs font-black text-indigo-800 outline-none"/></div>
+                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-indigo-600">바인더 레벨</label><input type="number" min="1" max="100" v-model.number="globalBuffsAll[activeDeck].binderLevel" class="w-full px-2 py-1 text-center bg-indigo-100 border border-indigo-300 rounded text-xs font-black text-indigo-800 outline-none"/></div>
                 </div>
                 
                 <!-- 바인더 세부 설정 -->
@@ -2783,7 +2783,7 @@ const getPlayerImage = (p: Raw | null) => {
                  <div class="grid grid-cols-2 gap-2">
                    <div class="flex flex-col gap-1">
                      <label class="text-[10px] font-bold text-neutral-500">감독 유형</label>
-                     <select v-model="globalBuffs.managerType" class="w-full px-2 py-1.5 bg-white border rounded text-xs font-medium">
+                     <select v-model="globalBuffsAll[activeDeck].managerType" class="w-full px-2 py-1.5 bg-white border rounded text-xs font-medium">
                        <option value="">미장착</option>
                        <option value="my_1st">자팀 1st ({{ STAT_LABELS[MANAGER_TYPES['1st'].main] }} / {{ STAT_LABELS[MANAGER_TYPES['1st'].sub] }})</option>
                        <option value="com_1st">공통 1st ({{ STAT_LABELS[MANAGER_TYPES['1st'].main] }} / {{ STAT_LABELS[MANAGER_TYPES['1st'].sub] }})</option>
@@ -2814,7 +2814,7 @@ const getPlayerImage = (p: Raw | null) => {
                 <div class="grid grid-cols-2 gap-2 mb-3">
                   <div class="flex flex-col gap-1">
                     <label class="text-[10px] font-bold text-neutral-500">감독 돌파 단계 (0~6)</label>
-                    <input type="number" min="0" max="6" v-model.number="globalBuffs.managerBreakthrough" class="w-full px-2 py-1.5 text-center bg-white border rounded text-xs"/>
+                    <input type="number" min="0" max="6" v-model.number="globalBuffsAll[activeDeck].managerBreakthrough" class="w-full px-2 py-1.5 text-center bg-white border rounded text-xs"/>
                   </div>
                   <!-- 감독 강화는 기존 위에 있는 managerEnhance 변수 사용 -->
                   <div class="flex flex-col gap-1 opacity-70">
@@ -3545,7 +3545,6 @@ const getPlayerImage = (p: Raw | null) => {
   </div>
 </template>
 
-<style scoped>
 <style scoped>
 .toast-enter-active,
 .toast-leave-active {
