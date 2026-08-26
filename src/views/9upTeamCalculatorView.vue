@@ -1906,7 +1906,7 @@ const applyLoadedData = (data: any) => {
   try {
     const emptyLineup = { C: null, '1B': null, '2B': null, '3B': null, SS: null, LF: null, CF: null, RF: null, DH: null, SP1: null, SP2: null, SP3: null, SP4: null, SP5: null, RP1: null, RP2: null, RP3: null, RP4: null, RP5: null, RP6: null, BENCH1: null, BENCH2: null, BENCH3: null, BENCH4: null, BENCH5: null, BENCH6: null, BENCH7: null, BENCH8: null };
     
-    // 1️⃣ 라인업 덮어씌우기
+    // 1️⃣ 라인업 데이터 파싱 (아직 반영 X)
     let loadedLineups = { 1: JSON.parse(JSON.stringify(emptyLineup)), 2: JSON.parse(JSON.stringify(emptyLineup)) };
     if (data.lineups) {
       if (data.lineups[1]) Object.assign(loadedLineups[1], data.lineups[1]);
@@ -1914,9 +1914,26 @@ const applyLoadedData = (data: any) => {
     } else if (data.lineup) {
       Object.assign(loadedLineups[1], data.lineup);
     }
-    lineups.value = loadedLineups;
 
-    // 2️⃣ 버프 덮어씌우기 및 구버전 안전화
+    // 2️⃣ 글로벌 설정 덮어씌우기 (가장 먼저 안전하게 반영)
+    if (data.globalBuffsAll) {
+      if (data.globalBuffsAll[1]) Object.assign(globalBuffsAll[1], data.globalBuffsAll[1]);
+      if (data.globalBuffsAll[2]) Object.assign(globalBuffsAll[2], data.globalBuffsAll[2]);
+    } else if (data.globalBuffs) {
+      Object.assign(globalBuffsAll[1], data.globalBuffs);
+    }
+    
+    // 글로벌 설정 안전성 확보 (구버전에서 배열이 없거나 깨진 경우 강제 복구)
+    [1, 2].forEach(deckId => {
+      const gb = globalBuffsAll[deckId as 1|2] as any;
+      if (!gb.tacticLevels || !Array.isArray(gb.tacticLevels) || gb.tacticLevels.length !== 15) gb.tacticLevels = Array(15).fill(0);
+      if (!gb.synergyMasteries || !Array.isArray(gb.synergyMasteries)) gb.synergyMasteries = ['', '', '', '', ''];
+      if (!gb.binderMatrix || !Array.isArray(gb.binderMatrix)) gb.binderMatrix = Array(5).fill(0).map(() => ({ team: '', position: '', player: '', year: '', grade: '' }));
+      if (!gb.tacticCondRates || !Array.isArray(gb.tacticCondRates) || gb.tacticCondRates.length !== 15) gb.tacticCondRates = [5, 24.5, 20, 24.5, 21, 7.5, 30, 25.5, 25, 50, 0, 0, 50, 60, 32.5];
+      if (!gb.tacticBaseRates) gb.tacticBaseRates = { scoring: 50, cleanup: 40 };
+    });
+
+    // 3️⃣ 버프 데이터 파싱
     let loadedAllPlayerBuffs: any = { 1: {}, 2: {} };
     if (data.allPlayerBuffs) {
       if (data.allPlayerBuffs[1]) loadedAllPlayerBuffs[1] = JSON.parse(JSON.stringify(data.allPlayerBuffs[1]));
@@ -1925,7 +1942,7 @@ const applyLoadedData = (data: any) => {
       loadedAllPlayerBuffs[1] = JSON.parse(JSON.stringify(data.playerBuffs));
     }
     
-    // 강제 속성 주입 (이 부분이 없으면 구버전 세이브에서 포어치(forEach) 돌다가 무조건 뻗음)
+    // 강제 속성 주입 (구버전에서 없는 속성 생성)
     [1, 2].forEach(deckId => {
       Object.keys(loadedLineups[deckId as 1|2]).forEach(slot => {
         if (!loadedAllPlayerBuffs[deckId][slot]) {
@@ -1934,43 +1951,27 @@ const applyLoadedData = (data: any) => {
            };
         } else {
            const b = loadedAllPlayerBuffs[deckId][slot];
-           if (!b.selectedSkills) b.selectedSkills = [];
-           if (!b.careers) b.careers = Array(6).fill(null).map(() => ({ grade: '마스터', statType: '', value: 0 }));
+           if (!b.selectedSkills || !Array.isArray(b.selectedSkills)) b.selectedSkills = [];
+           if (!b.careers || !Array.isArray(b.careers)) b.careers = Array(6).fill(null).map(() => ({ grade: '마스터', statType: '', value: 0 }));
            if (!b.imprintStats) b.imprintStats = {};
            if (!b.careerStats) b.careerStats = {};
            if (b.battingOrder === undefined) b.battingOrder = null;
         }
       });
     });
-    allPlayerBuffs.value = loadedAllPlayerBuffs;
 
-    // 3️⃣ 글로벌 설정 덮어씌우기
-    const defaultGlobal = { teamLevel: 100, preferredTeam: [], clanBuff: 15, managerType: '', managerEnhance: 0, synergyMasteries: ['', '', '', '', ''], amplifiedMasteryIndex: -1, binderLevel: 100, binderMatrix: Array(5).fill(0).map(() => ({ team: '', position: '', player: '', year: '', grade: '' })), managerBreakthrough: 0, tacticLevels: Array(15).fill(0), tacticBaseRates: { scoring: 50, cleanup: 40 }, tacticCondRates: [5, 24.5, 20, 24.5, 21, 7.5, 30, 25.5, 25, 50, 0, 0, 50, 60, 32.5] };
-    
-    if (data.globalBuffsAll) {
-      if (data.globalBuffsAll[1]) Object.assign(globalBuffsAll[1], data.globalBuffsAll[1]);
-      if (data.globalBuffsAll[2]) Object.assign(globalBuffsAll[2], data.globalBuffsAll[2]);
-    } else if (data.globalBuffs) {
-      Object.assign(globalBuffsAll[1], data.globalBuffs);
-    }
-    
-    // 글로벌 설정 안전성 확보 (배열이 지워져버린 경우 대비)
-    [1, 2].forEach(deckId => {
-      const gb = globalBuffsAll[deckId as 1|2] as any;
-      if (!gb.tacticLevels || gb.tacticLevels.length !== 15) gb.tacticLevels = Array(15).fill(0);
-      if (!gb.synergyMasteries) gb.synergyMasteries = ['', '', '', '', ''];
-      if (!gb.binderMatrix) gb.binderMatrix = Array(5).fill(0).map(() => ({ team: '', position: '', player: '', year: '', grade: '' }));
-      if (!gb.tacticCondRates || gb.tacticCondRates.length !== 15) gb.tacticCondRates = [5, 24.5, 20, 24.5, 21, 7.5, 30, 25.5, 25, 50, 0, 0, 50, 60, 32.5];
-      if (!gb.tacticBaseRates) gb.tacticBaseRates = { scoring: 50, cleanup: 40 };
-    });
-
+    // 4️⃣ 데이터 동시 적용 (반응성 크래시 완벽 차단)
+    // - 각인, 버프, 라인업 순서대로 반영하여 계산기가 null을 참조하지 않도록 함
     if (data.imprintInventory) imprintInventory.value = JSON.parse(JSON.stringify(data.imprintInventory));
+    allPlayerBuffs.value = loadedAllPlayerBuffs;
+    lineups.value = loadedLineups;
 
     if (data.multiSaves && Object.keys(data.multiSaves).length > 0) {
       const existingSaves = JSON.parse(localStorage.getItem('9up_multi_saves') || '{}');
       const mergedSaves = { ...existingSaves, ...data.multiSaves };
       localStorage.setItem('9up_multi_saves', JSON.stringify(mergedSaves));
     }
+    
     selectedSlot.value = null; 
   } catch (err) {
     console.error("데이터 복구 중 치명적 오류 발생:", err);
