@@ -1761,7 +1761,7 @@ const getDeckTotalPower = (deckId: 1|2) => {
 }
 const teamTotalPower = computed(() => {
   let sum = 0
-  Object.keys(lineups.value[deckId]).forEach(slot => {
+  Object.keys(lineups.value[activeDeck.value]).forEach(slot => {
     if (slot.startsWith('BENCH')) return 
     sum += getComputedPlayerStats(activeDeck.value)[slot]?.power || 0
   })
@@ -2710,11 +2710,11 @@ const getPlayerImage = (p: Raw | null) => {
                 <div class="space-y-1.5">
                   <div v-for="i in 5" :key="i" class="flex items-center gap-2">
                     <span class="text-[10px] font-bold text-neutral-500 w-6">칸 {{ i }}</span>
-                    <input list="synergy-list" v-model="globalBuffsAll[deckId].synergyMasteries[i-1]" placeholder="시너지 검색..." class="w-full px-2 py-1.5 bg-white border rounded text-xs"/>
+                    <input list="synergy-list" v-model="globalBuffsAll[activeDeck].synergyMasteries[i-1]" placeholder="시너지 검색..." class="w-full px-2 py-1.5 bg-white border rounded text-xs"/>
                     <label class="flex items-center justify-center cursor-pointer bg-white px-2 py-1.5 rounded border transition-colors shrink-0 select-none"
-                           :class="globalBuffsAll[deckId].amplifiedMasteryIndex === i - 1 ? 'border-indigo-500 bg-indigo-100 dark:bg-indigo-900/50 shadow-inner' : 'border-neutral-200 hover:bg-neutral-50'">
-                      <input type="checkbox" :checked="globalBuffsAll[deckId].amplifiedMasteryIndex === i - 1" @change="globalBuffsAll[deckId].amplifiedMasteryIndex = $event.target.checked ? i - 1 : -1" class="hidden" />
-                      <span class="text-[10px] font-black tracking-tight" :class="globalBuffsAll[deckId].amplifiedMasteryIndex === i - 1 ? 'text-indigo-700 dark:text-indigo-300' : 'text-neutral-400'">증폭</span>
+                           :class="globalBuffsAll[activeDeck].amplifiedMasteryIndex === i - 1 ? 'border-indigo-500 bg-indigo-100 dark:bg-indigo-900/50 shadow-inner' : 'border-neutral-200 hover:bg-neutral-50'">
+                      <input type="checkbox" :checked="globalBuffsAll[activeDeck].amplifiedMasteryIndex === i - 1" @change="globalBuffsAll[activeDeck].amplifiedMasteryIndex = $event.target.checked ? i - 1 : -1" class="hidden" />
+                      <span class="text-[10px] font-black tracking-tight" :class="globalBuffsAll[activeDeck].amplifiedMasteryIndex === i - 1 ? 'text-indigo-700 dark:text-indigo-300' : 'text-neutral-400'">증폭</span>
                     </label>
                   </div>
                   <div class="text-[9px] text-indigo-600 font-bold mt-1">※ '증폭' 버튼을 누르면 해당 시너지가 증폭됩니다. (최대 1개 지정, 다시 누르면 해제)</div>
@@ -2727,7 +2727,7 @@ const getPlayerImage = (p: Raw | null) => {
                 
                 <div class="grid grid-cols-3 gap-2 mb-3">
                   <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">팀 레벨 (1~100)</label><input type="number" min="1" max="100" v-model.number="globalBuffs.teamLevel" class="w-full px-2 py-1 text-center bg-white border rounded text-xs"/></div>
-                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">클랜 레벨 파워</label><input type="number" v-model.number="globalBuffsAll[deckId].clanBuff" class="w-full px-2 py-1 text-center bg-white border rounded text-xs"/></div>
+                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">클랜 레벨 파워</label><input type="number" v-model.number="globalBuffsAll[activeDeck].clanBuff" class="w-full px-2 py-1 text-center bg-white border rounded text-xs"/></div>
                   <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-indigo-600">바인더 레벨</label><input type="number" min="1" max="100" v-model.number="globalBuffs.binderLevel" class="w-full px-2 py-1 text-center bg-indigo-100 border border-indigo-300 rounded text-xs font-black text-indigo-800 outline-none"/></div>
                 </div>
                 
@@ -2797,7 +2797,7 @@ const getPlayerImage = (p: Raw | null) => {
                    </div>
                    <div class="flex flex-col gap-1">
                      <label class="text-[10px] font-bold text-neutral-500">강화 레벨 (0~15)</label>
-                     <input type="number" min="0" max="15" v-model.number="globalBuffsAll[deckId].managerEnhance" class="w-full px-2 py-1.5 text-center bg-white border rounded text-xs"/>
+                     <input type="number" min="0" max="15" v-model.number="globalBuffsAll[activeDeck].managerEnhance" class="w-full px-2 py-1.5 text-center bg-white border rounded text-xs"/>
                    </div>
                  </div>
               </div>
@@ -2819,7 +2819,7 @@ const getPlayerImage = (p: Raw | null) => {
                   <!-- 감독 강화는 기존 위에 있는 managerEnhance 변수 사용 -->
                   <div class="flex flex-col gap-1 opacity-70">
                     <label class="text-[10px] font-bold text-neutral-500">감독 강화 단계 (0~15)</label>
-                    <div class="w-full px-2 py-1.5 text-center bg-neutral-100 border rounded text-xs text-neutral-500 font-bold tracking-tight">※위탁 연동 ({{globalBuffsAll[deckId].managerEnhance}}강)</div>
+                    <div class="w-full px-2 py-1.5 text-center bg-neutral-100 border rounded text-xs text-neutral-500 font-bold tracking-tight">※위탁 연동 ({{globalBuffsAll[activeDeck].managerEnhance}}강)</div>
                   </div>
                 </div>
 
@@ -2840,11 +2840,11 @@ const getPlayerImage = (p: Raw | null) => {
                          <div class="text-[10px] font-black text-indigo-900 border-b border-indigo-100 pb-0.5">■ 상시 효과 (상황 연동)</div>
                          <div class="flex justify-between items-center text-[10px]">
                            <span class="text-neutral-700">8번. 득점권 상황 도래 확률</span>
-                           <div class="flex items-center gap-1"><input type="number" step="0.1" v-model.number="globalBuffsAll[deckId].tacticBaseRates.scoring" class="w-12 text-center border rounded p-0.5 outline-none font-bold text-indigo-600">%</div>
+                           <div class="flex items-center gap-1"><input type="number" step="0.1" v-model.number="globalBuffsAll[activeDeck].tacticBaseRates.scoring" class="w-12 text-center border rounded p-0.5 outline-none font-bold text-indigo-600">%</div>
                          </div>
                          <div class="flex justify-between items-center text-[10px]">
                            <span class="text-neutral-700">12번. 클린업 타선 상대 확률</span>
-                           <div class="flex items-center gap-1"><input type="number" step="0.1" v-model.number="globalBuffsAll[deckId].tacticBaseRates.cleanup" class="w-12 text-center border rounded p-0.5 outline-none font-bold text-indigo-600">%</div>
+                           <div class="flex items-center gap-1"><input type="number" step="0.1" v-model.number="globalBuffsAll[activeDeck].tacticBaseRates.cleanup" class="w-12 text-center border rounded p-0.5 outline-none font-bold text-indigo-600">%</div>
                          </div>
                        </div>
                        
@@ -2852,7 +2852,7 @@ const getPlayerImage = (p: Raw | null) => {
                          <div class="text-[10px] font-black text-amber-600 border-b border-amber-100 pb-0.5">■ 조건 달성 효과</div>
                          <div v-for="(tac, i) in TACTICS_INFO" :key="'prob'+i" class="flex justify-between items-center text-[10px]">
                            <span class="text-neutral-700 truncate pr-2 flex-1" :title="tac.descCond(tac.condVals[1])">{{ i+1 }}번. {{ tac.name }} 성공</span>
-                           <div class="flex items-center gap-1 shrink-0"><input type="number" step="0.1" v-model.number="globalBuffs.tacticCondRates[i]" class="w-12 text-center border rounded p-0.5 outline-none font-bold text-amber-600">%</div>
+                           <div class="flex items-center gap-1 shrink-0"><input type="number" step="0.1" v-model.number="globalBuffsAll[activeDeck].tacticCondRates[i]" class="w-12 text-center border rounded p-0.5 outline-none font-bold text-amber-600">%</div>
                          </div>
                        </div>
                      </div>
@@ -2861,35 +2861,35 @@ const getPlayerImage = (p: Raw | null) => {
 
                 <!-- 전술 목록 (스크롤) -->
                 <div class="flex flex-col gap-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
-                   <div v-for="(tac, i) in TACTICS_INFO" :key="'tac'+i" class="bg-white border rounded-lg p-2 shadow-sm transition-all" :class="globalBuffs.tacticLevels[i] > 0 ? 'border-indigo-300 bg-indigo-50/20' : 'border-neutral-200'">
+                   <div v-for="(tac, i) in TACTICS_INFO" :key="'tac'+i" class="bg-white border rounded-lg p-2 shadow-sm transition-all" :class="globalBuffsAll[activeDeck].tacticLevels[i] > 0 ? 'border-indigo-300 bg-indigo-50/20' : 'border-neutral-200'">
                       <div class="flex justify-between items-center mb-1">
                          <div class="flex items-center gap-1.5">
                            <span class="text-[9px] px-1.5 py-0.5 bg-neutral-100 rounded font-black border" :class="tac.type==='타자'?'text-orange-600 border-orange-200':tac.type==='투수'?'text-blue-600 border-blue-200':'text-emerald-600 border-emerald-200'">{{ tac.type }}</span>
                            <span class="text-[11px] sm:text-xs font-bold text-neutral-800">{{ tac.name }}</span>
                          </div>
-                         <select v-model.number="globalBuffs.tacticLevels[i]" class="text-[11px] sm:text-xs border rounded p-1 font-bold outline-none" :class="[globalBuffsAll[deckId].managerEnhance < tac.req[globalBuffs.tacticLevels[i]] ? 'text-red-500 border-red-300' : 'text-indigo-700 border-indigo-200 bg-indigo-50', globalBuffs.tacticLevels[i] === 0 ? 'text-neutral-500 bg-white border-neutral-200' : '']">
+                         <select v-model.number="globalBuffsAll[activeDeck].tacticLevels[i]" class="text-[11px] sm:text-xs border rounded p-1 font-bold outline-none" :class="[globalBuffsAll[activeDeck].managerEnhance < tac.req[globalBuffsAll[activeDeck].tacticLevels[i]] ? 'text-red-500 border-red-300' : 'text-indigo-700 border-indigo-200 bg-indigo-50', globalBuffsAll[activeDeck].tacticLevels[i] === 0 ? 'text-neutral-500 bg-white border-neutral-200' : '']">
                             <option :value="0">Lv.0</option>
-                            <option :value="1" :disabled="globalBuffsAll[deckId].managerEnhance < tac.req[1]">Lv.1 ({{ tac.pt[1] }}pt<template v-if="globalBuffsAll[deckId].managerEnhance < tac.req[1]"> / 🔒{{tac.req[1]}}강 필요</template>)</option>
-                            <option :value="2" :disabled="globalBuffsAll[deckId].managerEnhance < tac.req[2]">Lv.2 ({{ tac.pt[2] }}pt<template v-if="globalBuffsAll[deckId].managerEnhance < tac.req[2]"> / 🔒{{tac.req[2]}}강 필요</template>)</option>
-                            <option :value="3" :disabled="globalBuffsAll[deckId].managerEnhance < tac.req[3]">Lv.3 ({{ tac.pt[3] }}pt<template v-if="globalBuffsAll[deckId].managerEnhance < tac.req[3]"> / 🔒{{tac.req[3]}}강 필요</template>)</option>
-                            <option :value="4" :disabled="globalBuffsAll[deckId].managerEnhance < tac.req[4]">Lv.4 ({{ tac.pt[4] }}pt<template v-if="globalBuffsAll[deckId].managerEnhance < tac.req[4]"> / 🔒{{tac.req[4]}}강 필요</template>)</option>
-                            <option :value="5" :disabled="globalBuffsAll[deckId].managerEnhance < tac.req[5]">Lv.5 ({{ tac.pt[5] }}pt<template v-if="globalBuffsAll[deckId].managerEnhance < tac.req[5]"> / 🔒{{tac.req[5]}}강 필요</template>)</option>
+                            <option :value="1" :disabled="globalBuffsAll[activeDeck].managerEnhance < tac.req[1]">Lv.1 ({{ tac.pt[1] }}pt<template v-if="globalBuffsAll[activeDeck].managerEnhance < tac.req[1]"> / 🔒{{tac.req[1]}}강 필요</template>)</option>
+                            <option :value="2" :disabled="globalBuffsAll[activeDeck].managerEnhance < tac.req[2]">Lv.2 ({{ tac.pt[2] }}pt<template v-if="globalBuffsAll[activeDeck].managerEnhance < tac.req[2]"> / 🔒{{tac.req[2]}}강 필요</template>)</option>
+                            <option :value="3" :disabled="globalBuffsAll[activeDeck].managerEnhance < tac.req[3]">Lv.3 ({{ tac.pt[3] }}pt<template v-if="globalBuffsAll[activeDeck].managerEnhance < tac.req[3]"> / 🔒{{tac.req[3]}}강 필요</template>)</option>
+                            <option :value="4" :disabled="globalBuffsAll[activeDeck].managerEnhance < tac.req[4]">Lv.4 ({{ tac.pt[4] }}pt<template v-if="globalBuffsAll[activeDeck].managerEnhance < tac.req[4]"> / 🔒{{tac.req[4]}}강 필요</template>)</option>
+                            <option :value="5" :disabled="globalBuffsAll[activeDeck].managerEnhance < tac.req[5]">Lv.5 ({{ tac.pt[5] }}pt<template v-if="globalBuffsAll[activeDeck].managerEnhance < tac.req[5]"> / 🔒{{tac.req[5]}}강 필요</template>)</option>
                          </select>
                       </div>
                       
                       <!-- 스탯 설명 박스 -->
-                      <div class="flex flex-col gap-0.5 p-1.5 rounded border transition-colors" :class="globalBuffs.tacticLevels[i] > 0 ? 'bg-indigo-50 border-indigo-100' : 'bg-neutral-50 border-neutral-100'">
-                         <div class="text-[10px] font-bold flex items-center justify-between" :class="globalBuffs.tacticLevels[i] > 0 ? 'text-indigo-700' : 'text-neutral-500'">
-                            <span>[상시] {{ tac.descBase(tac.baseVals[globalBuffs.tacticLevels[i]]) }}</span>
+                      <div class="flex flex-col gap-0.5 p-1.5 rounded border transition-colors" :class="globalBuffsAll[activeDeck].tacticLevels[i] > 0 ? 'bg-indigo-50 border-indigo-100' : 'bg-neutral-50 border-neutral-100'">
+                         <div class="text-[10px] font-bold flex items-center justify-between" :class="globalBuffsAll[activeDeck].tacticLevels[i] > 0 ? 'text-indigo-700' : 'text-neutral-500'">
+                            <span>[상시] {{ tac.descBase(tac.baseVals[globalBuffsAll[activeDeck].tacticLevels[i]]) }}</span>
                          </div>
-                         <div class="text-[10px] font-medium flex items-center justify-between" :class="globalBuffs.tacticLevels[i] > 0 ? 'text-indigo-900/70' : 'text-neutral-400'">
-                            <span>[조건] {{ tac.descCond(tac.condVals[globalBuffs.tacticLevels[i]]) }}</span>
+                         <div class="text-[10px] font-medium flex items-center justify-between" :class="globalBuffsAll[activeDeck].tacticLevels[i] > 0 ? 'text-indigo-900/70' : 'text-neutral-400'">
+                            <span>[조건] {{ tac.descCond(tac.condVals[globalBuffsAll[activeDeck].tacticLevels[i]]) }}</span>
                          </div>
                       </div>
                       
                       <!-- 경고 메시지 -->
-                      <div v-if="globalBuffsAll[deckId].managerEnhance < tac.req[globalBuffs.tacticLevels[i]]" class="text-[9px] text-red-500 font-bold mt-1 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">
-                         ⚠️ 강화 부족: 인게임 발동 불가 (최소 {{ tac.req[globalBuffs.tacticLevels[i]] }}강 필요)
+                      <div v-if="globalBuffsAll[activeDeck].managerEnhance < tac.req[globalBuffsAll[activeDeck].tacticLevels[i]]" class="text-[9px] text-red-500 font-bold mt-1 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">
+                         ⚠️ 강화 부족: 인게임 발동 불가 (최소 {{ tac.req[globalBuffsAll[activeDeck].tacticLevels[i]] }}강 필요)
                       </div>
                    </div>
                 </div>
