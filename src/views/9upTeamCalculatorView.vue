@@ -1795,6 +1795,10 @@ const getBasePlayerName = (name: any) => {
 const isSamePlayer = (p1: Raw, p2: Raw) => {
   if (!p1 || !p2) return false;
   if (p1.id === p2.id) return true;
+  // 🌟 실제 선수 고유 ID(playerId)가 있다면 동명이인을 완벽히 구분하면서 동일 선수의 연도별 중복을 막습니다!
+  if (p1.playerId && p2.playerId) {
+    return String(p1.playerId).trim() === String(p2.playerId).trim();
+  }
   const n1 = getBasePlayerName(p1.name);
   const n2 = getBasePlayerName(p2.name);
   return n1.length > 0 && n1 === n2;
@@ -2353,20 +2357,23 @@ const generateAutoLineup = () => {
   const emptyLineup: Record<string, any> = { C: null, '1B': null, '2B': null, '3B': null, SS: null, LF: null, CF: null, RF: null, DH: null, SP1: null, SP2: null, SP3: null, SP4: null, SP5: null, RP1: null, RP2: null, RP3: null, RP4: null, RP5: null, RP6: null, BENCH1: null, BENCH2: null, BENCH3: null, BENCH4: null, BENCH5: null, BENCH6: null, BENCH7: null, BENCH8: null };
   const newLineup = { ...emptyLineup };
   const usedIds = new Set<string>();
-  const usedNames = new Set<string>();
+  const usedPlayerIds = new Set<string>();
 
   const markUsed = (p: any) => {
     if (!p) return;
     usedIds.add(p.id);
-    const baseName = getBasePlayerName(p.name);
-    if (baseName) usedNames.add(baseName);
+    if (p.playerId) {
+      usedPlayerIds.add(String(p.playerId).trim());
+    } else if (p.name) {
+      usedPlayerIds.add(getBasePlayerName(p.name));
+    }
   };
 
   const isAlreadyUsed = (p: any) => {
     if (!p) return true;
     if (usedIds.has(p.id)) return true;
-    const baseName = getBasePlayerName(p.name);
-    if (baseName && usedNames.has(baseName)) return true;
+    if (p.playerId && usedPlayerIds.has(String(p.playerId).trim())) return true;
+    if (p.name && usedPlayerIds.has(getBasePlayerName(p.name))) return true;
     return false;
   };
 
