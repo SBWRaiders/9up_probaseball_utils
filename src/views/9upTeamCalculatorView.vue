@@ -1064,7 +1064,11 @@ const compareCondition = (op: CountOp, lhs: number, rhs?: number, max?: number):
 }
 
 // 🌟 시너지 마스터리 증폭 및 인원수 차감 계산 적용 🌟
-const activeTeamSynergies = computed(() => getActiveTeamSynergies(activeDeck.value));
+const activeSynergiesDeck1 = computed(() => getActiveTeamSynergies(1));
+const activeSynergiesDeck2 = computed(() => getActiveTeamSynergies(2));
+const activeTeamSynergiesMap = { 1: activeSynergiesDeck1, 2: activeSynergiesDeck2 };
+const activeTeamSynergies = computed(() => activeTeamSynergiesMap[activeDeck.value].value);
+
 const getActiveTeamSynergies = (deckId: 1 | 2) => {
   const lineupPlayers = Object.values(lineups.value[deckId]).filter(Boolean) as Raw[]
   const result: { name: string, bonuses: { stat: string, bonus: JsonBonus }[], matchedPlayers: string[] }[] = []
@@ -1126,7 +1130,11 @@ const getActiveTeamSynergies = (deckId: 1 | 2) => {
   return result
 }
 
-const pendingTeamSynergies = computed(() => getPendingTeamSynergies(activeDeck.value));
+const pendingSynergiesDeck1 = computed(() => getPendingTeamSynergies(1));
+const pendingSynergiesDeck2 = computed(() => getPendingTeamSynergies(2));
+const pendingTeamSynergiesMap = { 1: pendingSynergiesDeck1, 2: pendingSynergiesDeck2 };
+const pendingTeamSynergies = computed(() => pendingTeamSynergiesMap[activeDeck.value].value);
+
 const getPendingTeamSynergies = (deckId: 1 | 2) => {
   const lineupPlayers = Object.values(lineups.value[deckId]).filter(Boolean) as Raw[]
   const result: { name: string, current: number, required: number, matchedPlayers: string[] }[] = []
@@ -1312,7 +1320,7 @@ const getPendingSynergyText = (synName: string) => {
 const getPlayerSynergySum = (p: Raw | null, unit: 'fixed' | 'percent', deckId: 1|2) => {
   if (!p) return 0;
   let total = 0;
-  getActiveTeamSynergies(deckId).forEach(syn => {
+  activeTeamSynergiesMap[deckId].value.forEach(syn => {
     if (isPlayerReceivingSynergy(p, syn.name, deckId)) {
       syn.bonuses.forEach(b => {
         if (b.stat === 'power' && b.bonus.unit === unit) total += b.bonus.value;
@@ -1518,7 +1526,11 @@ const binderYearOptions = computed(() => {
   return Array.from(years).sort((a, b) => Number(b) - Number(a));
 });  
   
-const computedPlayerStats = computed(() => getComputedPlayerStats(activeDeck.value));
+const statsDeck1 = computed(() => getComputedPlayerStats(1));
+const statsDeck2 = computed(() => getComputedPlayerStats(2));
+const computedStatsMap = { 1: statsDeck1, 2: statsDeck2 };
+const computedPlayerStats = computed(() => computedStatsMap[activeDeck.value].value);
+
 const getComputedPlayerStats = (deckId: 1 | 2) => {
   const result: Record<string, { power: number, stats: Record<string, number> }> = {}
   Object.keys(lineups.value[deckId]).forEach(slot => {
@@ -1553,7 +1565,7 @@ const getComputedPlayerStats = (deckId: 1 | 2) => {
     const imprintStarterAddedPower = is1st2ndSP ? buffs.imprintStarterPower : 0;
     
     let autoSynergyFixed = 0, autoSynergyPercent = 0, skillPowerPercent = 0, statSpecificSkillPercents: Record<string, number> = {}
-    getActiveTeamSynergies(deckId).forEach(syn => {
+    activeTeamSynergiesMap[deckId].value.forEach(syn => {
       if (isPlayerReceivingSynergy(p, syn.name, deckId)) {
         syn.bonuses.forEach(b => {
            if (b.stat === 'power') {
@@ -1755,11 +1767,11 @@ const getComputedPlayerStats = (deckId: 1 | 2) => {
   return result
 }
 
-const calculatePlayerPower = (p: Raw, slot: string) => getComputedPlayerStats(activeDeck.value)[slot]?.power || 0
+const calculatePlayerPower = (p: Raw, slot: string) => computedStatsMap[activeDeck.value].value[slot]?.power || 0
 
 const getDeckTotalPower = (deckId: 1|2) => {
   let sum = 0;
-  const stats = getComputedPlayerStats(deckId);
+  const stats = computedStatsMap[deckId].value;
   Object.keys(lineups.value[deckId]).forEach(slot => {
     if (slot.startsWith('BENCH')) return;
     sum += stats[slot]?.power || 0;
@@ -1770,7 +1782,7 @@ const teamTotalPower = computed(() => {
   let sum = 0
   Object.keys(lineups.value[activeDeck.value]).forEach(slot => {
     if (slot.startsWith('BENCH')) return 
-    sum += getComputedPlayerStats(activeDeck.value)[slot]?.power || 0
+    sum += computedStatsMap[activeDeck.value].value[slot]?.power || 0
   })
   return sum
 })
