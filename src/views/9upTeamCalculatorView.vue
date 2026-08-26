@@ -1906,7 +1906,6 @@ const applyLoadedData = (data: any) => {
   try {
     const emptyLineup = { C: null, '1B': null, '2B': null, '3B': null, SS: null, LF: null, CF: null, RF: null, DH: null, SP1: null, SP2: null, SP3: null, SP4: null, SP5: null, RP1: null, RP2: null, RP3: null, RP4: null, RP5: null, RP6: null, BENCH1: null, BENCH2: null, BENCH3: null, BENCH4: null, BENCH5: null, BENCH6: null, BENCH7: null, BENCH8: null };
     
-    // 1️⃣ 라인업 데이터 파싱 (아직 반영 X)
     let loadedLineups = { 1: JSON.parse(JSON.stringify(emptyLineup)), 2: JSON.parse(JSON.stringify(emptyLineup)) };
     if (data.lineups) {
       if (data.lineups[1]) Object.assign(loadedLineups[1], data.lineups[1]);
@@ -1915,7 +1914,6 @@ const applyLoadedData = (data: any) => {
       Object.assign(loadedLineups[1], data.lineup);
     }
 
-    // 2️⃣ 글로벌 설정 덮어씌우기 (가장 먼저 안전하게 반영)
     if (data.globalBuffsAll) {
       if (data.globalBuffsAll[1]) Object.assign(globalBuffsAll[1], data.globalBuffsAll[1]);
       if (data.globalBuffsAll[2]) Object.assign(globalBuffsAll[2], data.globalBuffsAll[2]);
@@ -1923,7 +1921,6 @@ const applyLoadedData = (data: any) => {
       Object.assign(globalBuffsAll[1], data.globalBuffs);
     }
     
-    // 글로벌 설정 안전성 확보 (구버전에서 배열이 없거나 깨진 경우 강제 복구)
     [1, 2].forEach(deckId => {
       const gb = globalBuffsAll[deckId as 1|2] as any;
       if (!gb.tacticLevels || !Array.isArray(gb.tacticLevels) || gb.tacticLevels.length !== 15) gb.tacticLevels = Array(15).fill(0);
@@ -1933,16 +1930,14 @@ const applyLoadedData = (data: any) => {
       if (!gb.tacticBaseRates) gb.tacticBaseRates = { scoring: 50, cleanup: 40 };
     });
 
-    // 3️⃣ 버프 데이터 파싱
     let loadedAllPlayerBuffs: any = { 1: {}, 2: {} };
     if (data.allPlayerBuffs) {
-      if (data.allPlayerBuffs[1]) loadedAllPlayerBuffs[1] = JSON.parse(JSON.stringify(data.allPlayerBuffs[1]));
-      if (data.allPlayerBuffs[2]) loadedAllPlayerBuffs[2] = JSON.parse(JSON.stringify(data.allPlayerBuffs[2]));
+      if (data.allPlayerBuffs[1]) Object.assign(loadedAllPlayerBuffs[1], data.allPlayerBuffs[1]);
+      if (data.allPlayerBuffs[2]) Object.assign(loadedAllPlayerBuffs[2], data.allPlayerBuffs[2]);
     } else if (data.playerBuffs) {
-      loadedAllPlayerBuffs[1] = JSON.parse(JSON.stringify(data.playerBuffs));
+      Object.assign(loadedAllPlayerBuffs[1], data.playerBuffs);
     }
     
-    // 강제 속성 주입 (구버전에서 없는 속성 생성)
     [1, 2].forEach(deckId => {
       Object.keys(loadedLineups[deckId as 1|2]).forEach(slot => {
         if (!loadedAllPlayerBuffs[deckId][slot]) {
@@ -1960,11 +1955,11 @@ const applyLoadedData = (data: any) => {
       });
     });
 
-    // 4️⃣ 데이터 동시 적용 (반응성 크래시 완벽 차단)
-    // - 각인, 버프, 라인업 순서대로 반영하여 계산기가 null을 참조하지 않도록 함
     if (data.imprintInventory) imprintInventory.value = JSON.parse(JSON.stringify(data.imprintInventory));
-    allPlayerBuffs.value = loadedAllPlayerBuffs;
-    lineups.value = loadedLineups;
+    
+    // 🌟 안전하게 하나씩 덮어씌우기 (통째로 교체시 반응성 에러 방지)
+    allPlayerBuffs.value = { 1: { ...loadedAllPlayerBuffs[1] }, 2: { ...loadedAllPlayerBuffs[2] } };
+    lineups.value = { 1: { ...loadedLineups[1] }, 2: { ...loadedLineups[2] } };
 
     if (data.multiSaves && Object.keys(data.multiSaves).length > 0) {
       const existingSaves = JSON.parse(localStorage.getItem('9up_multi_saves') || '{}');
@@ -1974,6 +1969,9 @@ const applyLoadedData = (data: any) => {
     
     selectedSlot.value = null; 
   } catch (err) {
+    console.error("데이터 복구 중 치명적 오류 발생:", err);
+  }
+}} catch (err) {
     console.error("데이터 복구 중 치명적 오류 발생:", err);
   }
 }
@@ -2353,7 +2351,7 @@ const generateAutoLineup = () => {
     return false;
   };
 
-  // 1. 선택된 디그니티(DGN) 우선 배치
+  // 1. 선택된 디그니티(DGN) 카드 먼저 최우선 배치
   const dgnPlayers = preparedPlayers.value.filter(p => autoLineupSelectedDgnIds.value.includes(p.raw.id)).map(p => p.raw);
   dgnPlayers.forEach(dgn => {
       const posList = getPlayerPositions(dgn);
@@ -2371,7 +2369,7 @@ const generateAutoLineup = () => {
       if(assigned) markUsed(dgn);
   });
 
-  // 2. 후보군 필터 및 깡파워 정렬
+  // 2. 후보군 필터 및 파워 정렬
   const validGrades = ['TOP', 'ACE', 'HIT', 'GG', 'ROY', 'TEA', 'DGN'];
   let allCandidates = preparedPlayers.value.filter(p => 
       p.teamLowerCase.some(t => teamIds.includes(t)) && 
@@ -2385,9 +2383,16 @@ const generateAutoLineup = () => {
   };
   allCandidates.sort((a, b) => getPowerScore(b) - getPowerScore(a));
 
-  // 3. 투수진 배치 (SP1~5, RP1~6)
+  // 3. 주전 빈칸 채우기
+  const mainBatters = ['C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH'];
   const mainSPs = ['SP1', 'SP2', 'SP3', 'SP4', 'SP5'];
   const mainRPs = ['RP1', 'RP2', 'RP3', 'RP4', 'RP5', 'RP6'];
+
+  mainBatters.forEach(slot => {
+      if (newLineup[slot]) return;
+      const best = allCandidates.find(p => !isAlreadyUsed(p) && !isPitcher(p) && (getPlayerPositions(p).includes(slot) || slot === 'DH'));
+      if (best) { newLineup[slot] = best; markUsed(best); }
+  });
   mainSPs.forEach(slot => {
       if (newLineup[slot]) return;
       const best = allCandidates.find(p => !isAlreadyUsed(p) && isPitcher(p) && getPlayerPositions(p).includes('SP'));
@@ -2399,16 +2404,7 @@ const generateAutoLineup = () => {
       if (best) { newLineup[slot] = best; markUsed(best); }
   });
 
-  // 4. 타자진 배치 (포지션 채우기)
-  const mainBatters = ['C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH'];
-  mainBatters.forEach(slot => {
-      if (newLineup[slot]) return;
-      const best = allCandidates.find(p => !isAlreadyUsed(p) && !isPitcher(p) && (getPlayerPositions(p).includes(slot) || slot === 'DH'));
-      if (best) { newLineup[slot] = best; markUsed(best); }
-  });
-
-  // 5. 벤치 채우기 (단순 무작위 벤치)
-  // TEAM 선수가 1명 이상 필요한데 아직 없다면 벤치 1번에 강제 할당
+  // 4. TEAM 선수 1명 확인 후 없으면 벤치1에 투입
   let hasTeam = false;
   Object.values(newLineup).forEach(p => { if (p && getMappedGrade(p.grade) === 'TEA') hasTeam = true; });
   
@@ -2420,14 +2416,14 @@ const generateAutoLineup = () => {
       }
   }
 
-  // 나머지 벤치 채우기 (아무나)
+  // 5. 남은 벤치 무작위(남은 인원) 채우기
   for (let i = 1; i <= 8; i++) {
       if (newLineup[`BENCH${i}`]) continue;
       const best = allCandidates.find(p => !isAlreadyUsed(p));
       if (best) { newLineup[`BENCH${i}`] = best; markUsed(best); }
   }
 
-  // 6. 라인업 반영 및 기초 세팅
+  // 6. 라인업 반영 및 초기화
   lineups.value[deckId] = newLineup as any;
   Object.keys(newLineup).forEach(k => {
      if(newLineup[k]) {
@@ -2439,80 +2435,74 @@ const generateAutoLineup = () => {
      }
   });
 
-  // 7. 타순 배치 로직 (단순 & 직관적 룰)
-  // 요구사항: 스킬(ex: 1번, 테이블세터 등)이 있는 타자를 우선 배치. 겹치면 파워가 높은 순.
+  // 7. 타순 배치 로직 (타순 스킬 보유자 우선, 파워 우선)
   const filledBatters = mainBatters.filter(slot => newLineup[slot]).map(slot => ({ slot, p: newLineup[slot] }));
-  filledBatters.sort((a, b) => getPowerScore(b.p) - getPowerScore(a.p));
-
-  const battingOrderSlots = new Array(10).fill(null); // index 1~9 사용
-  const unassignedBatters: string[] = [];
-
-  // 스킬 파싱 유틸
+  
+  // 타순 스킬 파싱
   const extractTargetOrder = (p: any) => {
       const skills = getArray(p.skill);
       for (const sk of skills) {
           if (sk.match(/^\d번$/)) return parseInt(sk[0]);
-          if (sk === '테이블세터') return 1; // 1 or 2, defaults to 1
-          if (sk === '클린업') return 3; // 3, 4, 5
-          if (sk === '하위타선') return 6; // 6~9
+          if (sk === '테이블세터') return 1; 
+          if (sk === '클린업') return 3; 
+          if (sk === '하위타선') return 6; 
       }
       return null;
   };
 
-  // 타순 선점 시도
-  filledBatters.forEach(item => {
+  const battingOrderSlots = new Array(10).fill(null); // index 1~9
+  const unassignedBatters: string[] = [];
+
+  // 우선 타순 스킬이 있는 선수부터 파워순으로 정렬해서 선점 시도
+  const skilledBatters = filledBatters.filter(b => extractTargetOrder(b.p) !== null).sort((a, b) => getPowerScore(b.p) - getPowerScore(a.p));
+  const normalBatters = filledBatters.filter(b => extractTargetOrder(b.p) === null).sort((a, b) => getPowerScore(b.p) - getPowerScore(a.p));
+
+  skilledBatters.forEach(item => {
       const target = extractTargetOrder(item.p);
       let placed = false;
       if (target) {
-          // 목표 타순이 비어있으면 넣기
           if (!battingOrderSlots[target]) {
               battingOrderSlots[target] = item.slot;
               placed = true;
-          } else if (target === 1 && !battingOrderSlots[2]) { // 테이블세터 보정
+          } else if (target === 1 && !battingOrderSlots[2]) {
               battingOrderSlots[2] = item.slot;
               placed = true;
-          } else if (target === 3) { // 클린업 보정
+          } else if (target === 3) {
               if (!battingOrderSlots[4]) { battingOrderSlots[4] = item.slot; placed = true; }
               else if (!battingOrderSlots[5]) { battingOrderSlots[5] = item.slot; placed = true; }
-          } else if (target === 6) { // 하위타선 보정
+          } else if (target === 6) {
               for (let i = 7; i <= 9; i++) {
                   if (!battingOrderSlots[i]) { battingOrderSlots[i] = item.slot; placed = true; break; }
               }
           }
       }
+      // 자리 못찾은 스킬러는 나중에 빈칸에 투입
       if (!placed) {
           unassignedBatters.push(item.slot);
       }
   });
 
-  // 남은 타자 빈 타순 채우기
+  // 일반 타자들도 대기열에 추가
+  normalBatters.forEach(item => unassignedBatters.push(item.slot));
+
+  // 남은 타순 빈칸에 남은 타자들 순차 투입
   for (let i = 1; i <= 9; i++) {
       if (!battingOrderSlots[i] && unassignedBatters.length > 0) {
           battingOrderSlots[i] = unassignedBatters.shift();
       }
   }
 
-  // 타순 및 스킬 장착 적용
-  for (let i = 1; i <= 9; i++) {
-      const slot = battingOrderSlots[i];
-      if (slot && playerBuffs.value[slot]) {
-          playerBuffs.value[slot].battingOrder = i;
-          
-          const p = newLineup[slot];
-          const avail = getAvailableSkills(p);
-          const rarity = parseInt(String(p.rarity || 1), 10) || 1;
-          const maxSkills = Math.min(3, Math.max(1, rarity - 1));
-          if (avail.length > 0) {
-              playerBuffs.value[slot].selectedSkills = avail.slice(0, maxSkills);
-          }
-      }
-  }
-  
-  // 투수 스킬 장착
-  const pitcherSlots = [...mainSPs, ...mainRPs];
-  pitcherSlots.forEach(slot => {
+  // 모든 선수 스킬 장착 & 타순 적용
+  [...mainBatters, ...mainSPs, ...mainRPs].forEach(slot => {
       const p = newLineup[slot];
       if (p && playerBuffs.value[slot]) {
+          // 타자라면 타순 맵핑
+          if (!isPitcher(p)) {
+             const orderIdx = battingOrderSlots.indexOf(slot);
+             if (orderIdx !== -1) playerBuffs.value[slot].battingOrder = orderIdx;
+          }
+
+          // 최대 스킬 장착
           const avail = getAvailableSkills(p);
           const rarity = parseInt(String(p.rarity || 1), 10) || 1;
           const maxSkills = Math.min(3, Math.max(1, rarity - 1));
