@@ -1064,11 +1064,7 @@ const compareCondition = (op: CountOp, lhs: number, rhs?: number, max?: number):
 }
 
 // 🌟 시너지 마스터리 증폭 및 인원수 차감 계산 적용 🌟
-const activeSynergiesDeck1 = computed(() => getActiveTeamSynergies(1));
-const activeSynergiesDeck2 = computed(() => getActiveTeamSynergies(2));
-const activeTeamSynergiesMap = { 1: activeSynergiesDeck1, 2: activeSynergiesDeck2 };
-const activeTeamSynergies = computed(() => activeTeamSynergiesMap[activeDeck.value].value);
-
+const activeTeamSynergies = computed(() => getActiveTeamSynergies(activeDeck.value));
 const getActiveTeamSynergies = (deckId: 1 | 2) => {
   const lineupPlayers = Object.values(lineups.value[deckId]).filter(Boolean) as Raw[]
   const result: { name: string, bonuses: { stat: string, bonus: JsonBonus }[], matchedPlayers: string[] }[] = []
@@ -1130,11 +1126,7 @@ const getActiveTeamSynergies = (deckId: 1 | 2) => {
   return result
 }
 
-const pendingSynergiesDeck1 = computed(() => getPendingTeamSynergies(1));
-const pendingSynergiesDeck2 = computed(() => getPendingTeamSynergies(2));
-const pendingTeamSynergiesMap = { 1: pendingSynergiesDeck1, 2: pendingSynergiesDeck2 };
-const pendingTeamSynergies = computed(() => pendingTeamSynergiesMap[activeDeck.value].value);
-
+const pendingTeamSynergies = computed(() => getPendingTeamSynergies(activeDeck.value));
 const getPendingTeamSynergies = (deckId: 1 | 2) => {
   const lineupPlayers = Object.values(lineups.value[deckId]).filter(Boolean) as Raw[]
   const result: { name: string, current: number, required: number, matchedPlayers: string[] }[] = []
@@ -1320,7 +1312,7 @@ const getPendingSynergyText = (synName: string) => {
 const getPlayerSynergySum = (p: Raw | null, unit: 'fixed' | 'percent', deckId: 1|2) => {
   if (!p) return 0;
   let total = 0;
-  activeTeamSynergiesMap[deckId].value.forEach(syn => {
+  getActiveTeamSynergies(deckId).forEach(syn => {
     if (isPlayerReceivingSynergy(p, syn.name, deckId)) {
       syn.bonuses.forEach(b => {
         if (b.stat === 'power' && b.bonus.unit === unit) total += b.bonus.value;
@@ -1526,11 +1518,7 @@ const binderYearOptions = computed(() => {
   return Array.from(years).sort((a, b) => Number(b) - Number(a));
 });  
   
-const statsDeck1 = computed(() => getComputedPlayerStats(1));
-const statsDeck2 = computed(() => getComputedPlayerStats(2));
-const computedStatsMap = { 1: statsDeck1, 2: statsDeck2 };
-const computedPlayerStats = computed(() => computedStatsMap[activeDeck.value].value);
-
+const computedPlayerStats = computed(() => getComputedPlayerStats(activeDeck.value));
 const getComputedPlayerStats = (deckId: 1 | 2) => {
   const result: Record<string, { power: number, stats: Record<string, number> }> = {}
   Object.keys(lineups.value[deckId]).forEach(slot => {
@@ -1565,7 +1553,7 @@ const getComputedPlayerStats = (deckId: 1 | 2) => {
     const imprintStarterAddedPower = is1st2ndSP ? buffs.imprintStarterPower : 0;
     
     let autoSynergyFixed = 0, autoSynergyPercent = 0, skillPowerPercent = 0, statSpecificSkillPercents: Record<string, number> = {}
-    activeTeamSynergiesMap[deckId].value.forEach(syn => {
+    getActiveTeamSynergies(deckId).forEach(syn => {
       if (isPlayerReceivingSynergy(p, syn.name, deckId)) {
         syn.bonuses.forEach(b => {
            if (b.stat === 'power') {
@@ -1767,11 +1755,11 @@ const getComputedPlayerStats = (deckId: 1 | 2) => {
   return result
 }
 
-const calculatePlayerPower = (p: Raw, slot: string) => computedStatsMap[activeDeck.value].value[slot]?.power || 0
+const calculatePlayerPower = (p: Raw, slot: string) => getComputedPlayerStats(activeDeck.value)[slot]?.power || 0
 
 const getDeckTotalPower = (deckId: 1|2) => {
   let sum = 0;
-  const stats = computedStatsMap[deckId].value;
+  const stats = getComputedPlayerStats(deckId);
   Object.keys(lineups.value[deckId]).forEach(slot => {
     if (slot.startsWith('BENCH')) return;
     sum += stats[slot]?.power || 0;
@@ -1782,7 +1770,7 @@ const teamTotalPower = computed(() => {
   let sum = 0
   Object.keys(lineups.value[activeDeck.value]).forEach(slot => {
     if (slot.startsWith('BENCH')) return 
-    sum += computedStatsMap[activeDeck.value].value[slot]?.power || 0
+    sum += getComputedPlayerStats(activeDeck.value)[slot]?.power || 0
   })
   return sum
 })
@@ -2298,6 +2286,165 @@ const getPlayerImage = (p: Raw | null) => {
   return `/assets/playercards/commonCard_${grade}_${engTeam}.png`;
 }
   
+
+// ========================================================
+// 🌟 AI 추천 라인업 자동 편성 시스템 🌟
+// ========================================================
+const showAutoLineupModal = ref(false);
+const autoLineupTeam = ref(groupedTeams[0]);
+const autoLineupDgnSearch = ref('');
+const autoLineupSelectedDgnIds = ref<string[]>([]);
+
+const autoLineupDgnOptions = computed(() => {
+  const query = normalizeText(autoLineupDgnSearch.value);
+  return preparedPlayers.value
+      .filter(p => getMappedGrade(p.raw.grade) === 'DGN')
+      .filter(p => !query || p.nameNormalized.includes(query) || p.teamLowerCase.some(t => t.includes(query)))
+      .slice(0, 15);
+});
+
+const addAutoLineupDgn = (p: PreparedPlayer) => {
+  if (autoLineupSelectedDgnIds.value.length >= 4) {
+      showToast('디그니티 카드는 최대 4장까지만 선택할 수 있습니다.', 'error');
+      return;
+  }
+  if (!autoLineupSelectedDgnIds.value.includes(p.raw.id)) {
+      autoLineupSelectedDgnIds.value.push(p.raw.id);
+      autoLineupDgnSearch.value = '';
+  }
+};
+
+const removeAutoLineupDgn = (id: string) => {
+  autoLineupSelectedDgnIds.value = autoLineupSelectedDgnIds.value.filter(x => x !== id);
+};
+
+const getDgnPlayerName = (id: string) => {
+  const p = players.value.find(x => x.id === id);
+  return p ? p.name : '알 수 없음';
+};
+
+const generateAutoLineup = () => {
+  if(!confirm(`현재 [DH${activeDeck.value}] 덱이 초기화되고 추천 라인업으로 덮어씌워집니다.\n진행하시겠습니까?`)) return;
+
+  const deckId = activeDeck.value;
+  const teamIds = autoLineupTeam.value.id;
+  
+  const emptyLineup: Record<string, any> = { C: null, '1B': null, '2B': null, '3B': null, SS: null, LF: null, CF: null, RF: null, DH: null, SP1: null, SP2: null, SP3: null, SP4: null, SP5: null, RP1: null, RP2: null, RP3: null, RP4: null, RP5: null, RP6: null, BENCH1: null, BENCH2: null, BENCH3: null, BENCH4: null, BENCH5: null, BENCH6: null, BENCH7: null, BENCH8: null };
+  const newLineup = { ...emptyLineup };
+  const usedIds = new Set<string>();
+
+  // 1. DGN 배치
+  const dgnPlayers = preparedPlayers.value.filter(p => autoLineupSelectedDgnIds.value.includes(p.raw.id)).map(p => p.raw);
+  dgnPlayers.forEach(dgn => {
+      const posList = getPlayerPositions(dgn);
+      let assigned = false;
+      for (const pos of posList) {
+          if (isPitcher(dgn)) {
+              if (pos === 'SP') { for(let i=1; i<=5; i++) { if(!newLineup[`SP${i}`]) { newLineup[`SP${i}`] = dgn; assigned = true; break; } } }
+              else if (pos === 'RP') { for(let i=1; i<=6; i++) { if(!newLineup[`RP${i}`]) { newLineup[`RP${i}`] = dgn; assigned = true; break; } } }
+          } else {
+              if (!newLineup[pos]) { newLineup[pos] = dgn; assigned = true; break; }
+          }
+          if(assigned) break;
+      }
+      if(!assigned && !isPitcher(dgn) && !newLineup['DH']) { newLineup['DH'] = dgn; assigned = true; }
+      if(assigned) usedIds.add(dgn.id);
+  });
+
+  // 2. 주전 후보군 필터링 (DGN, TOP, ACE, HIT, GG, ROY)
+  const validGrades = ['TOP', 'ACE', 'HIT', 'GG', 'ROY'];
+  let teamPlayers = preparedPlayers.value.filter(p => 
+      p.teamLowerCase.some(t => teamIds.includes(t)) && 
+      validGrades.includes(getMappedGrade(p.raw.grade))
+  ).map(p => p.raw);
+  
+  // 깡파워 계산 (레어도 반영)
+  const getRawScore = (p: any) => {
+       const r = Number(p.rarity || 1) * 10000;
+       const s = (Number(p.contact||0) + Number(p.homeRunPower||0) + Number(p.movement||0) + Number(p.stuff||0));
+       return r + s;
+  };
+  teamPlayers.sort((a, b) => getRawScore(b) - getRawScore(a));
+
+  // 3. 주전 빈칸 채우기
+  const mainBatters = ['C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH'];
+  const mainSPs = ['SP1', 'SP2', 'SP3', 'SP4', 'SP5'];
+  const mainRPs = ['RP1', 'RP2', 'RP3', 'RP4', 'RP5', 'RP6'];
+
+  mainBatters.forEach(slot => {
+      if (newLineup[slot]) return;
+      const best = teamPlayers.find(p => !usedIds.has(p.id) && !isPitcher(p) && (getPlayerPositions(p).includes(slot) || slot === 'DH'));
+      if (best) { newLineup[slot] = best; usedIds.add(best.id); }
+  });
+  mainSPs.forEach(slot => {
+      if (newLineup[slot]) return;
+      const best = teamPlayers.find(p => !usedIds.has(p.id) && isPitcher(p) && getPlayerPositions(p).includes('SP'));
+      if (best) { newLineup[slot] = best; usedIds.add(best.id); }
+  });
+  mainRPs.forEach(slot => {
+      if (newLineup[slot]) return;
+      const best = teamPlayers.find(p => !usedIds.has(p.id) && isPitcher(p) && getPlayerPositions(p).includes('RP'));
+      if (best) { newLineup[slot] = best; usedIds.add(best.id); }
+  });
+
+  // 4. 팀플(TEA) 벤치 1번 고정
+  const teamTEAs = preparedPlayers.value.filter(p => 
+      p.teamLowerCase.some(t => teamIds.includes(t)) && 
+      getMappedGrade(p.raw.grade) === 'TEA'
+  ).map(p => p.raw);
+  teamTEAs.sort((a, b) => getRawScore(b) - getRawScore(a));
+  if (teamTEAs.length > 0) {
+      const bestTEA = teamTEAs.find(p => !usedIds.has(p.id)) || teamTEAs[0];
+      newLineup['BENCH1'] = bestTEA;
+      usedIds.add(bestTEA.id);
+  }
+
+  // 5. 남은 벤치 (시너지 위주)
+  const getSynergyTags = (p: any) => getArray(p.synergy).map(s => String(s).normalize('NFKC').replace(/[​-‍﻿]/g,'').replace(/[,\s클럽]/g,'').trim());
+  let currentSynCounts: Record<string, number> = {};
+  Object.values(newLineup).forEach(p => {
+       if(p) getSynergyTags(p).forEach(s => { currentSynCounts[s] = (currentSynCounts[s] || 0) + 1; });
+  });
+
+  const allOtherPlayers = preparedPlayers.value.filter(p => !usedIds.has(p.raw.id)).map(p => p.raw);
+  
+  for (let benchIdx = 2; benchIdx <= 8; benchIdx++) {
+      if (newLineup[`BENCH${benchIdx}`]) continue; // 이미 차있으면 패스
+      let bestBench = null;
+      let bestScore = -1;
+      
+      for (let i=0; i<Math.min(300, allOtherPlayers.length); i++) {
+          const p = allOtherPlayers[i];
+          if (usedIds.has(p.id)) continue;
+          let score = 0;
+          getSynergyTags(p).forEach(s => {
+              if (currentSynCounts[s] > 0) score += currentSynCounts[s]; 
+          });
+          if (score > bestScore) { bestScore = score; bestBench = p; }
+      }
+      if (bestBench) {
+          newLineup[`BENCH${benchIdx}`] = bestBench;
+          usedIds.add(bestBench.id);
+          getSynergyTags(bestBench).forEach(s => { currentSynCounts[s] = (currentSynCounts[s] || 0) + 1; });
+      }
+  }
+
+  // 6. 적용 및 기본 마스터 장착
+  lineups.value[deckId] = newLineup as any;
+  Object.keys(newLineup).forEach(k => {
+     if(newLineup[k]) {
+         initPlayerBuff(k, newLineup[k]);
+         if (playerBuffs.value[k]) {
+             playerBuffs.value[k].enhancementLevel = getMappedGrade(newLineup[k].grade) === 'DGN' ? 10 : 15;
+             playerBuffs.value[k].careers = Array(6).fill(null).map(() => ({ grade: '마스터', statType: '전체 능력치', value: getMappedGrade(newLineup[k].grade) === 'DGN' ? 46 : 60 }));
+         }
+     }
+  });
+  
+  showAutoLineupModal.value = false;
+  showToast('✨ 1티어 추천 라인업이 완벽하게 세팅되었습니다!', 'success');
+}
+
 </script>
 
 <template>
@@ -2363,7 +2510,13 @@ const getPlayerImage = (p: Raw | null) => {
               </div>
             </div>
             
+            
+            <button @click="showAutoLineupModal = true" class="w-full mb-3 bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-black py-2.5 rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] flex items-center justify-center gap-2 hover:from-indigo-500 hover:to-blue-500 hover:-translate-y-0.5 transition-all">
+               <Sparkles class="w-4 h-4 text-amber-300" /> AI 실전 1티어 추천 라인업 편성
+            </button>
+            
             <div class="relative group">
+
               <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Search class="h-4 w-4 text-neutral-400 group-focus-within:text-blue-500 transition-colors" />
               </div>
@@ -2832,7 +2985,72 @@ const getPlayerImage = (p: Raw | null) => {
                       <input type="text" list="binder-year-list" v-model="row.year" placeholder="연도" class="w-full text-center text-[10px] border rounded py-1 bg-neutral-50 outline-none focus:border-indigo-500 focus:bg-white" />
                       <input type="text" list="binder-grade-list" v-model="row.grade" placeholder="등급" class="w-full text-center text-[10px] border rounded py-1 bg-neutral-50 outline-none focus:border-indigo-500 focus:bg-white" />
                     </div>
-                  </template>
+                  
+  <!-- 🌟 AI 추천 라인업 생성 모달 -->
+  <div v-if="showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
+      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
+        <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
+        <button @click="showAutoLineupModal = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
+      </div>
+      
+      <div class="p-5 flex flex-col gap-5 overflow-y-auto">
+        <!-- 팀 선택 -->
+        <div>
+          <label class="block text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">1. 베이스 구단 선택</label>
+          <select v-model="autoLineupTeam" class="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-3 text-sm font-bold text-neutral-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+             <option v-for="team in groupedTeams" :key="team.name" :value="team">{{ team.name }}</option>
+          </select>
+        </div>
+
+        <!-- 디그니티 카드 선택 (최대 4장) -->
+        <div>
+          <label class="flex justify-between text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">
+            <span>2. 보유 디그니티(DGN) 선택 (최대 4장)</span>
+            <span class="text-indigo-600 dark:text-indigo-400">{{ autoLineupSelectedDgnIds.length }} / 4</span>
+          </label>
+          
+          <!-- 검색창 -->
+          <div class="relative mb-2">
+            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+            <input v-model="autoLineupDgnSearch" type="text" placeholder="선수 이름 검색 (예: 박건우)" class="w-full pl-9 pr-3 py-2.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
+            
+            <!-- 검색 결과 드롭다운 -->
+            <div v-if="autoLineupDgnSearch" class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
+               <button v-for="p in autoLineupDgnOptions" :key="p.raw.id" @click="addAutoLineupDgn(p)" class="w-full text-left px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-700/50 last:border-0 transition-colors">
+                  <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded font-black border border-indigo-200 dark:border-indigo-800">DGN</span>
+                  <span class="text-xs font-bold text-neutral-800 dark:text-neutral-200">{{ p.raw.name }}</span>
+                  <span class="text-[10px] text-neutral-400 ml-auto">{{ Array.isArray(p.raw.team) ? p.raw.team[0] : p.raw.team }} '{{ String(p.raw.year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
+               </button>
+               <div v-if="autoLineupDgnOptions.length === 0" class="px-3 py-3 text-center text-xs text-neutral-400">일치하는 디그니티 선수가 없습니다.</div>
+            </div>
+          </div>
+          
+          <!-- 선택된 DGN 목록 -->
+          <div class="flex flex-wrap gap-2">
+             <div v-for="id in autoLineupSelectedDgnIds" :key="id" class="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 px-2 py-1.5 rounded-lg text-xs font-bold text-indigo-800 dark:text-indigo-300 shadow-sm animate-in zoom-in-95">
+                <span>{{ getDgnPlayerName(id) }}</span>
+                <button @click="removeAutoLineupDgn(id)" class="text-indigo-400 hover:text-red-500 transition-colors ml-1 leading-none">&times;</button>
+             </div>
+             <div v-if="autoLineupSelectedDgnIds.length === 0" class="text-[11px] text-neutral-400 w-full text-center py-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-200 dark:border-neutral-700">선택된 디그니티 선수가 없습니다.</div>
+          </div>
+        </div>
+
+        <div class="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
+          <p class="text-[11px] text-amber-800 dark:text-amber-300 font-bold leading-relaxed">
+            ※ 선택한 덱(DH1/DH2)이 지워지고, <strong>{{ autoLineupTeam.name }} 주전 20명 + 팀플 벤치 + 부족한 시너지 보충용 후보군</strong>으로 로스터가 1초 만에 자동 완성됩니다!
+          </p>
+        </div>
+      </div>
+      
+      <div class="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex justify-end gap-2">
+         <button @click="showAutoLineupModal = false" class="px-5 py-2.5 text-sm font-bold text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800 rounded-xl transition-colors">취소</button>
+         <button @click="generateAutoLineup" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 transition-all">✨ 라인업 편성하기</button>
+      </div>
+    </div>
+  </div>
+
+</template>
                 </div>
               </div>
               
@@ -2841,11 +3059,76 @@ const getPlayerImage = (p: Raw | null) => {
                 <h3 class="text-[11px] font-bold text-indigo-800 dark:text-indigo-300 mb-2 flex items-center gap-1"><Zap class="w-3 h-3"/> 팀플/디그니티 버프 자동 적용</h3>
                 <div class="grid grid-cols-2 gap-2">
                   <template v-for="teamId in Array.from(new Set(Object.values(lineup).filter(Boolean).flatMap(p => toArray(p.team).map(toLowerCase))))" :key="teamId">
-                     <div v-if="calculateTeamPlayerDignityBuff({ team: teamId }, activeDeck) > 0" class="flex justify-between items-center text-[10px] bg-white dark:bg-neutral-800 px-2 py-1.5 rounded border shadow-sm flex-shrink-0">
+                     <div v-if="calculateTeamPlayerDignityBuff({ team: teamId }) > 0" class="flex justify-between items-center text-[10px] bg-white dark:bg-neutral-800 px-2 py-1.5 rounded border shadow-sm flex-shrink-0">
                        <span class="font-bold text-neutral-700">{{ findTeamName(teamId) }}</span>
-                       <span class="text-indigo-600 font-black">+{{ calculateTeamPlayerDignityBuff({ team: teamId }, activeDeck) }}</span>
+                       <span class="text-indigo-600 font-black">+{{ calculateTeamPlayerDignityBuff({ team: teamId }) }}</span>
                      </div>
-                  </template>
+                  
+  <!-- 🌟 AI 추천 라인업 생성 모달 -->
+  <div v-if="showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
+      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
+        <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
+        <button @click="showAutoLineupModal = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
+      </div>
+      
+      <div class="p-5 flex flex-col gap-5 overflow-y-auto">
+        <!-- 팀 선택 -->
+        <div>
+          <label class="block text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">1. 베이스 구단 선택</label>
+          <select v-model="autoLineupTeam" class="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-3 text-sm font-bold text-neutral-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+             <option v-for="team in groupedTeams" :key="team.name" :value="team">{{ team.name }}</option>
+          </select>
+        </div>
+
+        <!-- 디그니티 카드 선택 (최대 4장) -->
+        <div>
+          <label class="flex justify-between text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">
+            <span>2. 보유 디그니티(DGN) 선택 (최대 4장)</span>
+            <span class="text-indigo-600 dark:text-indigo-400">{{ autoLineupSelectedDgnIds.length }} / 4</span>
+          </label>
+          
+          <!-- 검색창 -->
+          <div class="relative mb-2">
+            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+            <input v-model="autoLineupDgnSearch" type="text" placeholder="선수 이름 검색 (예: 박건우)" class="w-full pl-9 pr-3 py-2.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
+            
+            <!-- 검색 결과 드롭다운 -->
+            <div v-if="autoLineupDgnSearch" class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
+               <button v-for="p in autoLineupDgnOptions" :key="p.raw.id" @click="addAutoLineupDgn(p)" class="w-full text-left px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-700/50 last:border-0 transition-colors">
+                  <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded font-black border border-indigo-200 dark:border-indigo-800">DGN</span>
+                  <span class="text-xs font-bold text-neutral-800 dark:text-neutral-200">{{ p.raw.name }}</span>
+                  <span class="text-[10px] text-neutral-400 ml-auto">{{ Array.isArray(p.raw.team) ? p.raw.team[0] : p.raw.team }} '{{ String(p.raw.year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
+               </button>
+               <div v-if="autoLineupDgnOptions.length === 0" class="px-3 py-3 text-center text-xs text-neutral-400">일치하는 디그니티 선수가 없습니다.</div>
+            </div>
+          </div>
+          
+          <!-- 선택된 DGN 목록 -->
+          <div class="flex flex-wrap gap-2">
+             <div v-for="id in autoLineupSelectedDgnIds" :key="id" class="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 px-2 py-1.5 rounded-lg text-xs font-bold text-indigo-800 dark:text-indigo-300 shadow-sm animate-in zoom-in-95">
+                <span>{{ getDgnPlayerName(id) }}</span>
+                <button @click="removeAutoLineupDgn(id)" class="text-indigo-400 hover:text-red-500 transition-colors ml-1 leading-none">&times;</button>
+             </div>
+             <div v-if="autoLineupSelectedDgnIds.length === 0" class="text-[11px] text-neutral-400 w-full text-center py-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-200 dark:border-neutral-700">선택된 디그니티 선수가 없습니다.</div>
+          </div>
+        </div>
+
+        <div class="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
+          <p class="text-[11px] text-amber-800 dark:text-amber-300 font-bold leading-relaxed">
+            ※ 선택한 덱(DH1/DH2)이 지워지고, <strong>{{ autoLineupTeam.name }} 주전 20명 + 팀플 벤치 + 부족한 시너지 보충용 후보군</strong>으로 로스터가 1초 만에 자동 완성됩니다!
+          </p>
+        </div>
+      </div>
+      
+      <div class="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex justify-end gap-2">
+         <button @click="showAutoLineupModal = false" class="px-5 py-2.5 text-sm font-bold text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800 rounded-xl transition-colors">취소</button>
+         <button @click="generateAutoLineup" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 transition-all">✨ 라인업 편성하기</button>
+      </div>
+    </div>
+  </div>
+
+</template>
                 </div>
               </div>
               
@@ -2941,11 +3224,336 @@ const getPlayerImage = (p: Raw | null) => {
                          </div>
                          <select v-model.number="globalBuffsAll[activeDeck].tacticLevels[i]" class="text-[11px] sm:text-xs border rounded p-1 font-bold outline-none" :class="[globalBuffsAll[activeDeck].managerEnhance < tac.req[globalBuffsAll[activeDeck].tacticLevels[i]] ? 'text-red-500 border-red-300' : 'text-indigo-700 border-indigo-200 bg-indigo-50', globalBuffsAll[activeDeck].tacticLevels[i] === 0 ? 'text-neutral-500 bg-white border-neutral-200' : '']">
                             <option :value="0">Lv.0</option>
-                            <option :value="1" :disabled="globalBuffsAll[activeDeck].managerEnhance < tac.req[1]">Lv.1 ({{ tac.pt[1] }}pt<template v-if="globalBuffsAll[activeDeck].managerEnhance < tac.req[1]"> / 🔒{{tac.req[1]}}강 필요</template>)</option>
-                            <option :value="2" :disabled="globalBuffsAll[activeDeck].managerEnhance < tac.req[2]">Lv.2 ({{ tac.pt[2] }}pt<template v-if="globalBuffsAll[activeDeck].managerEnhance < tac.req[2]"> / 🔒{{tac.req[2]}}강 필요</template>)</option>
-                            <option :value="3" :disabled="globalBuffsAll[activeDeck].managerEnhance < tac.req[3]">Lv.3 ({{ tac.pt[3] }}pt<template v-if="globalBuffsAll[activeDeck].managerEnhance < tac.req[3]"> / 🔒{{tac.req[3]}}강 필요</template>)</option>
-                            <option :value="4" :disabled="globalBuffsAll[activeDeck].managerEnhance < tac.req[4]">Lv.4 ({{ tac.pt[4] }}pt<template v-if="globalBuffsAll[activeDeck].managerEnhance < tac.req[4]"> / 🔒{{tac.req[4]}}강 필요</template>)</option>
-                            <option :value="5" :disabled="globalBuffsAll[activeDeck].managerEnhance < tac.req[5]">Lv.5 ({{ tac.pt[5] }}pt<template v-if="globalBuffsAll[activeDeck].managerEnhance < tac.req[5]"> / 🔒{{tac.req[5]}}강 필요</template>)</option>
+                            <option :value="1" :disabled="globalBuffsAll[activeDeck].managerEnhance < tac.req[1]">Lv.1 ({{ tac.pt[1] }}pt<template v-if="globalBuffsAll[activeDeck].managerEnhance < tac.req[1]"> / 🔒{{tac.req[1]}}강 필요
+  <!-- 🌟 AI 추천 라인업 생성 모달 -->
+  <div v-if="showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
+      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
+        <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
+        <button @click="showAutoLineupModal = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
+      </div>
+      
+      <div class="p-5 flex flex-col gap-5 overflow-y-auto">
+        <!-- 팀 선택 -->
+        <div>
+          <label class="block text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">1. 베이스 구단 선택</label>
+          <select v-model="autoLineupTeam" class="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-3 text-sm font-bold text-neutral-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+             <option v-for="team in groupedTeams" :key="team.name" :value="team">{{ team.name }}</option>
+          </select>
+        </div>
+
+        <!-- 디그니티 카드 선택 (최대 4장) -->
+        <div>
+          <label class="flex justify-between text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">
+            <span>2. 보유 디그니티(DGN) 선택 (최대 4장)</span>
+            <span class="text-indigo-600 dark:text-indigo-400">{{ autoLineupSelectedDgnIds.length }} / 4</span>
+          </label>
+          
+          <!-- 검색창 -->
+          <div class="relative mb-2">
+            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+            <input v-model="autoLineupDgnSearch" type="text" placeholder="선수 이름 검색 (예: 박건우)" class="w-full pl-9 pr-3 py-2.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
+            
+            <!-- 검색 결과 드롭다운 -->
+            <div v-if="autoLineupDgnSearch" class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
+               <button v-for="p in autoLineupDgnOptions" :key="p.raw.id" @click="addAutoLineupDgn(p)" class="w-full text-left px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-700/50 last:border-0 transition-colors">
+                  <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded font-black border border-indigo-200 dark:border-indigo-800">DGN</span>
+                  <span class="text-xs font-bold text-neutral-800 dark:text-neutral-200">{{ p.raw.name }}</span>
+                  <span class="text-[10px] text-neutral-400 ml-auto">{{ Array.isArray(p.raw.team) ? p.raw.team[0] : p.raw.team }} '{{ String(p.raw.year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
+               </button>
+               <div v-if="autoLineupDgnOptions.length === 0" class="px-3 py-3 text-center text-xs text-neutral-400">일치하는 디그니티 선수가 없습니다.</div>
+            </div>
+          </div>
+          
+          <!-- 선택된 DGN 목록 -->
+          <div class="flex flex-wrap gap-2">
+             <div v-for="id in autoLineupSelectedDgnIds" :key="id" class="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 px-2 py-1.5 rounded-lg text-xs font-bold text-indigo-800 dark:text-indigo-300 shadow-sm animate-in zoom-in-95">
+                <span>{{ getDgnPlayerName(id) }}</span>
+                <button @click="removeAutoLineupDgn(id)" class="text-indigo-400 hover:text-red-500 transition-colors ml-1 leading-none">&times;</button>
+             </div>
+             <div v-if="autoLineupSelectedDgnIds.length === 0" class="text-[11px] text-neutral-400 w-full text-center py-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-200 dark:border-neutral-700">선택된 디그니티 선수가 없습니다.</div>
+          </div>
+        </div>
+
+        <div class="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
+          <p class="text-[11px] text-amber-800 dark:text-amber-300 font-bold leading-relaxed">
+            ※ 선택한 덱(DH1/DH2)이 지워지고, <strong>{{ autoLineupTeam.name }} 주전 20명 + 팀플 벤치 + 부족한 시너지 보충용 후보군</strong>으로 로스터가 1초 만에 자동 완성됩니다!
+          </p>
+        </div>
+      </div>
+      
+      <div class="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex justify-end gap-2">
+         <button @click="showAutoLineupModal = false" class="px-5 py-2.5 text-sm font-bold text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800 rounded-xl transition-colors">취소</button>
+         <button @click="generateAutoLineup" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 transition-all">✨ 라인업 편성하기</button>
+      </div>
+    </div>
+  </div>
+
+</template>)</option>
+                            <option :value="2" :disabled="globalBuffsAll[activeDeck].managerEnhance < tac.req[2]">Lv.2 ({{ tac.pt[2] }}pt<template v-if="globalBuffsAll[activeDeck].managerEnhance < tac.req[2]"> / 🔒{{tac.req[2]}}강 필요
+  <!-- 🌟 AI 추천 라인업 생성 모달 -->
+  <div v-if="showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
+      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
+        <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
+        <button @click="showAutoLineupModal = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
+      </div>
+      
+      <div class="p-5 flex flex-col gap-5 overflow-y-auto">
+        <!-- 팀 선택 -->
+        <div>
+          <label class="block text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">1. 베이스 구단 선택</label>
+          <select v-model="autoLineupTeam" class="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-3 text-sm font-bold text-neutral-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+             <option v-for="team in groupedTeams" :key="team.name" :value="team">{{ team.name }}</option>
+          </select>
+        </div>
+
+        <!-- 디그니티 카드 선택 (최대 4장) -->
+        <div>
+          <label class="flex justify-between text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">
+            <span>2. 보유 디그니티(DGN) 선택 (최대 4장)</span>
+            <span class="text-indigo-600 dark:text-indigo-400">{{ autoLineupSelectedDgnIds.length }} / 4</span>
+          </label>
+          
+          <!-- 검색창 -->
+          <div class="relative mb-2">
+            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+            <input v-model="autoLineupDgnSearch" type="text" placeholder="선수 이름 검색 (예: 박건우)" class="w-full pl-9 pr-3 py-2.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
+            
+            <!-- 검색 결과 드롭다운 -->
+            <div v-if="autoLineupDgnSearch" class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
+               <button v-for="p in autoLineupDgnOptions" :key="p.raw.id" @click="addAutoLineupDgn(p)" class="w-full text-left px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-700/50 last:border-0 transition-colors">
+                  <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded font-black border border-indigo-200 dark:border-indigo-800">DGN</span>
+                  <span class="text-xs font-bold text-neutral-800 dark:text-neutral-200">{{ p.raw.name }}</span>
+                  <span class="text-[10px] text-neutral-400 ml-auto">{{ Array.isArray(p.raw.team) ? p.raw.team[0] : p.raw.team }} '{{ String(p.raw.year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
+               </button>
+               <div v-if="autoLineupDgnOptions.length === 0" class="px-3 py-3 text-center text-xs text-neutral-400">일치하는 디그니티 선수가 없습니다.</div>
+            </div>
+          </div>
+          
+          <!-- 선택된 DGN 목록 -->
+          <div class="flex flex-wrap gap-2">
+             <div v-for="id in autoLineupSelectedDgnIds" :key="id" class="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 px-2 py-1.5 rounded-lg text-xs font-bold text-indigo-800 dark:text-indigo-300 shadow-sm animate-in zoom-in-95">
+                <span>{{ getDgnPlayerName(id) }}</span>
+                <button @click="removeAutoLineupDgn(id)" class="text-indigo-400 hover:text-red-500 transition-colors ml-1 leading-none">&times;</button>
+             </div>
+             <div v-if="autoLineupSelectedDgnIds.length === 0" class="text-[11px] text-neutral-400 w-full text-center py-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-200 dark:border-neutral-700">선택된 디그니티 선수가 없습니다.</div>
+          </div>
+        </div>
+
+        <div class="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
+          <p class="text-[11px] text-amber-800 dark:text-amber-300 font-bold leading-relaxed">
+            ※ 선택한 덱(DH1/DH2)이 지워지고, <strong>{{ autoLineupTeam.name }} 주전 20명 + 팀플 벤치 + 부족한 시너지 보충용 후보군</strong>으로 로스터가 1초 만에 자동 완성됩니다!
+          </p>
+        </div>
+      </div>
+      
+      <div class="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex justify-end gap-2">
+         <button @click="showAutoLineupModal = false" class="px-5 py-2.5 text-sm font-bold text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800 rounded-xl transition-colors">취소</button>
+         <button @click="generateAutoLineup" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 transition-all">✨ 라인업 편성하기</button>
+      </div>
+    </div>
+  </div>
+
+</template>)</option>
+                            <option :value="3" :disabled="globalBuffsAll[activeDeck].managerEnhance < tac.req[3]">Lv.3 ({{ tac.pt[3] }}pt<template v-if="globalBuffsAll[activeDeck].managerEnhance < tac.req[3]"> / 🔒{{tac.req[3]}}강 필요
+  <!-- 🌟 AI 추천 라인업 생성 모달 -->
+  <div v-if="showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
+      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
+        <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
+        <button @click="showAutoLineupModal = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
+      </div>
+      
+      <div class="p-5 flex flex-col gap-5 overflow-y-auto">
+        <!-- 팀 선택 -->
+        <div>
+          <label class="block text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">1. 베이스 구단 선택</label>
+          <select v-model="autoLineupTeam" class="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-3 text-sm font-bold text-neutral-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+             <option v-for="team in groupedTeams" :key="team.name" :value="team">{{ team.name }}</option>
+          </select>
+        </div>
+
+        <!-- 디그니티 카드 선택 (최대 4장) -->
+        <div>
+          <label class="flex justify-between text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">
+            <span>2. 보유 디그니티(DGN) 선택 (최대 4장)</span>
+            <span class="text-indigo-600 dark:text-indigo-400">{{ autoLineupSelectedDgnIds.length }} / 4</span>
+          </label>
+          
+          <!-- 검색창 -->
+          <div class="relative mb-2">
+            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+            <input v-model="autoLineupDgnSearch" type="text" placeholder="선수 이름 검색 (예: 박건우)" class="w-full pl-9 pr-3 py-2.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
+            
+            <!-- 검색 결과 드롭다운 -->
+            <div v-if="autoLineupDgnSearch" class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
+               <button v-for="p in autoLineupDgnOptions" :key="p.raw.id" @click="addAutoLineupDgn(p)" class="w-full text-left px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-700/50 last:border-0 transition-colors">
+                  <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded font-black border border-indigo-200 dark:border-indigo-800">DGN</span>
+                  <span class="text-xs font-bold text-neutral-800 dark:text-neutral-200">{{ p.raw.name }}</span>
+                  <span class="text-[10px] text-neutral-400 ml-auto">{{ Array.isArray(p.raw.team) ? p.raw.team[0] : p.raw.team }} '{{ String(p.raw.year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
+               </button>
+               <div v-if="autoLineupDgnOptions.length === 0" class="px-3 py-3 text-center text-xs text-neutral-400">일치하는 디그니티 선수가 없습니다.</div>
+            </div>
+          </div>
+          
+          <!-- 선택된 DGN 목록 -->
+          <div class="flex flex-wrap gap-2">
+             <div v-for="id in autoLineupSelectedDgnIds" :key="id" class="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 px-2 py-1.5 rounded-lg text-xs font-bold text-indigo-800 dark:text-indigo-300 shadow-sm animate-in zoom-in-95">
+                <span>{{ getDgnPlayerName(id) }}</span>
+                <button @click="removeAutoLineupDgn(id)" class="text-indigo-400 hover:text-red-500 transition-colors ml-1 leading-none">&times;</button>
+             </div>
+             <div v-if="autoLineupSelectedDgnIds.length === 0" class="text-[11px] text-neutral-400 w-full text-center py-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-200 dark:border-neutral-700">선택된 디그니티 선수가 없습니다.</div>
+          </div>
+        </div>
+
+        <div class="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
+          <p class="text-[11px] text-amber-800 dark:text-amber-300 font-bold leading-relaxed">
+            ※ 선택한 덱(DH1/DH2)이 지워지고, <strong>{{ autoLineupTeam.name }} 주전 20명 + 팀플 벤치 + 부족한 시너지 보충용 후보군</strong>으로 로스터가 1초 만에 자동 완성됩니다!
+          </p>
+        </div>
+      </div>
+      
+      <div class="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex justify-end gap-2">
+         <button @click="showAutoLineupModal = false" class="px-5 py-2.5 text-sm font-bold text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800 rounded-xl transition-colors">취소</button>
+         <button @click="generateAutoLineup" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 transition-all">✨ 라인업 편성하기</button>
+      </div>
+    </div>
+  </div>
+
+</template>)</option>
+                            <option :value="4" :disabled="globalBuffsAll[activeDeck].managerEnhance < tac.req[4]">Lv.4 ({{ tac.pt[4] }}pt<template v-if="globalBuffsAll[activeDeck].managerEnhance < tac.req[4]"> / 🔒{{tac.req[4]}}강 필요
+  <!-- 🌟 AI 추천 라인업 생성 모달 -->
+  <div v-if="showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
+      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
+        <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
+        <button @click="showAutoLineupModal = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
+      </div>
+      
+      <div class="p-5 flex flex-col gap-5 overflow-y-auto">
+        <!-- 팀 선택 -->
+        <div>
+          <label class="block text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">1. 베이스 구단 선택</label>
+          <select v-model="autoLineupTeam" class="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-3 text-sm font-bold text-neutral-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+             <option v-for="team in groupedTeams" :key="team.name" :value="team">{{ team.name }}</option>
+          </select>
+        </div>
+
+        <!-- 디그니티 카드 선택 (최대 4장) -->
+        <div>
+          <label class="flex justify-between text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">
+            <span>2. 보유 디그니티(DGN) 선택 (최대 4장)</span>
+            <span class="text-indigo-600 dark:text-indigo-400">{{ autoLineupSelectedDgnIds.length }} / 4</span>
+          </label>
+          
+          <!-- 검색창 -->
+          <div class="relative mb-2">
+            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+            <input v-model="autoLineupDgnSearch" type="text" placeholder="선수 이름 검색 (예: 박건우)" class="w-full pl-9 pr-3 py-2.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
+            
+            <!-- 검색 결과 드롭다운 -->
+            <div v-if="autoLineupDgnSearch" class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
+               <button v-for="p in autoLineupDgnOptions" :key="p.raw.id" @click="addAutoLineupDgn(p)" class="w-full text-left px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-700/50 last:border-0 transition-colors">
+                  <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded font-black border border-indigo-200 dark:border-indigo-800">DGN</span>
+                  <span class="text-xs font-bold text-neutral-800 dark:text-neutral-200">{{ p.raw.name }}</span>
+                  <span class="text-[10px] text-neutral-400 ml-auto">{{ Array.isArray(p.raw.team) ? p.raw.team[0] : p.raw.team }} '{{ String(p.raw.year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
+               </button>
+               <div v-if="autoLineupDgnOptions.length === 0" class="px-3 py-3 text-center text-xs text-neutral-400">일치하는 디그니티 선수가 없습니다.</div>
+            </div>
+          </div>
+          
+          <!-- 선택된 DGN 목록 -->
+          <div class="flex flex-wrap gap-2">
+             <div v-for="id in autoLineupSelectedDgnIds" :key="id" class="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 px-2 py-1.5 rounded-lg text-xs font-bold text-indigo-800 dark:text-indigo-300 shadow-sm animate-in zoom-in-95">
+                <span>{{ getDgnPlayerName(id) }}</span>
+                <button @click="removeAutoLineupDgn(id)" class="text-indigo-400 hover:text-red-500 transition-colors ml-1 leading-none">&times;</button>
+             </div>
+             <div v-if="autoLineupSelectedDgnIds.length === 0" class="text-[11px] text-neutral-400 w-full text-center py-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-200 dark:border-neutral-700">선택된 디그니티 선수가 없습니다.</div>
+          </div>
+        </div>
+
+        <div class="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
+          <p class="text-[11px] text-amber-800 dark:text-amber-300 font-bold leading-relaxed">
+            ※ 선택한 덱(DH1/DH2)이 지워지고, <strong>{{ autoLineupTeam.name }} 주전 20명 + 팀플 벤치 + 부족한 시너지 보충용 후보군</strong>으로 로스터가 1초 만에 자동 완성됩니다!
+          </p>
+        </div>
+      </div>
+      
+      <div class="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex justify-end gap-2">
+         <button @click="showAutoLineupModal = false" class="px-5 py-2.5 text-sm font-bold text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800 rounded-xl transition-colors">취소</button>
+         <button @click="generateAutoLineup" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 transition-all">✨ 라인업 편성하기</button>
+      </div>
+    </div>
+  </div>
+
+</template>)</option>
+                            <option :value="5" :disabled="globalBuffsAll[activeDeck].managerEnhance < tac.req[5]">Lv.5 ({{ tac.pt[5] }}pt<template v-if="globalBuffsAll[activeDeck].managerEnhance < tac.req[5]"> / 🔒{{tac.req[5]}}강 필요
+  <!-- 🌟 AI 추천 라인업 생성 모달 -->
+  <div v-if="showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
+      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
+        <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
+        <button @click="showAutoLineupModal = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
+      </div>
+      
+      <div class="p-5 flex flex-col gap-5 overflow-y-auto">
+        <!-- 팀 선택 -->
+        <div>
+          <label class="block text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">1. 베이스 구단 선택</label>
+          <select v-model="autoLineupTeam" class="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-3 text-sm font-bold text-neutral-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+             <option v-for="team in groupedTeams" :key="team.name" :value="team">{{ team.name }}</option>
+          </select>
+        </div>
+
+        <!-- 디그니티 카드 선택 (최대 4장) -->
+        <div>
+          <label class="flex justify-between text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">
+            <span>2. 보유 디그니티(DGN) 선택 (최대 4장)</span>
+            <span class="text-indigo-600 dark:text-indigo-400">{{ autoLineupSelectedDgnIds.length }} / 4</span>
+          </label>
+          
+          <!-- 검색창 -->
+          <div class="relative mb-2">
+            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+            <input v-model="autoLineupDgnSearch" type="text" placeholder="선수 이름 검색 (예: 박건우)" class="w-full pl-9 pr-3 py-2.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
+            
+            <!-- 검색 결과 드롭다운 -->
+            <div v-if="autoLineupDgnSearch" class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
+               <button v-for="p in autoLineupDgnOptions" :key="p.raw.id" @click="addAutoLineupDgn(p)" class="w-full text-left px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-700/50 last:border-0 transition-colors">
+                  <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded font-black border border-indigo-200 dark:border-indigo-800">DGN</span>
+                  <span class="text-xs font-bold text-neutral-800 dark:text-neutral-200">{{ p.raw.name }}</span>
+                  <span class="text-[10px] text-neutral-400 ml-auto">{{ Array.isArray(p.raw.team) ? p.raw.team[0] : p.raw.team }} '{{ String(p.raw.year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
+               </button>
+               <div v-if="autoLineupDgnOptions.length === 0" class="px-3 py-3 text-center text-xs text-neutral-400">일치하는 디그니티 선수가 없습니다.</div>
+            </div>
+          </div>
+          
+          <!-- 선택된 DGN 목록 -->
+          <div class="flex flex-wrap gap-2">
+             <div v-for="id in autoLineupSelectedDgnIds" :key="id" class="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 px-2 py-1.5 rounded-lg text-xs font-bold text-indigo-800 dark:text-indigo-300 shadow-sm animate-in zoom-in-95">
+                <span>{{ getDgnPlayerName(id) }}</span>
+                <button @click="removeAutoLineupDgn(id)" class="text-indigo-400 hover:text-red-500 transition-colors ml-1 leading-none">&times;</button>
+             </div>
+             <div v-if="autoLineupSelectedDgnIds.length === 0" class="text-[11px] text-neutral-400 w-full text-center py-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-200 dark:border-neutral-700">선택된 디그니티 선수가 없습니다.</div>
+          </div>
+        </div>
+
+        <div class="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
+          <p class="text-[11px] text-amber-800 dark:text-amber-300 font-bold leading-relaxed">
+            ※ 선택한 덱(DH1/DH2)이 지워지고, <strong>{{ autoLineupTeam.name }} 주전 20명 + 팀플 벤치 + 부족한 시너지 보충용 후보군</strong>으로 로스터가 1초 만에 자동 완성됩니다!
+          </p>
+        </div>
+      </div>
+      
+      <div class="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex justify-end gap-2">
+         <button @click="showAutoLineupModal = false" class="px-5 py-2.5 text-sm font-bold text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800 rounded-xl transition-colors">취소</button>
+         <button @click="generateAutoLineup" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 transition-all">✨ 라인업 편성하기</button>
+      </div>
+    </div>
+  </div>
+
+</template>)</option>
                          </select>
                       </div>
                       
@@ -3132,7 +3740,7 @@ const getPlayerImage = (p: Raw | null) => {
                     <div class="flex flex-col gap-0.5"><label class="text-xs font-bold text-neutral-500">커리어 레벨 파워</label><input type="number" v-model.number="playerBuffs[selectedSlot].careerLevelBuff" class="w-full px-2 py-1.5 text-center bg-white border rounded text-sm font-semibold"/></div>
                     <div class="flex flex-col gap-0.5">
                       <label class="text-xs font-bold text-indigo-500 flex items-center justify-center gap-1">바인더 파워 <Zap class="w-3 h-3"/></label>
-                      <div class="w-full px-2 py-1.5 text-center bg-indigo-50 border border-indigo-200 rounded text-sm font-black text-indigo-700 shadow-inner">+{{ getPlayerBinderPower(lineup[selectedSlot], activeDeck) }}</div>
+                      <div class="w-full px-2 py-1.5 text-center bg-indigo-50 border border-indigo-200 rounded text-sm font-black text-indigo-700 shadow-inner">+{{ getPlayerBinderPower(lineup[selectedSlot]) }}</div>
                     </div>
                   </div>
 
@@ -3186,11 +3794,11 @@ const getPlayerImage = (p: Raw | null) => {
                   <div class="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-indigo-100">
                     <div class="flex flex-col gap-0.5">
                       <label class="text-[11px] font-bold text-neutral-500">총 시너지 깡파워</label>
-                      <div class="w-full px-2 py-1.5 text-center bg-indigo-100 border border-indigo-200 rounded text-sm font-black text-indigo-800">+{{ getPlayerSynergySum(lineup[selectedSlot], 'fixed', activeDeck) }}</div>
+                      <div class="w-full px-2 py-1.5 text-center bg-indigo-100 border border-indigo-200 rounded text-sm font-black text-indigo-800">+{{ getPlayerSynergySum(lineup[selectedSlot], 'fixed') }}</div>
                     </div>
                     <div class="flex flex-col gap-0.5">
                       <label class="text-[11px] font-bold text-neutral-500">총 시너지 %파워</label>
-                      <div class="w-full px-2 py-1.5 text-center bg-indigo-100 border border-indigo-200 rounded text-sm font-black text-indigo-800">+{{ getPlayerSynergySum(lineup[selectedSlot], 'percent', activeDeck) }}%</div>
+                      <div class="w-full px-2 py-1.5 text-center bg-indigo-100 border border-indigo-200 rounded text-sm font-black text-indigo-800">+{{ getPlayerSynergySum(lineup[selectedSlot], 'percent') }}%</div>
                     </div>
                   </div>
                 </div>
@@ -3264,7 +3872,72 @@ const getPlayerImage = (p: Raw | null) => {
                           </div>
                         </div>
                       </div>
-                    </template>
+                    
+  <!-- 🌟 AI 추천 라인업 생성 모달 -->
+  <div v-if="showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
+      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
+        <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
+        <button @click="showAutoLineupModal = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
+      </div>
+      
+      <div class="p-5 flex flex-col gap-5 overflow-y-auto">
+        <!-- 팀 선택 -->
+        <div>
+          <label class="block text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">1. 베이스 구단 선택</label>
+          <select v-model="autoLineupTeam" class="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-3 text-sm font-bold text-neutral-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+             <option v-for="team in groupedTeams" :key="team.name" :value="team">{{ team.name }}</option>
+          </select>
+        </div>
+
+        <!-- 디그니티 카드 선택 (최대 4장) -->
+        <div>
+          <label class="flex justify-between text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">
+            <span>2. 보유 디그니티(DGN) 선택 (최대 4장)</span>
+            <span class="text-indigo-600 dark:text-indigo-400">{{ autoLineupSelectedDgnIds.length }} / 4</span>
+          </label>
+          
+          <!-- 검색창 -->
+          <div class="relative mb-2">
+            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+            <input v-model="autoLineupDgnSearch" type="text" placeholder="선수 이름 검색 (예: 박건우)" class="w-full pl-9 pr-3 py-2.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
+            
+            <!-- 검색 결과 드롭다운 -->
+            <div v-if="autoLineupDgnSearch" class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
+               <button v-for="p in autoLineupDgnOptions" :key="p.raw.id" @click="addAutoLineupDgn(p)" class="w-full text-left px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-700/50 last:border-0 transition-colors">
+                  <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded font-black border border-indigo-200 dark:border-indigo-800">DGN</span>
+                  <span class="text-xs font-bold text-neutral-800 dark:text-neutral-200">{{ p.raw.name }}</span>
+                  <span class="text-[10px] text-neutral-400 ml-auto">{{ Array.isArray(p.raw.team) ? p.raw.team[0] : p.raw.team }} '{{ String(p.raw.year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
+               </button>
+               <div v-if="autoLineupDgnOptions.length === 0" class="px-3 py-3 text-center text-xs text-neutral-400">일치하는 디그니티 선수가 없습니다.</div>
+            </div>
+          </div>
+          
+          <!-- 선택된 DGN 목록 -->
+          <div class="flex flex-wrap gap-2">
+             <div v-for="id in autoLineupSelectedDgnIds" :key="id" class="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 px-2 py-1.5 rounded-lg text-xs font-bold text-indigo-800 dark:text-indigo-300 shadow-sm animate-in zoom-in-95">
+                <span>{{ getDgnPlayerName(id) }}</span>
+                <button @click="removeAutoLineupDgn(id)" class="text-indigo-400 hover:text-red-500 transition-colors ml-1 leading-none">&times;</button>
+             </div>
+             <div v-if="autoLineupSelectedDgnIds.length === 0" class="text-[11px] text-neutral-400 w-full text-center py-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-200 dark:border-neutral-700">선택된 디그니티 선수가 없습니다.</div>
+          </div>
+        </div>
+
+        <div class="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
+          <p class="text-[11px] text-amber-800 dark:text-amber-300 font-bold leading-relaxed">
+            ※ 선택한 덱(DH1/DH2)이 지워지고, <strong>{{ autoLineupTeam.name }} 주전 20명 + 팀플 벤치 + 부족한 시너지 보충용 후보군</strong>으로 로스터가 1초 만에 자동 완성됩니다!
+          </p>
+        </div>
+      </div>
+      
+      <div class="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex justify-end gap-2">
+         <button @click="showAutoLineupModal = false" class="px-5 py-2.5 text-sm font-bold text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800 rounded-xl transition-colors">취소</button>
+         <button @click="generateAutoLineup" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 transition-all">✨ 라인업 편성하기</button>
+      </div>
+    </div>
+  </div>
+
+</template>
                   </div>
 
                   <!-- 🌟 2. 클릭해서 장착할 수 있는 스킬 목록 (이미지 갤러리) -->
@@ -3339,10 +4012,140 @@ const getPlayerImage = (p: Raw | null) => {
           <select v-model="newImprint.mainStat" class="text-xs font-bold bg-white border rounded p-1 text-indigo-700 outline-none flex-1">
              <template v-if="newImprint.role === '타자'">
                <option value="컨택">컨택</option><option value="갭파워">갭파워</option><option value="홈런파워">홈런파워</option><option value="선구">선구</option><option value="삼진회피">삼진회피</option>
-             </template>
+             
+  <!-- 🌟 AI 추천 라인업 생성 모달 -->
+  <div v-if="showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
+      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
+        <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
+        <button @click="showAutoLineupModal = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
+      </div>
+      
+      <div class="p-5 flex flex-col gap-5 overflow-y-auto">
+        <!-- 팀 선택 -->
+        <div>
+          <label class="block text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">1. 베이스 구단 선택</label>
+          <select v-model="autoLineupTeam" class="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-3 text-sm font-bold text-neutral-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+             <option v-for="team in groupedTeams" :key="team.name" :value="team">{{ team.name }}</option>
+          </select>
+        </div>
+
+        <!-- 디그니티 카드 선택 (최대 4장) -->
+        <div>
+          <label class="flex justify-between text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">
+            <span>2. 보유 디그니티(DGN) 선택 (최대 4장)</span>
+            <span class="text-indigo-600 dark:text-indigo-400">{{ autoLineupSelectedDgnIds.length }} / 4</span>
+          </label>
+          
+          <!-- 검색창 -->
+          <div class="relative mb-2">
+            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+            <input v-model="autoLineupDgnSearch" type="text" placeholder="선수 이름 검색 (예: 박건우)" class="w-full pl-9 pr-3 py-2.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
+            
+            <!-- 검색 결과 드롭다운 -->
+            <div v-if="autoLineupDgnSearch" class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
+               <button v-for="p in autoLineupDgnOptions" :key="p.raw.id" @click="addAutoLineupDgn(p)" class="w-full text-left px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-700/50 last:border-0 transition-colors">
+                  <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded font-black border border-indigo-200 dark:border-indigo-800">DGN</span>
+                  <span class="text-xs font-bold text-neutral-800 dark:text-neutral-200">{{ p.raw.name }}</span>
+                  <span class="text-[10px] text-neutral-400 ml-auto">{{ Array.isArray(p.raw.team) ? p.raw.team[0] : p.raw.team }} '{{ String(p.raw.year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
+               </button>
+               <div v-if="autoLineupDgnOptions.length === 0" class="px-3 py-3 text-center text-xs text-neutral-400">일치하는 디그니티 선수가 없습니다.</div>
+            </div>
+          </div>
+          
+          <!-- 선택된 DGN 목록 -->
+          <div class="flex flex-wrap gap-2">
+             <div v-for="id in autoLineupSelectedDgnIds" :key="id" class="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 px-2 py-1.5 rounded-lg text-xs font-bold text-indigo-800 dark:text-indigo-300 shadow-sm animate-in zoom-in-95">
+                <span>{{ getDgnPlayerName(id) }}</span>
+                <button @click="removeAutoLineupDgn(id)" class="text-indigo-400 hover:text-red-500 transition-colors ml-1 leading-none">&times;</button>
+             </div>
+             <div v-if="autoLineupSelectedDgnIds.length === 0" class="text-[11px] text-neutral-400 w-full text-center py-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-200 dark:border-neutral-700">선택된 디그니티 선수가 없습니다.</div>
+          </div>
+        </div>
+
+        <div class="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
+          <p class="text-[11px] text-amber-800 dark:text-amber-300 font-bold leading-relaxed">
+            ※ 선택한 덱(DH1/DH2)이 지워지고, <strong>{{ autoLineupTeam.name }} 주전 20명 + 팀플 벤치 + 부족한 시너지 보충용 후보군</strong>으로 로스터가 1초 만에 자동 완성됩니다!
+          </p>
+        </div>
+      </div>
+      
+      <div class="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex justify-end gap-2">
+         <button @click="showAutoLineupModal = false" class="px-5 py-2.5 text-sm font-bold text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800 rounded-xl transition-colors">취소</button>
+         <button @click="generateAutoLineup" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 transition-all">✨ 라인업 편성하기</button>
+      </div>
+    </div>
+  </div>
+
+</template>
              <template v-else>
                <option value="무브먼트">무브먼트</option><option value="장타억제">장타억제</option><option value="홈런억제">홈런억제</option><option value="컨트롤">컨트롤</option><option value="스터프">스터프</option>
-             </template>
+             
+  <!-- 🌟 AI 추천 라인업 생성 모달 -->
+  <div v-if="showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
+      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
+        <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
+        <button @click="showAutoLineupModal = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
+      </div>
+      
+      <div class="p-5 flex flex-col gap-5 overflow-y-auto">
+        <!-- 팀 선택 -->
+        <div>
+          <label class="block text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">1. 베이스 구단 선택</label>
+          <select v-model="autoLineupTeam" class="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-3 text-sm font-bold text-neutral-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+             <option v-for="team in groupedTeams" :key="team.name" :value="team">{{ team.name }}</option>
+          </select>
+        </div>
+
+        <!-- 디그니티 카드 선택 (최대 4장) -->
+        <div>
+          <label class="flex justify-between text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">
+            <span>2. 보유 디그니티(DGN) 선택 (최대 4장)</span>
+            <span class="text-indigo-600 dark:text-indigo-400">{{ autoLineupSelectedDgnIds.length }} / 4</span>
+          </label>
+          
+          <!-- 검색창 -->
+          <div class="relative mb-2">
+            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+            <input v-model="autoLineupDgnSearch" type="text" placeholder="선수 이름 검색 (예: 박건우)" class="w-full pl-9 pr-3 py-2.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
+            
+            <!-- 검색 결과 드롭다운 -->
+            <div v-if="autoLineupDgnSearch" class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
+               <button v-for="p in autoLineupDgnOptions" :key="p.raw.id" @click="addAutoLineupDgn(p)" class="w-full text-left px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-700/50 last:border-0 transition-colors">
+                  <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded font-black border border-indigo-200 dark:border-indigo-800">DGN</span>
+                  <span class="text-xs font-bold text-neutral-800 dark:text-neutral-200">{{ p.raw.name }}</span>
+                  <span class="text-[10px] text-neutral-400 ml-auto">{{ Array.isArray(p.raw.team) ? p.raw.team[0] : p.raw.team }} '{{ String(p.raw.year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
+               </button>
+               <div v-if="autoLineupDgnOptions.length === 0" class="px-3 py-3 text-center text-xs text-neutral-400">일치하는 디그니티 선수가 없습니다.</div>
+            </div>
+          </div>
+          
+          <!-- 선택된 DGN 목록 -->
+          <div class="flex flex-wrap gap-2">
+             <div v-for="id in autoLineupSelectedDgnIds" :key="id" class="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 px-2 py-1.5 rounded-lg text-xs font-bold text-indigo-800 dark:text-indigo-300 shadow-sm animate-in zoom-in-95">
+                <span>{{ getDgnPlayerName(id) }}</span>
+                <button @click="removeAutoLineupDgn(id)" class="text-indigo-400 hover:text-red-500 transition-colors ml-1 leading-none">&times;</button>
+             </div>
+             <div v-if="autoLineupSelectedDgnIds.length === 0" class="text-[11px] text-neutral-400 w-full text-center py-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-200 dark:border-neutral-700">선택된 디그니티 선수가 없습니다.</div>
+          </div>
+        </div>
+
+        <div class="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
+          <p class="text-[11px] text-amber-800 dark:text-amber-300 font-bold leading-relaxed">
+            ※ 선택한 덱(DH1/DH2)이 지워지고, <strong>{{ autoLineupTeam.name }} 주전 20명 + 팀플 벤치 + 부족한 시너지 보충용 후보군</strong>으로 로스터가 1초 만에 자동 완성됩니다!
+          </p>
+        </div>
+      </div>
+      
+      <div class="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex justify-end gap-2">
+         <button @click="showAutoLineupModal = false" class="px-5 py-2.5 text-sm font-bold text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800 rounded-xl transition-colors">취소</button>
+         <button @click="generateAutoLineup" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 transition-all">✨ 라인업 편성하기</button>
+      </div>
+    </div>
+  </div>
+
+</template>
           </select>
           <span class="text-[11px] text-neutral-400 font-black">+</span>
           <input v-model="newImprint.mainPower" type="number" class="w-16 text-xs bg-white border rounded p-1 outline-none text-right font-black text-indigo-600">
@@ -3354,10 +4157,140 @@ const getPlayerImage = (p: Raw | null) => {
             <select v-model="opt.type" class="text-xs border rounded p-1.5 flex-1 text-neutral-700 font-medium">
               <template v-if="newImprint.role === '타자'">
                 <option value="컨택">컨택</option><option value="갭파워">갭파워</option><option value="홈런파워">홈런파워</option><option value="선구">선구</option><option value="삼진회피">삼진회피</option>
-              </template>
+              
+  <!-- 🌟 AI 추천 라인업 생성 모달 -->
+  <div v-if="showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
+      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
+        <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
+        <button @click="showAutoLineupModal = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
+      </div>
+      
+      <div class="p-5 flex flex-col gap-5 overflow-y-auto">
+        <!-- 팀 선택 -->
+        <div>
+          <label class="block text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">1. 베이스 구단 선택</label>
+          <select v-model="autoLineupTeam" class="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-3 text-sm font-bold text-neutral-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+             <option v-for="team in groupedTeams" :key="team.name" :value="team">{{ team.name }}</option>
+          </select>
+        </div>
+
+        <!-- 디그니티 카드 선택 (최대 4장) -->
+        <div>
+          <label class="flex justify-between text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">
+            <span>2. 보유 디그니티(DGN) 선택 (최대 4장)</span>
+            <span class="text-indigo-600 dark:text-indigo-400">{{ autoLineupSelectedDgnIds.length }} / 4</span>
+          </label>
+          
+          <!-- 검색창 -->
+          <div class="relative mb-2">
+            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+            <input v-model="autoLineupDgnSearch" type="text" placeholder="선수 이름 검색 (예: 박건우)" class="w-full pl-9 pr-3 py-2.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
+            
+            <!-- 검색 결과 드롭다운 -->
+            <div v-if="autoLineupDgnSearch" class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
+               <button v-for="p in autoLineupDgnOptions" :key="p.raw.id" @click="addAutoLineupDgn(p)" class="w-full text-left px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-700/50 last:border-0 transition-colors">
+                  <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded font-black border border-indigo-200 dark:border-indigo-800">DGN</span>
+                  <span class="text-xs font-bold text-neutral-800 dark:text-neutral-200">{{ p.raw.name }}</span>
+                  <span class="text-[10px] text-neutral-400 ml-auto">{{ Array.isArray(p.raw.team) ? p.raw.team[0] : p.raw.team }} '{{ String(p.raw.year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
+               </button>
+               <div v-if="autoLineupDgnOptions.length === 0" class="px-3 py-3 text-center text-xs text-neutral-400">일치하는 디그니티 선수가 없습니다.</div>
+            </div>
+          </div>
+          
+          <!-- 선택된 DGN 목록 -->
+          <div class="flex flex-wrap gap-2">
+             <div v-for="id in autoLineupSelectedDgnIds" :key="id" class="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 px-2 py-1.5 rounded-lg text-xs font-bold text-indigo-800 dark:text-indigo-300 shadow-sm animate-in zoom-in-95">
+                <span>{{ getDgnPlayerName(id) }}</span>
+                <button @click="removeAutoLineupDgn(id)" class="text-indigo-400 hover:text-red-500 transition-colors ml-1 leading-none">&times;</button>
+             </div>
+             <div v-if="autoLineupSelectedDgnIds.length === 0" class="text-[11px] text-neutral-400 w-full text-center py-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-200 dark:border-neutral-700">선택된 디그니티 선수가 없습니다.</div>
+          </div>
+        </div>
+
+        <div class="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
+          <p class="text-[11px] text-amber-800 dark:text-amber-300 font-bold leading-relaxed">
+            ※ 선택한 덱(DH1/DH2)이 지워지고, <strong>{{ autoLineupTeam.name }} 주전 20명 + 팀플 벤치 + 부족한 시너지 보충용 후보군</strong>으로 로스터가 1초 만에 자동 완성됩니다!
+          </p>
+        </div>
+      </div>
+      
+      <div class="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex justify-end gap-2">
+         <button @click="showAutoLineupModal = false" class="px-5 py-2.5 text-sm font-bold text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800 rounded-xl transition-colors">취소</button>
+         <button @click="generateAutoLineup" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 transition-all">✨ 라인업 편성하기</button>
+      </div>
+    </div>
+  </div>
+
+</template>
               <template v-else>
                 <option value="무브먼트">무브먼트</option><option value="장타억제">장타억제</option><option value="홈런억제">홈런억제</option><option value="컨트롤">컨트롤</option><option value="스터프">스터프</option><option value="한계투구 증가">한계투구 증가</option><option value="1~2선발시 파워증가">1~2선발시 파워증가</option>
-              </template>
+              
+  <!-- 🌟 AI 추천 라인업 생성 모달 -->
+  <div v-if="showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
+      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
+        <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
+        <button @click="showAutoLineupModal = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
+      </div>
+      
+      <div class="p-5 flex flex-col gap-5 overflow-y-auto">
+        <!-- 팀 선택 -->
+        <div>
+          <label class="block text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">1. 베이스 구단 선택</label>
+          <select v-model="autoLineupTeam" class="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-3 text-sm font-bold text-neutral-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+             <option v-for="team in groupedTeams" :key="team.name" :value="team">{{ team.name }}</option>
+          </select>
+        </div>
+
+        <!-- 디그니티 카드 선택 (최대 4장) -->
+        <div>
+          <label class="flex justify-between text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">
+            <span>2. 보유 디그니티(DGN) 선택 (최대 4장)</span>
+            <span class="text-indigo-600 dark:text-indigo-400">{{ autoLineupSelectedDgnIds.length }} / 4</span>
+          </label>
+          
+          <!-- 검색창 -->
+          <div class="relative mb-2">
+            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+            <input v-model="autoLineupDgnSearch" type="text" placeholder="선수 이름 검색 (예: 박건우)" class="w-full pl-9 pr-3 py-2.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
+            
+            <!-- 검색 결과 드롭다운 -->
+            <div v-if="autoLineupDgnSearch" class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
+               <button v-for="p in autoLineupDgnOptions" :key="p.raw.id" @click="addAutoLineupDgn(p)" class="w-full text-left px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-700/50 last:border-0 transition-colors">
+                  <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded font-black border border-indigo-200 dark:border-indigo-800">DGN</span>
+                  <span class="text-xs font-bold text-neutral-800 dark:text-neutral-200">{{ p.raw.name }}</span>
+                  <span class="text-[10px] text-neutral-400 ml-auto">{{ Array.isArray(p.raw.team) ? p.raw.team[0] : p.raw.team }} '{{ String(p.raw.year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
+               </button>
+               <div v-if="autoLineupDgnOptions.length === 0" class="px-3 py-3 text-center text-xs text-neutral-400">일치하는 디그니티 선수가 없습니다.</div>
+            </div>
+          </div>
+          
+          <!-- 선택된 DGN 목록 -->
+          <div class="flex flex-wrap gap-2">
+             <div v-for="id in autoLineupSelectedDgnIds" :key="id" class="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 px-2 py-1.5 rounded-lg text-xs font-bold text-indigo-800 dark:text-indigo-300 shadow-sm animate-in zoom-in-95">
+                <span>{{ getDgnPlayerName(id) }}</span>
+                <button @click="removeAutoLineupDgn(id)" class="text-indigo-400 hover:text-red-500 transition-colors ml-1 leading-none">&times;</button>
+             </div>
+             <div v-if="autoLineupSelectedDgnIds.length === 0" class="text-[11px] text-neutral-400 w-full text-center py-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-200 dark:border-neutral-700">선택된 디그니티 선수가 없습니다.</div>
+          </div>
+        </div>
+
+        <div class="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
+          <p class="text-[11px] text-amber-800 dark:text-amber-300 font-bold leading-relaxed">
+            ※ 선택한 덱(DH1/DH2)이 지워지고, <strong>{{ autoLineupTeam.name }} 주전 20명 + 팀플 벤치 + 부족한 시너지 보충용 후보군</strong>으로 로스터가 1초 만에 자동 완성됩니다!
+          </p>
+        </div>
+      </div>
+      
+      <div class="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex justify-end gap-2">
+         <button @click="showAutoLineupModal = false" class="px-5 py-2.5 text-sm font-bold text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800 rounded-xl transition-colors">취소</button>
+         <button @click="generateAutoLineup" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 transition-all">✨ 라인업 편성하기</button>
+      </div>
+    </div>
+  </div>
+
+</template>
               <option value="수비">수비</option><option value="전체 능력치">전체 능력치 (코어 5종 +수치)</option><option value="조건부 파워">조건부 파워 (박빙/주자 등)</option><option value="수익 증가">경기 총 수익 증가</option>
             </select>
             <input v-model="opt.value" type="number" placeholder="수치" class="w-20 text-xs border rounded p-1.5 text-center">
@@ -3522,7 +4455,72 @@ const getPlayerImage = (p: Raw | null) => {
                                 sk.replace('번', '') 
                               }}
                            </div>
-                        </template>
+                        
+  <!-- 🌟 AI 추천 라인업 생성 모달 -->
+  <div v-if="showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
+      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
+        <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
+        <button @click="showAutoLineupModal = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
+      </div>
+      
+      <div class="p-5 flex flex-col gap-5 overflow-y-auto">
+        <!-- 팀 선택 -->
+        <div>
+          <label class="block text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">1. 베이스 구단 선택</label>
+          <select v-model="autoLineupTeam" class="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-3 text-sm font-bold text-neutral-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+             <option v-for="team in groupedTeams" :key="team.name" :value="team">{{ team.name }}</option>
+          </select>
+        </div>
+
+        <!-- 디그니티 카드 선택 (최대 4장) -->
+        <div>
+          <label class="flex justify-between text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">
+            <span>2. 보유 디그니티(DGN) 선택 (최대 4장)</span>
+            <span class="text-indigo-600 dark:text-indigo-400">{{ autoLineupSelectedDgnIds.length }} / 4</span>
+          </label>
+          
+          <!-- 검색창 -->
+          <div class="relative mb-2">
+            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+            <input v-model="autoLineupDgnSearch" type="text" placeholder="선수 이름 검색 (예: 박건우)" class="w-full pl-9 pr-3 py-2.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
+            
+            <!-- 검색 결과 드롭다운 -->
+            <div v-if="autoLineupDgnSearch" class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
+               <button v-for="p in autoLineupDgnOptions" :key="p.raw.id" @click="addAutoLineupDgn(p)" class="w-full text-left px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-700/50 last:border-0 transition-colors">
+                  <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded font-black border border-indigo-200 dark:border-indigo-800">DGN</span>
+                  <span class="text-xs font-bold text-neutral-800 dark:text-neutral-200">{{ p.raw.name }}</span>
+                  <span class="text-[10px] text-neutral-400 ml-auto">{{ Array.isArray(p.raw.team) ? p.raw.team[0] : p.raw.team }} '{{ String(p.raw.year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
+               </button>
+               <div v-if="autoLineupDgnOptions.length === 0" class="px-3 py-3 text-center text-xs text-neutral-400">일치하는 디그니티 선수가 없습니다.</div>
+            </div>
+          </div>
+          
+          <!-- 선택된 DGN 목록 -->
+          <div class="flex flex-wrap gap-2">
+             <div v-for="id in autoLineupSelectedDgnIds" :key="id" class="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 px-2 py-1.5 rounded-lg text-xs font-bold text-indigo-800 dark:text-indigo-300 shadow-sm animate-in zoom-in-95">
+                <span>{{ getDgnPlayerName(id) }}</span>
+                <button @click="removeAutoLineupDgn(id)" class="text-indigo-400 hover:text-red-500 transition-colors ml-1 leading-none">&times;</button>
+             </div>
+             <div v-if="autoLineupSelectedDgnIds.length === 0" class="text-[11px] text-neutral-400 w-full text-center py-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-200 dark:border-neutral-700">선택된 디그니티 선수가 없습니다.</div>
+          </div>
+        </div>
+
+        <div class="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
+          <p class="text-[11px] text-amber-800 dark:text-amber-300 font-bold leading-relaxed">
+            ※ 선택한 덱(DH1/DH2)이 지워지고, <strong>{{ autoLineupTeam.name }} 주전 20명 + 팀플 벤치 + 부족한 시너지 보충용 후보군</strong>으로 로스터가 1초 만에 자동 완성됩니다!
+          </p>
+        </div>
+      </div>
+      
+      <div class="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex justify-end gap-2">
+         <button @click="showAutoLineupModal = false" class="px-5 py-2.5 text-sm font-bold text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800 rounded-xl transition-colors">취소</button>
+         <button @click="generateAutoLineup" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 transition-all">✨ 라인업 편성하기</button>
+      </div>
+    </div>
+  </div>
+
+</template>
                      </div>
                      
                      <!-- 파워 (노란색) -->
@@ -3615,6 +4613,71 @@ const getPlayerImage = (p: Raw | null) => {
       <div class="absolute bottom-0 w-3 h-3 bg-neutral-900 dark:bg-white rotate-45 border-r border-b border-neutral-700 dark:border-neutral-200"
            :style="{ left: tooltipState.arrowLeft, transform: 'translate(-50%, 50%)' }"></div>
   </div>
+
+  <!-- 🌟 AI 추천 라인업 생성 모달 -->
+  <div v-if="showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
+      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
+        <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
+        <button @click="showAutoLineupModal = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
+      </div>
+      
+      <div class="p-5 flex flex-col gap-5 overflow-y-auto">
+        <!-- 팀 선택 -->
+        <div>
+          <label class="block text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">1. 베이스 구단 선택</label>
+          <select v-model="autoLineupTeam" class="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-3 text-sm font-bold text-neutral-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+             <option v-for="team in groupedTeams" :key="team.name" :value="team">{{ team.name }}</option>
+          </select>
+        </div>
+
+        <!-- 디그니티 카드 선택 (최대 4장) -->
+        <div>
+          <label class="flex justify-between text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">
+            <span>2. 보유 디그니티(DGN) 선택 (최대 4장)</span>
+            <span class="text-indigo-600 dark:text-indigo-400">{{ autoLineupSelectedDgnIds.length }} / 4</span>
+          </label>
+          
+          <!-- 검색창 -->
+          <div class="relative mb-2">
+            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+            <input v-model="autoLineupDgnSearch" type="text" placeholder="선수 이름 검색 (예: 박건우)" class="w-full pl-9 pr-3 py-2.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
+            
+            <!-- 검색 결과 드롭다운 -->
+            <div v-if="autoLineupDgnSearch" class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
+               <button v-for="p in autoLineupDgnOptions" :key="p.raw.id" @click="addAutoLineupDgn(p)" class="w-full text-left px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-700/50 last:border-0 transition-colors">
+                  <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded font-black border border-indigo-200 dark:border-indigo-800">DGN</span>
+                  <span class="text-xs font-bold text-neutral-800 dark:text-neutral-200">{{ p.raw.name }}</span>
+                  <span class="text-[10px] text-neutral-400 ml-auto">{{ Array.isArray(p.raw.team) ? p.raw.team[0] : p.raw.team }} '{{ String(p.raw.year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
+               </button>
+               <div v-if="autoLineupDgnOptions.length === 0" class="px-3 py-3 text-center text-xs text-neutral-400">일치하는 디그니티 선수가 없습니다.</div>
+            </div>
+          </div>
+          
+          <!-- 선택된 DGN 목록 -->
+          <div class="flex flex-wrap gap-2">
+             <div v-for="id in autoLineupSelectedDgnIds" :key="id" class="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 px-2 py-1.5 rounded-lg text-xs font-bold text-indigo-800 dark:text-indigo-300 shadow-sm animate-in zoom-in-95">
+                <span>{{ getDgnPlayerName(id) }}</span>
+                <button @click="removeAutoLineupDgn(id)" class="text-indigo-400 hover:text-red-500 transition-colors ml-1 leading-none">&times;</button>
+             </div>
+             <div v-if="autoLineupSelectedDgnIds.length === 0" class="text-[11px] text-neutral-400 w-full text-center py-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-200 dark:border-neutral-700">선택된 디그니티 선수가 없습니다.</div>
+          </div>
+        </div>
+
+        <div class="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
+          <p class="text-[11px] text-amber-800 dark:text-amber-300 font-bold leading-relaxed">
+            ※ 선택한 덱(DH1/DH2)이 지워지고, <strong>{{ autoLineupTeam.name }} 주전 20명 + 팀플 벤치 + 부족한 시너지 보충용 후보군</strong>으로 로스터가 1초 만에 자동 완성됩니다!
+          </p>
+        </div>
+      </div>
+      
+      <div class="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex justify-end gap-2">
+         <button @click="showAutoLineupModal = false" class="px-5 py-2.5 text-sm font-bold text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800 rounded-xl transition-colors">취소</button>
+         <button @click="generateAutoLineup" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 transition-all">✨ 라인업 편성하기</button>
+      </div>
+    </div>
+  </div>
+
 </template>
 
 <style scoped>
