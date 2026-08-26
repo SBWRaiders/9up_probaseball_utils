@@ -1085,6 +1085,7 @@ const getActiveTeamSynergies = (deckId: 1 | 2) => {
     // 마스터리 인원 보정 및 증폭 확인
     let masteryCount = 0;
     let isAmplified = false;
+    if (!globalBuffsAll[deckId].synergyMasteries) globalBuffsAll[deckId].synergyMasteries = ['', '', '', '', ''];
     globalBuffsAll[deckId].synergyMasteries.forEach((m, idx) => {
       if (m === name) {
         masteryCount++;
@@ -1145,6 +1146,7 @@ const getPendingTeamSynergies = (deckId: 1 | 2) => {
     const count = matchedPlayers.length
     
     let masteryCount = 0;
+    if (!globalBuffsAll[deckId].synergyMasteries) globalBuffsAll[deckId].synergyMasteries = ['', '', '', '', ''];
     globalBuffsAll[deckId].synergyMasteries.forEach(m => {
       if (m === name) masteryCount++;
     });
@@ -1342,6 +1344,7 @@ const calculateTeamPlayerDignityBuff = (p: Raw, deckId: 1|2) => {
            const oGrade = String(other.grade).toUpperCase();
            const oBuffs = allPlayerBuffs.value[deckId][slotKey];
            const enhanceLvl = oBuffs?.enhancementLevel || 0;
+           if (!oBuffs) return; // 만약 oBuffs가 없다면 (매우 오래된 세이브) 안전하게 넘기기
 
            if (oGrade === 'TEA') {
              const power = 8 + Math.min(15, Math.max(0, enhanceLvl));
@@ -1524,8 +1527,12 @@ const getComputedPlayerStats = (deckId: 1 | 2) => {
     const buffs = allPlayerBuffs.value[deckId][slot]
     if (!buffs) return
 
-    // 🌟 안전장치: 구버전 세이브파일 호환을 위해 커리어 배열이 없으면 자동 생성
+    // 🌟 안전장치: 구버전 세이브파일 호환을 위한 완벽한 기본값 보장
     if (!buffs.careers) buffs.careers = Array(6).fill(null).map(() => ({ grade: '마스터', statType: '', value: 0 }));
+    if (!buffs.selectedSkills) buffs.selectedSkills = [];
+    if (!buffs.imprintStats) buffs.imprintStats = {};
+    if (!buffs.careerStats) buffs.careerStats = {};
+    if (buffs.battingOrder === undefined) buffs.battingOrder = null;
 
     const isPit = isPitcher(p);
     let baseSum = 0
@@ -1897,43 +1904,68 @@ const fileInput = ref<HTMLInputElement | null>(null)
 // 🌟 1. 공통 데이터 불러오기 (데이터 꼬임 방지 강력 버전) 🌟
 const applyLoadedData = (data: any) => {
   try {
-    // 🚨 [핵심 원인 해결] Vue의 반응성(Reactivity) 특징 때문에 객체가 완전히 교체되는 찰나의 순간,
-    // 2번 덱이 비어있으면 화면 렌더링이 중단(Crash)되어 하얀 화면이 뜹니다.
-    // 이를 방지하기 위해 1, 2번 덱이 모두 꽉 채워진 "완전한 객체"를 미리 만든 후 한 번에 덮어씌웁니다.
     const emptyLineup = { C: null, '1B': null, '2B': null, '3B': null, SS: null, LF: null, CF: null, RF: null, DH: null, SP1: null, SP2: null, SP3: null, SP4: null, SP5: null, RP1: null, RP2: null, RP3: null, RP4: null, RP5: null, RP6: null, BENCH1: null, BENCH2: null, BENCH3: null, BENCH4: null, BENCH5: null, BENCH6: null, BENCH7: null, BENCH8: null };
     
-    // 1️⃣ 라인업 덮어씌우기 (안전 결합)
+    // 1️⃣ 라인업 덮어씌우기
     let loadedLineups = { 1: JSON.parse(JSON.stringify(emptyLineup)), 2: JSON.parse(JSON.stringify(emptyLineup)) };
     if (data.lineups) {
-      if (data.lineups[1]) loadedLineups[1] = data.lineups[1];
-      if (data.lineups[2]) loadedLineups[2] = data.lineups[2];
+      if (data.lineups[1]) Object.assign(loadedLineups[1], data.lineups[1]);
+      if (data.lineups[2]) Object.assign(loadedLineups[2], data.lineups[2]);
     } else if (data.lineup) {
-      loadedLineups[1] = data.lineup; // 구버전 세이브 호환
+      Object.assign(loadedLineups[1], data.lineup);
     }
     lineups.value = loadedLineups;
 
-    // 2️⃣ 버프 덮어씌우기 (안전 결합)
-    let loadedAllPlayerBuffs = { 1: {}, 2: {} };
+    // 2️⃣ 버프 덮어씌우기 및 구버전 안전화
+    let loadedAllPlayerBuffs: any = { 1: {}, 2: {} };
     if (data.allPlayerBuffs) {
-      if (data.allPlayerBuffs[1]) loadedAllPlayerBuffs[1] = data.allPlayerBuffs[1];
-      if (data.allPlayerBuffs[2]) loadedAllPlayerBuffs[2] = data.allPlayerBuffs[2];
+      if (data.allPlayerBuffs[1]) loadedAllPlayerBuffs[1] = JSON.parse(JSON.stringify(data.allPlayerBuffs[1]));
+      if (data.allPlayerBuffs[2]) loadedAllPlayerBuffs[2] = JSON.parse(JSON.stringify(data.allPlayerBuffs[2]));
     } else if (data.playerBuffs) {
-      loadedAllPlayerBuffs[1] = data.playerBuffs; // 구버전 세이브 호환
+      loadedAllPlayerBuffs[1] = JSON.parse(JSON.stringify(data.playerBuffs));
     }
+    
+    // 강제 속성 주입 (이 부분이 없으면 구버전 세이브에서 포어치(forEach) 돌다가 무조건 뻗음)
+    [1, 2].forEach(deckId => {
+      Object.keys(loadedLineups[deckId as 1|2]).forEach(slot => {
+        if (!loadedAllPlayerBuffs[deckId][slot]) {
+           loadedAllPlayerBuffs[deckId][slot] = {
+             enhancementLevel: 15, breakthroughLevel: 0, careerTeamCount: 0, hitAceBuff: 0, imprintStarterPower: 0, careerAllStatFlat: 0, imprintCoreStat: 0, careerCoreStat: 0, selectedSkills: [], battingOrder: null, playerLevel: 100, collectionBuff: 1200, careerLevelBuff: 149, binderBuff: 537, ultimateImprintPercent: 0, imprintStats: {}, careerStats: {}, imprint1: null, imprint2: null, careers: Array(6).fill(null).map(() => ({ grade: '마스터', statType: '', value: 0 }))
+           };
+        } else {
+           const b = loadedAllPlayerBuffs[deckId][slot];
+           if (!b.selectedSkills) b.selectedSkills = [];
+           if (!b.careers) b.careers = Array(6).fill(null).map(() => ({ grade: '마스터', statType: '', value: 0 }));
+           if (!b.imprintStats) b.imprintStats = {};
+           if (!b.careerStats) b.careerStats = {};
+           if (b.battingOrder === undefined) b.battingOrder = null;
+        }
+      });
+    });
     allPlayerBuffs.value = loadedAllPlayerBuffs;
 
-    // 3️⃣ 글로벌 설정 덮어씌우기 (안전 결합)
+    // 3️⃣ 글로벌 설정 덮어씌우기
+    const defaultGlobal = { teamLevel: 100, preferredTeam: [], clanBuff: 15, managerType: '', managerEnhance: 0, synergyMasteries: ['', '', '', '', ''], amplifiedMasteryIndex: -1, binderLevel: 100, binderMatrix: Array(5).fill(0).map(() => ({ team: '', position: '', player: '', year: '', grade: '' })), managerBreakthrough: 0, tacticLevels: Array(15).fill(0), tacticBaseRates: { scoring: 50, cleanup: 40 }, tacticCondRates: [5, 24.5, 20, 24.5, 21, 7.5, 30, 25.5, 25, 50, 0, 0, 50, 60, 32.5] };
+    
     if (data.globalBuffsAll) {
       if (data.globalBuffsAll[1]) Object.assign(globalBuffsAll[1], data.globalBuffsAll[1]);
       if (data.globalBuffsAll[2]) Object.assign(globalBuffsAll[2], data.globalBuffsAll[2]);
     } else if (data.globalBuffs) {
-      Object.assign(globalBuffsAll[1], data.globalBuffs); // 구버전 세이브 호환
+      Object.assign(globalBuffsAll[1], data.globalBuffs);
     }
+    
+    // 글로벌 설정 안전성 확보 (배열이 지워져버린 경우 대비)
+    [1, 2].forEach(deckId => {
+      const gb = globalBuffsAll[deckId as 1|2] as any;
+      if (!gb.tacticLevels || gb.tacticLevels.length !== 15) gb.tacticLevels = Array(15).fill(0);
+      if (!gb.synergyMasteries) gb.synergyMasteries = ['', '', '', '', ''];
+      if (!gb.binderMatrix) gb.binderMatrix = Array(5).fill(0).map(() => ({ team: '', position: '', player: '', year: '', grade: '' }));
+      if (!gb.tacticCondRates || gb.tacticCondRates.length !== 15) gb.tacticCondRates = [5, 24.5, 20, 24.5, 21, 7.5, 30, 25.5, 25, 50, 0, 0, 50, 60, 32.5];
+      if (!gb.tacticBaseRates) gb.tacticBaseRates = { scoring: 50, cleanup: 40 };
+    });
 
-    // 4️⃣ 각인 보관함
     if (data.imprintInventory) imprintInventory.value = JSON.parse(JSON.stringify(data.imprintInventory));
 
-    // 5️⃣ 다중 세이브 슬롯 (로컬 스토리지에 병합)
     if (data.multiSaves && Object.keys(data.multiSaves).length > 0) {
       const existingSaves = JSON.parse(localStorage.getItem('9up_multi_saves') || '{}');
       const mergedSaves = { ...existingSaves, ...data.multiSaves };
@@ -1941,8 +1973,7 @@ const applyLoadedData = (data: any) => {
     }
     selectedSlot.value = null; 
   } catch (err) {
-    console.error("데이터 복구 중 치명적 오류 발생: 손상된 세이브 데이터를 초기화합니다.", err);
-    localStorage.removeItem('9up_auto_save');
+    console.error("데이터 복구 중 치명적 오류 발생:", err);
   }
 }
 
