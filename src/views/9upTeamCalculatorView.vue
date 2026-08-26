@@ -786,17 +786,20 @@ const matchSkillInfo = (skill: string) => {
 const getNormalSkillDescription = (skillName: string) => {
   const data = normalSkillData.value.find(s => s.skill === skillName);
   
-  // 🌟 1순위: DB에 있는 'effects' (또는 'effect') 값을 그대로 출력
+  // 🌟 1순위: DB에 있는 'effects' (또는 'effect') 값을 그대로 출력합니다. (인게임 툴팁과 100% 동일하게)
   const effectText = data?.effects || data?.effect;
   if (effectText) {
     if (Array.isArray(effectText)) {
-       return effectText.map(e => e.startsWith('-') ? e : `- ${e}`).join('\n');
+       return effectText.map(e => e.startsWith('-') ? e : `- ${e}`).join('
+');
     }
     // 문자열이라면 줄바꿈 문자를 살려줍니다.
-    return String(effectText).replace(/\\n/g, '\n');
+    return String(effectText).replace(/\n/g, '
+'); // JSON에서 
+으로 들어온 걸 진짜 줄바꿈으로 변환
   }
   
-  // 🌟 2순위: DB에 effect가 없다면 계산기 내부 스탯을 읽어와서 출력
+  // 🌟 2순위: DB에 effect가 없다면 계산기 내부 스탯을 읽어와서 출력합니다.
   const eff = SKILL_EFFECTS[skillName];
   if (eff) {
     const parts = [];
@@ -804,12 +807,14 @@ const getNormalSkillDescription = (skillName: string) => {
     for (const [k, v] of Object.entries(eff.stats || {})) {
       parts.push(`- ${STAT_LABELS[k] || k} +${v}`);
     }
-    if (parts.length > 0) return parts.join('\n');
+    if (parts.length > 0) return parts.join('
+');
   }
 
   // 🌟 3순위: 아무런 효과 데이터가 없으면 특수 스킬로 표시
   return '- 특수 조건 발동 스킬';
 }
+
 
 // 🌟 강화스킬 이미지 매칭
 const matchEnhancedSkillImage = (skill: string) => {
@@ -2025,6 +2030,45 @@ const getAvailableSkills = (p: Raw | null) => {
   return Array.from(new Set(rawSkills.filter(s => !excluded.includes(s))));
 }
 
+
+// 🌟 글로벌 스킬 툴팁 상태 관리 (잘림 방지)
+const tooltipState = reactive({
+  show: false,
+  skill: '',
+  x: 0,
+  y: 0,
+  transform: 'translate(-50%, -100%)',
+  arrowLeft: '50%'
+});
+
+const showSkillTooltip = (e: MouseEvent, sk: string) => {
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  let x = rect.left + rect.width / 2;
+  let y = rect.top;
+  let transform = 'translate(-50%, -100%)';
+  let arrowLeft = '50%';
+
+  // 화면 왼쪽/오른쪽 끝에 너무 가까운 경우 위치 보정 (툴팁 짤림 방지)
+  if (x < 130) {
+    transform = 'translate(-20%, -100%)';
+    arrowLeft = '20%';
+  } else if (window.innerWidth - x < 130) {
+    transform = 'translate(-80%, -100%)';
+    arrowLeft = '80%';
+  }
+
+  tooltipState.skill = sk;
+  tooltipState.x = x;
+  tooltipState.y = y;
+  tooltipState.transform = transform;
+  tooltipState.arrowLeft = arrowLeft;
+  tooltipState.show = true;
+};
+
+const hideSkillTooltip = () => {
+  tooltipState.show = false;
+};
+
 const togglePlayerSkill = (sk: string) => {
   if (!selectedSlot.value || !lineup.value[selectedSlot.value] || !playerBuffs.value[selectedSlot.value]) return;
   const p = lineup.value[selectedSlot.value];
@@ -2650,7 +2694,22 @@ const getPlayerImage = (p: Raw | null) => {
                       <input type="text" list="binder-year-list" v-model="row.year" placeholder="연도" class="w-full text-center text-[10px] border rounded py-1 bg-neutral-50 outline-none focus:border-indigo-500 focus:bg-white" />
                       <input type="text" list="binder-grade-list" v-model="row.grade" placeholder="등급" class="w-full text-center text-[10px] border rounded py-1 bg-neutral-50 outline-none focus:border-indigo-500 focus:bg-white" />
                     </div>
-                  </template>
+                  
+  <!-- 🌟 글로벌 스킬 툴팁 (화면 밖 잘림 완벽 방지) 🌟 -->
+  <div v-if="tooltipState.show" 
+       class="fixed z-[99999] pointer-events-none drop-shadow-2xl transition-all duration-75"
+       :style="{ 
+         top: (tooltipState.y - 8) + 'px', 
+         left: tooltipState.x + 'px',
+         transform: tooltipState.transform
+       }">
+      <div class="bg-neutral-900 dark:bg-white text-neutral-100 dark:text-neutral-900 text-[11px] font-medium px-3 py-2.5 rounded-xl shadow-2xl text-left leading-relaxed whitespace-pre-wrap border border-neutral-700 dark:border-neutral-200 tracking-tight w-max max-w-[240px]">
+        {{ getNormalSkillDescription(tooltipState.skill) }}
+      </div>
+      <div class="absolute bottom-0 w-3 h-3 bg-neutral-900 dark:bg-white rotate-45 border-r border-b border-neutral-700 dark:border-neutral-200"
+           :style="{ left: tooltipState.arrowLeft, transform: 'translate(-50%, 50%)' }"></div>
+  </div>
+</template>
                 </div>
               </div>
               
@@ -2663,7 +2722,22 @@ const getPlayerImage = (p: Raw | null) => {
                        <span class="font-bold text-neutral-700">{{ findTeamName(teamId) }}</span>
                        <span class="text-indigo-600 font-black">+{{ calculateTeamPlayerDignityBuff({ team: teamId }) }}</span>
                      </div>
-                  </template>
+                  
+  <!-- 🌟 글로벌 스킬 툴팁 (화면 밖 잘림 완벽 방지) 🌟 -->
+  <div v-if="tooltipState.show" 
+       class="fixed z-[99999] pointer-events-none drop-shadow-2xl transition-all duration-75"
+       :style="{ 
+         top: (tooltipState.y - 8) + 'px', 
+         left: tooltipState.x + 'px',
+         transform: tooltipState.transform
+       }">
+      <div class="bg-neutral-900 dark:bg-white text-neutral-100 dark:text-neutral-900 text-[11px] font-medium px-3 py-2.5 rounded-xl shadow-2xl text-left leading-relaxed whitespace-pre-wrap border border-neutral-700 dark:border-neutral-200 tracking-tight w-max max-w-[240px]">
+        {{ getNormalSkillDescription(tooltipState.skill) }}
+      </div>
+      <div class="absolute bottom-0 w-3 h-3 bg-neutral-900 dark:bg-white rotate-45 border-r border-b border-neutral-700 dark:border-neutral-200"
+           :style="{ left: tooltipState.arrowLeft, transform: 'translate(-50%, 50%)' }"></div>
+  </div>
+</template>
                 </div>
               </div>
               
@@ -2759,11 +2833,86 @@ const getPlayerImage = (p: Raw | null) => {
                          </div>
                          <select v-model.number="globalBuffs.tacticLevels[i]" class="text-[11px] sm:text-xs border rounded p-1 font-bold outline-none" :class="[globalBuffs.managerEnhance < tac.req[globalBuffs.tacticLevels[i]] ? 'text-red-500 border-red-300' : 'text-indigo-700 border-indigo-200 bg-indigo-50', globalBuffs.tacticLevels[i] === 0 ? 'text-neutral-500 bg-white border-neutral-200' : '']">
                             <option :value="0">Lv.0</option>
-                            <option :value="1" :disabled="globalBuffs.managerEnhance < tac.req[1]">Lv.1 ({{ tac.pt[1] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[1]"> / 🔒{{tac.req[1]}}강 필요</template>)</option>
-                            <option :value="2" :disabled="globalBuffs.managerEnhance < tac.req[2]">Lv.2 ({{ tac.pt[2] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[2]"> / 🔒{{tac.req[2]}}강 필요</template>)</option>
-                            <option :value="3" :disabled="globalBuffs.managerEnhance < tac.req[3]">Lv.3 ({{ tac.pt[3] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[3]"> / 🔒{{tac.req[3]}}강 필요</template>)</option>
-                            <option :value="4" :disabled="globalBuffs.managerEnhance < tac.req[4]">Lv.4 ({{ tac.pt[4] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[4]"> / 🔒{{tac.req[4]}}강 필요</template>)</option>
-                            <option :value="5" :disabled="globalBuffs.managerEnhance < tac.req[5]">Lv.5 ({{ tac.pt[5] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[5]"> / 🔒{{tac.req[5]}}강 필요</template>)</option>
+                            <option :value="1" :disabled="globalBuffs.managerEnhance < tac.req[1]">Lv.1 ({{ tac.pt[1] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[1]"> / 🔒{{tac.req[1]}}강 필요
+  <!-- 🌟 글로벌 스킬 툴팁 (화면 밖 잘림 완벽 방지) 🌟 -->
+  <div v-if="tooltipState.show" 
+       class="fixed z-[99999] pointer-events-none drop-shadow-2xl transition-all duration-75"
+       :style="{ 
+         top: (tooltipState.y - 8) + 'px', 
+         left: tooltipState.x + 'px',
+         transform: tooltipState.transform
+       }">
+      <div class="bg-neutral-900 dark:bg-white text-neutral-100 dark:text-neutral-900 text-[11px] font-medium px-3 py-2.5 rounded-xl shadow-2xl text-left leading-relaxed whitespace-pre-wrap border border-neutral-700 dark:border-neutral-200 tracking-tight w-max max-w-[240px]">
+        {{ getNormalSkillDescription(tooltipState.skill) }}
+      </div>
+      <div class="absolute bottom-0 w-3 h-3 bg-neutral-900 dark:bg-white rotate-45 border-r border-b border-neutral-700 dark:border-neutral-200"
+           :style="{ left: tooltipState.arrowLeft, transform: 'translate(-50%, 50%)' }"></div>
+  </div>
+</template>)</option>
+                            <option :value="2" :disabled="globalBuffs.managerEnhance < tac.req[2]">Lv.2 ({{ tac.pt[2] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[2]"> / 🔒{{tac.req[2]}}강 필요
+  <!-- 🌟 글로벌 스킬 툴팁 (화면 밖 잘림 완벽 방지) 🌟 -->
+  <div v-if="tooltipState.show" 
+       class="fixed z-[99999] pointer-events-none drop-shadow-2xl transition-all duration-75"
+       :style="{ 
+         top: (tooltipState.y - 8) + 'px', 
+         left: tooltipState.x + 'px',
+         transform: tooltipState.transform
+       }">
+      <div class="bg-neutral-900 dark:bg-white text-neutral-100 dark:text-neutral-900 text-[11px] font-medium px-3 py-2.5 rounded-xl shadow-2xl text-left leading-relaxed whitespace-pre-wrap border border-neutral-700 dark:border-neutral-200 tracking-tight w-max max-w-[240px]">
+        {{ getNormalSkillDescription(tooltipState.skill) }}
+      </div>
+      <div class="absolute bottom-0 w-3 h-3 bg-neutral-900 dark:bg-white rotate-45 border-r border-b border-neutral-700 dark:border-neutral-200"
+           :style="{ left: tooltipState.arrowLeft, transform: 'translate(-50%, 50%)' }"></div>
+  </div>
+</template>)</option>
+                            <option :value="3" :disabled="globalBuffs.managerEnhance < tac.req[3]">Lv.3 ({{ tac.pt[3] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[3]"> / 🔒{{tac.req[3]}}강 필요
+  <!-- 🌟 글로벌 스킬 툴팁 (화면 밖 잘림 완벽 방지) 🌟 -->
+  <div v-if="tooltipState.show" 
+       class="fixed z-[99999] pointer-events-none drop-shadow-2xl transition-all duration-75"
+       :style="{ 
+         top: (tooltipState.y - 8) + 'px', 
+         left: tooltipState.x + 'px',
+         transform: tooltipState.transform
+       }">
+      <div class="bg-neutral-900 dark:bg-white text-neutral-100 dark:text-neutral-900 text-[11px] font-medium px-3 py-2.5 rounded-xl shadow-2xl text-left leading-relaxed whitespace-pre-wrap border border-neutral-700 dark:border-neutral-200 tracking-tight w-max max-w-[240px]">
+        {{ getNormalSkillDescription(tooltipState.skill) }}
+      </div>
+      <div class="absolute bottom-0 w-3 h-3 bg-neutral-900 dark:bg-white rotate-45 border-r border-b border-neutral-700 dark:border-neutral-200"
+           :style="{ left: tooltipState.arrowLeft, transform: 'translate(-50%, 50%)' }"></div>
+  </div>
+</template>)</option>
+                            <option :value="4" :disabled="globalBuffs.managerEnhance < tac.req[4]">Lv.4 ({{ tac.pt[4] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[4]"> / 🔒{{tac.req[4]}}강 필요
+  <!-- 🌟 글로벌 스킬 툴팁 (화면 밖 잘림 완벽 방지) 🌟 -->
+  <div v-if="tooltipState.show" 
+       class="fixed z-[99999] pointer-events-none drop-shadow-2xl transition-all duration-75"
+       :style="{ 
+         top: (tooltipState.y - 8) + 'px', 
+         left: tooltipState.x + 'px',
+         transform: tooltipState.transform
+       }">
+      <div class="bg-neutral-900 dark:bg-white text-neutral-100 dark:text-neutral-900 text-[11px] font-medium px-3 py-2.5 rounded-xl shadow-2xl text-left leading-relaxed whitespace-pre-wrap border border-neutral-700 dark:border-neutral-200 tracking-tight w-max max-w-[240px]">
+        {{ getNormalSkillDescription(tooltipState.skill) }}
+      </div>
+      <div class="absolute bottom-0 w-3 h-3 bg-neutral-900 dark:bg-white rotate-45 border-r border-b border-neutral-700 dark:border-neutral-200"
+           :style="{ left: tooltipState.arrowLeft, transform: 'translate(-50%, 50%)' }"></div>
+  </div>
+</template>)</option>
+                            <option :value="5" :disabled="globalBuffs.managerEnhance < tac.req[5]">Lv.5 ({{ tac.pt[5] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[5]"> / 🔒{{tac.req[5]}}강 필요
+  <!-- 🌟 글로벌 스킬 툴팁 (화면 밖 잘림 완벽 방지) 🌟 -->
+  <div v-if="tooltipState.show" 
+       class="fixed z-[99999] pointer-events-none drop-shadow-2xl transition-all duration-75"
+       :style="{ 
+         top: (tooltipState.y - 8) + 'px', 
+         left: tooltipState.x + 'px',
+         transform: tooltipState.transform
+       }">
+      <div class="bg-neutral-900 dark:bg-white text-neutral-100 dark:text-neutral-900 text-[11px] font-medium px-3 py-2.5 rounded-xl shadow-2xl text-left leading-relaxed whitespace-pre-wrap border border-neutral-700 dark:border-neutral-200 tracking-tight w-max max-w-[240px]">
+        {{ getNormalSkillDescription(tooltipState.skill) }}
+      </div>
+      <div class="absolute bottom-0 w-3 h-3 bg-neutral-900 dark:bg-white rotate-45 border-r border-b border-neutral-700 dark:border-neutral-200"
+           :style="{ left: tooltipState.arrowLeft, transform: 'translate(-50%, 50%)' }"></div>
+  </div>
+</template>)</option>
                          </select>
                       </div>
                       
@@ -3082,7 +3231,22 @@ const getPlayerImage = (p: Raw | null) => {
                           </div>
                         </div>
                       </div>
-                    </template>
+                    
+  <!-- 🌟 글로벌 스킬 툴팁 (화면 밖 잘림 완벽 방지) 🌟 -->
+  <div v-if="tooltipState.show" 
+       class="fixed z-[99999] pointer-events-none drop-shadow-2xl transition-all duration-75"
+       :style="{ 
+         top: (tooltipState.y - 8) + 'px', 
+         left: tooltipState.x + 'px',
+         transform: tooltipState.transform
+       }">
+      <div class="bg-neutral-900 dark:bg-white text-neutral-100 dark:text-neutral-900 text-[11px] font-medium px-3 py-2.5 rounded-xl shadow-2xl text-left leading-relaxed whitespace-pre-wrap border border-neutral-700 dark:border-neutral-200 tracking-tight w-max max-w-[240px]">
+        {{ getNormalSkillDescription(tooltipState.skill) }}
+      </div>
+      <div class="absolute bottom-0 w-3 h-3 bg-neutral-900 dark:bg-white rotate-45 border-r border-b border-neutral-700 dark:border-neutral-200"
+           :style="{ left: tooltipState.arrowLeft, transform: 'translate(-50%, 50%)' }"></div>
+  </div>
+</template>
                   </div>
 
                   <!-- 🌟 2. 클릭해서 장착할 수 있는 스킬 목록 (이미지 갤러리) -->
@@ -3091,6 +3255,8 @@ const getPlayerImage = (p: Raw | null) => {
                       v-for="sk in getAvailableSkills(lineup[selectedSlot])" 
                       :key="sk"
                       @click="togglePlayerSkill(sk)"
+                      @mouseenter="showSkillTooltip($event, sk)"
+                      @mouseleave="hideSkillTooltip"
                       :class="[
                         playerBuffs[selectedSlot].selectedSkills.includes(sk) 
                           ? 'bg-indigo-600 text-white border-indigo-600 shadow-md dark:bg-indigo-700 dark:border-indigo-700' 
@@ -3109,13 +3275,7 @@ const getPlayerImage = (p: Raw | null) => {
                             class="absolute -top-1.5 -right-1.5 bg-white text-red-600 border border-red-500 text-[9px] font-black px-1 rounded-full shadow-sm whitespace-nowrap z-10 scale-90 origin-bottom-left">
                         불일치
                       </span>                  
-                      <!-- 🌟 스킬 효과 툴팁 (마우스 오버 시 표시) -->
-                      <div class="absolute bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center z-50 w-max max-w-[200px] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                        <div class="bg-neutral-900 dark:bg-white text-neutral-100 dark:text-neutral-900 text-[11px] font-medium px-3 py-2 rounded-lg shadow-xl text-left leading-relaxed whitespace-pre-wrap border border-neutral-700 dark:border-neutral-200 tracking-tight">
-                          {{ getNormalSkillDescription(sk) }}
-                        </div>
-                        <div class="w-2.5 h-2.5 bg-neutral-900 dark:bg-white rotate-45 -mt-1.5 border-r border-b border-neutral-700 dark:border-neutral-200"></div>
-                      </div>
+
                     </button>
                   </div>
                 </div>
@@ -3161,10 +3321,40 @@ const getPlayerImage = (p: Raw | null) => {
           <select v-model="newImprint.mainStat" class="text-xs font-bold bg-white border rounded p-1 text-indigo-700 outline-none flex-1">
              <template v-if="newImprint.role === '타자'">
                <option value="컨택">컨택</option><option value="갭파워">갭파워</option><option value="홈런파워">홈런파워</option><option value="선구">선구</option><option value="삼진회피">삼진회피</option>
-             </template>
+             
+  <!-- 🌟 글로벌 스킬 툴팁 (화면 밖 잘림 완벽 방지) 🌟 -->
+  <div v-if="tooltipState.show" 
+       class="fixed z-[99999] pointer-events-none drop-shadow-2xl transition-all duration-75"
+       :style="{ 
+         top: (tooltipState.y - 8) + 'px', 
+         left: tooltipState.x + 'px',
+         transform: tooltipState.transform
+       }">
+      <div class="bg-neutral-900 dark:bg-white text-neutral-100 dark:text-neutral-900 text-[11px] font-medium px-3 py-2.5 rounded-xl shadow-2xl text-left leading-relaxed whitespace-pre-wrap border border-neutral-700 dark:border-neutral-200 tracking-tight w-max max-w-[240px]">
+        {{ getNormalSkillDescription(tooltipState.skill) }}
+      </div>
+      <div class="absolute bottom-0 w-3 h-3 bg-neutral-900 dark:bg-white rotate-45 border-r border-b border-neutral-700 dark:border-neutral-200"
+           :style="{ left: tooltipState.arrowLeft, transform: 'translate(-50%, 50%)' }"></div>
+  </div>
+</template>
              <template v-else>
                <option value="무브먼트">무브먼트</option><option value="장타억제">장타억제</option><option value="홈런억제">홈런억제</option><option value="컨트롤">컨트롤</option><option value="스터프">스터프</option>
-             </template>
+             
+  <!-- 🌟 글로벌 스킬 툴팁 (화면 밖 잘림 완벽 방지) 🌟 -->
+  <div v-if="tooltipState.show" 
+       class="fixed z-[99999] pointer-events-none drop-shadow-2xl transition-all duration-75"
+       :style="{ 
+         top: (tooltipState.y - 8) + 'px', 
+         left: tooltipState.x + 'px',
+         transform: tooltipState.transform
+       }">
+      <div class="bg-neutral-900 dark:bg-white text-neutral-100 dark:text-neutral-900 text-[11px] font-medium px-3 py-2.5 rounded-xl shadow-2xl text-left leading-relaxed whitespace-pre-wrap border border-neutral-700 dark:border-neutral-200 tracking-tight w-max max-w-[240px]">
+        {{ getNormalSkillDescription(tooltipState.skill) }}
+      </div>
+      <div class="absolute bottom-0 w-3 h-3 bg-neutral-900 dark:bg-white rotate-45 border-r border-b border-neutral-700 dark:border-neutral-200"
+           :style="{ left: tooltipState.arrowLeft, transform: 'translate(-50%, 50%)' }"></div>
+  </div>
+</template>
           </select>
           <span class="text-[11px] text-neutral-400 font-black">+</span>
           <input v-model="newImprint.mainPower" type="number" class="w-16 text-xs bg-white border rounded p-1 outline-none text-right font-black text-indigo-600">
@@ -3176,10 +3366,40 @@ const getPlayerImage = (p: Raw | null) => {
             <select v-model="opt.type" class="text-xs border rounded p-1.5 flex-1 text-neutral-700 font-medium">
               <template v-if="newImprint.role === '타자'">
                 <option value="컨택">컨택</option><option value="갭파워">갭파워</option><option value="홈런파워">홈런파워</option><option value="선구">선구</option><option value="삼진회피">삼진회피</option>
-              </template>
+              
+  <!-- 🌟 글로벌 스킬 툴팁 (화면 밖 잘림 완벽 방지) 🌟 -->
+  <div v-if="tooltipState.show" 
+       class="fixed z-[99999] pointer-events-none drop-shadow-2xl transition-all duration-75"
+       :style="{ 
+         top: (tooltipState.y - 8) + 'px', 
+         left: tooltipState.x + 'px',
+         transform: tooltipState.transform
+       }">
+      <div class="bg-neutral-900 dark:bg-white text-neutral-100 dark:text-neutral-900 text-[11px] font-medium px-3 py-2.5 rounded-xl shadow-2xl text-left leading-relaxed whitespace-pre-wrap border border-neutral-700 dark:border-neutral-200 tracking-tight w-max max-w-[240px]">
+        {{ getNormalSkillDescription(tooltipState.skill) }}
+      </div>
+      <div class="absolute bottom-0 w-3 h-3 bg-neutral-900 dark:bg-white rotate-45 border-r border-b border-neutral-700 dark:border-neutral-200"
+           :style="{ left: tooltipState.arrowLeft, transform: 'translate(-50%, 50%)' }"></div>
+  </div>
+</template>
               <template v-else>
                 <option value="무브먼트">무브먼트</option><option value="장타억제">장타억제</option><option value="홈런억제">홈런억제</option><option value="컨트롤">컨트롤</option><option value="스터프">스터프</option><option value="한계투구 증가">한계투구 증가</option><option value="1~2선발시 파워증가">1~2선발시 파워증가</option>
-              </template>
+              
+  <!-- 🌟 글로벌 스킬 툴팁 (화면 밖 잘림 완벽 방지) 🌟 -->
+  <div v-if="tooltipState.show" 
+       class="fixed z-[99999] pointer-events-none drop-shadow-2xl transition-all duration-75"
+       :style="{ 
+         top: (tooltipState.y - 8) + 'px', 
+         left: tooltipState.x + 'px',
+         transform: tooltipState.transform
+       }">
+      <div class="bg-neutral-900 dark:bg-white text-neutral-100 dark:text-neutral-900 text-[11px] font-medium px-3 py-2.5 rounded-xl shadow-2xl text-left leading-relaxed whitespace-pre-wrap border border-neutral-700 dark:border-neutral-200 tracking-tight w-max max-w-[240px]">
+        {{ getNormalSkillDescription(tooltipState.skill) }}
+      </div>
+      <div class="absolute bottom-0 w-3 h-3 bg-neutral-900 dark:bg-white rotate-45 border-r border-b border-neutral-700 dark:border-neutral-200"
+           :style="{ left: tooltipState.arrowLeft, transform: 'translate(-50%, 50%)' }"></div>
+  </div>
+</template>
               <option value="수비">수비</option><option value="전체 능력치">전체 능력치 (코어 5종 +수치)</option><option value="조건부 파워">조건부 파워 (박빙/주자 등)</option><option value="수익 증가">경기 총 수익 증가</option>
             </select>
             <input v-model="opt.value" type="number" placeholder="수치" class="w-20 text-xs border rounded p-1.5 text-center">
@@ -3344,7 +3564,22 @@ const getPlayerImage = (p: Raw | null) => {
                                 sk.replace('번', '') 
                               }}
                            </div>
-                        </template>
+                        
+  <!-- 🌟 글로벌 스킬 툴팁 (화면 밖 잘림 완벽 방지) 🌟 -->
+  <div v-if="tooltipState.show" 
+       class="fixed z-[99999] pointer-events-none drop-shadow-2xl transition-all duration-75"
+       :style="{ 
+         top: (tooltipState.y - 8) + 'px', 
+         left: tooltipState.x + 'px',
+         transform: tooltipState.transform
+       }">
+      <div class="bg-neutral-900 dark:bg-white text-neutral-100 dark:text-neutral-900 text-[11px] font-medium px-3 py-2.5 rounded-xl shadow-2xl text-left leading-relaxed whitespace-pre-wrap border border-neutral-700 dark:border-neutral-200 tracking-tight w-max max-w-[240px]">
+        {{ getNormalSkillDescription(tooltipState.skill) }}
+      </div>
+      <div class="absolute bottom-0 w-3 h-3 bg-neutral-900 dark:bg-white rotate-45 border-r border-b border-neutral-700 dark:border-neutral-200"
+           :style="{ left: tooltipState.arrowLeft, transform: 'translate(-50%, 50%)' }"></div>
+  </div>
+</template>
                      </div>
                      
                      <!-- 파워 (노란색) -->
@@ -3408,6 +3643,21 @@ const getPlayerImage = (p: Raw | null) => {
          </div>
       </div>
     </div>
+  </div>
+
+  <!-- 🌟 글로벌 스킬 툴팁 (화면 밖 잘림 완벽 방지) 🌟 -->
+  <div v-if="tooltipState.show" 
+       class="fixed z-[99999] pointer-events-none drop-shadow-2xl transition-all duration-75"
+       :style="{ 
+         top: (tooltipState.y - 8) + 'px', 
+         left: tooltipState.x + 'px',
+         transform: tooltipState.transform
+       }">
+      <div class="bg-neutral-900 dark:bg-white text-neutral-100 dark:text-neutral-900 text-[11px] font-medium px-3 py-2.5 rounded-xl shadow-2xl text-left leading-relaxed whitespace-pre-wrap border border-neutral-700 dark:border-neutral-200 tracking-tight w-max max-w-[240px]">
+        {{ getNormalSkillDescription(tooltipState.skill) }}
+      </div>
+      <div class="absolute bottom-0 w-3 h-3 bg-neutral-900 dark:bg-white rotate-45 border-r border-b border-neutral-700 dark:border-neutral-200"
+           :style="{ left: tooltipState.arrowLeft, transform: 'translate(-50%, 50%)' }"></div>
   </div>
 </template>
 
