@@ -2447,9 +2447,9 @@ const generateAutoLineup = () => {
 
 
 // ========================================================
-// 🌟 나만의 관리자 모드 (이스터 에그) 🌟
+// 🌟 나만의 관리자 모드 (환경 변수 + 이스터 에그) 🌟
 // ========================================================
-const isAdmin = ref(localStorage.getItem('9up_admin_unlocked') === 'true');
+const isAdmin = ref(localStorage.getItem('9up_admin_unlocked_v2') === 'true');
 let titleClickCount = 0;
 let titleClickTimer: any = null;
 
@@ -2459,11 +2459,24 @@ const handleTitleClick = () => {
   titleClickTimer = setTimeout(() => { titleClickCount = 0; }, 1500); // 1.5초 내에 연속 클릭해야 함
 
   if (titleClickCount >= 5) {
-    isAdmin.value = !isAdmin.value;
-    localStorage.setItem('9up_admin_unlocked', String(isAdmin.value));
-    if (isAdmin.value) showToast('관리자 모드 활성화: AI 자동 편성 기능이 켜졌습니다! 🚀', 'success');
-    else showToast('관리자 모드 비활성화: AI 기능을 숨깁니다. 🔒', 'info');
     titleClickCount = 0;
+    if (isAdmin.value) {
+      isAdmin.value = false;
+      localStorage.removeItem('9up_admin_unlocked_v2');
+      showToast('관리자 모드 비활성화: AI 기능을 숨깁니다. 🔒', 'info');
+    } else {
+      const pwd = prompt('관리자 비밀번호를 입력하세요:');
+      // 환경변수가 등록되어 있지 않을 경우의 비상용 비밀번호 (필요시 변경)
+      const secret = import.meta.env.VITE_ADMIN_SECRET_KEY || '9upadmin123!';
+      
+      if (pwd === secret) {
+        isAdmin.value = true;
+        localStorage.setItem('9up_admin_unlocked_v2', 'true');
+        showToast('관리자 모드 활성화: AI 자동 편성 기능이 켜졌습니다! 🚀', 'success');
+      } else if (pwd !== null) {
+        showToast('비밀번호가 틀렸습니다.', 'error');
+      }
+    }
   }
 };
 
