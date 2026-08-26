@@ -2356,7 +2356,7 @@ const generateAutoLineup = () => {
 
   const isAlreadyUsed = (p: any) => {
     if (!p) return true;
-    if (isAlreadyUsed(p)) return true;
+    if (usedIds.has(p.id)) return true;
     if (p.name && usedNames.has(String(p.name).trim())) return true;
     return false;
   };
