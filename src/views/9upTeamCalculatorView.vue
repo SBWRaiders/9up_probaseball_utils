@@ -1971,9 +1971,6 @@ const applyLoadedData = (data: any) => {
   } catch (err) {
     console.error("데이터 복구 중 치명적 오류 발생:", err);
   }
-}} catch (err) {
-    console.error("데이터 복구 중 치명적 오류 발생:", err);
-  }
 }
 
 // 🌟 라인업 초기화 (각인 장비는 무조건 유지!) 🌟
