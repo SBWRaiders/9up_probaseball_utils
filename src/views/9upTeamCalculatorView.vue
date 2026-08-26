@@ -134,17 +134,6 @@ const getCareerSetEffectText = (careers: CareerSlot[] | undefined) => {
   return effects.join(', ');
 }
 // ========================================================
-// 🌟 커스텀 토스트 알림 시스템 (alert 대체) 🌟
-interface Toast { id: number; msg: string; type: 'success' | 'error' | 'info'; }
-const toasts = ref<Toast[]>([]);
-let toastCounter = 0;
-const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'info') => {
-  const id = toastCounter++;
-  toasts.value.push({ id, msg, type });
-  setTimeout(() => {
-    toasts.value = toasts.value.filter(t => t.id !== id);
-  }, 3000); // 3초 후 자동 삭제
-};
 
 // 🌟 1. 등급 맵핑 함수 (grade 필터 버그 및 이미지 출력 공통 사용)
 const getMappedGrade = (grade: unknown) => {
@@ -212,7 +201,7 @@ const getRadarWebPoints = (level: number) => {
 
 const getRadarStatPoints = (slot: string) => {
   if (!slot || !computedPlayerStats.value[slot]) return '';
-  const p = lineups.value[activeDeck.value][slot];
+  const p = lineup.value[slot];
   if (!p) return '';
   const isPit = isPitcher(p);
   const coreStats = isPit ? radarPitcherStats : radarBatterStats;
@@ -228,7 +217,7 @@ const getRadarStatPoints = (slot: string) => {
 
 const getRadarStatDots = (slot: string) => {
   if (!slot || !computedPlayerStats.value[slot]) return [];
-  const p = lineups.value[activeDeck.value][slot];
+  const p = lineup.value[slot];
   if (!p) return [];
   const isPit = isPitcher(p);
   const coreStats = isPit ? radarPitcherStats : radarBatterStats;
@@ -244,7 +233,7 @@ const getRadarStatDots = (slot: string) => {
 
 const getRadarLabels = (slot: string) => {
   if (!slot || !computedPlayerStats.value[slot]) return [];
-  const p = lineups.value[activeDeck.value][slot];
+  const p = lineup.value[slot];
   if (!p) return [];
   const isPit = isPitcher(p);
   const coreStats = isPit ? radarPitcherStats : radarBatterStats;
@@ -317,26 +306,16 @@ const searchQuery = reactive({
 const lineupViewMode = ref('batter')
 const selectedSlot = ref<string | null>(null)
 const isManualSelection = ref(false)
-const activeDeck = ref<1|2>(1);
-const lineups = ref({ 1: {
+const lineup = ref({
   C: null, '1B': null, '2B': null, '3B': null, SS: null,
   LF: null, CF: null, RF: null, DH: null,
   SP1: null, SP2: null, SP3: null, SP4: null, SP5: null,
   RP1: null, RP2: null, RP3: null, RP4: null, RP5: null, RP6: null,
   BENCH1: null, BENCH2: null, BENCH3: null, BENCH4: null,
   BENCH5: null, BENCH6: null, BENCH7: null, BENCH8: null
-} as Record<string, Raw | null>,
-  2: {
-    C: null, '1B': null, '2B': null, '3B': null, SS: null,
-    LF: null, CF: null, RF: null, DH: null,
-    SP1: null, SP2: null, SP3: null, SP4: null, SP5: null,
-    RP1: null, RP2: null, RP3: null, RP4: null, RP5: null, RP6: null,
-    BENCH1: null, BENCH2: null, BENCH3: null, BENCH4: null,
-    BENCH5: null, BENCH6: null, BENCH7: null, BENCH8: null
-  } as Record<string, Raw | null>
-})
+} as Record<string, Raw | null>)
 
-const globalBuffsAll = reactive({ 1: {
+const globalBuffs = reactive({
   teamLevel: 100, preferredTeam: [] as string[], clanBuff: 15, managerType: '', managerEnhance: 0,
   synergyMasteries: ['', '', '', '', ''],
   amplifiedMasteryIndex: -1,
@@ -348,32 +327,6 @@ const globalBuffsAll = reactive({ 1: {
   tacticLevels: Array(15).fill(0),
   tacticBaseRates: { scoring: 50, cleanup: 40 },
   tacticCondRates: [5, 24.5, 20, 24.5, 21, 7.5, 30, 25.5, 25, 50, 0, 0, 50, 60, 32.5]
-  },
-  2: {
-    teamLevel: 100, preferredTeam: [] as string[], clanBuff: 15, managerType: '', managerEnhance: 0,
-    synergyMasteries: ['', '', '', '', ''],
-    amplifiedMasteryIndex: -1,
-    binderLevel: 100, 
-    binderMatrix: Array(5).fill(0).map(() => ({ team: '', position: '', player: '', year: '', grade: '' })),
-    managerBreakthrough: 0,
-    tacticLevels: Array(15).fill(0),
-    tacticBaseRates: { scoring: 50, cleanup: 40 },
-    tacticCondRates: [5, 24.5, 20, 24.5, 21, 7.5, 30, 25.5, 25, 50, 0, 0, 50, 60, 32.5]
-  }
-})
-
-
-const lineup = computed({
-  get: () => lineups.value[activeDeck.value],
-  set: (val) => lineups.value[activeDeck.value] = val
-})
-const playerBuffs = computed({
-  get: () => allPlayerBuffs.value[activeDeck.value],
-  set: (val) => allPlayerBuffs.value[activeDeck.value] = val
-})
-const globalBuffs = computed({
-  get: () => globalBuffsAll[activeDeck.value],
-  set: (val) => globalBuffsAll[activeDeck.value] = val
 })
 
 const TACTICS_INFO = [
@@ -394,11 +347,11 @@ const TACTICS_INFO = [
   { id:14, name: '내야 시프트', type: '운영', req: [0,2,5,8,12,15], pt: [0,1,3,6,10,15], baseVals: [0,40,65,100,180,300], condVals: [0,20,30,50,90,150], descBase: (v) => `내야수(1/2/3루,유격) 수비 +${v}`, descCond: (v) => `3회까지 안타 4개 미만인 경우 선발 컨트롤, 스터프 +${v}` }
 ];
 
-const totalTacticPt = computed(() => 2 + (globalBuffsAll[activeDeck.value].managerEnhance * 2) + (globalBuffsAll[activeDeck.value].managerBreakthrough * 4));
+const totalTacticPt = computed(() => 2 + (globalBuffs.managerEnhance * 2) + (globalBuffs.managerBreakthrough * 4));
 const usedTacticPt = computed(() => {
   let sum = 0;
-  if(globalBuffsAll[activeDeck.value].tacticLevels) {
-    globalBuffsAll[activeDeck.value].tacticLevels.forEach((lv, i) => {
+  if(globalBuffs.tacticLevels) {
+    globalBuffs.tacticLevels.forEach((lv, i) => {
       if(lv > 0 && TACTICS_INFO[i]) sum += TACTICS_INFO[i].pt[lv];
     });
   }
@@ -407,7 +360,7 @@ const usedTacticPt = computed(() => {
 const remainingTacticPt = computed(() => totalTacticPt.value - usedTacticPt.value);
 
 
-const allPlayerBuffs = ref<Record<1|2, Record<string, PlayerBuff>>>({ 1: {}, 2: {} })
+const playerBuffs = ref<Record<string, PlayerBuff>>({})
 
 // 🌟 9up 인게임 고증: 각인(Imprint) 시스템 상태 및 로직 🌟
 type ImprintRole = '타자' | '투수'; 
@@ -469,7 +422,7 @@ const updateSubOptionsCount = () => {
 };
 
 const createImprint = () => {
-  if (!newImprint.value.name.trim()) return showToast('각인 이름을 입력해주세요!', 'error');
+  if (!newImprint.value.name.trim()) return alert('각인 이름을 입력해주세요!');
   const imp: Imprint = {
     id: Date.now().toString(),
     name: newImprint.value.name.trim(),
@@ -488,7 +441,7 @@ const createImprint = () => {
   }
   
   imprintInventory.value.push(imp);
-  showToast(`[${imp.role}용 - ${imp.mainStat}] 각인이 생성되었습니다!`, 'success');
+  alert(`[${imp.role}용 - ${imp.mainStat}] 각인이 생성되었습니다!`);
 };
 
 const deleteImprint = (id: string) => {
@@ -516,22 +469,22 @@ const equipImprint = (imprint: Imprint) => {
   
   const isPitcherSlot = pos.startsWith('SP') || pos.startsWith('RP');
   const targetRole = isPitcherSlot ? '투수' : '타자';
-  if (imprint.role !== targetRole) return showToast(`장착 실패! ${targetRole}용 각인만 낄 수 있습니다!`, 'error');
+  if (imprint.role !== targetRole) return alert(`장착 실패! ${targetRole}용 각인만 낄 수 있습니다!`);
 
   if (!playerBuffs.value[pos]) playerBuffs.value[pos] = {};
   const currentBuffs = playerBuffs.value[pos];
   
   const otherImprint = slot === 1 ? currentBuffs.imprint2 : currentBuffs.imprint1;
 
-  if (otherImprint?.id === imprint.id) return showToast('이미 반대쪽 슬롯에 장착된 각인입니다.', 'error');
+  if (otherImprint?.id === imprint.id) return alert('이미 반대쪽 슬롯에 장착된 각인입니다.');
 
   // 🌟 핵심 방어막: 주옵션 중복 장착 절대 불가!
   if (otherImprint?.mainStat === imprint.mainStat) {
-    return showToast(`장착 실패! 동일 주옵션 중복 장착 불가`, 'error');
+    return alert(`장착 실패! 이미 반대쪽 슬롯에 [${imprint.mainStat}] 주옵션 각인이 장착되어 있습니다. (동일 주옵 중복 장착 불가)`);
   }
 
   if (imprint.grade === '얼티밋' && p.grade !== 'Dignity') { 
-    if (otherImprint?.grade === '얼티밋') return showToast('디그니티 등급이 아닌 선수는 얼티밋 각인을 1개만 장착할 수 있습니다!', 'error');
+    if (otherImprint?.grade === '얼티밋') return alert('디그니티 등급이 아닌 선수는 얼티밋 각인을 1개만 장착할 수 있습니다!');
   }
 
   if (slot === 1) playerBuffs.value[pos].imprint1 = imprint;
@@ -709,104 +662,6 @@ const SKILL_EFFECTS: Record<string, any> = {
   "하이볼 히터": {"powerPercent": 0, "stats": {"contact": 10.0, "strikeoutAvoidance": 5.0, "homeRunPower": -5.0}}
 }
 
-
-const normalSkillData = ref<any[]>([])
-const enhancedSkillData = ref<any[]>([])
-
-const matchSkillInfo = (skill: string) => {
-  return normalSkillData.value.find((s) => s.skill === skill)?.image || ''
-}
-
-const getNormalSkillDescription = (skillName: string) => {
-  const data = normalSkillData.value.find(s => s.skill === skillName);
-  
-  const effectText = data?.effects || data?.effect;
-  if (effectText) {
-    if (Array.isArray(effectText)) {
-       return effectText.map(e => e.startsWith('-') ? e : `- ${e}`).join('\n');
-    }
-    return String(effectText).replace(/\\n/g, '\n');
-  }
-  
-  const eff = SKILL_EFFECTS[skillName];
-  if (eff) {
-    const parts = [];
-    if (eff.powerPercent) parts.push(`- 파워 +${eff.powerPercent}%`);
-    for (const [k, v] of Object.entries(eff.stats || {})) {
-      parts.push(`- ${STAT_LABELS[k] || k} +${v}`);
-    }
-    if (parts.length > 0) return parts.join('\n');
-  }
-
-  return '- 특수 조건 발동 스킬';
-}
-
-const matchEnhancedSkillImage = (skill: string) => {
-  const img = enhancedSkillData.value.find((s) => s.enhanced_skill === skill)?.image || '';
-  if (!img) return '';
-  return img.startsWith('bg-') ? img : `bg-${img}`;
-}
-
-const getEnhancedSkillEffect = (skillName: string, level: number) => {
-  const data = enhancedSkillData.value.find((s) => s.enhanced_skill === skillName);
-  if (!data) return '효과 정보를 불러올 수 없습니다.';
-
-  const list = data.effects_by_level || data.effects || data.levels;
-  if (Array.isArray(list) && list.length > 0) {
-    const idx = Math.min(Math.max(0, level), list.length - 1);
-    return list[idx] || list[list.length - 1] || '';
-  }
-  if (list && typeof list === 'object') {
-    if (list[level]) return list[level];
-    if (list[String(level)]) return list[String(level)];
-  }
-  const exactKeys = [`lv${level}`, `lv_${level}`, `Lv${level}`, `Lv_${level}`, `level${level}`, `level_${level}`, `effect${level}`, `effect_${level}`, `eff${level}`, `eff_${level}`];
-  for (const k of exactKeys) {
-    if (data[k]) return data[k];
-  }
-  if (level === 0) {
-    if (data['기본']) return data['기본'];
-    if (data.base) return data.base;
-  }
-  return data.description || '해당 레벨의 효과 데이터가 없습니다.';
-}
-
-const tooltipState = reactive({
-  show: false,
-  skill: '',
-  x: 0,
-  y: 0,
-  transform: 'translate(-50%, -100%)',
-  arrowLeft: '50%'
-});
-
-const showSkillTooltip = (e: MouseEvent, sk: string) => {
-  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-  let x = rect.left + rect.width / 2;
-  let y = rect.top;
-  let transform = 'translate(-50%, -100%)';
-  let arrowLeft = '50%';
-
-  if (x < 130) {
-    transform = 'translate(-20%, -100%)';
-    arrowLeft = '20%';
-  } else if (window.innerWidth - x < 130) {
-    transform = 'translate(-80%, -100%)';
-    arrowLeft = '80%';
-  }
-
-  tooltipState.skill = sk;
-  tooltipState.x = x;
-  tooltipState.y = y;
-  tooltipState.transform = transform;
-  tooltipState.arrowLeft = arrowLeft;
-  tooltipState.show = true;
-};
-
-const hideSkillTooltip = () => {
-  tooltipState.show = false;
-};
-
 const isSkillActive = (skillName: string, slot: string, battingOrder: number | null) => {
   const s = slot.toUpperCase()
   if (skillName === '에이스' || skillName === '원투펀치') return s === 'SP1' || s === 'SP2'
@@ -920,12 +775,55 @@ const toggleSynergyFilter = (s: string) => {
 const isSkillDropdownOpen = ref(false)
 const skillSearchText = ref('')
 const excludedFilterSkills = ['마무리', '셋업맨', '숏릴리프', '승리계투'];
-const skillOptions = computed(() => {
-  const dbSkills = normalSkillData.value.map(s => s.skill);
-  const hardcodedSkills = Object.keys(SKILL_EFFECTS);
-  const allSkills = Array.from(new Set([...dbSkills, ...hardcodedSkills]));
-  return allSkills.filter(sk => !excludedFilterSkills.includes(sk)).sort();
-});
+const skillOptions = computed(() => Object.keys(SKILL_EFFECTS).filter(sk => !excludedFilterSkills.includes(sk)).sort());
+const normalSkillData = ref<any[]>([])
+const enhancedSkillData = ref<any[]>([]) // 🌟 추가됨: 강화스킬 DB
+
+const matchSkillInfo = (skill: string) => {
+  return normalSkillData.value.find((s) => s.skill === skill)?.image || ''
+}
+
+// 🌟 강화스킬 이미지 매칭
+const matchEnhancedSkillImage = (skill: string) => {
+  const img = enhancedSkillData.value.find((s) => s.enhanced_skill === skill)?.image || '';
+  if (!img) return '';
+  return img.startsWith('bg-') ? img : `bg-${img}`;
+}
+
+// 🌟 강화스킬 효과 매칭 (레벨 연동)
+const getEnhancedSkillEffect = (skillName: string, level: number) => {
+  const data = enhancedSkillData.value.find((s) => s.enhanced_skill === skillName);
+  if (!data) return '효과 정보를 불러올 수 없습니다.';
+
+  // 1. 🌟 핵심: enhanced_skill.json의 실제 키값인 'effects_by_level' 배열 완벽 지원!
+  const list = data.effects_by_level || data.effects || data.levels;
+  if (Array.isArray(list) && list.length > 0) {
+    const idx = Math.min(Math.max(0, level), list.length - 1);
+    return list[idx] || list[list.length - 1] || '';
+  }
+
+  // 2. 객체 형태인 경우
+  if (list && typeof list === 'object') {
+    if (list[level]) return list[level];
+    if (list[String(level)]) return list[String(level)];
+  }
+
+  // 3. 플랫 키 매칭
+  const exactKeys = [
+    `lv${level}`, `lv_${level}`, `Lv${level}`, `Lv_${level}`, `level${level}`, `level_${level}`,
+    `effect${level}`, `effect_${level}`, `eff${level}`, `eff_${level}`
+  ];
+  for (const k of exactKeys) {
+    if (data[k]) return data[k];
+  }
+
+  if (level === 0) {
+    if (data['기본']) return data['기본'];
+    if (data.base) return data.base;
+  }
+
+  return data.description || '해당 레벨의 효과 데이터가 없습니다.';
+}
 
 const filteredSkillOptions = computed(() => {
   const query = normalizeText(skillSearchText.value)
@@ -1064,9 +962,8 @@ const compareCondition = (op: CountOp, lhs: number, rhs?: number, max?: number):
 }
 
 // 🌟 시너지 마스터리 증폭 및 인원수 차감 계산 적용 🌟
-const activeTeamSynergies = computed(() => getActiveTeamSynergies(activeDeck.value));
-const getActiveTeamSynergies = (deckId: 1 | 2) => {
-  const lineupPlayers = Object.values(lineups.value[deckId]).filter(Boolean) as Raw[]
+const activeTeamSynergies = computed(() => {
+  const lineupPlayers = Object.values(lineup.value).filter(Boolean) as Raw[]
   const result: { name: string, bonuses: { stat: string, bonus: JsonBonus }[], matchedPlayers: string[] }[] = []
   for (const s of synergys.value) {
     const name = String(s.synergy).trim()
@@ -1085,11 +982,10 @@ const getActiveTeamSynergies = (deckId: 1 | 2) => {
     // 마스터리 인원 보정 및 증폭 확인
     let masteryCount = 0;
     let isAmplified = false;
-    if (!globalBuffsAll[deckId].synergyMasteries) globalBuffsAll[deckId].synergyMasteries = ['', '', '', '', ''];
-    globalBuffsAll[deckId].synergyMasteries.forEach((m, idx) => {
+    globalBuffs.synergyMasteries.forEach((m, idx) => {
       if (m === name) {
         masteryCount++;
-        if (globalBuffsAll[deckId].amplifiedMasteryIndex === idx) isAmplified = true;
+        if (globalBuffs.amplifiedMasteryIndex === idx) isAmplified = true;
       }
     });
 
@@ -1124,11 +1020,10 @@ const getActiveTeamSynergies = (deckId: 1 | 2) => {
     }
   }
   return result
-}
+})
 
-const pendingTeamSynergies = computed(() => getPendingTeamSynergies(activeDeck.value));
-const getPendingTeamSynergies = (deckId: 1 | 2) => {
-  const lineupPlayers = Object.values(lineups.value[deckId]).filter(Boolean) as Raw[]
+const pendingTeamSynergies = computed(() => {
+  const lineupPlayers = Object.values(lineup.value).filter(Boolean) as Raw[]
   const result: { name: string, current: number, required: number, matchedPlayers: string[] }[] = []
   
   for (const s of synergys.value) {
@@ -1146,8 +1041,7 @@ const getPendingTeamSynergies = (deckId: 1 | 2) => {
     const count = matchedPlayers.length
     
     let masteryCount = 0;
-    if (!globalBuffsAll[deckId].synergyMasteries) globalBuffsAll[deckId].synergyMasteries = ['', '', '', '', ''];
-    globalBuffsAll[deckId].synergyMasteries.forEach(m => {
+    globalBuffs.synergyMasteries.forEach(m => {
       if (m === name) masteryCount++;
     });
     const effectiveCount = count + masteryCount;
@@ -1184,7 +1078,7 @@ const getPendingTeamSynergies = (deckId: 1 | 2) => {
     }
   }
   return result
-}
+})
 
 const getTeamLevelPower = (level: number, isPref: boolean) => {
   const l = Math.min(100, Math.max(0, level || 0));
@@ -1200,14 +1094,14 @@ const getTeamLevelPower = (level: number, isPref: boolean) => {
   return isPref ? prefPwr : otherPwr;
 };
 
-const getSameTeamCount = (p: Raw | null, deckId: 1 | 2) => {
+const getSameTeamCount = (p: Raw | null) => {
   if (!p) return 0;
   const myTeams = toArray(p.team).map(toLowerCase);
   let validTeamIds = new Set<string>(myTeams);
   groupedTeams.filter(g => g.id.some(id => myTeams.includes(id))).forEach(g => g.id.forEach(id => validTeamIds.add(id)));
 
   let count = 0;
-  Object.values(lineups.value[deckId]).forEach(other => {
+  Object.values(lineup.value).forEach(other => {
      if (other) {
         const otherTeams = toArray(other.team).map(toLowerCase);
         if (otherTeams.some(t => validTeamIds.has(t))) count++;
@@ -1252,7 +1146,7 @@ const getSynergyType = (synName: string, conditions: any[]) => {
 }
 
 // 각 선수가 특정 시너지를 받고 있는지 확인 (개인설정 탭 용도)
-const isPlayerReceivingSynergy = (p: Raw, synName: string, deckId: 1|2) => {
+const isPlayerReceivingSynergy = (p: Raw, synName: string) => {
   if (!p) return false;
   const hasSynergy = checkSynergyInclusion(synName, getArray(p.synergy));
   if (!hasSynergy) return false;
@@ -1309,11 +1203,11 @@ const getPendingSynergyText = (synName: string) => {
 }
   
 // 🌟 기존 코드: 절대 지우지 말고 그대로 두세요! (파워 계산기 엔진)
-const getPlayerSynergySum = (p: Raw | null, unit: 'fixed' | 'percent', deckId: 1|2) => {
+const getPlayerSynergySum = (p: Raw | null, unit: 'fixed' | 'percent') => {
   if (!p) return 0;
   let total = 0;
-  getActiveTeamSynergies(deckId).forEach(syn => {
-    if (isPlayerReceivingSynergy(p, syn.name, deckId)) {
+  activeTeamSynergies.value.forEach(syn => {
+    if (isPlayerReceivingSynergy(p, syn.name)) {
       syn.bonuses.forEach(b => {
         if (b.stat === 'power' && b.bonus.unit === unit) total += b.bonus.value;
       });
@@ -1328,7 +1222,7 @@ const getPlayerSynergies = (p: Raw) => {
   return p.synergy.split(',').map(s => s.trim()).filter(Boolean)
 }
 
-const calculateTeamPlayerDignityBuff = (p: Raw, deckId: 1|2) => {
+const calculateTeamPlayerDignityBuff = (p: Raw) => {
   if (!p) return 0;
   const pTeams = toArray(p.team).map(toLowerCase);
   let validTeamIds = new Set<string>(pTeams);
@@ -1337,14 +1231,13 @@ const calculateTeamPlayerDignityBuff = (p: Raw, deckId: 1|2) => {
   let maxTeamPlayerPower = 0;
   let totalDignityPower = 0;
 
-  Object.entries(lineups.value[deckId]).forEach(([slotKey, other]) => {
+  Object.entries(lineup.value).forEach(([slotKey, other]) => {
      if (other) {
         const otherTeams = toArray(other.team).map(toLowerCase);
         if (otherTeams.some(t => validTeamIds.has(t))) {
            const oGrade = String(other.grade).toUpperCase();
-           const oBuffs = allPlayerBuffs.value[deckId][slotKey];
+           const oBuffs = playerBuffs.value[slotKey];
            const enhanceLvl = oBuffs?.enhancementLevel || 0;
-           if (!oBuffs) return; // 만약 oBuffs가 없다면 (매우 오래된 세이브) 안전하게 넘기기
 
            if (oGrade === 'TEA') {
              const power = 8 + Math.min(15, Math.max(0, enhanceLvl));
@@ -1479,14 +1372,14 @@ const getBinderMatchCount = (val: string, p: Raw, type: string) => {
   return false;
 }
 
-const getPlayerBinderPower = (p: Raw | null, deckId: 1|2) => {
+const getPlayerBinderPower = (p: Raw | null) => {
   if (!p) return 0;
-  const binderBase = (globalBuffsAll[deckId].binderLevel || 0) * 5; 
+  const binderBase = (globalBuffs.binderLevel || 0) * 5; 
   let binderMatrixSum = 0;
   
-  if (globalBuffsAll[deckId].binderMatrix && globalBuffsAll[deckId].binderMatrix.length === 5) {
+  if (globalBuffs.binderMatrix && globalBuffs.binderMatrix.length === 5) {
     const matchCounts = { team: 0, position: 0, player: 0, year: 0, grade: 0 };
-    globalBuffsAll[deckId].binderMatrix.forEach(row => {
+    globalBuffs.binderMatrix.forEach(row => {
       // 🌟 이제 스탯 쪼가리(p.year)가 아니라 선수 본체(p)를 엔진에 집어넣어 등급까지 깐깐하게 검사합니다!
       if (row.team && getBinderMatchCount(row.team, p, 'team')) matchCounts.team++;
       if (row.position && getBinderMatchCount(row.position, p, 'position')) matchCounts.position++;
@@ -1518,21 +1411,16 @@ const binderYearOptions = computed(() => {
   return Array.from(years).sort((a, b) => Number(b) - Number(a));
 });  
   
-const computedPlayerStats = computed(() => getComputedPlayerStats(activeDeck.value));
-const getComputedPlayerStats = (deckId: 1 | 2) => {
+const computedPlayerStats = computed(() => {
   const result: Record<string, { power: number, stats: Record<string, number> }> = {}
-  Object.keys(lineups.value[deckId]).forEach(slot => {
-    const p = lineups.value[deckId][slot]
+  Object.keys(lineup.value).forEach(slot => {
+    const p = lineup.value[slot]
     if (!p) return
-    const buffs = allPlayerBuffs.value[deckId][slot]
+    const buffs = playerBuffs.value[slot]
     if (!buffs) return
 
-    // 🌟 안전장치: 구버전 세이브파일 호환을 위한 완벽한 기본값 보장
+    // 🌟 안전장치: 구버전 세이브파일 호환을 위해 커리어 배열이 없으면 자동 생성
     if (!buffs.careers) buffs.careers = Array(6).fill(null).map(() => ({ grade: '마스터', statType: '', value: 0 }));
-    if (!buffs.selectedSkills) buffs.selectedSkills = [];
-    if (!buffs.imprintStats) buffs.imprintStats = {};
-    if (!buffs.careerStats) buffs.careerStats = {};
-    if (buffs.battingOrder === undefined) buffs.battingOrder = null;
 
     const isPit = isPitcher(p);
     let baseSum = 0
@@ -1542,19 +1430,19 @@ const getComputedPlayerStats = (deckId: 1 | 2) => {
     nonCoreStats.forEach(s => baseSum += Number(p[s] || 0))
     
     const pTeams = toArray(p.team).map(toLowerCase);
-    const isMyTeam = (globalBuffsAll[deckId].preferredTeam || []).some(t => pTeams.includes(t));
-    const appliedTeamLevelBuff = getTeamLevelPower(globalBuffsAll[deckId].teamLevel, isMyTeam);
+    const isMyTeam = (globalBuffs.preferredTeam || []).some(t => pTeams.includes(t));
+    const appliedTeamLevelBuff = getTeamLevelPower(globalBuffs.teamLevel, isMyTeam);
     const growthA = Number(Math.max(0, buffs.playerLevel - 1) * 10) + buffs.collectionBuff + appliedTeamLevelBuff + buffs.careerLevelBuff + (buffs.enhancementLevel * getEnhanceMultiplier(p))
-    const autoBinderPower = getPlayerBinderPower(p, deckId);
+    const autoBinderPower = getPlayerBinderPower(p);
     const legacyBinderBuff = buffs.binderBuff === 537 ? 0 : (buffs.binderBuff || 0);
-    const flatC = legacyBinderBuff + autoBinderPower + globalBuffsAll[deckId].clanBuff + buffs.careerAllStatFlat + getBreakthroughFixed(p, buffs.breakthroughLevel)
+    const flatC = legacyBinderBuff + autoBinderPower + globalBuffs.clanBuff + buffs.careerAllStatFlat + getBreakthroughFixed(p, buffs.breakthroughLevel)
     
     const is1st2ndSP = slot === 'SP1' || slot === 'SP2';
     const imprintStarterAddedPower = is1st2ndSP ? buffs.imprintStarterPower : 0;
     
     let autoSynergyFixed = 0, autoSynergyPercent = 0, skillPowerPercent = 0, statSpecificSkillPercents: Record<string, number> = {}
-    getActiveTeamSynergies(deckId).forEach(syn => {
-      if (isPlayerReceivingSynergy(p, syn.name, deckId)) {
+    activeTeamSynergies.value.forEach(syn => {
+      if (isPlayerReceivingSynergy(p, syn.name)) {
         syn.bonuses.forEach(b => {
            if (b.stat === 'power') {
             if (b.bonus.unit === 'fixed') autoSynergyFixed += b.bonus.value
@@ -1565,7 +1453,7 @@ const getComputedPlayerStats = (deckId: 1 | 2) => {
     })
     
     // 🌟 커리어 장착 시스템 스탯/파워 자동 계산 로직 🌟
-    const ST = getSameTeamCount(p, deckId);
+    const ST = getSameTeamCount(p);
     let careerStatBonus: Record<string, number> = {};
     let careerGeneralStat = 0; 
     let careerTeamPowerBonus = 0; 
@@ -1594,7 +1482,7 @@ const getComputedPlayerStats = (deckId: 1 | 2) => {
        }
     });
 
-    const autoTeamDignityBuff = calculateTeamPlayerDignityBuff(p, deckId);
+    const autoTeamDignityBuff = calculateTeamPlayerDignityBuff(p);
     const pGrade = String(p.grade || '').toUpperCase();
     const dynamicHitAceBuff = ['HIT', 'ACE', 'GG'].includes(pGrade) ? ST * 32 : 0;
     
@@ -1615,11 +1503,11 @@ const getComputedPlayerStats = (deckId: 1 | 2) => {
     const globalBonusTotal = globalPercentPool * (globalPercent / 100)
     
     let managerMainStat = 0; let managerSubStat = 0; let managerMainName = ''; let managerSubName = '';
-    if (globalBuffsAll[deckId].managerType) {
-      const isMy = globalBuffsAll[deckId].managerType.startsWith('my_');
-      const typeStr = globalBuffsAll[deckId].managerType.split('_')[1];
+    if (globalBuffs.managerType) {
+      const isMy = globalBuffs.managerType.startsWith('my_');
+      const typeStr = globalBuffs.managerType.split('_')[1];
       const table = isMy ? MANAGER_STATS_MY : MANAGER_STATS_COM;
-      const level = Math.min(15, Math.max(0, globalBuffsAll[deckId].managerEnhance || 0));
+      const level = Math.min(15, Math.max(0, globalBuffs.managerEnhance || 0));
       managerMainStat = table[level].main; managerSubStat = table[level].sub;
       managerMainName = MANAGER_TYPES[typeStr].main; managerSubName = MANAGER_TYPES[typeStr].sub;
     }
@@ -1628,8 +1516,8 @@ const getComputedPlayerStats = (deckId: 1 | 2) => {
     let tacticFlat: Record<string, number> = {};
     let tacticCondExpected: Record<string, number> = {};
     
-    if (globalBuffsAll[deckId].tacticLevels) {
-        const tLv = globalBuffsAll[deckId].tacticLevels;
+    if (globalBuffs.tacticLevels) {
+        const tLv = globalBuffs.tacticLevels;
         const bOrder = buffs.battingOrder;
         const isSp = slot.startsWith('SP');
         const isRp = slot.startsWith('RP');
@@ -1641,7 +1529,7 @@ const getComputedPlayerStats = (deckId: 1 | 2) => {
         const posArr = getArray(p.position).map(normalizePosition);
         const isInfield = posArr.some(x => ['1B','2B','3B','SS'].includes(x));
         
-        const rates = globalBuffsAll[deckId].tacticCondRates;
+        const rates = globalBuffs.tacticCondRates;
         const addCond = (stat: string, val: number) => { tacticCondExpected[stat] = (tacticCondExpected[stat] || 0) + val; };
         
         // 🌟 상시 효과 (Base) 계산
@@ -1656,8 +1544,8 @@ const getComputedPlayerStats = (deckId: 1 | 2) => {
         if (tLv[7] > 0 && isSp) tacticFlat.pitchLimit = (tacticFlat.pitchLimit || 0) + TACTICS_INFO[7].baseVals[tLv[7]];
         
         // 상시(조건연동) 효과 - 8번, 12번은 상시 파워에 반영됨 (유저 조절 비율 곱)
-        if (tLv[8] > 0 && (isSp || isRp)) tacticFlat.control = (tacticFlat.control || 0) + TACTICS_INFO[8].baseVals[tLv[8]] * (globalBuffsAll[deckId].tacticBaseRates.scoring / 100);
-        if (tLv[12] > 0 && (isSp || isRp)) tacticFlat.longHitSuppression = (tacticFlat.longHitSuppression || 0) + TACTICS_INFO[12].baseVals[tLv[12]] * (globalBuffsAll[deckId].tacticBaseRates.cleanup / 100);
+        if (tLv[8] > 0 && (isSp || isRp)) tacticFlat.control = (tacticFlat.control || 0) + TACTICS_INFO[8].baseVals[tLv[8]] * (globalBuffs.tacticBaseRates.scoring / 100);
+        if (tLv[12] > 0 && (isSp || isRp)) tacticFlat.longHitSuppression = (tacticFlat.longHitSuppression || 0) + TACTICS_INFO[12].baseVals[tLv[12]] * (globalBuffs.tacticBaseRates.cleanup / 100);
         
         if (tLv[9] > 0 && isRp) tacticFlat.pitcherPower = (tacticFlat.pitcherPower || 0) + TACTICS_INFO[9].baseVals[tLv[9]];
         
@@ -1753,24 +1641,15 @@ const getComputedPlayerStats = (deckId: 1 | 2) => {
     result[slot] = { power: Math.round(finalTotal), stats }
   })
   return result
-}
+})
 
-const calculatePlayerPower = (p: Raw, slot: string) => getComputedPlayerStats(activeDeck.value)[slot]?.power || 0
+const calculatePlayerPower = (p: Raw, slot: string) => computedPlayerStats.value[slot]?.power || 0
 
-const getDeckTotalPower = (deckId: 1|2) => {
-  let sum = 0;
-  const stats = getComputedPlayerStats(deckId);
-  Object.keys(lineups.value[deckId]).forEach(slot => {
-    if (slot.startsWith('BENCH')) return;
-    sum += stats[slot]?.power || 0;
-  });
-  return sum;
-}
 const teamTotalPower = computed(() => {
   let sum = 0
-  Object.keys(lineups.value[activeDeck.value]).forEach(slot => {
+  Object.keys(lineup.value).forEach(slot => {
     if (slot.startsWith('BENCH')) return 
-    sum += getComputedPlayerStats(activeDeck.value)[slot]?.power || 0
+    sum += computedPlayerStats.value[slot]?.power || 0
   })
   return sum
 })
@@ -1798,20 +1677,9 @@ const getAvailableSlot = (basePos: string): string => {
   return basePos
 }
 
-
-const isCardInOtherDeck = (p: Raw, currentDeck: 1 | 2) => {
-  const otherDeck = currentDeck === 1 ? 2 : 1;
-  return Object.values(lineups.value[otherDeck]).some((otherP: any) => otherP && isSamePlayer(otherP, p));
-}
-
 // 🌟 2. 클릭으로 배치할 때 포지션 제한 룰 적용 및 탭 자동 이동
 const assignPlayerToSlot = (posOrSlot: string, p: Raw) => {
-  if (isCardInOtherDeck(p, activeDeck.value)) {
-    showToast(`이미 다른 덱(DH${activeDeck.value === 1 ? 2 : 1})에 배치된 동일한 카드입니다!`, 'error');
-    return;
-  }
   const targetSlot = getAvailableSlot(posOrSlot)
-
   
   if (!isValidSlotForPlayer(p, targetSlot)) return;
 
@@ -1903,82 +1771,37 @@ const fileInput = ref<HTMLInputElement | null>(null)
 
 // 🌟 1. 공통 데이터 불러오기 (데이터 꼬임 방지 강력 버전) 🌟
 const applyLoadedData = (data: any) => {
-  try {
-    const emptyLineup = { C: null, '1B': null, '2B': null, '3B': null, SS: null, LF: null, CF: null, RF: null, DH: null, SP1: null, SP2: null, SP3: null, SP4: null, SP5: null, RP1: null, RP2: null, RP3: null, RP4: null, RP5: null, RP6: null, BENCH1: null, BENCH2: null, BENCH3: null, BENCH4: null, BENCH5: null, BENCH6: null, BENCH7: null, BENCH8: null };
+  if (data.lineup) lineup.value = JSON.parse(JSON.stringify(data.lineup));
+  if (data.playerBuffs) playerBuffs.value = JSON.parse(JSON.stringify(data.playerBuffs));
+  if (data.globalBuffs) {
+    if (!data.globalBuffs.synergyMasteries) data.globalBuffs.synergyMasteries = ['', '', '', '', ''];
+    if (data.globalBuffs.amplifiedMasteryIndex === undefined) data.globalBuffs.amplifiedMasteryIndex = -1;
+    // 🌟 바인더 설정값도 파일에서 복구!
+    if (data.globalBuffs.binderLevel === undefined) data.globalBuffs.binderLevel = 100;
+    if (!data.globalBuffs.binderMatrix) data.globalBuffs.binderMatrix = Array(5).fill(0).map(() => ({ team: '', position: '', player: '', year: '', grade: '' }));
+    if (!data.globalBuffs.tacticLevels) data.globalBuffs.tacticLevels = Array(15).fill(0);
+    if (data.globalBuffs.managerBreakthrough === undefined) data.globalBuffs.managerBreakthrough = 0;
+    if (!data.globalBuffs.tacticBaseRates) data.globalBuffs.tacticBaseRates = { scoring: data.globalBuffs.tacticScoringRate ?? 50, cleanup: data.globalBuffs.tacticCleanupRate ?? 40 };
+    if (!data.globalBuffs.tacticCondRates) data.globalBuffs.tacticCondRates = [5, 24.5, 20, 24.5, 21, 7.5, 30, 25.5, 25, 50, 0, 0, 50, 60, 32.5];
     
-    let loadedLineups = { 1: JSON.parse(JSON.stringify(emptyLineup)), 2: JSON.parse(JSON.stringify(emptyLineup)) };
-    if (data.lineups) {
-      if (data.lineups[1]) Object.assign(loadedLineups[1], data.lineups[1]);
-      if (data.lineups[2]) Object.assign(loadedLineups[2], data.lineups[2]);
-    } else if (data.lineup) {
-      Object.assign(loadedLineups[1], data.lineup);
-    }
-
-    if (data.globalBuffsAll) {
-      if (data.globalBuffsAll[1]) Object.assign(globalBuffsAll[1], data.globalBuffsAll[1]);
-      if (data.globalBuffsAll[2]) Object.assign(globalBuffsAll[2], data.globalBuffsAll[2]);
-    } else if (data.globalBuffs) {
-      Object.assign(globalBuffsAll[1], data.globalBuffs);
-    }
-    
-    [1, 2].forEach(deckId => {
-      const gb = globalBuffsAll[deckId as 1|2] as any;
-      if (!gb.tacticLevels || !Array.isArray(gb.tacticLevels) || gb.tacticLevels.length !== 15) gb.tacticLevels = Array(15).fill(0);
-      if (!gb.synergyMasteries || !Array.isArray(gb.synergyMasteries)) gb.synergyMasteries = ['', '', '', '', ''];
-      if (!gb.binderMatrix || !Array.isArray(gb.binderMatrix)) gb.binderMatrix = Array(5).fill(0).map(() => ({ team: '', position: '', player: '', year: '', grade: '' }));
-      if (!gb.tacticCondRates || !Array.isArray(gb.tacticCondRates) || gb.tacticCondRates.length !== 15) gb.tacticCondRates = [5, 24.5, 20, 24.5, 21, 7.5, 30, 25.5, 25, 50, 0, 0, 50, 60, 32.5];
-      if (!gb.tacticBaseRates) gb.tacticBaseRates = { scoring: 50, cleanup: 40 };
-    });
-
-    let loadedAllPlayerBuffs: any = { 1: {}, 2: {} };
-    if (data.allPlayerBuffs) {
-      if (data.allPlayerBuffs[1]) Object.assign(loadedAllPlayerBuffs[1], data.allPlayerBuffs[1]);
-      if (data.allPlayerBuffs[2]) Object.assign(loadedAllPlayerBuffs[2], data.allPlayerBuffs[2]);
-    } else if (data.playerBuffs) {
-      Object.assign(loadedAllPlayerBuffs[1], data.playerBuffs);
-    }
-    
-    [1, 2].forEach(deckId => {
-      Object.keys(loadedLineups[deckId as 1|2]).forEach(slot => {
-        if (!loadedAllPlayerBuffs[deckId][slot]) {
-           loadedAllPlayerBuffs[deckId][slot] = {
-             enhancementLevel: 15, breakthroughLevel: 0, careerTeamCount: 0, hitAceBuff: 0, imprintStarterPower: 0, careerAllStatFlat: 0, imprintCoreStat: 0, careerCoreStat: 0, selectedSkills: [], battingOrder: null, playerLevel: 100, collectionBuff: 1200, careerLevelBuff: 149, binderBuff: 537, ultimateImprintPercent: 0, imprintStats: {}, careerStats: {}, imprint1: null, imprint2: null, careers: Array(6).fill(null).map(() => ({ grade: '마스터', statType: '', value: 0 }))
-           };
-        } else {
-           const b = loadedAllPlayerBuffs[deckId][slot];
-           if (!b.selectedSkills || !Array.isArray(b.selectedSkills)) b.selectedSkills = [];
-           if (!b.careers || !Array.isArray(b.careers)) b.careers = Array(6).fill(null).map(() => ({ grade: '마스터', statType: '', value: 0 }));
-           if (!b.imprintStats) b.imprintStats = {};
-           if (!b.careerStats) b.careerStats = {};
-           if (b.battingOrder === undefined) b.battingOrder = null;
-        }
-      });
-    });
-
-    if (data.imprintInventory) imprintInventory.value = JSON.parse(JSON.stringify(data.imprintInventory));
-    
-    // 🌟 안전하게 하나씩 덮어씌우기 (통째로 교체시 반응성 에러 방지)
-    allPlayerBuffs.value = { 1: { ...loadedAllPlayerBuffs[1] }, 2: { ...loadedAllPlayerBuffs[2] } };
-    lineups.value = { 1: { ...loadedLineups[1] }, 2: { ...loadedLineups[2] } };
-
-    if (data.multiSaves && Object.keys(data.multiSaves).length > 0) {
-      const existingSaves = JSON.parse(localStorage.getItem('9up_multi_saves') || '{}');
-      const mergedSaves = { ...existingSaves, ...data.multiSaves };
-      localStorage.setItem('9up_multi_saves', JSON.stringify(mergedSaves));
-    }
-    
-    selectedSlot.value = null; 
-  } catch (err) {
-    console.error("데이터 복구 중 치명적 오류 발생:", err);
+    Object.assign(globalBuffs, JSON.parse(JSON.stringify(data.globalBuffs)));
   }
+  if (data.imprintInventory) imprintInventory.value = JSON.parse(JSON.stringify(data.imprintInventory));
+
+  if (data.multiSaves && Object.keys(data.multiSaves).length > 0) {
+    const existingSaves = JSON.parse(localStorage.getItem('9up_multi_saves') || '{}');
+    const mergedSaves = { ...existingSaves, ...data.multiSaves };
+    localStorage.setItem('9up_multi_saves', JSON.stringify(mergedSaves));
+  }
+  selectedSlot.value = null; 
 }
 
 // 🌟 라인업 초기화 (각인 장비는 무조건 유지!) 🌟
 const resetLineup = () => {
-  if(!confirm(`현재 선택된 [DH${activeDeck.value}] 덱의 모든 선수를 비우시겠습니까?\n(포지션에 장착된 각인 수치는 그대로 유지됩니다)`)) return;
-  Object.keys(lineups.value[activeDeck.value]).forEach(slot => {
-    lineups.value[activeDeck.value][slot] = null;
-    if (allPlayerBuffs.value[activeDeck.value][slot]) {
+  if(!confirm('라인업의 모든 선수를 비우시겠습니까?\n(포지션에 장착된 각인 수치는 그대로 유지됩니다)')) return;
+  Object.keys(lineup.value).forEach(slot => {
+    lineup.value[slot] = null;
+    if (playerBuffs.value[slot]) {
       const b = playerBuffs.value[slot];
       const savedImprintStats = { ...b.imprintStats }
       playerBuffs.value[slot] = {
@@ -2004,11 +1827,11 @@ const resetLineup = () => {
 const saveToLocalStorage = () => {
   const saveName = prompt('저장할 라인업 이름을 입력하세요:\n(예: 국대전용, 홈런타자세팅 등)');
   if (!saveName) return;
-  const saveData = { lineups: lineups.value, allPlayerBuffs: allPlayerBuffs.value, globalBuffsAll: globalBuffsAll, imprintInventory: imprintInventory.value }
+  const saveData = { lineup: lineup.value, playerBuffs: playerBuffs.value, globalBuffs: globalBuffs, imprintInventory: imprintInventory.value }
   let saves = JSON.parse(localStorage.getItem('9up_multi_saves') || '{}')
   saves[saveName] = saveData
   localStorage.setItem('9up_multi_saves', JSON.stringify(saves))
-  showToast(`'${saveName}' 라인업이 브라우저에 저장되었습니다.`, 'success');
+  alert(`'${saveName}' 라인업이 브라우저에 저장되었습니다.`)
 }
 
 // 🌟 다중 페이지 불러오기 및 관리 (모달 UI 엔진) 🌟
@@ -2025,7 +1848,7 @@ const loadSpecificSave = (saveName: string) => {
   const saves = JSON.parse(localStorage.getItem('9up_multi_saves') || '{}');
   if (saves[saveName]) {
     applyLoadedData(saves[saveName]);
-    showToast(`'${saveName}' 라인업을 성공적으로 불러왔습니다.`, 'success');
+    alert(`'${saveName}' 라인업을 성공적으로 불러왔습니다.`);
     showSaveManager.value = false;
   }
 };
@@ -2049,9 +1872,9 @@ const exportToFile = () => {
 
   // 현재 데이터 + 각인 보관함 + 다중 저장 리스트 전부 묶기!
   const saveData = { 
-    lineups: lineups.value, 
-    allPlayerBuffs: allPlayerBuffs.value, 
-    globalBuffsAll: globalBuffsAll, 
+    lineup: lineup.value, 
+    playerBuffs: playerBuffs.value, 
+    globalBuffs: globalBuffs, 
     imprintInventory: imprintInventory.value,
     multiSaves: multiSaves 
   }
@@ -2088,11 +1911,11 @@ const importFromFile = (event: Event) => {
       const msg = data.multiSaves && Object.keys(data.multiSaves).length > 0
         ? '✅ 파일 불러오기 완료!\n(다중 저장 목록도 무사히 복구되었습니다!)'
         : '✅ 파일에서 라인업을 성공적으로 불러왔습니다!';
-      showToast(msg, 'success');
+      alert(msg)
       
     } catch (err: any) {
       console.error("파일 파싱 에러:", err)
-      showToast('파일 불러오기 실패: 형식이 맞지 않거나 손상된 파일입니다.', 'error');
+      alert('❌ 파일 불러오기 실패: 형식이 맞지 않거나 손상된 파일입니다.\n(' + err.message + ')')
     } finally {
       if (fileInput.value) fileInput.value.value = ''
     }
@@ -2102,8 +1925,8 @@ const importFromFile = (event: Event) => {
 
 // 🌟 새로고침/재접속 시 데이터가 날아가지 않도록 실시간 백업 🌟
 // 감시망(watch)에 imprintInventory를 추가해서 각인을 만들거나 삭제할 때마다 즉시 자동 저장됩니다.
-watch([lineups, allPlayerBuffs, globalBuffsAll, imprintInventory], () => {
-  const autoSaveData = { lineups: lineups.value, allPlayerBuffs: allPlayerBuffs.value, globalBuffsAll: globalBuffsAll, imprintInventory: imprintInventory.value }
+watch([lineup, playerBuffs, globalBuffs, imprintInventory], () => {
+  const autoSaveData = { lineup: lineup.value, playerBuffs: playerBuffs.value, globalBuffs: globalBuffs, imprintInventory: imprintInventory.value }
   localStorage.setItem('9up_auto_save', JSON.stringify(autoSaveData))
 }, { deep: true })
   
@@ -2281,284 +2104,17 @@ const getPlayerImage = (p: Raw | null) => {
   return `/assets/playercards/commonCard_${grade}_${engTeam}.png`;
 }
   
-
-// ========================================================
-// 🌟 AI 추천 라인업 자동 편성 시스템 🌟
-// ========================================================
-const showAutoLineupModal = ref(false);
-const autoLineupTeam = ref(groupedTeams[0]);
-const autoLineupDgnSearch = ref('');
-const autoLineupSelectedDgnIds = ref<string[]>([]);
-
-const autoLineupDgnOptions = computed(() => {
-  const query = normalizeText(autoLineupDgnSearch.value);
-  return preparedPlayers.value
-      .filter(p => getMappedGrade(p.raw.grade) === 'DGN')
-      .filter(p => !query || p.nameNormalized.includes(query) || p.teamLowerCase.some(t => t.includes(query)))
-      .slice(0, 15);
-});
-
-const addAutoLineupDgn = (p: PreparedPlayer) => {
-  if (autoLineupSelectedDgnIds.value.length >= 4) {
-      showToast('디그니티 카드는 최대 4장까지만 선택할 수 있습니다.', 'error');
-      return;
-  }
-  if (!autoLineupSelectedDgnIds.value.includes(p.raw.id)) {
-      autoLineupSelectedDgnIds.value.push(p.raw.id);
-      autoLineupDgnSearch.value = '';
-  }
-};
-
-const removeAutoLineupDgn = (id: string) => {
-  autoLineupSelectedDgnIds.value = autoLineupSelectedDgnIds.value.filter(x => x !== id);
-};
-
-const getDgnPlayerName = (id: string) => {
-  const p = players.value.find(x => x.id === id);
-  return p ? p.name : '알 수 없음';
-};
-
-const generateAutoLineup = () => {
-  if(!confirm(`현재 [DH${activeDeck.value}] 덱이 초기화되고 추천 라인업으로 덮어씌워집니다.\n진행하시겠습니까?`)) return;
-
-  const deckId = activeDeck.value;
-  const teamIds = autoLineupTeam.value.id;
-  
-  const emptyLineup: Record<string, any> = { C: null, '1B': null, '2B': null, '3B': null, SS: null, LF: null, CF: null, RF: null, DH: null, SP1: null, SP2: null, SP3: null, SP4: null, SP5: null, RP1: null, RP2: null, RP3: null, RP4: null, RP5: null, RP6: null, BENCH1: null, BENCH2: null, BENCH3: null, BENCH4: null, BENCH5: null, BENCH6: null, BENCH7: null, BENCH8: null };
-  const newLineup = { ...emptyLineup };
-  
-  const usedIds = new Set<string>();
-  const usedPlayerIds = new Set<string>();
-
-  const markUsed = (p: any) => {
-    if (!p) return;
-    usedIds.add(p.id);
-    if (p.playerId) {
-      usedPlayerIds.add(String(p.playerId).trim());
-    } else if (p.name) {
-      usedPlayerIds.add(getBasePlayerName(p.name));
-    }
-  };
-
-  const isAlreadyUsed = (p: any) => {
-    if (!p) return true;
-    if (usedIds.has(p.id)) return true;
-    if (p.playerId && usedPlayerIds.has(String(p.playerId).trim())) return true;
-    if (p.name && usedPlayerIds.has(getBasePlayerName(p.name))) return true;
-    return false;
-  };
-
-  // 1. 선택된 디그니티(DGN) 카드 먼저 최우선 배치
-  const dgnPlayers = preparedPlayers.value.filter(p => autoLineupSelectedDgnIds.value.includes(p.raw.id)).map(p => p.raw);
-  dgnPlayers.forEach(dgn => {
-      const posList = getPlayerPositions(dgn);
-      let assigned = false;
-      for (const pos of posList) {
-          if (isPitcher(dgn)) {
-              if (pos === 'SP') { for(let i=1; i<=5; i++) { if(!newLineup[`SP${i}`]) { newLineup[`SP${i}`] = dgn; assigned = true; break; } } }
-              else if (pos === 'RP') { for(let i=1; i<=6; i++) { if(!newLineup[`RP${i}`]) { newLineup[`RP${i}`] = dgn; assigned = true; break; } } }
-          } else {
-              if (!newLineup[pos]) { newLineup[pos] = dgn; assigned = true; break; }
-          }
-          if(assigned) break;
-      }
-      if(!assigned && !isPitcher(dgn) && !newLineup['DH']) { newLineup['DH'] = dgn; assigned = true; }
-      if(assigned) markUsed(dgn);
-  });
-
-  // 2. 후보군 필터 및 파워 정렬
-  const validGrades = ['TOP', 'ACE', 'HIT', 'GG', 'ROY', 'TEA', 'DGN'];
-  let allCandidates = preparedPlayers.value.filter(p => 
-      p.teamLowerCase.some(t => teamIds.includes(t)) && 
-      validGrades.includes(getMappedGrade(p.raw.grade))
-  ).map(p => p.raw);
-  
-  const getPowerScore = (p: any) => {
-       const r = Number(p.rarity || 1) * 15000;
-       const s = (Number(p.contact||0) + Number(p.homeRunPower||0) + Number(p.gapPower||0) + Number(p.movement||0) + Number(p.stuff||0) + Number(p.control||0));
-       return r + s;
-  };
-  allCandidates.sort((a, b) => getPowerScore(b) - getPowerScore(a));
-
-  // 3. 주전 빈칸 채우기
-  const mainBatters = ['C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH'];
-  const mainSPs = ['SP1', 'SP2', 'SP3', 'SP4', 'SP5'];
-  const mainRPs = ['RP1', 'RP2', 'RP3', 'RP4', 'RP5', 'RP6'];
-
-  mainBatters.forEach(slot => {
-      if (newLineup[slot]) return;
-      const best = allCandidates.find(p => !isAlreadyUsed(p) && !isPitcher(p) && (getPlayerPositions(p).includes(slot) || slot === 'DH'));
-      if (best) { newLineup[slot] = best; markUsed(best); }
-  });
-  mainSPs.forEach(slot => {
-      if (newLineup[slot]) return;
-      const best = allCandidates.find(p => !isAlreadyUsed(p) && isPitcher(p) && getPlayerPositions(p).includes('SP'));
-      if (best) { newLineup[slot] = best; markUsed(best); }
-  });
-  mainRPs.forEach(slot => {
-      if (newLineup[slot]) return;
-      const best = allCandidates.find(p => !isAlreadyUsed(p) && isPitcher(p) && (getPlayerPositions(p).includes('RP') || isPitcher(p)));
-      if (best) { newLineup[slot] = best; markUsed(best); }
-  });
-
-  // 4. TEAM 선수 1명 확인 후 없으면 벤치1에 투입
-  let hasTeam = false;
-  Object.values(newLineup).forEach(p => { if (p && getMappedGrade(p.grade) === 'TEA') hasTeam = true; });
-  
-  if (!hasTeam) {
-      const bestTEA = allCandidates.find(p => !isAlreadyUsed(p) && getMappedGrade(p.grade) === 'TEA');
-      if (bestTEA && !newLineup['BENCH1']) {
-          newLineup['BENCH1'] = bestTEA;
-          markUsed(bestTEA);
-      }
-  }
-
-  // 5. 남은 벤치 무작위(남은 인원) 채우기
-  for (let i = 1; i <= 8; i++) {
-      if (newLineup[`BENCH${i}`]) continue;
-      const best = allCandidates.find(p => !isAlreadyUsed(p));
-      if (best) { newLineup[`BENCH${i}`] = best; markUsed(best); }
-  }
-
-  // 6. 라인업 반영 및 초기화
-  lineups.value[deckId] = newLineup as any;
-  Object.keys(newLineup).forEach(k => {
-     if(newLineup[k]) {
-         initPlayerBuff(k, newLineup[k]);
-         if (playerBuffs.value[k]) {
-             playerBuffs.value[k].enhancementLevel = getMappedGrade(newLineup[k].grade) === 'DGN' ? 10 : 15;
-             playerBuffs.value[k].careers = Array(6).fill(null).map(() => ({ grade: '마스터', statType: '전체 능력치', value: getMappedGrade(newLineup[k].grade) === 'DGN' ? 46 : 60 }));
-         }
-     }
-  });
-
-  // 7. 타순 배치 로직 (타순 스킬 보유자 우선, 파워 우선)
-  const filledBatters = mainBatters.filter(slot => newLineup[slot]).map(slot => ({ slot, p: newLineup[slot] }));
-  
-  // 타순 스킬 파싱
-  const extractTargetOrder = (p: any) => {
-      const skills = getArray(p.skill);
-      for (const sk of skills) {
-          if (sk.match(/^\d번$/)) return parseInt(sk[0]);
-          if (sk === '테이블세터') return 1; 
-          if (sk === '클린업') return 3; 
-          if (sk === '하위타선') return 6; 
-      }
-      return null;
-  };
-
-  const battingOrderSlots = new Array(10).fill(null); // index 1~9
-  const unassignedBatters: string[] = [];
-
-  // 우선 타순 스킬이 있는 선수부터 파워순으로 정렬해서 선점 시도
-  const skilledBatters = filledBatters.filter(b => extractTargetOrder(b.p) !== null).sort((a, b) => getPowerScore(b.p) - getPowerScore(a.p));
-  const normalBatters = filledBatters.filter(b => extractTargetOrder(b.p) === null).sort((a, b) => getPowerScore(b.p) - getPowerScore(a.p));
-
-  skilledBatters.forEach(item => {
-      const target = extractTargetOrder(item.p);
-      let placed = false;
-      if (target) {
-          if (!battingOrderSlots[target]) {
-              battingOrderSlots[target] = item.slot;
-              placed = true;
-          } else if (target === 1 && !battingOrderSlots[2]) {
-              battingOrderSlots[2] = item.slot;
-              placed = true;
-          } else if (target === 3) {
-              if (!battingOrderSlots[4]) { battingOrderSlots[4] = item.slot; placed = true; }
-              else if (!battingOrderSlots[5]) { battingOrderSlots[5] = item.slot; placed = true; }
-          } else if (target === 6) {
-              for (let i = 7; i <= 9; i++) {
-                  if (!battingOrderSlots[i]) { battingOrderSlots[i] = item.slot; placed = true; break; }
-              }
-          }
-      }
-      // 자리 못찾은 스킬러는 나중에 빈칸에 투입
-      if (!placed) {
-          unassignedBatters.push(item.slot);
-      }
-  });
-
-  // 일반 타자들도 대기열에 추가
-  normalBatters.forEach(item => unassignedBatters.push(item.slot));
-
-  // 남은 타순 빈칸에 남은 타자들 순차 투입
-  for (let i = 1; i <= 9; i++) {
-      if (!battingOrderSlots[i] && unassignedBatters.length > 0) {
-          battingOrderSlots[i] = unassignedBatters.shift();
-      }
-  }
-
-  // 모든 선수 스킬 장착 & 타순 적용
-  [...mainBatters, ...mainSPs, ...mainRPs].forEach(slot => {
-      const p = newLineup[slot];
-      if (p && playerBuffs.value[slot]) {
-          // 타자라면 타순 맵핑
-          if (!isPitcher(p)) {
-             const orderIdx = battingOrderSlots.indexOf(slot);
-             if (orderIdx !== -1) playerBuffs.value[slot].battingOrder = orderIdx;
-          }
-
-          // 최대 스킬 장착
-          const avail = getAvailableSkills(p);
-          const rarity = parseInt(String(p.rarity || 1), 10) || 1;
-          const maxSkills = Math.min(3, Math.max(1, rarity - 1));
-          if (avail.length > 0) {
-              playerBuffs.value[slot].selectedSkills = avail.slice(0, maxSkills);
-          }
-      }
-  });
-
-  showAutoLineupModal.value = false;
-  showToast('✨ 최적 스킬 및 직관적 타순이 반영된 라인업 완성!', 'success');
-};
-
-
-// ========================================================
-// 🌟 나만의 관리자 모드 (환경 변수 + 이스터 에그) 🌟
-// ========================================================
-const isAdmin = ref(localStorage.getItem('9up_admin_unlocked_v2') === 'true');
-let titleClickCount = 0;
-let titleClickTimer: any = null;
-
-const handleTitleClick = () => {
-  titleClickCount++;
-  if (titleClickTimer) clearTimeout(titleClickTimer);
-  titleClickTimer = setTimeout(() => { titleClickCount = 0; }, 1500); // 1.5초 내에 연속 클릭해야 함
-
-  if (titleClickCount >= 5) {
-    titleClickCount = 0;
-    if (isAdmin.value) {
-      isAdmin.value = false;
-      localStorage.removeItem('9up_admin_unlocked_v2');
-      showToast('관리자 모드 비활성화: AI 기능을 숨깁니다. 🔒', 'info');
-    } else {
-      const pwd = prompt('관리자 비밀번호를 입력하세요:');
-      // 환경변수가 등록되어 있지 않을 경우의 비상용 비밀번호 (필요시 변경)
-      const secret = import.meta.env.VITE_ADMIN_SECRET_KEY || '9upadmin123!';
-      
-      if (pwd === secret) {
-        isAdmin.value = true;
-        localStorage.setItem('9up_admin_unlocked_v2', 'true');
-        showToast('관리자 모드 활성화: AI 자동 편성 기능이 켜졌습니다! 🚀', 'success');
-      } else if (pwd !== null) {
-        showToast('비밀번호가 틀렸습니다.', 'error');
-      }
-    }
-  }
-};
-
 </script>
 
 <template>
-  <div class="bg-neutral-50 dark:bg-neutral-900 h-screen overflow-hidden transition-colors flex flex-col font-sans">
+  <div class="bg-neutral-50 dark:bg-neutral-900 h-[calc(100vh-64px)] overflow-hidden transition-colors flex flex-col font-sans">
     
     <!-- 헤더 영역 -->
     <header class="bg-gradient-to-r from-blue-700 to-indigo-800 text-white shadow-md flex-shrink-0 z-20">
       <div class="w-full px-2 py-1.5 flex items-center justify-between">
         <div class="flex items-center gap-3">
           <Calculator class="w-5 h-5 text-blue-200" />
-          <h1 @click="handleTitleClick" class="text-lg font-bold tracking-tight cursor-pointer select-none">9UP 팀 파워 시뮬레이터</h1>
+          <h1 class="text-lg font-bold tracking-tight">9UP 팀 파워 시뮬레이터</h1>
         </div>
         <div class="flex items-center gap-2">
           <input type="file" ref="fileInput" accept=".json" class="hidden" @change="importFromFile" />
@@ -2574,16 +2130,9 @@ const handleTitleClick = () => {
              <button @click="resetLineup" class="p-1.5 text-rose-300 hover:text-white hover:bg-rose-500/50 rounded-md transition-colors flex items-center gap-1" title="각인 유지하고 라인업 초기화"><X class="w-3.5 h-3.5" /><span class="text-[10px] font-bold hidden sm:block">초기화</span></button>
           </div>
 
-          <div class="flex items-center bg-black/20 rounded-xl px-3 py-1.5 border border-white/10 shadow-inner gap-4">
-            <div class="flex flex-col items-end">
-              <span class="text-indigo-200 text-[10px] font-bold leading-none mb-0.5">DH1 팀 파워</span>
-              <span class="text-base font-black text-amber-300 tabular-nums tracking-tight leading-none">{{ getDeckTotalPower(1).toLocaleString() }}</span>
-            </div>
-            <div class="w-px h-6 bg-white/20"></div>
-            <div class="flex flex-col items-end">
-              <span class="text-emerald-200 text-[10px] font-bold leading-none mb-0.5">DH2 팀 파워</span>
-              <span class="text-base font-black text-emerald-300 tabular-nums tracking-tight leading-none">{{ getDeckTotalPower(2).toLocaleString() }}</span>
-            </div>
+          <div class="flex items-center bg-black/20 rounded-xl px-3 py-1 border border-white/10 shadow-inner">
+            <span class="text-blue-200 text-xs font-semibold mr-2">우리 팀 종합 파워</span>
+            <span class="text-xl font-black text-amber-300 tabular-nums tracking-tight">{{ teamTotalPower.toLocaleString() }}</span>
           </div>
         </div>
       </div>
@@ -2613,13 +2162,7 @@ const handleTitleClick = () => {
               </div>
             </div>
             
-            
-            <button v-if="isAdmin" @click="showAutoLineupModal = true" class="w-full mb-3 bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-black py-2.5 rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] flex items-center justify-center gap-2 hover:from-indigo-500 hover:to-blue-500 hover:-translate-y-0.5 transition-all">
-               <Sparkles class="w-4 h-4 text-amber-300" /> AI 실전 1티어 추천 라인업 편성
-            </button>
-            
             <div class="relative group">
-
               <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Search class="h-4 w-4 text-neutral-400 group-focus-within:text-blue-500 transition-colors" />
               </div>
@@ -2745,8 +2288,6 @@ const handleTitleClick = () => {
                       <button
                         v-for="sk in skillOptions" :key="sk"
                         @click="toggleSkillFilter(sk)"
-                        @mouseenter="showSkillTooltip($event, sk)"
-                        @mouseleave="hideSkillTooltip"
                         class="group relative inline-flex flex-col items-center justify-center gap-1 rounded-xl border py-1.5 text-[10px] font-medium select-none focus:outline-none transition-all duration-200"
                         :class="searchQuery.skill.includes(sk)
                           ? 'bg-amber-500 text-white border-amber-500 shadow-md dark:bg-amber-600 dark:border-amber-600'
@@ -2826,17 +2367,10 @@ const handleTitleClick = () => {
         <!-- 중앙: 라인업 보드 (flex-1 독식) -->
         <!-- ========================================== -->
         <section class="flex-1 flex flex-col rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 min-h-0 shadow-sm overflow-hidden relative">
-          <div class="flex items-center bg-neutral-100 dark:bg-neutral-700/50 p-1 border-b border-neutral-200 dark:border-neutral-700 flex-shrink-0 gap-1.5 overflow-x-auto no-scrollbar">
-            <div class="flex bg-neutral-200/80 dark:bg-neutral-800 rounded-lg p-0.5 shrink-0">
-              <button @click="activeDeck = 1" :class="activeDeck === 1 ? 'bg-indigo-600 text-white shadow-sm font-bold' : 'text-neutral-500 hover:bg-neutral-300 dark:hover:bg-neutral-700 font-medium'" class="px-3 py-1.5 text-[11px] sm:text-xs rounded-md transition-all whitespace-nowrap">DH1 덱</button>
-              <button @click="activeDeck = 2" :class="activeDeck === 2 ? 'bg-emerald-600 text-white shadow-sm font-bold' : 'text-neutral-500 hover:bg-neutral-300 dark:hover:bg-neutral-700 font-medium'" class="px-3 py-1.5 text-[11px] sm:text-xs rounded-md transition-all whitespace-nowrap">DH2 덱</button>
-            </div>
-            <div class="w-px h-4 bg-neutral-300 dark:bg-neutral-600 shrink-0 hidden sm:block"></div>
-            <div class="flex flex-1 gap-0.5">
-              <button @click="lineupViewMode = 'batter'" :class="lineupViewMode === 'batter' ? 'bg-white dark:bg-neutral-600 shadow-sm font-bold text-blue-600' : 'text-neutral-500'" class="flex-1 py-1.5 text-[11px] sm:text-xs rounded-lg transition-all whitespace-nowrap">타자 라인업</button>
-              <button @click="lineupViewMode = 'pitcher'" :class="lineupViewMode === 'pitcher' ? 'bg-white dark:bg-neutral-600 shadow-sm font-bold text-blue-600' : 'text-neutral-500'" class="flex-1 py-1.5 text-[11px] sm:text-xs rounded-lg transition-all whitespace-nowrap">투수 라인업</button>
-              <button @click="lineupViewMode = 'bench'" :class="lineupViewMode === 'bench' ? 'bg-white dark:bg-neutral-600 shadow-sm font-bold text-blue-600' : 'text-neutral-500'" class="flex-1 py-1.5 text-[11px] sm:text-xs rounded-lg transition-all whitespace-nowrap">벤치</button>
-            </div>
+          <div class="flex items-center bg-neutral-100 dark:bg-neutral-700/50 p-1 border-b border-neutral-200 dark:border-neutral-700 flex-shrink-0">
+            <button @click="lineupViewMode = 'batter'" :class="lineupViewMode === 'batter' ? 'bg-white dark:bg-neutral-600 shadow-sm font-bold text-blue-600' : 'text-neutral-500'" class="flex-1 py-1.5 text-xs rounded-lg transition-all">타자 라인업</button>
+            <button @click="lineupViewMode = 'pitcher'" :class="lineupViewMode === 'pitcher' ? 'bg-white dark:bg-neutral-600 shadow-sm font-bold text-blue-600' : 'text-neutral-500'" class="flex-1 py-1.5 text-xs rounded-lg transition-all">투수 라인업</button>
+            <button @click="lineupViewMode = 'bench'" :class="lineupViewMode === 'bench' ? 'bg-white dark:bg-neutral-600 shadow-sm font-bold text-blue-600' : 'text-neutral-500'" class="flex-1 py-1.5 text-xs rounded-lg transition-all">벤치</button>
           </div>
 
           <div class="flex-1 overflow-hidden p-2 bg-neutral-50/30 dark:bg-neutral-900/30 flex flex-col items-center justify-center">
@@ -3038,11 +2572,11 @@ const handleTitleClick = () => {
                 <div class="space-y-1.5">
                   <div v-for="i in 5" :key="i" class="flex items-center gap-2">
                     <span class="text-[10px] font-bold text-neutral-500 w-6">칸 {{ i }}</span>
-                    <input list="synergy-list" v-model="globalBuffsAll[activeDeck].synergyMasteries[i-1]" placeholder="시너지 검색..." class="w-full px-2 py-1.5 bg-white border rounded text-xs"/>
+                    <input list="synergy-list" v-model="globalBuffs.synergyMasteries[i-1]" placeholder="시너지 검색..." class="w-full px-2 py-1.5 bg-white border rounded text-xs"/>
                     <label class="flex items-center justify-center cursor-pointer bg-white px-2 py-1.5 rounded border transition-colors shrink-0 select-none"
-                           :class="globalBuffsAll[activeDeck].amplifiedMasteryIndex === i - 1 ? 'border-indigo-500 bg-indigo-100 dark:bg-indigo-900/50 shadow-inner' : 'border-neutral-200 hover:bg-neutral-50'">
-                      <input type="checkbox" :checked="globalBuffsAll[activeDeck].amplifiedMasteryIndex === i - 1" @change="globalBuffsAll[activeDeck].amplifiedMasteryIndex = $event.target.checked ? i - 1 : -1" class="hidden" />
-                      <span class="text-[10px] font-black tracking-tight" :class="globalBuffsAll[activeDeck].amplifiedMasteryIndex === i - 1 ? 'text-indigo-700 dark:text-indigo-300' : 'text-neutral-400'">증폭</span>
+                           :class="globalBuffs.amplifiedMasteryIndex === i - 1 ? 'border-indigo-500 bg-indigo-100 dark:bg-indigo-900/50 shadow-inner' : 'border-neutral-200 hover:bg-neutral-50'">
+                      <input type="checkbox" :checked="globalBuffs.amplifiedMasteryIndex === i - 1" @change="globalBuffs.amplifiedMasteryIndex = $event.target.checked ? i - 1 : -1" class="hidden" />
+                      <span class="text-[10px] font-black tracking-tight" :class="globalBuffs.amplifiedMasteryIndex === i - 1 ? 'text-indigo-700 dark:text-indigo-300' : 'text-neutral-400'">증폭</span>
                     </label>
                   </div>
                   <div class="text-[9px] text-indigo-600 font-bold mt-1">※ '증폭' 버튼을 누르면 해당 시너지가 증폭됩니다. (최대 1개 지정, 다시 누르면 해제)</div>
@@ -3054,9 +2588,9 @@ const handleTitleClick = () => {
                 <h3 class="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-2 flex items-center gap-1"><Users class="w-4 h-4"/> 공통 버프 및 바인더 설정</h3>
                 
                 <div class="grid grid-cols-3 gap-2 mb-3">
-                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">팀 레벨 (1~100)</label><input type="number" min="1" max="100" v-model.number="globalBuffsAll[activeDeck].teamLevel" class="w-full px-2 py-1 text-center bg-white border rounded text-xs"/></div>
-                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">클랜 레벨 파워</label><input type="number" v-model.number="globalBuffsAll[activeDeck].clanBuff" class="w-full px-2 py-1 text-center bg-white border rounded text-xs"/></div>
-                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-indigo-600">바인더 레벨</label><input type="number" min="1" max="100" v-model.number="globalBuffsAll[activeDeck].binderLevel" class="w-full px-2 py-1 text-center bg-indigo-100 border border-indigo-300 rounded text-xs font-black text-indigo-800 outline-none"/></div>
+                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">팀 레벨 (1~100)</label><input type="number" min="1" max="100" v-model.number="globalBuffs.teamLevel" class="w-full px-2 py-1 text-center bg-white border rounded text-xs"/></div>
+                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-neutral-500">클랜 레벨 파워</label><input type="number" v-model.number="globalBuffs.clanBuff" class="w-full px-2 py-1 text-center bg-white border rounded text-xs"/></div>
+                  <div class="flex flex-col gap-1"><label class="text-[10px] font-bold text-indigo-600">바인더 레벨</label><input type="number" min="1" max="100" v-model.number="globalBuffs.binderLevel" class="w-full px-2 py-1 text-center bg-indigo-100 border border-indigo-300 rounded text-xs font-black text-indigo-800 outline-none"/></div>
                 </div>
                 
                 <!-- 바인더 세부 설정 -->
@@ -3088,72 +2622,7 @@ const handleTitleClick = () => {
                       <input type="text" list="binder-year-list" v-model="row.year" placeholder="연도" class="w-full text-center text-[10px] border rounded py-1 bg-neutral-50 outline-none focus:border-indigo-500 focus:bg-white" />
                       <input type="text" list="binder-grade-list" v-model="row.grade" placeholder="등급" class="w-full text-center text-[10px] border rounded py-1 bg-neutral-50 outline-none focus:border-indigo-500 focus:bg-white" />
                     </div>
-                  
-  <!-- 🌟 AI 추천 라인업 생성 모달 -->
-  <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
-      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
-        <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
-        <button @click="showAutoLineupModal = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
-      </div>
-      
-      <div class="p-5 flex flex-col gap-5 overflow-y-auto">
-        <!-- 팀 선택 -->
-        <div>
-          <label class="block text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">1. 베이스 구단 선택</label>
-          <select v-model="autoLineupTeam" class="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-3 text-sm font-bold text-neutral-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
-             <option v-for="team in groupedTeams" :key="team.name" :value="team">{{ team.name }}</option>
-          </select>
-        </div>
-
-        <!-- 디그니티 카드 선택 (최대 4장) -->
-        <div>
-          <label class="flex justify-between text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">
-            <span>2. 보유 디그니티(DGN) 선택 (최대 4장)</span>
-            <span class="text-indigo-600 dark:text-indigo-400">{{ autoLineupSelectedDgnIds.length }} / 4</span>
-          </label>
-          
-          <!-- 검색창 -->
-          <div class="relative mb-2">
-            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-            <input v-model="autoLineupDgnSearch" type="text" placeholder="선수 이름 검색 (예: 박건우)" class="w-full pl-9 pr-3 py-2.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
-            
-            <!-- 검색 결과 드롭다운 -->
-            <div v-if="autoLineupDgnSearch" class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
-               <button v-for="p in autoLineupDgnOptions" :key="p.raw.id" @click="addAutoLineupDgn(p)" class="w-full text-left px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-700/50 last:border-0 transition-colors">
-                  <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded font-black border border-indigo-200 dark:border-indigo-800">DGN</span>
-                  <span class="text-xs font-bold text-neutral-800 dark:text-neutral-200">{{ p.raw.name }}</span>
-                  <span class="text-[10px] text-neutral-400 ml-auto">{{ Array.isArray(p.raw.team) ? p.raw.team[0] : p.raw.team }} '{{ String(p.raw.year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
-               </button>
-               <div v-if="autoLineupDgnOptions.length === 0" class="px-3 py-3 text-center text-xs text-neutral-400">일치하는 디그니티 선수가 없습니다.</div>
-            </div>
-          </div>
-          
-          <!-- 선택된 DGN 목록 -->
-          <div class="flex flex-wrap gap-2">
-             <div v-for="id in autoLineupSelectedDgnIds" :key="id" class="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 px-2 py-1.5 rounded-lg text-xs font-bold text-indigo-800 dark:text-indigo-300 shadow-sm animate-in zoom-in-95">
-                <span>{{ getDgnPlayerName(id) }}</span>
-                <button @click="removeAutoLineupDgn(id)" class="text-indigo-400 hover:text-red-500 transition-colors ml-1 leading-none">&times;</button>
-             </div>
-             <div v-if="autoLineupSelectedDgnIds.length === 0" class="text-[11px] text-neutral-400 w-full text-center py-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-200 dark:border-neutral-700">선택된 디그니티 선수가 없습니다.</div>
-          </div>
-        </div>
-
-        <div class="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
-          <p class="text-[11px] text-amber-800 dark:text-amber-300 font-bold leading-relaxed">
-            ※ 선택한 덱(DH1/DH2)이 지워지고, <strong>{{ autoLineupTeam.name }} 주전 20명 + 팀플 벤치 + 부족한 시너지 보충용 후보군</strong>으로 로스터가 1초 만에 자동 완성됩니다!
-          </p>
-        </div>
-      </div>
-      
-      <div class="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex justify-end gap-2">
-         <button @click="showAutoLineupModal = false" class="px-5 py-2.5 text-sm font-bold text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800 rounded-xl transition-colors">취소</button>
-         <button @click="generateAutoLineup" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 transition-all">✨ 라인업 편성하기</button>
-      </div>
-    </div>
-  </div>
-
-</template>
+                  </template>
                 </div>
               </div>
               
@@ -3166,72 +2635,7 @@ const handleTitleClick = () => {
                        <span class="font-bold text-neutral-700">{{ findTeamName(teamId) }}</span>
                        <span class="text-indigo-600 font-black">+{{ calculateTeamPlayerDignityBuff({ team: teamId }) }}</span>
                      </div>
-                  
-  <!-- 🌟 AI 추천 라인업 생성 모달 -->
-  <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
-      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
-        <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
-        <button @click="showAutoLineupModal = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
-      </div>
-      
-      <div class="p-5 flex flex-col gap-5 overflow-y-auto">
-        <!-- 팀 선택 -->
-        <div>
-          <label class="block text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">1. 베이스 구단 선택</label>
-          <select v-model="autoLineupTeam" class="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-3 text-sm font-bold text-neutral-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
-             <option v-for="team in groupedTeams" :key="team.name" :value="team">{{ team.name }}</option>
-          </select>
-        </div>
-
-        <!-- 디그니티 카드 선택 (최대 4장) -->
-        <div>
-          <label class="flex justify-between text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">
-            <span>2. 보유 디그니티(DGN) 선택 (최대 4장)</span>
-            <span class="text-indigo-600 dark:text-indigo-400">{{ autoLineupSelectedDgnIds.length }} / 4</span>
-          </label>
-          
-          <!-- 검색창 -->
-          <div class="relative mb-2">
-            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-            <input v-model="autoLineupDgnSearch" type="text" placeholder="선수 이름 검색 (예: 박건우)" class="w-full pl-9 pr-3 py-2.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
-            
-            <!-- 검색 결과 드롭다운 -->
-            <div v-if="autoLineupDgnSearch" class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
-               <button v-for="p in autoLineupDgnOptions" :key="p.raw.id" @click="addAutoLineupDgn(p)" class="w-full text-left px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-700/50 last:border-0 transition-colors">
-                  <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded font-black border border-indigo-200 dark:border-indigo-800">DGN</span>
-                  <span class="text-xs font-bold text-neutral-800 dark:text-neutral-200">{{ p.raw.name }}</span>
-                  <span class="text-[10px] text-neutral-400 ml-auto">{{ Array.isArray(p.raw.team) ? p.raw.team[0] : p.raw.team }} '{{ String(p.raw.year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
-               </button>
-               <div v-if="autoLineupDgnOptions.length === 0" class="px-3 py-3 text-center text-xs text-neutral-400">일치하는 디그니티 선수가 없습니다.</div>
-            </div>
-          </div>
-          
-          <!-- 선택된 DGN 목록 -->
-          <div class="flex flex-wrap gap-2">
-             <div v-for="id in autoLineupSelectedDgnIds" :key="id" class="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 px-2 py-1.5 rounded-lg text-xs font-bold text-indigo-800 dark:text-indigo-300 shadow-sm animate-in zoom-in-95">
-                <span>{{ getDgnPlayerName(id) }}</span>
-                <button @click="removeAutoLineupDgn(id)" class="text-indigo-400 hover:text-red-500 transition-colors ml-1 leading-none">&times;</button>
-             </div>
-             <div v-if="autoLineupSelectedDgnIds.length === 0" class="text-[11px] text-neutral-400 w-full text-center py-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-200 dark:border-neutral-700">선택된 디그니티 선수가 없습니다.</div>
-          </div>
-        </div>
-
-        <div class="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
-          <p class="text-[11px] text-amber-800 dark:text-amber-300 font-bold leading-relaxed">
-            ※ 선택한 덱(DH1/DH2)이 지워지고, <strong>{{ autoLineupTeam.name }} 주전 20명 + 팀플 벤치 + 부족한 시너지 보충용 후보군</strong>으로 로스터가 1초 만에 자동 완성됩니다!
-          </p>
-        </div>
-      </div>
-      
-      <div class="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex justify-end gap-2">
-         <button @click="showAutoLineupModal = false" class="px-5 py-2.5 text-sm font-bold text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800 rounded-xl transition-colors">취소</button>
-         <button @click="generateAutoLineup" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 transition-all">✨ 라인업 편성하기</button>
-      </div>
-    </div>
-  </div>
-
-</template>
+                  </template>
                 </div>
               </div>
               
@@ -3241,7 +2645,7 @@ const handleTitleClick = () => {
                  <div class="grid grid-cols-2 gap-2">
                    <div class="flex flex-col gap-1">
                      <label class="text-[10px] font-bold text-neutral-500">감독 유형</label>
-                     <select v-model="globalBuffsAll[activeDeck].managerType" class="w-full px-2 py-1.5 bg-white border rounded text-xs font-medium">
+                     <select v-model="globalBuffs.managerType" class="w-full px-2 py-1.5 bg-white border rounded text-xs font-medium">
                        <option value="">미장착</option>
                        <option value="my_1st">자팀 1st ({{ STAT_LABELS[MANAGER_TYPES['1st'].main] }} / {{ STAT_LABELS[MANAGER_TYPES['1st'].sub] }})</option>
                        <option value="com_1st">공통 1st ({{ STAT_LABELS[MANAGER_TYPES['1st'].main] }} / {{ STAT_LABELS[MANAGER_TYPES['1st'].sub] }})</option>
@@ -3255,7 +2659,7 @@ const handleTitleClick = () => {
                    </div>
                    <div class="flex flex-col gap-1">
                      <label class="text-[10px] font-bold text-neutral-500">강화 레벨 (0~15)</label>
-                     <input type="number" min="0" max="15" v-model.number="globalBuffsAll[activeDeck].managerEnhance" class="w-full px-2 py-1.5 text-center bg-white border rounded text-xs"/>
+                     <input type="number" min="0" max="15" v-model.number="globalBuffs.managerEnhance" class="w-full px-2 py-1.5 text-center bg-white border rounded text-xs"/>
                    </div>
                  </div>
               </div>
@@ -3272,12 +2676,12 @@ const handleTitleClick = () => {
                 <div class="grid grid-cols-2 gap-2 mb-3">
                   <div class="flex flex-col gap-1">
                     <label class="text-[10px] font-bold text-neutral-500">감독 돌파 단계 (0~6)</label>
-                    <input type="number" min="0" max="6" v-model.number="globalBuffsAll[activeDeck].managerBreakthrough" class="w-full px-2 py-1.5 text-center bg-white border rounded text-xs"/>
+                    <input type="number" min="0" max="6" v-model.number="globalBuffs.managerBreakthrough" class="w-full px-2 py-1.5 text-center bg-white border rounded text-xs"/>
                   </div>
                   <!-- 감독 강화는 기존 위에 있는 managerEnhance 변수 사용 -->
                   <div class="flex flex-col gap-1 opacity-70">
                     <label class="text-[10px] font-bold text-neutral-500">감독 강화 단계 (0~15)</label>
-                    <div class="w-full px-2 py-1.5 text-center bg-neutral-100 border rounded text-xs text-neutral-500 font-bold tracking-tight">※위탁 연동 ({{globalBuffsAll[activeDeck].managerEnhance}}강)</div>
+                    <div class="w-full px-2 py-1.5 text-center bg-neutral-100 border rounded text-xs text-neutral-500 font-bold tracking-tight">※위탁 연동 ({{globalBuffs.managerEnhance}}강)</div>
                   </div>
                 </div>
 
@@ -3298,11 +2702,11 @@ const handleTitleClick = () => {
                          <div class="text-[10px] font-black text-indigo-900 border-b border-indigo-100 pb-0.5">■ 상시 효과 (상황 연동)</div>
                          <div class="flex justify-between items-center text-[10px]">
                            <span class="text-neutral-700">8번. 득점권 상황 도래 확률</span>
-                           <div class="flex items-center gap-1"><input type="number" step="0.1" v-model.number="globalBuffsAll[activeDeck].tacticBaseRates.scoring" class="w-12 text-center border rounded p-0.5 outline-none font-bold text-indigo-600">%</div>
+                           <div class="flex items-center gap-1"><input type="number" step="0.1" v-model.number="globalBuffs.tacticBaseRates.scoring" class="w-12 text-center border rounded p-0.5 outline-none font-bold text-indigo-600">%</div>
                          </div>
                          <div class="flex justify-between items-center text-[10px]">
                            <span class="text-neutral-700">12번. 클린업 타선 상대 확률</span>
-                           <div class="flex items-center gap-1"><input type="number" step="0.1" v-model.number="globalBuffsAll[activeDeck].tacticBaseRates.cleanup" class="w-12 text-center border rounded p-0.5 outline-none font-bold text-indigo-600">%</div>
+                           <div class="flex items-center gap-1"><input type="number" step="0.1" v-model.number="globalBuffs.tacticBaseRates.cleanup" class="w-12 text-center border rounded p-0.5 outline-none font-bold text-indigo-600">%</div>
                          </div>
                        </div>
                        
@@ -3310,7 +2714,7 @@ const handleTitleClick = () => {
                          <div class="text-[10px] font-black text-amber-600 border-b border-amber-100 pb-0.5">■ 조건 달성 효과</div>
                          <div v-for="(tac, i) in TACTICS_INFO" :key="'prob'+i" class="flex justify-between items-center text-[10px]">
                            <span class="text-neutral-700 truncate pr-2 flex-1" :title="tac.descCond(tac.condVals[1])">{{ i+1 }}번. {{ tac.name }} 성공</span>
-                           <div class="flex items-center gap-1 shrink-0"><input type="number" step="0.1" v-model.number="globalBuffsAll[activeDeck].tacticCondRates[i]" class="w-12 text-center border rounded p-0.5 outline-none font-bold text-amber-600">%</div>
+                           <div class="flex items-center gap-1 shrink-0"><input type="number" step="0.1" v-model.number="globalBuffs.tacticCondRates[i]" class="w-12 text-center border rounded p-0.5 outline-none font-bold text-amber-600">%</div>
                          </div>
                        </div>
                      </div>
@@ -3319,360 +2723,35 @@ const handleTitleClick = () => {
 
                 <!-- 전술 목록 (스크롤) -->
                 <div class="flex flex-col gap-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
-                   <div v-for="(tac, i) in TACTICS_INFO" :key="'tac'+i" class="bg-white border rounded-lg p-2 shadow-sm transition-all" :class="globalBuffsAll[activeDeck].tacticLevels[i] > 0 ? 'border-indigo-300 bg-indigo-50/20' : 'border-neutral-200'">
+                   <div v-for="(tac, i) in TACTICS_INFO" :key="'tac'+i" class="bg-white border rounded-lg p-2 shadow-sm transition-all" :class="globalBuffs.tacticLevels[i] > 0 ? 'border-indigo-300 bg-indigo-50/20' : 'border-neutral-200'">
                       <div class="flex justify-between items-center mb-1">
                          <div class="flex items-center gap-1.5">
                            <span class="text-[9px] px-1.5 py-0.5 bg-neutral-100 rounded font-black border" :class="tac.type==='타자'?'text-orange-600 border-orange-200':tac.type==='투수'?'text-blue-600 border-blue-200':'text-emerald-600 border-emerald-200'">{{ tac.type }}</span>
                            <span class="text-[11px] sm:text-xs font-bold text-neutral-800">{{ tac.name }}</span>
                          </div>
-                         <select v-model.number="globalBuffsAll[activeDeck].tacticLevels[i]" class="text-[11px] sm:text-xs border rounded p-1 font-bold outline-none" :class="[globalBuffsAll[activeDeck].managerEnhance < tac.req[globalBuffsAll[activeDeck].tacticLevels[i]] ? 'text-red-500 border-red-300' : 'text-indigo-700 border-indigo-200 bg-indigo-50', globalBuffsAll[activeDeck].tacticLevels[i] === 0 ? 'text-neutral-500 bg-white border-neutral-200' : '']">
+                         <select v-model.number="globalBuffs.tacticLevels[i]" class="text-[11px] sm:text-xs border rounded p-1 font-bold outline-none" :class="[globalBuffs.managerEnhance < tac.req[globalBuffs.tacticLevels[i]] ? 'text-red-500 border-red-300' : 'text-indigo-700 border-indigo-200 bg-indigo-50', globalBuffs.tacticLevels[i] === 0 ? 'text-neutral-500 bg-white border-neutral-200' : '']">
                             <option :value="0">Lv.0</option>
-                            <option :value="1" :disabled="globalBuffsAll[activeDeck].managerEnhance < tac.req[1]">Lv.1 ({{ tac.pt[1] }}pt<template v-if="globalBuffsAll[activeDeck].managerEnhance < tac.req[1]"> / 🔒{{tac.req[1]}}강 필요
-  <!-- 🌟 AI 추천 라인업 생성 모달 -->
-  <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
-      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
-        <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
-        <button @click="showAutoLineupModal = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
-      </div>
-      
-      <div class="p-5 flex flex-col gap-5 overflow-y-auto">
-        <!-- 팀 선택 -->
-        <div>
-          <label class="block text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">1. 베이스 구단 선택</label>
-          <select v-model="autoLineupTeam" class="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-3 text-sm font-bold text-neutral-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
-             <option v-for="team in groupedTeams" :key="team.name" :value="team">{{ team.name }}</option>
-          </select>
-        </div>
-
-        <!-- 디그니티 카드 선택 (최대 4장) -->
-        <div>
-          <label class="flex justify-between text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">
-            <span>2. 보유 디그니티(DGN) 선택 (최대 4장)</span>
-            <span class="text-indigo-600 dark:text-indigo-400">{{ autoLineupSelectedDgnIds.length }} / 4</span>
-          </label>
-          
-          <!-- 검색창 -->
-          <div class="relative mb-2">
-            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-            <input v-model="autoLineupDgnSearch" type="text" placeholder="선수 이름 검색 (예: 박건우)" class="w-full pl-9 pr-3 py-2.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
-            
-            <!-- 검색 결과 드롭다운 -->
-            <div v-if="autoLineupDgnSearch" class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
-               <button v-for="p in autoLineupDgnOptions" :key="p.raw.id" @click="addAutoLineupDgn(p)" class="w-full text-left px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-700/50 last:border-0 transition-colors">
-                  <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded font-black border border-indigo-200 dark:border-indigo-800">DGN</span>
-                  <span class="text-xs font-bold text-neutral-800 dark:text-neutral-200">{{ p.raw.name }}</span>
-                  <span class="text-[10px] text-neutral-400 ml-auto">{{ Array.isArray(p.raw.team) ? p.raw.team[0] : p.raw.team }} '{{ String(p.raw.year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
-               </button>
-               <div v-if="autoLineupDgnOptions.length === 0" class="px-3 py-3 text-center text-xs text-neutral-400">일치하는 디그니티 선수가 없습니다.</div>
-            </div>
-          </div>
-          
-          <!-- 선택된 DGN 목록 -->
-          <div class="flex flex-wrap gap-2">
-             <div v-for="id in autoLineupSelectedDgnIds" :key="id" class="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 px-2 py-1.5 rounded-lg text-xs font-bold text-indigo-800 dark:text-indigo-300 shadow-sm animate-in zoom-in-95">
-                <span>{{ getDgnPlayerName(id) }}</span>
-                <button @click="removeAutoLineupDgn(id)" class="text-indigo-400 hover:text-red-500 transition-colors ml-1 leading-none">&times;</button>
-             </div>
-             <div v-if="autoLineupSelectedDgnIds.length === 0" class="text-[11px] text-neutral-400 w-full text-center py-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-200 dark:border-neutral-700">선택된 디그니티 선수가 없습니다.</div>
-          </div>
-        </div>
-
-        <div class="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
-          <p class="text-[11px] text-amber-800 dark:text-amber-300 font-bold leading-relaxed">
-            ※ 선택한 덱(DH1/DH2)이 지워지고, <strong>{{ autoLineupTeam.name }} 주전 20명 + 팀플 벤치 + 부족한 시너지 보충용 후보군</strong>으로 로스터가 1초 만에 자동 완성됩니다!
-          </p>
-        </div>
-      </div>
-      
-      <div class="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex justify-end gap-2">
-         <button @click="showAutoLineupModal = false" class="px-5 py-2.5 text-sm font-bold text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800 rounded-xl transition-colors">취소</button>
-         <button @click="generateAutoLineup" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 transition-all">✨ 라인업 편성하기</button>
-      </div>
-    </div>
-  </div>
-
-</template>)</option>
-                            <option :value="2" :disabled="globalBuffsAll[activeDeck].managerEnhance < tac.req[2]">Lv.2 ({{ tac.pt[2] }}pt<template v-if="globalBuffsAll[activeDeck].managerEnhance < tac.req[2]"> / 🔒{{tac.req[2]}}강 필요
-  <!-- 🌟 AI 추천 라인업 생성 모달 -->
-  <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
-      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
-        <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
-        <button @click="showAutoLineupModal = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
-      </div>
-      
-      <div class="p-5 flex flex-col gap-5 overflow-y-auto">
-        <!-- 팀 선택 -->
-        <div>
-          <label class="block text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">1. 베이스 구단 선택</label>
-          <select v-model="autoLineupTeam" class="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-3 text-sm font-bold text-neutral-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
-             <option v-for="team in groupedTeams" :key="team.name" :value="team">{{ team.name }}</option>
-          </select>
-        </div>
-
-        <!-- 디그니티 카드 선택 (최대 4장) -->
-        <div>
-          <label class="flex justify-between text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">
-            <span>2. 보유 디그니티(DGN) 선택 (최대 4장)</span>
-            <span class="text-indigo-600 dark:text-indigo-400">{{ autoLineupSelectedDgnIds.length }} / 4</span>
-          </label>
-          
-          <!-- 검색창 -->
-          <div class="relative mb-2">
-            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-            <input v-model="autoLineupDgnSearch" type="text" placeholder="선수 이름 검색 (예: 박건우)" class="w-full pl-9 pr-3 py-2.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
-            
-            <!-- 검색 결과 드롭다운 -->
-            <div v-if="autoLineupDgnSearch" class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
-               <button v-for="p in autoLineupDgnOptions" :key="p.raw.id" @click="addAutoLineupDgn(p)" class="w-full text-left px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-700/50 last:border-0 transition-colors">
-                  <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded font-black border border-indigo-200 dark:border-indigo-800">DGN</span>
-                  <span class="text-xs font-bold text-neutral-800 dark:text-neutral-200">{{ p.raw.name }}</span>
-                  <span class="text-[10px] text-neutral-400 ml-auto">{{ Array.isArray(p.raw.team) ? p.raw.team[0] : p.raw.team }} '{{ String(p.raw.year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
-               </button>
-               <div v-if="autoLineupDgnOptions.length === 0" class="px-3 py-3 text-center text-xs text-neutral-400">일치하는 디그니티 선수가 없습니다.</div>
-            </div>
-          </div>
-          
-          <!-- 선택된 DGN 목록 -->
-          <div class="flex flex-wrap gap-2">
-             <div v-for="id in autoLineupSelectedDgnIds" :key="id" class="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 px-2 py-1.5 rounded-lg text-xs font-bold text-indigo-800 dark:text-indigo-300 shadow-sm animate-in zoom-in-95">
-                <span>{{ getDgnPlayerName(id) }}</span>
-                <button @click="removeAutoLineupDgn(id)" class="text-indigo-400 hover:text-red-500 transition-colors ml-1 leading-none">&times;</button>
-             </div>
-             <div v-if="autoLineupSelectedDgnIds.length === 0" class="text-[11px] text-neutral-400 w-full text-center py-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-200 dark:border-neutral-700">선택된 디그니티 선수가 없습니다.</div>
-          </div>
-        </div>
-
-        <div class="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
-          <p class="text-[11px] text-amber-800 dark:text-amber-300 font-bold leading-relaxed">
-            ※ 선택한 덱(DH1/DH2)이 지워지고, <strong>{{ autoLineupTeam.name }} 주전 20명 + 팀플 벤치 + 부족한 시너지 보충용 후보군</strong>으로 로스터가 1초 만에 자동 완성됩니다!
-          </p>
-        </div>
-      </div>
-      
-      <div class="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex justify-end gap-2">
-         <button @click="showAutoLineupModal = false" class="px-5 py-2.5 text-sm font-bold text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800 rounded-xl transition-colors">취소</button>
-         <button @click="generateAutoLineup" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 transition-all">✨ 라인업 편성하기</button>
-      </div>
-    </div>
-  </div>
-
-</template>)</option>
-                            <option :value="3" :disabled="globalBuffsAll[activeDeck].managerEnhance < tac.req[3]">Lv.3 ({{ tac.pt[3] }}pt<template v-if="globalBuffsAll[activeDeck].managerEnhance < tac.req[3]"> / 🔒{{tac.req[3]}}강 필요
-  <!-- 🌟 AI 추천 라인업 생성 모달 -->
-  <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
-      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
-        <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
-        <button @click="showAutoLineupModal = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
-      </div>
-      
-      <div class="p-5 flex flex-col gap-5 overflow-y-auto">
-        <!-- 팀 선택 -->
-        <div>
-          <label class="block text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">1. 베이스 구단 선택</label>
-          <select v-model="autoLineupTeam" class="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-3 text-sm font-bold text-neutral-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
-             <option v-for="team in groupedTeams" :key="team.name" :value="team">{{ team.name }}</option>
-          </select>
-        </div>
-
-        <!-- 디그니티 카드 선택 (최대 4장) -->
-        <div>
-          <label class="flex justify-between text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">
-            <span>2. 보유 디그니티(DGN) 선택 (최대 4장)</span>
-            <span class="text-indigo-600 dark:text-indigo-400">{{ autoLineupSelectedDgnIds.length }} / 4</span>
-          </label>
-          
-          <!-- 검색창 -->
-          <div class="relative mb-2">
-            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-            <input v-model="autoLineupDgnSearch" type="text" placeholder="선수 이름 검색 (예: 박건우)" class="w-full pl-9 pr-3 py-2.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
-            
-            <!-- 검색 결과 드롭다운 -->
-            <div v-if="autoLineupDgnSearch" class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
-               <button v-for="p in autoLineupDgnOptions" :key="p.raw.id" @click="addAutoLineupDgn(p)" class="w-full text-left px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-700/50 last:border-0 transition-colors">
-                  <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded font-black border border-indigo-200 dark:border-indigo-800">DGN</span>
-                  <span class="text-xs font-bold text-neutral-800 dark:text-neutral-200">{{ p.raw.name }}</span>
-                  <span class="text-[10px] text-neutral-400 ml-auto">{{ Array.isArray(p.raw.team) ? p.raw.team[0] : p.raw.team }} '{{ String(p.raw.year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
-               </button>
-               <div v-if="autoLineupDgnOptions.length === 0" class="px-3 py-3 text-center text-xs text-neutral-400">일치하는 디그니티 선수가 없습니다.</div>
-            </div>
-          </div>
-          
-          <!-- 선택된 DGN 목록 -->
-          <div class="flex flex-wrap gap-2">
-             <div v-for="id in autoLineupSelectedDgnIds" :key="id" class="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 px-2 py-1.5 rounded-lg text-xs font-bold text-indigo-800 dark:text-indigo-300 shadow-sm animate-in zoom-in-95">
-                <span>{{ getDgnPlayerName(id) }}</span>
-                <button @click="removeAutoLineupDgn(id)" class="text-indigo-400 hover:text-red-500 transition-colors ml-1 leading-none">&times;</button>
-             </div>
-             <div v-if="autoLineupSelectedDgnIds.length === 0" class="text-[11px] text-neutral-400 w-full text-center py-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-200 dark:border-neutral-700">선택된 디그니티 선수가 없습니다.</div>
-          </div>
-        </div>
-
-        <div class="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
-          <p class="text-[11px] text-amber-800 dark:text-amber-300 font-bold leading-relaxed">
-            ※ 선택한 덱(DH1/DH2)이 지워지고, <strong>{{ autoLineupTeam.name }} 주전 20명 + 팀플 벤치 + 부족한 시너지 보충용 후보군</strong>으로 로스터가 1초 만에 자동 완성됩니다!
-          </p>
-        </div>
-      </div>
-      
-      <div class="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex justify-end gap-2">
-         <button @click="showAutoLineupModal = false" class="px-5 py-2.5 text-sm font-bold text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800 rounded-xl transition-colors">취소</button>
-         <button @click="generateAutoLineup" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 transition-all">✨ 라인업 편성하기</button>
-      </div>
-    </div>
-  </div>
-
-</template>)</option>
-                            <option :value="4" :disabled="globalBuffsAll[activeDeck].managerEnhance < tac.req[4]">Lv.4 ({{ tac.pt[4] }}pt<template v-if="globalBuffsAll[activeDeck].managerEnhance < tac.req[4]"> / 🔒{{tac.req[4]}}강 필요
-  <!-- 🌟 AI 추천 라인업 생성 모달 -->
-  <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
-      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
-        <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
-        <button @click="showAutoLineupModal = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
-      </div>
-      
-      <div class="p-5 flex flex-col gap-5 overflow-y-auto">
-        <!-- 팀 선택 -->
-        <div>
-          <label class="block text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">1. 베이스 구단 선택</label>
-          <select v-model="autoLineupTeam" class="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-3 text-sm font-bold text-neutral-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
-             <option v-for="team in groupedTeams" :key="team.name" :value="team">{{ team.name }}</option>
-          </select>
-        </div>
-
-        <!-- 디그니티 카드 선택 (최대 4장) -->
-        <div>
-          <label class="flex justify-between text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">
-            <span>2. 보유 디그니티(DGN) 선택 (최대 4장)</span>
-            <span class="text-indigo-600 dark:text-indigo-400">{{ autoLineupSelectedDgnIds.length }} / 4</span>
-          </label>
-          
-          <!-- 검색창 -->
-          <div class="relative mb-2">
-            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-            <input v-model="autoLineupDgnSearch" type="text" placeholder="선수 이름 검색 (예: 박건우)" class="w-full pl-9 pr-3 py-2.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
-            
-            <!-- 검색 결과 드롭다운 -->
-            <div v-if="autoLineupDgnSearch" class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
-               <button v-for="p in autoLineupDgnOptions" :key="p.raw.id" @click="addAutoLineupDgn(p)" class="w-full text-left px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-700/50 last:border-0 transition-colors">
-                  <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded font-black border border-indigo-200 dark:border-indigo-800">DGN</span>
-                  <span class="text-xs font-bold text-neutral-800 dark:text-neutral-200">{{ p.raw.name }}</span>
-                  <span class="text-[10px] text-neutral-400 ml-auto">{{ Array.isArray(p.raw.team) ? p.raw.team[0] : p.raw.team }} '{{ String(p.raw.year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
-               </button>
-               <div v-if="autoLineupDgnOptions.length === 0" class="px-3 py-3 text-center text-xs text-neutral-400">일치하는 디그니티 선수가 없습니다.</div>
-            </div>
-          </div>
-          
-          <!-- 선택된 DGN 목록 -->
-          <div class="flex flex-wrap gap-2">
-             <div v-for="id in autoLineupSelectedDgnIds" :key="id" class="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 px-2 py-1.5 rounded-lg text-xs font-bold text-indigo-800 dark:text-indigo-300 shadow-sm animate-in zoom-in-95">
-                <span>{{ getDgnPlayerName(id) }}</span>
-                <button @click="removeAutoLineupDgn(id)" class="text-indigo-400 hover:text-red-500 transition-colors ml-1 leading-none">&times;</button>
-             </div>
-             <div v-if="autoLineupSelectedDgnIds.length === 0" class="text-[11px] text-neutral-400 w-full text-center py-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-200 dark:border-neutral-700">선택된 디그니티 선수가 없습니다.</div>
-          </div>
-        </div>
-
-        <div class="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
-          <p class="text-[11px] text-amber-800 dark:text-amber-300 font-bold leading-relaxed">
-            ※ 선택한 덱(DH1/DH2)이 지워지고, <strong>{{ autoLineupTeam.name }} 주전 20명 + 팀플 벤치 + 부족한 시너지 보충용 후보군</strong>으로 로스터가 1초 만에 자동 완성됩니다!
-          </p>
-        </div>
-      </div>
-      
-      <div class="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex justify-end gap-2">
-         <button @click="showAutoLineupModal = false" class="px-5 py-2.5 text-sm font-bold text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800 rounded-xl transition-colors">취소</button>
-         <button @click="generateAutoLineup" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 transition-all">✨ 라인업 편성하기</button>
-      </div>
-    </div>
-  </div>
-
-</template>)</option>
-                            <option :value="5" :disabled="globalBuffsAll[activeDeck].managerEnhance < tac.req[5]">Lv.5 ({{ tac.pt[5] }}pt<template v-if="globalBuffsAll[activeDeck].managerEnhance < tac.req[5]"> / 🔒{{tac.req[5]}}강 필요
-  <!-- 🌟 AI 추천 라인업 생성 모달 -->
-  <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
-      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
-        <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
-        <button @click="showAutoLineupModal = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
-      </div>
-      
-      <div class="p-5 flex flex-col gap-5 overflow-y-auto">
-        <!-- 팀 선택 -->
-        <div>
-          <label class="block text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">1. 베이스 구단 선택</label>
-          <select v-model="autoLineupTeam" class="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-3 text-sm font-bold text-neutral-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
-             <option v-for="team in groupedTeams" :key="team.name" :value="team">{{ team.name }}</option>
-          </select>
-        </div>
-
-        <!-- 디그니티 카드 선택 (최대 4장) -->
-        <div>
-          <label class="flex justify-between text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">
-            <span>2. 보유 디그니티(DGN) 선택 (최대 4장)</span>
-            <span class="text-indigo-600 dark:text-indigo-400">{{ autoLineupSelectedDgnIds.length }} / 4</span>
-          </label>
-          
-          <!-- 검색창 -->
-          <div class="relative mb-2">
-            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-            <input v-model="autoLineupDgnSearch" type="text" placeholder="선수 이름 검색 (예: 박건우)" class="w-full pl-9 pr-3 py-2.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
-            
-            <!-- 검색 결과 드롭다운 -->
-            <div v-if="autoLineupDgnSearch" class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
-               <button v-for="p in autoLineupDgnOptions" :key="p.raw.id" @click="addAutoLineupDgn(p)" class="w-full text-left px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-700/50 last:border-0 transition-colors">
-                  <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded font-black border border-indigo-200 dark:border-indigo-800">DGN</span>
-                  <span class="text-xs font-bold text-neutral-800 dark:text-neutral-200">{{ p.raw.name }}</span>
-                  <span class="text-[10px] text-neutral-400 ml-auto">{{ Array.isArray(p.raw.team) ? p.raw.team[0] : p.raw.team }} '{{ String(p.raw.year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
-               </button>
-               <div v-if="autoLineupDgnOptions.length === 0" class="px-3 py-3 text-center text-xs text-neutral-400">일치하는 디그니티 선수가 없습니다.</div>
-            </div>
-          </div>
-          
-          <!-- 선택된 DGN 목록 -->
-          <div class="flex flex-wrap gap-2">
-             <div v-for="id in autoLineupSelectedDgnIds" :key="id" class="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 px-2 py-1.5 rounded-lg text-xs font-bold text-indigo-800 dark:text-indigo-300 shadow-sm animate-in zoom-in-95">
-                <span>{{ getDgnPlayerName(id) }}</span>
-                <button @click="removeAutoLineupDgn(id)" class="text-indigo-400 hover:text-red-500 transition-colors ml-1 leading-none">&times;</button>
-             </div>
-             <div v-if="autoLineupSelectedDgnIds.length === 0" class="text-[11px] text-neutral-400 w-full text-center py-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-200 dark:border-neutral-700">선택된 디그니티 선수가 없습니다.</div>
-          </div>
-        </div>
-
-        <div class="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
-          <p class="text-[11px] text-amber-800 dark:text-amber-300 font-bold leading-relaxed">
-            ※ 선택한 덱(DH1/DH2)이 지워지고, <strong>{{ autoLineupTeam.name }} 주전 20명 + 팀플 벤치 + 부족한 시너지 보충용 후보군</strong>으로 로스터가 1초 만에 자동 완성됩니다!
-          </p>
-        </div>
-      </div>
-      
-      <div class="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex justify-end gap-2">
-         <button @click="showAutoLineupModal = false" class="px-5 py-2.5 text-sm font-bold text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800 rounded-xl transition-colors">취소</button>
-         <button @click="generateAutoLineup" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 transition-all">✨ 라인업 편성하기</button>
-      </div>
-    </div>
-  </div>
-
-</template>)</option>
+                            <option :value="1" :disabled="globalBuffs.managerEnhance < tac.req[1]">Lv.1 ({{ tac.pt[1] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[1]"> / 🔒{{tac.req[1]}}강 필요</template>)</option>
+                            <option :value="2" :disabled="globalBuffs.managerEnhance < tac.req[2]">Lv.2 ({{ tac.pt[2] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[2]"> / 🔒{{tac.req[2]}}강 필요</template>)</option>
+                            <option :value="3" :disabled="globalBuffs.managerEnhance < tac.req[3]">Lv.3 ({{ tac.pt[3] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[3]"> / 🔒{{tac.req[3]}}강 필요</template>)</option>
+                            <option :value="4" :disabled="globalBuffs.managerEnhance < tac.req[4]">Lv.4 ({{ tac.pt[4] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[4]"> / 🔒{{tac.req[4]}}강 필요</template>)</option>
+                            <option :value="5" :disabled="globalBuffs.managerEnhance < tac.req[5]">Lv.5 ({{ tac.pt[5] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[5]"> / 🔒{{tac.req[5]}}강 필요</template>)</option>
                          </select>
                       </div>
                       
                       <!-- 스탯 설명 박스 -->
-                      <div class="flex flex-col gap-0.5 p-1.5 rounded border transition-colors" :class="globalBuffsAll[activeDeck].tacticLevels[i] > 0 ? 'bg-indigo-50 border-indigo-100' : 'bg-neutral-50 border-neutral-100'">
-                         <div class="text-[10px] font-bold flex items-center justify-between" :class="globalBuffsAll[activeDeck].tacticLevels[i] > 0 ? 'text-indigo-700' : 'text-neutral-500'">
-                            <span>[상시] {{ tac.descBase(tac.baseVals[globalBuffsAll[activeDeck].tacticLevels[i]]) }}</span>
+                      <div class="flex flex-col gap-0.5 p-1.5 rounded border transition-colors" :class="globalBuffs.tacticLevels[i] > 0 ? 'bg-indigo-50 border-indigo-100' : 'bg-neutral-50 border-neutral-100'">
+                         <div class="text-[10px] font-bold flex items-center justify-between" :class="globalBuffs.tacticLevels[i] > 0 ? 'text-indigo-700' : 'text-neutral-500'">
+                            <span>[상시] {{ tac.descBase(tac.baseVals[globalBuffs.tacticLevels[i]]) }}</span>
                          </div>
-                         <div class="text-[10px] font-medium flex items-center justify-between" :class="globalBuffsAll[activeDeck].tacticLevels[i] > 0 ? 'text-indigo-900/70' : 'text-neutral-400'">
-                            <span>[조건] {{ tac.descCond(tac.condVals[globalBuffsAll[activeDeck].tacticLevels[i]]) }}</span>
+                         <div class="text-[10px] font-medium flex items-center justify-between" :class="globalBuffs.tacticLevels[i] > 0 ? 'text-indigo-900/70' : 'text-neutral-400'">
+                            <span>[조건] {{ tac.descCond(tac.condVals[globalBuffs.tacticLevels[i]]) }}</span>
                          </div>
                       </div>
                       
                       <!-- 경고 메시지 -->
-                      <div v-if="globalBuffsAll[activeDeck].managerEnhance < tac.req[globalBuffsAll[activeDeck].tacticLevels[i]]" class="text-[9px] text-red-500 font-bold mt-1 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">
-                         ⚠️ 강화 부족: 인게임 발동 불가 (최소 {{ tac.req[globalBuffsAll[activeDeck].tacticLevels[i]] }}강 필요)
+                      <div v-if="globalBuffs.managerEnhance < tac.req[globalBuffs.tacticLevels[i]]" class="text-[9px] text-red-500 font-bold mt-1 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">
+                         ⚠️ 강화 부족: 인게임 발동 불가 (최소 {{ tac.req[globalBuffs.tacticLevels[i]] }}강 필요)
                       </div>
                    </div>
                 </div>
@@ -3975,72 +3054,7 @@ const handleTitleClick = () => {
                           </div>
                         </div>
                       </div>
-                    
-  <!-- 🌟 AI 추천 라인업 생성 모달 -->
-  <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
-      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
-        <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
-        <button @click="showAutoLineupModal = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
-      </div>
-      
-      <div class="p-5 flex flex-col gap-5 overflow-y-auto">
-        <!-- 팀 선택 -->
-        <div>
-          <label class="block text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">1. 베이스 구단 선택</label>
-          <select v-model="autoLineupTeam" class="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-3 text-sm font-bold text-neutral-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
-             <option v-for="team in groupedTeams" :key="team.name" :value="team">{{ team.name }}</option>
-          </select>
-        </div>
-
-        <!-- 디그니티 카드 선택 (최대 4장) -->
-        <div>
-          <label class="flex justify-between text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">
-            <span>2. 보유 디그니티(DGN) 선택 (최대 4장)</span>
-            <span class="text-indigo-600 dark:text-indigo-400">{{ autoLineupSelectedDgnIds.length }} / 4</span>
-          </label>
-          
-          <!-- 검색창 -->
-          <div class="relative mb-2">
-            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-            <input v-model="autoLineupDgnSearch" type="text" placeholder="선수 이름 검색 (예: 박건우)" class="w-full pl-9 pr-3 py-2.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
-            
-            <!-- 검색 결과 드롭다운 -->
-            <div v-if="autoLineupDgnSearch" class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
-               <button v-for="p in autoLineupDgnOptions" :key="p.raw.id" @click="addAutoLineupDgn(p)" class="w-full text-left px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-700/50 last:border-0 transition-colors">
-                  <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded font-black border border-indigo-200 dark:border-indigo-800">DGN</span>
-                  <span class="text-xs font-bold text-neutral-800 dark:text-neutral-200">{{ p.raw.name }}</span>
-                  <span class="text-[10px] text-neutral-400 ml-auto">{{ Array.isArray(p.raw.team) ? p.raw.team[0] : p.raw.team }} '{{ String(p.raw.year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
-               </button>
-               <div v-if="autoLineupDgnOptions.length === 0" class="px-3 py-3 text-center text-xs text-neutral-400">일치하는 디그니티 선수가 없습니다.</div>
-            </div>
-          </div>
-          
-          <!-- 선택된 DGN 목록 -->
-          <div class="flex flex-wrap gap-2">
-             <div v-for="id in autoLineupSelectedDgnIds" :key="id" class="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 px-2 py-1.5 rounded-lg text-xs font-bold text-indigo-800 dark:text-indigo-300 shadow-sm animate-in zoom-in-95">
-                <span>{{ getDgnPlayerName(id) }}</span>
-                <button @click="removeAutoLineupDgn(id)" class="text-indigo-400 hover:text-red-500 transition-colors ml-1 leading-none">&times;</button>
-             </div>
-             <div v-if="autoLineupSelectedDgnIds.length === 0" class="text-[11px] text-neutral-400 w-full text-center py-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-200 dark:border-neutral-700">선택된 디그니티 선수가 없습니다.</div>
-          </div>
-        </div>
-
-        <div class="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
-          <p class="text-[11px] text-amber-800 dark:text-amber-300 font-bold leading-relaxed">
-            ※ 선택한 덱(DH1/DH2)이 지워지고, <strong>{{ autoLineupTeam.name }} 주전 20명 + 팀플 벤치 + 부족한 시너지 보충용 후보군</strong>으로 로스터가 1초 만에 자동 완성됩니다!
-          </p>
-        </div>
-      </div>
-      
-      <div class="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex justify-end gap-2">
-         <button @click="showAutoLineupModal = false" class="px-5 py-2.5 text-sm font-bold text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800 rounded-xl transition-colors">취소</button>
-         <button @click="generateAutoLineup" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 transition-all">✨ 라인업 편성하기</button>
-      </div>
-    </div>
-  </div>
-
-</template>
+                    </template>
                   </div>
 
                   <!-- 🌟 2. 클릭해서 장착할 수 있는 스킬 목록 (이미지 갤러리) -->
@@ -4049,9 +3063,6 @@ const handleTitleClick = () => {
                       v-for="sk in getAvailableSkills(lineup[selectedSlot])" 
                       :key="sk"
                       @click="togglePlayerSkill(sk)"
-                      @mouseenter="showSkillTooltip($event, sk)"
-                      @mouseleave="hideSkillTooltip"
-
                       :class="[
                         playerBuffs[selectedSlot].selectedSkills.includes(sk) 
                           ? 'bg-indigo-600 text-white border-indigo-600 shadow-md dark:bg-indigo-700 dark:border-indigo-700' 
@@ -4115,140 +3126,10 @@ const handleTitleClick = () => {
           <select v-model="newImprint.mainStat" class="text-xs font-bold bg-white border rounded p-1 text-indigo-700 outline-none flex-1">
              <template v-if="newImprint.role === '타자'">
                <option value="컨택">컨택</option><option value="갭파워">갭파워</option><option value="홈런파워">홈런파워</option><option value="선구">선구</option><option value="삼진회피">삼진회피</option>
-             
-  <!-- 🌟 AI 추천 라인업 생성 모달 -->
-  <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
-      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
-        <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
-        <button @click="showAutoLineupModal = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
-      </div>
-      
-      <div class="p-5 flex flex-col gap-5 overflow-y-auto">
-        <!-- 팀 선택 -->
-        <div>
-          <label class="block text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">1. 베이스 구단 선택</label>
-          <select v-model="autoLineupTeam" class="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-3 text-sm font-bold text-neutral-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
-             <option v-for="team in groupedTeams" :key="team.name" :value="team">{{ team.name }}</option>
-          </select>
-        </div>
-
-        <!-- 디그니티 카드 선택 (최대 4장) -->
-        <div>
-          <label class="flex justify-between text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">
-            <span>2. 보유 디그니티(DGN) 선택 (최대 4장)</span>
-            <span class="text-indigo-600 dark:text-indigo-400">{{ autoLineupSelectedDgnIds.length }} / 4</span>
-          </label>
-          
-          <!-- 검색창 -->
-          <div class="relative mb-2">
-            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-            <input v-model="autoLineupDgnSearch" type="text" placeholder="선수 이름 검색 (예: 박건우)" class="w-full pl-9 pr-3 py-2.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
-            
-            <!-- 검색 결과 드롭다운 -->
-            <div v-if="autoLineupDgnSearch" class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
-               <button v-for="p in autoLineupDgnOptions" :key="p.raw.id" @click="addAutoLineupDgn(p)" class="w-full text-left px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-700/50 last:border-0 transition-colors">
-                  <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded font-black border border-indigo-200 dark:border-indigo-800">DGN</span>
-                  <span class="text-xs font-bold text-neutral-800 dark:text-neutral-200">{{ p.raw.name }}</span>
-                  <span class="text-[10px] text-neutral-400 ml-auto">{{ Array.isArray(p.raw.team) ? p.raw.team[0] : p.raw.team }} '{{ String(p.raw.year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
-               </button>
-               <div v-if="autoLineupDgnOptions.length === 0" class="px-3 py-3 text-center text-xs text-neutral-400">일치하는 디그니티 선수가 없습니다.</div>
-            </div>
-          </div>
-          
-          <!-- 선택된 DGN 목록 -->
-          <div class="flex flex-wrap gap-2">
-             <div v-for="id in autoLineupSelectedDgnIds" :key="id" class="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 px-2 py-1.5 rounded-lg text-xs font-bold text-indigo-800 dark:text-indigo-300 shadow-sm animate-in zoom-in-95">
-                <span>{{ getDgnPlayerName(id) }}</span>
-                <button @click="removeAutoLineupDgn(id)" class="text-indigo-400 hover:text-red-500 transition-colors ml-1 leading-none">&times;</button>
-             </div>
-             <div v-if="autoLineupSelectedDgnIds.length === 0" class="text-[11px] text-neutral-400 w-full text-center py-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-200 dark:border-neutral-700">선택된 디그니티 선수가 없습니다.</div>
-          </div>
-        </div>
-
-        <div class="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
-          <p class="text-[11px] text-amber-800 dark:text-amber-300 font-bold leading-relaxed">
-            ※ 선택한 덱(DH1/DH2)이 지워지고, <strong>{{ autoLineupTeam.name }} 주전 20명 + 팀플 벤치 + 부족한 시너지 보충용 후보군</strong>으로 로스터가 1초 만에 자동 완성됩니다!
-          </p>
-        </div>
-      </div>
-      
-      <div class="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex justify-end gap-2">
-         <button @click="showAutoLineupModal = false" class="px-5 py-2.5 text-sm font-bold text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800 rounded-xl transition-colors">취소</button>
-         <button @click="generateAutoLineup" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 transition-all">✨ 라인업 편성하기</button>
-      </div>
-    </div>
-  </div>
-
-</template>
+             </template>
              <template v-else>
                <option value="무브먼트">무브먼트</option><option value="장타억제">장타억제</option><option value="홈런억제">홈런억제</option><option value="컨트롤">컨트롤</option><option value="스터프">스터프</option>
-             
-  <!-- 🌟 AI 추천 라인업 생성 모달 -->
-  <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
-      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
-        <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
-        <button @click="showAutoLineupModal = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
-      </div>
-      
-      <div class="p-5 flex flex-col gap-5 overflow-y-auto">
-        <!-- 팀 선택 -->
-        <div>
-          <label class="block text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">1. 베이스 구단 선택</label>
-          <select v-model="autoLineupTeam" class="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-3 text-sm font-bold text-neutral-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
-             <option v-for="team in groupedTeams" :key="team.name" :value="team">{{ team.name }}</option>
-          </select>
-        </div>
-
-        <!-- 디그니티 카드 선택 (최대 4장) -->
-        <div>
-          <label class="flex justify-between text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">
-            <span>2. 보유 디그니티(DGN) 선택 (최대 4장)</span>
-            <span class="text-indigo-600 dark:text-indigo-400">{{ autoLineupSelectedDgnIds.length }} / 4</span>
-          </label>
-          
-          <!-- 검색창 -->
-          <div class="relative mb-2">
-            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-            <input v-model="autoLineupDgnSearch" type="text" placeholder="선수 이름 검색 (예: 박건우)" class="w-full pl-9 pr-3 py-2.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
-            
-            <!-- 검색 결과 드롭다운 -->
-            <div v-if="autoLineupDgnSearch" class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
-               <button v-for="p in autoLineupDgnOptions" :key="p.raw.id" @click="addAutoLineupDgn(p)" class="w-full text-left px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-700/50 last:border-0 transition-colors">
-                  <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded font-black border border-indigo-200 dark:border-indigo-800">DGN</span>
-                  <span class="text-xs font-bold text-neutral-800 dark:text-neutral-200">{{ p.raw.name }}</span>
-                  <span class="text-[10px] text-neutral-400 ml-auto">{{ Array.isArray(p.raw.team) ? p.raw.team[0] : p.raw.team }} '{{ String(p.raw.year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
-               </button>
-               <div v-if="autoLineupDgnOptions.length === 0" class="px-3 py-3 text-center text-xs text-neutral-400">일치하는 디그니티 선수가 없습니다.</div>
-            </div>
-          </div>
-          
-          <!-- 선택된 DGN 목록 -->
-          <div class="flex flex-wrap gap-2">
-             <div v-for="id in autoLineupSelectedDgnIds" :key="id" class="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 px-2 py-1.5 rounded-lg text-xs font-bold text-indigo-800 dark:text-indigo-300 shadow-sm animate-in zoom-in-95">
-                <span>{{ getDgnPlayerName(id) }}</span>
-                <button @click="removeAutoLineupDgn(id)" class="text-indigo-400 hover:text-red-500 transition-colors ml-1 leading-none">&times;</button>
-             </div>
-             <div v-if="autoLineupSelectedDgnIds.length === 0" class="text-[11px] text-neutral-400 w-full text-center py-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-200 dark:border-neutral-700">선택된 디그니티 선수가 없습니다.</div>
-          </div>
-        </div>
-
-        <div class="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
-          <p class="text-[11px] text-amber-800 dark:text-amber-300 font-bold leading-relaxed">
-            ※ 선택한 덱(DH1/DH2)이 지워지고, <strong>{{ autoLineupTeam.name }} 주전 20명 + 팀플 벤치 + 부족한 시너지 보충용 후보군</strong>으로 로스터가 1초 만에 자동 완성됩니다!
-          </p>
-        </div>
-      </div>
-      
-      <div class="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex justify-end gap-2">
-         <button @click="showAutoLineupModal = false" class="px-5 py-2.5 text-sm font-bold text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800 rounded-xl transition-colors">취소</button>
-         <button @click="generateAutoLineup" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 transition-all">✨ 라인업 편성하기</button>
-      </div>
-    </div>
-  </div>
-
-</template>
+             </template>
           </select>
           <span class="text-[11px] text-neutral-400 font-black">+</span>
           <input v-model="newImprint.mainPower" type="number" class="w-16 text-xs bg-white border rounded p-1 outline-none text-right font-black text-indigo-600">
@@ -4260,140 +3141,10 @@ const handleTitleClick = () => {
             <select v-model="opt.type" class="text-xs border rounded p-1.5 flex-1 text-neutral-700 font-medium">
               <template v-if="newImprint.role === '타자'">
                 <option value="컨택">컨택</option><option value="갭파워">갭파워</option><option value="홈런파워">홈런파워</option><option value="선구">선구</option><option value="삼진회피">삼진회피</option>
-              
-  <!-- 🌟 AI 추천 라인업 생성 모달 -->
-  <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
-      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
-        <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
-        <button @click="showAutoLineupModal = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
-      </div>
-      
-      <div class="p-5 flex flex-col gap-5 overflow-y-auto">
-        <!-- 팀 선택 -->
-        <div>
-          <label class="block text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">1. 베이스 구단 선택</label>
-          <select v-model="autoLineupTeam" class="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-3 text-sm font-bold text-neutral-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
-             <option v-for="team in groupedTeams" :key="team.name" :value="team">{{ team.name }}</option>
-          </select>
-        </div>
-
-        <!-- 디그니티 카드 선택 (최대 4장) -->
-        <div>
-          <label class="flex justify-between text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">
-            <span>2. 보유 디그니티(DGN) 선택 (최대 4장)</span>
-            <span class="text-indigo-600 dark:text-indigo-400">{{ autoLineupSelectedDgnIds.length }} / 4</span>
-          </label>
-          
-          <!-- 검색창 -->
-          <div class="relative mb-2">
-            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-            <input v-model="autoLineupDgnSearch" type="text" placeholder="선수 이름 검색 (예: 박건우)" class="w-full pl-9 pr-3 py-2.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
-            
-            <!-- 검색 결과 드롭다운 -->
-            <div v-if="autoLineupDgnSearch" class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
-               <button v-for="p in autoLineupDgnOptions" :key="p.raw.id" @click="addAutoLineupDgn(p)" class="w-full text-left px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-700/50 last:border-0 transition-colors">
-                  <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded font-black border border-indigo-200 dark:border-indigo-800">DGN</span>
-                  <span class="text-xs font-bold text-neutral-800 dark:text-neutral-200">{{ p.raw.name }}</span>
-                  <span class="text-[10px] text-neutral-400 ml-auto">{{ Array.isArray(p.raw.team) ? p.raw.team[0] : p.raw.team }} '{{ String(p.raw.year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
-               </button>
-               <div v-if="autoLineupDgnOptions.length === 0" class="px-3 py-3 text-center text-xs text-neutral-400">일치하는 디그니티 선수가 없습니다.</div>
-            </div>
-          </div>
-          
-          <!-- 선택된 DGN 목록 -->
-          <div class="flex flex-wrap gap-2">
-             <div v-for="id in autoLineupSelectedDgnIds" :key="id" class="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 px-2 py-1.5 rounded-lg text-xs font-bold text-indigo-800 dark:text-indigo-300 shadow-sm animate-in zoom-in-95">
-                <span>{{ getDgnPlayerName(id) }}</span>
-                <button @click="removeAutoLineupDgn(id)" class="text-indigo-400 hover:text-red-500 transition-colors ml-1 leading-none">&times;</button>
-             </div>
-             <div v-if="autoLineupSelectedDgnIds.length === 0" class="text-[11px] text-neutral-400 w-full text-center py-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-200 dark:border-neutral-700">선택된 디그니티 선수가 없습니다.</div>
-          </div>
-        </div>
-
-        <div class="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
-          <p class="text-[11px] text-amber-800 dark:text-amber-300 font-bold leading-relaxed">
-            ※ 선택한 덱(DH1/DH2)이 지워지고, <strong>{{ autoLineupTeam.name }} 주전 20명 + 팀플 벤치 + 부족한 시너지 보충용 후보군</strong>으로 로스터가 1초 만에 자동 완성됩니다!
-          </p>
-        </div>
-      </div>
-      
-      <div class="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex justify-end gap-2">
-         <button @click="showAutoLineupModal = false" class="px-5 py-2.5 text-sm font-bold text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800 rounded-xl transition-colors">취소</button>
-         <button @click="generateAutoLineup" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 transition-all">✨ 라인업 편성하기</button>
-      </div>
-    </div>
-  </div>
-
-</template>
+              </template>
               <template v-else>
                 <option value="무브먼트">무브먼트</option><option value="장타억제">장타억제</option><option value="홈런억제">홈런억제</option><option value="컨트롤">컨트롤</option><option value="스터프">스터프</option><option value="한계투구 증가">한계투구 증가</option><option value="1~2선발시 파워증가">1~2선발시 파워증가</option>
-              
-  <!-- 🌟 AI 추천 라인업 생성 모달 -->
-  <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
-      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
-        <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
-        <button @click="showAutoLineupModal = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
-      </div>
-      
-      <div class="p-5 flex flex-col gap-5 overflow-y-auto">
-        <!-- 팀 선택 -->
-        <div>
-          <label class="block text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">1. 베이스 구단 선택</label>
-          <select v-model="autoLineupTeam" class="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-3 text-sm font-bold text-neutral-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
-             <option v-for="team in groupedTeams" :key="team.name" :value="team">{{ team.name }}</option>
-          </select>
-        </div>
-
-        <!-- 디그니티 카드 선택 (최대 4장) -->
-        <div>
-          <label class="flex justify-between text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">
-            <span>2. 보유 디그니티(DGN) 선택 (최대 4장)</span>
-            <span class="text-indigo-600 dark:text-indigo-400">{{ autoLineupSelectedDgnIds.length }} / 4</span>
-          </label>
-          
-          <!-- 검색창 -->
-          <div class="relative mb-2">
-            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-            <input v-model="autoLineupDgnSearch" type="text" placeholder="선수 이름 검색 (예: 박건우)" class="w-full pl-9 pr-3 py-2.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
-            
-            <!-- 검색 결과 드롭다운 -->
-            <div v-if="autoLineupDgnSearch" class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
-               <button v-for="p in autoLineupDgnOptions" :key="p.raw.id" @click="addAutoLineupDgn(p)" class="w-full text-left px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-700/50 last:border-0 transition-colors">
-                  <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded font-black border border-indigo-200 dark:border-indigo-800">DGN</span>
-                  <span class="text-xs font-bold text-neutral-800 dark:text-neutral-200">{{ p.raw.name }}</span>
-                  <span class="text-[10px] text-neutral-400 ml-auto">{{ Array.isArray(p.raw.team) ? p.raw.team[0] : p.raw.team }} '{{ String(p.raw.year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
-               </button>
-               <div v-if="autoLineupDgnOptions.length === 0" class="px-3 py-3 text-center text-xs text-neutral-400">일치하는 디그니티 선수가 없습니다.</div>
-            </div>
-          </div>
-          
-          <!-- 선택된 DGN 목록 -->
-          <div class="flex flex-wrap gap-2">
-             <div v-for="id in autoLineupSelectedDgnIds" :key="id" class="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 px-2 py-1.5 rounded-lg text-xs font-bold text-indigo-800 dark:text-indigo-300 shadow-sm animate-in zoom-in-95">
-                <span>{{ getDgnPlayerName(id) }}</span>
-                <button @click="removeAutoLineupDgn(id)" class="text-indigo-400 hover:text-red-500 transition-colors ml-1 leading-none">&times;</button>
-             </div>
-             <div v-if="autoLineupSelectedDgnIds.length === 0" class="text-[11px] text-neutral-400 w-full text-center py-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-200 dark:border-neutral-700">선택된 디그니티 선수가 없습니다.</div>
-          </div>
-        </div>
-
-        <div class="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
-          <p class="text-[11px] text-amber-800 dark:text-amber-300 font-bold leading-relaxed">
-            ※ 선택한 덱(DH1/DH2)이 지워지고, <strong>{{ autoLineupTeam.name }} 주전 20명 + 팀플 벤치 + 부족한 시너지 보충용 후보군</strong>으로 로스터가 1초 만에 자동 완성됩니다!
-          </p>
-        </div>
-      </div>
-      
-      <div class="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex justify-end gap-2">
-         <button @click="showAutoLineupModal = false" class="px-5 py-2.5 text-sm font-bold text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800 rounded-xl transition-colors">취소</button>
-         <button @click="generateAutoLineup" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 transition-all">✨ 라인업 편성하기</button>
-      </div>
-    </div>
-  </div>
-
-</template>
+              </template>
               <option value="수비">수비</option><option value="전체 능력치">전체 능력치 (코어 5종 +수치)</option><option value="조건부 파워">조건부 파워 (박빙/주자 등)</option><option value="수익 증가">경기 총 수익 증가</option>
             </select>
             <input v-model="opt.value" type="number" placeholder="수치" class="w-20 text-xs border rounded p-1.5 text-center">
@@ -4558,72 +3309,7 @@ const handleTitleClick = () => {
                                 sk.replace('번', '') 
                               }}
                            </div>
-                        
-  <!-- 🌟 AI 추천 라인업 생성 모달 -->
-  <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
-      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
-        <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
-        <button @click="showAutoLineupModal = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
-      </div>
-      
-      <div class="p-5 flex flex-col gap-5 overflow-y-auto">
-        <!-- 팀 선택 -->
-        <div>
-          <label class="block text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">1. 베이스 구단 선택</label>
-          <select v-model="autoLineupTeam" class="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-3 text-sm font-bold text-neutral-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
-             <option v-for="team in groupedTeams" :key="team.name" :value="team">{{ team.name }}</option>
-          </select>
-        </div>
-
-        <!-- 디그니티 카드 선택 (최대 4장) -->
-        <div>
-          <label class="flex justify-between text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">
-            <span>2. 보유 디그니티(DGN) 선택 (최대 4장)</span>
-            <span class="text-indigo-600 dark:text-indigo-400">{{ autoLineupSelectedDgnIds.length }} / 4</span>
-          </label>
-          
-          <!-- 검색창 -->
-          <div class="relative mb-2">
-            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-            <input v-model="autoLineupDgnSearch" type="text" placeholder="선수 이름 검색 (예: 박건우)" class="w-full pl-9 pr-3 py-2.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
-            
-            <!-- 검색 결과 드롭다운 -->
-            <div v-if="autoLineupDgnSearch" class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
-               <button v-for="p in autoLineupDgnOptions" :key="p.raw.id" @click="addAutoLineupDgn(p)" class="w-full text-left px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-700/50 last:border-0 transition-colors">
-                  <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded font-black border border-indigo-200 dark:border-indigo-800">DGN</span>
-                  <span class="text-xs font-bold text-neutral-800 dark:text-neutral-200">{{ p.raw.name }}</span>
-                  <span class="text-[10px] text-neutral-400 ml-auto">{{ Array.isArray(p.raw.team) ? p.raw.team[0] : p.raw.team }} '{{ String(p.raw.year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
-               </button>
-               <div v-if="autoLineupDgnOptions.length === 0" class="px-3 py-3 text-center text-xs text-neutral-400">일치하는 디그니티 선수가 없습니다.</div>
-            </div>
-          </div>
-          
-          <!-- 선택된 DGN 목록 -->
-          <div class="flex flex-wrap gap-2">
-             <div v-for="id in autoLineupSelectedDgnIds" :key="id" class="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 px-2 py-1.5 rounded-lg text-xs font-bold text-indigo-800 dark:text-indigo-300 shadow-sm animate-in zoom-in-95">
-                <span>{{ getDgnPlayerName(id) }}</span>
-                <button @click="removeAutoLineupDgn(id)" class="text-indigo-400 hover:text-red-500 transition-colors ml-1 leading-none">&times;</button>
-             </div>
-             <div v-if="autoLineupSelectedDgnIds.length === 0" class="text-[11px] text-neutral-400 w-full text-center py-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-200 dark:border-neutral-700">선택된 디그니티 선수가 없습니다.</div>
-          </div>
-        </div>
-
-        <div class="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
-          <p class="text-[11px] text-amber-800 dark:text-amber-300 font-bold leading-relaxed">
-            ※ 선택한 덱(DH1/DH2)이 지워지고, <strong>{{ autoLineupTeam.name }} 주전 20명 + 팀플 벤치 + 부족한 시너지 보충용 후보군</strong>으로 로스터가 1초 만에 자동 완성됩니다!
-          </p>
-        </div>
-      </div>
-      
-      <div class="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex justify-end gap-2">
-         <button @click="showAutoLineupModal = false" class="px-5 py-2.5 text-sm font-bold text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800 rounded-xl transition-colors">취소</button>
-         <button @click="generateAutoLineup" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 transition-all">✨ 라인업 편성하기</button>
-      </div>
-    </div>
-  </div>
-
-</template>
+                        </template>
                      </div>
                      
                      <!-- 파워 (노란색) -->
@@ -4688,114 +3374,9 @@ const handleTitleClick = () => {
       </div>
     </div>
   </div>
-
-  <!-- 🌟 자동 사라짐 토스트 (Toast) 알림 UI 🌟 -->
-  <div class="fixed bottom-6 right-6 z-[999999] flex flex-col gap-2.5 pointer-events-none">
-    <transition-group name="toast">
-      <div v-for="toast in toasts" :key="toast.id"
-           class="px-4 py-3.5 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] font-bold text-[13px] sm:text-sm text-white flex items-center gap-3 pointer-events-auto border border-white/10"
-           :class="toast.type === 'error' ? 'bg-neutral-800/95' : 'bg-neutral-800/95'">
-         <span class="text-xl leading-none" v-if="toast.type === 'error'">🚫</span>
-         <span class="text-xl leading-none" v-else>✅</span>
-         <span class="tracking-tight drop-shadow-md pr-1">{{ toast.msg }}</span>
-      </div>
-    </transition-group>
-  </div>
-
-  <!-- 🌟 글로벌 스킬 툴팁 (화면 밖 잘림 완벽 방지) 🌟 -->
-  <div v-if="tooltipState.show" 
-       class="fixed z-[99999] pointer-events-none drop-shadow-2xl transition-all duration-75"
-       :style="{ 
-         top: (tooltipState.y - 8) + 'px', 
-         left: tooltipState.x + 'px',
-         transform: tooltipState.transform
-       }">
-      <div class="bg-neutral-900 dark:bg-white text-neutral-100 dark:text-neutral-900 text-[11px] font-medium px-3 py-2.5 rounded-xl shadow-2xl text-left leading-relaxed whitespace-pre-wrap border border-neutral-700 dark:border-neutral-200 tracking-tight w-max max-w-[240px]">
-        {{ getNormalSkillDescription(tooltipState.skill) }}
-      </div>
-      <div class="absolute bottom-0 w-3 h-3 bg-neutral-900 dark:bg-white rotate-45 border-r border-b border-neutral-700 dark:border-neutral-200"
-           :style="{ left: tooltipState.arrowLeft, transform: 'translate(-50%, 50%)' }"></div>
-  </div>
-
-  <!-- 🌟 AI 추천 라인업 생성 모달 -->
-  <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
-      <div class="flex justify-between items-center p-4 border-b dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
-        <h2 class="text-base font-black text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5"><Sparkles class="w-5 h-5"/> AI 실전 라인업 메이커</h2>
-        <button @click="showAutoLineupModal = false" class="text-neutral-400 hover:text-neutral-800 dark:hover:text-white text-2xl font-bold transition-colors">&times;</button>
-      </div>
-      
-      <div class="p-5 flex flex-col gap-5 overflow-y-auto">
-        <!-- 팀 선택 -->
-        <div>
-          <label class="block text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">1. 베이스 구단 선택</label>
-          <select v-model="autoLineupTeam" class="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-3 text-sm font-bold text-neutral-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
-             <option v-for="team in groupedTeams" :key="team.name" :value="team">{{ team.name }}</option>
-          </select>
-        </div>
-
-        <!-- 디그니티 카드 선택 (최대 4장) -->
-        <div>
-          <label class="flex justify-between text-xs font-bold text-neutral-600 dark:text-neutral-400 mb-2">
-            <span>2. 보유 디그니티(DGN) 선택 (최대 4장)</span>
-            <span class="text-indigo-600 dark:text-indigo-400">{{ autoLineupSelectedDgnIds.length }} / 4</span>
-          </label>
-          
-          <!-- 검색창 -->
-          <div class="relative mb-2">
-            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-            <input v-model="autoLineupDgnSearch" type="text" placeholder="선수 이름 검색 (예: 박건우)" class="w-full pl-9 pr-3 py-2.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
-            
-            <!-- 검색 결과 드롭다운 -->
-            <div v-if="autoLineupDgnSearch" class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
-               <button v-for="p in autoLineupDgnOptions" :key="p.raw.id" @click="addAutoLineupDgn(p)" class="w-full text-left px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-700/50 last:border-0 transition-colors">
-                  <span class="text-[9px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded font-black border border-indigo-200 dark:border-indigo-800">DGN</span>
-                  <span class="text-xs font-bold text-neutral-800 dark:text-neutral-200">{{ p.raw.name }}</span>
-                  <span class="text-[10px] text-neutral-400 ml-auto">{{ Array.isArray(p.raw.team) ? p.raw.team[0] : p.raw.team }} '{{ String(p.raw.year).replace(/[\[\]]/g, '').split(',')[0].trim().slice(-2) }}</span>
-               </button>
-               <div v-if="autoLineupDgnOptions.length === 0" class="px-3 py-3 text-center text-xs text-neutral-400">일치하는 디그니티 선수가 없습니다.</div>
-            </div>
-          </div>
-          
-          <!-- 선택된 DGN 목록 -->
-          <div class="flex flex-wrap gap-2">
-             <div v-for="id in autoLineupSelectedDgnIds" :key="id" class="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 px-2 py-1.5 rounded-lg text-xs font-bold text-indigo-800 dark:text-indigo-300 shadow-sm animate-in zoom-in-95">
-                <span>{{ getDgnPlayerName(id) }}</span>
-                <button @click="removeAutoLineupDgn(id)" class="text-indigo-400 hover:text-red-500 transition-colors ml-1 leading-none">&times;</button>
-             </div>
-             <div v-if="autoLineupSelectedDgnIds.length === 0" class="text-[11px] text-neutral-400 w-full text-center py-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-dashed border-neutral-200 dark:border-neutral-700">선택된 디그니티 선수가 없습니다.</div>
-          </div>
-        </div>
-
-        <div class="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800/50">
-          <p class="text-[11px] text-amber-800 dark:text-amber-300 font-bold leading-relaxed">
-            ※ 선택한 덱(DH1/DH2)이 지워지고, <strong>{{ autoLineupTeam.name }} 주전 20명 + 팀플 벤치 + 부족한 시너지 보충용 후보군</strong>으로 로스터가 1초 만에 자동 완성됩니다!
-          </p>
-        </div>
-      </div>
-      
-      <div class="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex justify-end gap-2">
-         <button @click="showAutoLineupModal = false" class="px-5 py-2.5 text-sm font-bold text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800 rounded-xl transition-colors">취소</button>
-         <button @click="generateAutoLineup" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black rounded-xl shadow-[0_4px_10px_rgba(79,70,229,0.3)] hover:-translate-y-0.5 transition-all">✨ 라인업 편성하기</button>
-      </div>
-    </div>
-  </div>
-
 </template>
 
 <style scoped>
-.toast-enter-active,
-.toast-leave-active {
-  transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-.toast-enter-from {
-  opacity: 0;
-  transform: translateX(30px) scale(0.95);
-}
-.toast-leave-to {
-  opacity: 0;
-  transform: translateY(-20px) scale(0.95);
-}
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
 ::-webkit-scrollbar { display: none; }
