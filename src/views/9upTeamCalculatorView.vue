@@ -2300,7 +2300,12 @@ const generateAutoLineup = () => {
           .filter(p => autoLineupSelectedDgnIds.value.includes(p.raw.id))
           .map(p => p.nameNormalized + '_' + (isPitcher(p.raw) ? 'P' : 'B'));
 
-      // DGN(디그니티) 수동 선택분 최우선 배치
+      // 🌟 [추가된 핵심 블랙리스트] 내가 고른 DGN 선수의 '이름+포지션'을 뽑아서 절대 방어막 생성!
+      const selectedDgnKeys = preparedPlayers.value
+          .filter(p => autoLineupSelectedDgnIds.value.includes(p.raw.id))
+          .map(p => p.nameNormalized + '_' + (isPitcher(p.raw) ? 'P' : 'B'));
+
+      // 🌟 4. DGN(디그니티) 수동 선택분 최우선 배치
       const dgnPlayers = preparedPlayers.value.filter(p => autoLineupSelectedDgnIds.value.includes(p.raw.id)).map(p => {
           p.raw._tags = getSynergyTags(p.raw);
           return p.raw;
@@ -2325,13 +2330,14 @@ const generateAutoLineup = () => {
           }
       });
 
-      // 주전 후보군 세팅 (GOY, SEA 완전 제외)
+      // 🌟 5. 주전 후보군 세팅 (여기에 블랙리스트 검사 추가됨)
       const validMainGrades = ['TOP', 'ACE', 'HIT', 'GG', 'ROY', 'DGN'];
       const mainCandidates = preparedPlayers.value.filter(p => {
           const pKey = p.nameNormalized + '_' + (isPitcher(p.raw) ? 'P' : 'B');
+          
           return p.teamLowerCase.some(t => teamIds.includes(t)) && 
                  validMainGrades.includes(getMappedGrade(p.raw.grade)) &&
-                 // 🌟 핵심 방어막: DGN 카드에 넣은 선수 이름이면, 오직 내가 선택한 DGN 본인만 후보에 오르고 나머진 싹 다 쳐냄!
+                 // 👇 [중요] DGN 모달에서 고른 선수의 이름이면, 오직 내가 고른 본인만 통과하고 짭퉁은 다 죽음!
                  (!selectedDgnKeys.includes(pKey) || autoLineupSelectedDgnIds.value.includes(p.raw.id));
       }).map(p => {
           const raw = p.raw;
@@ -2339,7 +2345,7 @@ const generateAutoLineup = () => {
           raw._basePower = (Number(raw.contact||0) + Number(raw.homeRunPower||0) + Number(raw.gapPower||0) + Number(raw.movement||0) + Number(raw.stuff||0) + Number(raw.control||0)) + (Number(raw.rarity||1) * 3000);
           return raw;
       });
-
+      
       // 🌟 진짜 파워 시뮬레이션 평가 함수 (Greedy Algorithm)
       const evaluateCandidate = (p: any) => {
           let synDelta = 0;
@@ -2417,7 +2423,7 @@ const generateAutoLineup = () => {
           const pKey = p.nameNormalized + '_' + (isPitcher(p.raw) ? 'P' : 'B');
           return p.teamLowerCase.some(t => teamIds.includes(t)) && 
                  getMappedGrade(p.raw.grade) === 'TEA' &&
-                 !selectedDgnKeys.includes(pKey); // 🌟 벤치에는 무조건 DGN 이름 컷!
+                 !selectedDgnKeys.includes(pKey); // 👈 벤치에도 짭퉁 DGN 이름 얼씬도 못하게 컷!
       }).map(p => {
           p.raw._tags = getSynergyTags(p.raw);
           p.raw._basePower = 0; 
@@ -2444,7 +2450,7 @@ const generateAutoLineup = () => {
           const pKey = p.nameNormalized + '_' + (isPitcher(p.raw) ? 'P' : 'B');
           return p.teamLowerCase.some(t => teamIds.includes(t)) && 
                  getMappedGrade(p.raw.grade) === 'SEA' &&
-                 !selectedDgnKeys.includes(pKey); // 🌟 벤치에는 무조건 DGN 이름 컷!
+                 !selectedDgnKeys.includes(pKey); // 👈 여기도 똑같이 컷!
       }).map(p => {
           p.raw._tags = getSynergyTags(p.raw);
           p.raw._basePower = 0; 
