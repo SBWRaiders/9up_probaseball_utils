@@ -3876,10 +3876,12 @@ const handleTitleClick = () => {
                             </span>
                           </div>
                           <div class="text-[11px] font-medium text-neutral-600 dark:text-neutral-400 leading-snug break-keep whitespace-pre-wrap">
-                            {{ getEnhancedSkillEffect(enh, playerBuffs[selectedSlot].enhancementLevel) }}
-                          </div>
-                        </div>
-                      </div>
+        {{ getEnhancedSkillEffect(enh, playerBuffs[selectedSlot].enhancementLevel) }}
+      </div>
+    </div>
+  </div>
+</template>
+</div>
                     
   <!-- 🌟 AI 추천 라인업 생성 모달 -->
   <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
@@ -4156,7 +4158,11 @@ const handleTitleClick = () => {
           <div v-for="(opt, idx) in newImprint.subOptions" :key="idx" class="flex gap-2">
             <select v-model="opt.type" class="text-xs border rounded p-1.5 flex-1 text-neutral-700 font-medium">
               <template v-if="newImprint.role === '타자'">
-                <option value="컨택">컨택</option><option value="갭파워">갭파워</option><option value="홈런파워">홈런파워</option><option value="선구">선구</option><option value="삼진회피">삼진회피</option>
+  <option value="컨택">컨택</option><option value="갭파워">갭파워</option><option value="홈런파워">홈런파워</option><option value="선구">선구</option><option value="삼진회피">삼진회피</option>
+</template>
+<template v-else>
+  <option value="무브먼트">무브먼트</option><option value="장타억제">장타억제</option><option value="홈런억제">홈런억제</option><option value="컨트롤">컨트롤</option><option value="스터프">스터프</option><option value="한계투구 증가">한계투구 증가</option><option value="1~2선발시 파워증가">1~2선발시 파워증가</option><option value="수비">수비</option><option value="전체 능력치">전체 능력치 (코어 5종 +수치)</option><option value="조건부 파워">조건부 파워 (박빙/주자 등)</option><option value="수익 증가">경기 총 수익 증가</option>
+</template>
               
   <!-- 🌟 AI 추천 라인업 생성 모달 -->
   <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
