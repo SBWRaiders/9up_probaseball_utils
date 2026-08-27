@@ -2203,11 +2203,9 @@ const getDgnPlayerName = (id: string) => {
 const generateAutoLineup = () => {
   if(!confirm('현재 덱이 초기화되고 추천 라인업으로 덮어씌워집니다.\n진행하시겠습니까?')) return;
 
-  // 🌟 1. 즉시 로딩 화면 띄우기 (화면 멈춤 방지)
   isLoading.value = true;
   showAutoLineupModal.value = false;
 
-  // 50ms 딜레이를 주어 브라우저가 로딩 UI를 그릴 시간을 확보
   setTimeout(() => {
     try {
       const teamIds = autoLineupTeam.value.id;
@@ -2218,14 +2216,13 @@ const generateAutoLineup = () => {
       const usedIds = new Set<string>();
       const usedPlayerKeys = new Set<string>();
 
+      // 🌟 투명 글자 제거 로직
       const getBasePlayerName = (name: string) => normalizeText(name);
-      
-      // 🌟 2. 동명이인 및 DGN 카드 복제 완벽 차단!
+
       const markUsed = (p: any) => {
         if (!p) return;
         usedIds.add(String(p.id));
         const role = isPitcher(p) ? 'P' : 'B';
-        // 카드 번호와 상관없이 "이름+포지션(투/타)"을 무조건 블랙리스트에 등록
         usedPlayerKeys.add(getBasePlayerName(p.name) + '_' + role);
       };
 
@@ -2236,10 +2233,8 @@ const generateAutoLineup = () => {
         const role = isPitcher(p) ? 'P' : 'B';
         const uniqueKey = getBasePlayerName(p.name) + '_' + role;
         
-        // 블랙리스트에 이름이 있으면 즉시 차단
         if (usedPlayerKeys.has(uniqueKey)) return true;
         
-        // 현재 배치된 라인업과 이름이 겹치는지 이중 차단
         const existingPlayers = Object.values(newLineup).filter(Boolean) as Raw[];
         const isDuplicate = existingPlayers.some(existing => {
             const exRole = isPitcher(existing) ? 'P' : 'B';
@@ -2252,7 +2247,6 @@ const generateAutoLineup = () => {
 
       const getSynergyTags = (p: any) => getArray(p.synergy).map(s => String(s).normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[,\s클럽]/g,'').trim());
 
-      // 🌟 3. 가상 파워 시뮬레이션 맵 사전 구축 (연산 속도 최적화)
       const synergyMap: Record<string, { type: string, tiers: {req: number, power: number}[] }> = {};
       synergys.value.forEach(s => {
           const name = String(s.synergy).trim();
@@ -2295,17 +2289,12 @@ const generateAutoLineup = () => {
           }
       });
 
-      // 🌟 산해님 아이디어 적용: 선택된 DGN 선수의 [이름+투/타]를 추출해서 절대 방어막 생성!
+      // 🌟 [핵심] DGN 블랙리스트 키 추출
       const selectedDgnKeys = preparedPlayers.value
           .filter(p => autoLineupSelectedDgnIds.value.includes(p.raw.id))
           .map(p => p.nameNormalized + '_' + (isPitcher(p.raw) ? 'P' : 'B'));
 
-      // 🌟 [추가된 핵심 블랙리스트] 내가 고른 DGN 선수의 '이름+포지션'을 뽑아서 절대 방어막 생성!
-      const selectedDgnKeys = preparedPlayers.value
-          .filter(p => autoLineupSelectedDgnIds.value.includes(p.raw.id))
-          .map(p => p.nameNormalized + '_' + (isPitcher(p.raw) ? 'P' : 'B'));
-
-      // 🌟 4. DGN(디그니티) 수동 선택분 최우선 배치
+      // DGN 우선 배치
       const dgnPlayers = preparedPlayers.value.filter(p => autoLineupSelectedDgnIds.value.includes(p.raw.id)).map(p => {
           p.raw._tags = getSynergyTags(p.raw);
           return p.raw;
@@ -2330,14 +2319,12 @@ const generateAutoLineup = () => {
           }
       });
 
-      // 🌟 5. 주전 후보군 세팅 (여기에 블랙리스트 검사 추가됨)
+      // 주전 후보군 블랙리스트 필터링
       const validMainGrades = ['TOP', 'ACE', 'HIT', 'GG', 'ROY', 'DGN'];
       const mainCandidates = preparedPlayers.value.filter(p => {
           const pKey = p.nameNormalized + '_' + (isPitcher(p.raw) ? 'P' : 'B');
-          
           return p.teamLowerCase.some(t => teamIds.includes(t)) && 
                  validMainGrades.includes(getMappedGrade(p.raw.grade)) &&
-                 // 👇 [중요] DGN 모달에서 고른 선수의 이름이면, 오직 내가 고른 본인만 통과하고 짭퉁은 다 죽음!
                  (!selectedDgnKeys.includes(pKey) || autoLineupSelectedDgnIds.value.includes(p.raw.id));
       }).map(p => {
           const raw = p.raw;
@@ -2345,8 +2332,7 @@ const generateAutoLineup = () => {
           raw._basePower = (Number(raw.contact||0) + Number(raw.homeRunPower||0) + Number(raw.gapPower||0) + Number(raw.movement||0) + Number(raw.stuff||0) + Number(raw.control||0)) + (Number(raw.rarity||1) * 3000);
           return raw;
       });
-      
-      // 🌟 진짜 파워 시뮬레이션 평가 함수 (Greedy Algorithm)
+
       const evaluateCandidate = (p: any) => {
           let synDelta = 0;
           const isPit = isPitcher(p);
@@ -2382,7 +2368,7 @@ const generateAutoLineup = () => {
           return p._basePower + (synDelta * 10); 
       };
 
-      // 🌟 6. 투/타 주전 20명 스마트 배치
+      // 주전 배치
       const mainSlots = ['C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH', 'SP1', 'SP2', 'SP3', 'SP4', 'SP5', 'RP1', 'RP2', 'RP3', 'RP4', 'RP5', 'RP6'];
       
       mainSlots.forEach(slot => {
@@ -2418,12 +2404,12 @@ const generateAutoLineup = () => {
           }
       });
 
-      // 🌟 7. 벤치 1순위: TEA 채우기
+      // 벤치 1순위: TEA 채우기 (블랙리스트 적용)
       const teaCandidates = preparedPlayers.value.filter(p => {
           const pKey = p.nameNormalized + '_' + (isPitcher(p.raw) ? 'P' : 'B');
           return p.teamLowerCase.some(t => teamIds.includes(t)) && 
                  getMappedGrade(p.raw.grade) === 'TEA' &&
-                 !selectedDgnKeys.includes(pKey); // 👈 벤치에도 짭퉁 DGN 이름 얼씬도 못하게 컷!
+                 !selectedDgnKeys.includes(pKey);
       }).map(p => {
           p.raw._tags = getSynergyTags(p.raw);
           p.raw._basePower = 0; 
@@ -2445,12 +2431,12 @@ const generateAutoLineup = () => {
           }
       }
 
-      // 🌟 8. 나머지 벤치 (2~8번): SEA 채우기
+      // 벤치 나머지: SEA 채우기 (블랙리스트 적용)
       const seaCandidates = preparedPlayers.value.filter(p => {
           const pKey = p.nameNormalized + '_' + (isPitcher(p.raw) ? 'P' : 'B');
           return p.teamLowerCase.some(t => teamIds.includes(t)) && 
                  getMappedGrade(p.raw.grade) === 'SEA' &&
-                 !selectedDgnKeys.includes(pKey); // 👈 여기도 똑같이 컷!
+                 !selectedDgnKeys.includes(pKey);
       }).map(p => {
           p.raw._tags = getSynergyTags(p.raw);
           p.raw._basePower = 0; 
@@ -2475,7 +2461,6 @@ const generateAutoLineup = () => {
           }
       }
 
-      // 🌟 9. 결과 반영
       lineup.value = newLineup as any;
       Object.keys(newLineup).forEach(k => {
          if(newLineup[k]) {
@@ -2493,7 +2478,6 @@ const generateAutoLineup = () => {
       console.error("Auto Lineup Error:", err);
       alert('라인업 편성 중 오류가 발생했습니다.');
     } finally {
-      // 연산이 끝나면 로딩 스피너 종료 및 완료 메시지
       isLoading.value = false;
       setTimeout(() => alert('✨ 가상 시뮬레이션 기반 1티어 추천 라인업 완성!'), 100);
     }
