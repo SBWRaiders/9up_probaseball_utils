@@ -1706,10 +1706,9 @@ const teamTotalPower = computed(() => {
 
 const isSamePlayer = (p1: Raw, p2: Raw) => {
   if (!p1 || !p2) return false;
-  // 완전히 동일한 카드인지 확인
   if (p1.id === p2.id) return true;
   
-  // 이름 + 투/타 포지션이 같으면 동일 인물로 취급 (김민수 타자/투수 구분)
+  // 이름 + 투/타 포지션이 같으면 동일 인물로 취급 (홍현우 복제 삭제 방지)
   const cleanName1 = String(p1.name || '').replace(/\s+/g, '');
   const cleanName2 = String(p2.name || '').replace(/\s+/g, '');
   const role1 = isPitcher(p1) ? 'P' : 'B';
@@ -2204,11 +2203,11 @@ const getDgnPlayerName = (id: string) => {
 const generateAutoLineup = () => {
   if(!confirm('현재 덱이 초기화되고 추천 라인업으로 덮어씌워집니다.\n진행하시겠습니까?')) return;
 
-  // 🌟 로딩 스피너 활성화 및 모달 닫기
+  // 🌟 1. 즉시 로딩 화면 띄우기 (화면 멈춤 방지)
   isLoading.value = true;
   showAutoLineupModal.value = false;
 
-  // 브라우저 멈춤 방지를 위해 연산을 50ms 지연 실행
+  // 50ms 딜레이를 주어 브라우저가 로딩 UI를 그릴 시간을 확보
   setTimeout(() => {
     try {
       const teamIds = autoLineupTeam.value.id;
@@ -2221,25 +2220,39 @@ const generateAutoLineup = () => {
 
       const getBasePlayerName = (name: string) => String(name || '').replace(/\s+/g, '');
 
-      // 🌟 1. 동명이인 완벽 차단: [이름 + 타자/투수 역할] 동시 검사
+      // 🌟 2. 동명이인 및 DGN 카드 복제 완벽 차단!
       const markUsed = (p: any) => {
         if (!p) return;
         usedIds.add(String(p.id));
         const role = isPitcher(p) ? 'P' : 'B';
+        // 카드 번호와 상관없이 "이름+포지션(투/타)"을 무조건 블랙리스트에 등록
         usedPlayerKeys.add(getBasePlayerName(p.name) + '_' + role);
       };
 
       const isAlreadyUsed = (p: any) => {
         if (!p) return true;
         if (usedIds.has(String(p.id))) return true;
+        
         const role = isPitcher(p) ? 'P' : 'B';
-        if (usedPlayerKeys.has(getBasePlayerName(p.name) + '_' + role)) return true;
+        const uniqueKey = getBasePlayerName(p.name) + '_' + role;
+        
+        // 블랙리스트에 이름이 있으면 즉시 차단
+        if (usedPlayerKeys.has(uniqueKey)) return true;
+        
+        // 현재 배치된 라인업과 이름이 겹치는지 이중 차단
+        const existingPlayers = Object.values(newLineup).filter(Boolean) as Raw[];
+        const isDuplicate = existingPlayers.some(existing => {
+            const exRole = isPitcher(existing) ? 'P' : 'B';
+            return getBasePlayerName(existing.name) === getBasePlayerName(p.name) && exRole === role;
+        });
+        
+        if (isDuplicate) return true;
         return false;
       };
 
       const getSynergyTags = (p: any) => getArray(p.synergy).map(s => String(s).normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[,\s클럽]/g,'').trim());
 
-      // 🌟 2. 가상 파워 시뮬레이션 맵 사전 구축 (속도 100배 최적화)
+      // 🌟 3. 가상 파워 시뮬레이션 맵 사전 구축 (연산 속도 최적화)
       const synergyMap: Record<string, { type: string, tiers: {req: number, power: number}[] }> = {};
       synergys.value.forEach(s => {
           const name = String(s.synergy).trim();
@@ -2282,7 +2295,7 @@ const generateAutoLineup = () => {
           }
       });
 
-      // DGN(디그니티) 수동 선택분 최우선 배치
+      // 🌟 4. DGN(디그니티) 수동 선택분 최우선 배치
       const dgnPlayers = preparedPlayers.value.filter(p => autoLineupSelectedDgnIds.value.includes(p.raw.id)).map(p => {
           p.raw._tags = getSynergyTags(p.raw);
           return p.raw;
@@ -2307,7 +2320,7 @@ const generateAutoLineup = () => {
           }
       });
 
-      // 주전 후보군 세팅 (GOY, SEA 완전 제외)
+      // 🌟 5. 주전 후보군 세팅 (GOY, SEA 완전 제외) & 사전 스탯 계산
       const validMainGrades = ['TOP', 'ACE', 'HIT', 'GG', 'ROY', 'DGN'];
       const mainCandidates = preparedPlayers.value.filter(p => 
           p.teamLowerCase.some(t => teamIds.includes(t)) && 
@@ -2342,13 +2355,20 @@ const generateAutoLineup = () => {
               });
 
               if (newPower > oldPower) {
-                  synDelta += (newPower - oldPower) * newCount;
+                  let isAmplified = false;
+                  globalBuffs.synergyMasteries.forEach((m, idx) => {
+                      if (m === tag && globalBuffs.amplifiedMasteryIndex === idx) isAmplified = true;
+                  });
+                  let pwr = newPower;
+                  if (isAmplified) pwr += 50; 
+                  
+                  synDelta += (pwr - oldPower) * newCount;
               }
           });
           return p._basePower + (synDelta * 10); 
       };
 
-      // 3. 투/타 주전 20명 스마트 배치
+      // 🌟 6. 투/타 주전 20명 스마트 배치
       const mainSlots = ['C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH', 'SP1', 'SP2', 'SP3', 'SP4', 'SP5', 'RP1', 'RP2', 'RP3', 'RP4', 'RP5', 'RP6'];
       
       mainSlots.forEach(slot => {
@@ -2384,13 +2404,13 @@ const generateAutoLineup = () => {
           }
       });
 
-      // 🌟 4. 벤치 1순위: TEA 채우기 (주전들과의 시너지 합산 최적화)
+      // 🌟 7. 벤치 1순위: TEA 채우기
       const teaCandidates = preparedPlayers.value.filter(p => 
           p.teamLowerCase.some(t => teamIds.includes(t)) && 
           getMappedGrade(p.raw.grade) === 'TEA'
       ).map(p => {
           p.raw._tags = getSynergyTags(p.raw);
-          p.raw._basePower = 0; // 토템은 베이스 깡파워 무시
+          p.raw._basePower = 0; 
           return p.raw;
       });
 
@@ -2409,13 +2429,13 @@ const generateAutoLineup = () => {
           }
       }
 
-      // 🌟 5. 나머지 벤치 (2~8번): SEA 채우기 (연산 폭발을 막는 한정된 토템 후보군)
+      // 🌟 8. 나머지 벤치 (2~8번): SEA 채우기
       const seaCandidates = preparedPlayers.value.filter(p => 
           p.teamLowerCase.some(t => teamIds.includes(t)) && 
           getMappedGrade(p.raw.grade) === 'SEA'
       ).map(p => {
           p.raw._tags = getSynergyTags(p.raw);
-          p.raw._basePower = 0; // 토템은 베이스 깡파워 무시
+          p.raw._basePower = 0; 
           return p.raw;
       });
 
@@ -2437,7 +2457,7 @@ const generateAutoLineup = () => {
           }
       }
 
-      // 6. 결과 반영
+      // 🌟 9. 결과 반영
       lineup.value = newLineup as any;
       Object.keys(newLineup).forEach(k => {
          if(newLineup[k]) {
@@ -2455,13 +2475,13 @@ const generateAutoLineup = () => {
       console.error("Auto Lineup Error:", err);
       alert('라인업 편성 중 오류가 발생했습니다.');
     } finally {
-      // 🌟 연산이 끝나면 로딩 스피너 종료 및 완료 메시지
+      // 연산이 끝나면 로딩 스피너 종료 및 완료 메시지
       isLoading.value = false;
       setTimeout(() => alert('✨ 가상 시뮬레이션 기반 1티어 추천 라인업 완성!'), 100);
     }
   }, 50); 
 };
-
+  
 // ========================================================
 // 🌟 나만의 관리자 모드 (환경 변수 + 이스터 에그) 🌟
 // ========================================================
