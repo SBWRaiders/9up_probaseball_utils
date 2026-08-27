@@ -1705,7 +1705,17 @@ const teamTotalPower = computed(() => {
 })
 
 const isSamePlayer = (p1: Raw, p2: Raw) => {
-  return p1.id === p2.id;
+  if (!p1 || !p2) return false;
+  // 완전히 동일한 카드인지 확인
+  if (p1.id === p2.id) return true;
+  
+  // 이름 + 투/타 포지션이 같으면 동일 인물로 취급 (김민수 타자/투수 구분)
+  const cleanName1 = String(p1.name || '').replace(/\s+/g, '');
+  const cleanName2 = String(p2.name || '').replace(/\s+/g, '');
+  const role1 = isPitcher(p1) ? 'P' : 'B';
+  const role2 = isPitcher(p2) ? 'P' : 'B';
+  
+  return cleanName1 === cleanName2 && role1 === role2;
 }
 
 const getAvailableSlot = (basePos: string): string => {
@@ -2211,19 +2221,34 @@ const generateAutoLineup = () => {
 
       const getBasePlayerName = (name: string) => String(name || '').replace(/\s+/g, '');
 
-      // 🌟 1. 동명이인 완벽 차단: [이름 + 타자/투수 역할] 동시 검사
+// 🌟 동명이인 완벽 차단: [이름 + 타자/투수 역할] 동시 검사
       const markUsed = (p: any) => {
         if (!p) return;
         usedIds.add(String(p.id));
         const role = isPitcher(p) ? 'P' : 'B';
-        usedPlayerKeys.add(getBasePlayerName(p.name) + '_' + role);
+        const uniqueKey = getBasePlayerName(p.name) + '_' + role;
+        usedPlayerKeys.add(uniqueKey);
       };
 
       const isAlreadyUsed = (p: any) => {
         if (!p) return true;
         if (usedIds.has(String(p.id))) return true;
+        
+        // 🌟 핵심: 이름과 투/타 역할이 완전히 똑같은 선수가 이미 명부에 있으면 무조건 밴!
         const role = isPitcher(p) ? 'P' : 'B';
-        if (usedPlayerKeys.has(getBasePlayerName(p.name) + '_' + role)) return true;
+        const uniqueKey = getBasePlayerName(p.name) + '_' + role;
+        
+        if (usedPlayerKeys.has(uniqueKey)) return true;
+        
+        // 현재 라인업에 이미 들어가 있는지도 이중 체크
+        const existingPlayers = Object.values(newLineup).filter(Boolean) as Raw[];
+        const isDuplicate = existingPlayers.some(existing => {
+            const exRole = isPitcher(existing) ? 'P' : 'B';
+            return getBasePlayerName(existing.name) === getBasePlayerName(p.name) && exRole === role;
+        });
+        
+        if (isDuplicate) return true;
+        
         return false;
       };
 
