@@ -2216,8 +2216,14 @@ const generateAutoLineup = () => {
       const usedIds = new Set<string>();
       const usedPlayerKeys = new Set<string>();
 
-      // 🌟 투명 글자 제거 로직
-      const getBasePlayerName = (name: string) => normalizeText(name);
+      // 🌟 [핵심] 띄어쓰기, 투명글자, 줄바꿈까지 100% 모조리 파괴하는 궁극의 이름 추출기!
+      // 이제 "홍 현 우" 든 "홍현우" 든 모두 동일한 "홍현우"로 인식됩니다.
+      const getBasePlayerName = (name: string) => {
+          return String(name || '')
+              .normalize('NFKC')
+              .replace(/[\u200B-\u200D\uFEFF\s\r\n]/g, '')
+              .toLowerCase();
+      };
 
       const markUsed = (p: any) => {
         if (!p) return;
@@ -2233,8 +2239,10 @@ const generateAutoLineup = () => {
         const role = isPitcher(p) ? 'P' : 'B';
         const uniqueKey = getBasePlayerName(p.name) + '_' + role;
         
+        // 1차: 명부에 이미 등록된 이름이면 무조건 밴!
         if (usedPlayerKeys.has(uniqueKey)) return true;
         
+        // 2차: 현재 라인업에 배치된 선수들 중 이름이 같은 선수가 있는지 한 번 더 확인!
         const existingPlayers = Object.values(newLineup).filter(Boolean) as Raw[];
         const isDuplicate = existingPlayers.some(existing => {
             const exRole = isPitcher(existing) ? 'P' : 'B';
@@ -2289,10 +2297,10 @@ const generateAutoLineup = () => {
           }
       });
 
-      // 🌟 [핵심] DGN 블랙리스트 키 추출
+      // 🌟 DGN 블랙리스트 (띄어쓰기 완전 제거 적용)
       const selectedDgnKeys = preparedPlayers.value
           .filter(p => autoLineupSelectedDgnIds.value.includes(p.raw.id))
-          .map(p => p.nameNormalized + '_' + (isPitcher(p.raw) ? 'P' : 'B'));
+          .map(p => getBasePlayerName(p.raw.name) + '_' + (isPitcher(p.raw) ? 'P' : 'B'));
 
       // DGN 우선 배치
       const dgnPlayers = preparedPlayers.value.filter(p => autoLineupSelectedDgnIds.value.includes(p.raw.id)).map(p => {
@@ -2319,10 +2327,10 @@ const generateAutoLineup = () => {
           }
       });
 
-      // 주전 후보군 블랙리스트 필터링
+      // 주전 후보군 블랙리스트 필터링 (DGN 이름과 겹치면 다 컷!)
       const validMainGrades = ['TOP', 'ACE', 'HIT', 'GG', 'ROY', 'DGN'];
       const mainCandidates = preparedPlayers.value.filter(p => {
-          const pKey = p.nameNormalized + '_' + (isPitcher(p.raw) ? 'P' : 'B');
+          const pKey = getBasePlayerName(p.raw.name) + '_' + (isPitcher(p.raw) ? 'P' : 'B');
           return p.teamLowerCase.some(t => teamIds.includes(t)) && 
                  validMainGrades.includes(getMappedGrade(p.raw.grade)) &&
                  (!selectedDgnKeys.includes(pKey) || autoLineupSelectedDgnIds.value.includes(p.raw.id));
@@ -2406,7 +2414,7 @@ const generateAutoLineup = () => {
 
       // 벤치 1순위: TEA 채우기 (블랙리스트 적용)
       const teaCandidates = preparedPlayers.value.filter(p => {
-          const pKey = p.nameNormalized + '_' + (isPitcher(p.raw) ? 'P' : 'B');
+          const pKey = getBasePlayerName(p.raw.name) + '_' + (isPitcher(p.raw) ? 'P' : 'B');
           return p.teamLowerCase.some(t => teamIds.includes(t)) && 
                  getMappedGrade(p.raw.grade) === 'TEA' &&
                  !selectedDgnKeys.includes(pKey);
@@ -2433,7 +2441,7 @@ const generateAutoLineup = () => {
 
       // 벤치 나머지: SEA 채우기 (블랙리스트 적용)
       const seaCandidates = preparedPlayers.value.filter(p => {
-          const pKey = p.nameNormalized + '_' + (isPitcher(p.raw) ? 'P' : 'B');
+          const pKey = getBasePlayerName(p.raw.name) + '_' + (isPitcher(p.raw) ? 'P' : 'B');
           return p.teamLowerCase.some(t => teamIds.includes(t)) && 
                  getMappedGrade(p.raw.grade) === 'SEA' &&
                  !selectedDgnKeys.includes(pKey);
