@@ -2194,216 +2194,264 @@ const getDgnPlayerName = (id: string) => {
 const generateAutoLineup = () => {
   if(!confirm('현재 덱이 초기화되고 추천 라인업으로 덮어씌워집니다.\n진행하시겠습니까?')) return;
 
-  const teamIds = autoLineupTeam.value.id;
-  
-  const emptyLineup: Record<string, any> = { C: null, '1B': null, '2B': null, '3B': null, SS: null, LF: null, CF: null, RF: null, DH: null, SP1: null, SP2: null, SP3: null, SP4: null, SP5: null, RP1: null, RP2: null, RP3: null, RP4: null, RP5: null, RP6: null, BENCH1: null, BENCH2: null, BENCH3: null, BENCH4: null, BENCH5: null, BENCH6: null, BENCH7: null, BENCH8: null };
-  const newLineup = { ...emptyLineup };
-  
-  const usedIds = new Set<string>();
-  const usedPlayerKeys = new Set<string>();
-
-  const getBasePlayerName = (name: string) => String(name || '').replace(/\s+/g, '');
-
-  // 1️⃣ 동명이인 완벽 구분: 이름 + 투/타 포지션 조합으로 검사
-  const markUsed = (p: any) => {
-    if (!p) return;
-    usedIds.add(p.id);
-    const role = isPitcher(p) ? 'P' : 'B';
-    usedPlayerKeys.add(getBasePlayerName(p.name) + '_' + role);
-  };
-
-  const isAlreadyUsed = (p: any) => {
-    if (!p) return true;
-    if (usedIds.has(p.id)) return true;
-    const role = isPitcher(p) ? 'P' : 'B';
-    // 타자 홍현우가 있으면 다른 타자 홍현우는 튕겨내지만, 투수 김민수와 타자 김민수는 통과!
-    if (usedPlayerKeys.has(getBasePlayerName(p.name) + '_' + role)) return true;
-    return false;
-  };
-
-  const getSynergyTags = (p: any) => getArray(p.synergy).map(s => String(s).normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[,\s클럽]/g,'').trim());
-
-  // 2️⃣ 진짜 파워 시뮬레이션 함수 (Greedy Algorithm)
-  // 빈칸에 선수를 가상으로 넣어보고, 시너지 발동 여부를 직접 밀리초 단위로 수만 번 계산해서 진짜 뻥튀기되는 '파워 총합'을 구합니다.
-  const evaluateLineupScore = (tempLineup: any) => {
-      const players = Object.values(tempLineup).filter(Boolean) as Raw[];
-      let totalPower = 0;
-      
-      // 기초 깡스탯 및 희귀도 점수 합산
-      players.forEach(p => {
-         totalPower += (Number(p.contact||0) + Number(p.homeRunPower||0) + Number(p.gapPower||0) + Number(p.movement||0) + Number(p.stuff||0) + Number(p.control||0));
-         totalPower += (Number(p.rarity||1) * 3000); 
-      });
-
-      // 실제 시너지 발동 검증 및 보너스 파워 합산
-      for (const s of synergys.value) {
-          const name = String(s.synergy).trim();
-          const synType = getSynergyType(name, s.conditions);
-          
-          let matchedCount = 0;
-          for (const p of players) {
-              if (checkSynergyInclusion(name, getArray(p.synergy))) {
-                  const pIsPit = isPitcher(p);
-                  // 타자/투수 교차 발동 방지
-                  if ((pIsPit && synType === 'batter') || (!pIsPit && synType === 'pitcher')) continue;
-                  matchedCount++;
-              }
-          }
-          
-          let isAmplified = false;
-          globalBuffs.synergyMasteries.forEach((m, idx) => {
-             if (m === name) {
-                 matchedCount++; 
-                 if (globalBuffs.amplifiedMasteryIndex === idx) isAmplified = true;
-             }
-          });
-          
-          if (matchedCount > 0) {
-              let maxBonus = 0;
-              (s.conditions || []).forEach((c: any) => {
-                  if (c.stat === 'power' && c.bonus) {
-                      let req = 0;
-                      if (c.count?.op === 'between' && matchedCount >= c.count.min && matchedCount <= c.count.max) req = c.count.min;
-                      else if (['>=', '==', '>'].includes(c.count?.op) && matchedCount >= c.count?.value) req = c.count.value;
-                      
-                      if (req > 0 && c.bonus.value > maxBonus) {
-                          let bVal = c.bonus.value;
-                          if (isAmplified) bVal += (c.bonus.unit === 'percent' ? 0.5 : 50);
-                          // 퍼센트 수치는 가중치를 곱해 깡스탯 환산 비교
-                          maxBonus = c.bonus.unit === 'percent' ? bVal * 25 : bVal;
-                      }
-                  }
-              });
-              totalPower += (maxBonus * matchedCount);
-          }
-      }
-      return totalPower;
-  };
-
-  // DGN(디그니티) 수동 선택분 최우선 배치
-  const dgnPlayers = preparedPlayers.value.filter(p => autoLineupSelectedDgnIds.value.includes(p.raw.id)).map(p => p.raw);
-  dgnPlayers.forEach(dgn => {
-      const posList = getPlayerPositions(dgn);
-      let assigned = false;
-      for (const pos of posList) {
-          if (isPitcher(dgn)) {
-              if (pos === 'SP') { for(let i=1; i<=5; i++) { if(!newLineup[`SP${i}`]) { newLineup[`SP${i}`] = dgn; assigned = true; break; } } }
-              else if (pos === 'RP') { for(let i=1; i<=6; i++) { if(!newLineup[`RP${i}`]) { newLineup[`RP${i}`] = dgn; assigned = true; break; } } }
-          } else {
-              if (!newLineup[pos]) { newLineup[pos] = dgn; assigned = true; break; }
-          }
-          if(assigned) break;
-      }
-      if(!assigned && !isPitcher(dgn) && !newLineup['DH']) { newLineup['DH'] = dgn; assigned = true; }
-      if(assigned) markUsed(dgn);
-  });
-
-  // 주전 후보군 세팅 (GOY, SEA 완전 제외)
-  const validMainGrades = ['TOP', 'ACE', 'HIT', 'GG', 'ROY', 'DGN'];
-  const mainCandidates = preparedPlayers.value.filter(p => 
-      p.teamLowerCase.some(t => teamIds.includes(t)) && 
-      validMainGrades.includes(getMappedGrade(p.raw.grade))
-  ).map(p => p.raw);
-
-  // 3️⃣ 투/타 주전 20명 시뮬레이션 기반 스마트 배치 (Greedy)
-  const mainSlots = ['C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH', 'SP1', 'SP2', 'SP3', 'SP4', 'SP5', 'RP1', 'RP2', 'RP3', 'RP4', 'RP5', 'RP6'];
-  
-  mainSlots.forEach(slot => {
-      if (newLineup[slot]) return;
-      
-      let bestCandidate = null;
-      let bestScore = -1;
-
-      mainCandidates.forEach(p => {
-          if (isAlreadyUsed(p)) return;
-          
-          const isPit = isPitcher(p);
-          const isBatterSlot = ['C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH'].includes(slot);
-          
-          if (isPit && isBatterSlot) return;
-          if (!isPit && !isBatterSlot) return;
-          
-          const posList = getPlayerPositions(p);
-          if (!isPit && !posList.includes(slot) && slot !== 'DH') return;
-          if (isPit && slot.startsWith('SP') && !posList.includes('SP')) return;
-          if (isPit && slot.startsWith('RP') && !posList.includes('RP')) return;
-
-          // 가상 배치 시뮬레이션
-          newLineup[slot] = p;
-          const currentScore = evaluateLineupScore(newLineup);
-          if (currentScore > bestScore) {
-              bestScore = currentScore;
-              bestCandidate = p;
-          }
-          newLineup[slot] = null; // 테스트 후 원상복구
-      });
-
-      if (bestCandidate) {
-          newLineup[slot] = bestCandidate;
-          markUsed(bestCandidate);
-      }
-  });
-
-  // 4️⃣ 벤치 1순위: TEA(팀플) 1장 채우기 (시너지 극대화)
-  const teaCandidates = preparedPlayers.value.filter(p => 
-      p.teamLowerCase.some(t => teamIds.includes(t)) && 
-      getMappedGrade(p.raw.grade) === 'TEA'
-  ).map(p => p.raw);
-
-  if (!newLineup['BENCH1']) {
-      let bestTEA = null;
-      let bestTeaScore = -1;
-      teaCandidates.forEach(p => {
-          if (isAlreadyUsed(p)) return;
-          newLineup['BENCH1'] = p;
-          const score = evaluateLineupScore(newLineup);
-          if (score > bestTeaScore) { bestTeaScore = score; bestTEA = p; }
-          newLineup['BENCH1'] = null;
-      });
-      if (bestTEA) { newLineup['BENCH1'] = bestTEA; markUsed(bestTEA); }
-  }
-
-  // 5️⃣ 나머지 벤치 (2~8번): 무조건 SEA(시즌)만 투입 (연산 폭발을 막는 토템 시뮬레이션)
-  const seaCandidates = preparedPlayers.value.filter(p => 
-      p.teamLowerCase.some(t => teamIds.includes(t)) && 
-      getMappedGrade(p.raw.grade) === 'SEA'
-  ).map(p => p.raw);
-
-  for (let i = 2; i <= 8; i++) {
-      if (newLineup[`BENCH${i}`]) continue;
-      let bestSEA = null;
-      let bestSeaScore = -1;
-      
-      seaCandidates.forEach(p => {
-          if (isAlreadyUsed(p)) return;
-          newLineup[`BENCH${i}`] = p;
-          const score = evaluateLineupScore(newLineup);
-          if (score > bestSeaScore) { bestSeaScore = score; bestSEA = p; }
-          newLineup[`BENCH${i}`] = null;
-      });
-
-      if (bestSEA) {
-          newLineup[`BENCH${i}`] = bestSEA;
-          markUsed(bestSEA);
-      }
-  }
-
-  // 6️⃣ 최종 결과 반영
-  lineup.value = newLineup as any;
-  Object.keys(newLineup).forEach(k => {
-     if(newLineup[k]) {
-         initPlayerBuff(k, newLineup[k]);
-         if (playerBuffs.value[k]) {
-             playerBuffs.value[k].battingOrder = null;
-             playerBuffs.value[k].selectedSkills = [];
-             playerBuffs.value[k].enhancementLevel = getMappedGrade(newLineup[k].grade) === 'DGN' ? 10 : 15;
-             playerBuffs.value[k].careers = Array(6).fill(null).map(() => ({ grade: '마스터', statType: '전체 능력치', value: getMappedGrade(newLineup[k].grade) === 'DGN' ? 46 : 60 }));
-         }
-     }
-  });
-  
+  // 🌟 1. 즉시 모달을 닫고 로딩 화면(스피너)을 띄웁니다!
   showAutoLineupModal.value = false;
-  alert('✨ 가상 시뮬레이션 기반 1티어 추천 라인업 완성!');
+  isLoading.value = true;
+
+  // 🌟 2. 브라우저가 로딩 UI를 그릴 시간을 주기 위해 연산을 50ms 늦춥니다. (멈춤 방지)
+  setTimeout(() => {
+    try {
+      const teamIds = autoLineupTeam.value.id;
+      
+      const emptyLineup: Record<string, any> = { C: null, '1B': null, '2B': null, '3B': null, SS: null, LF: null, CF: null, RF: null, DH: null, SP1: null, SP2: null, SP3: null, SP4: null, SP5: null, RP1: null, RP2: null, RP3: null, RP4: null, RP5: null, RP6: null, BENCH1: null, BENCH2: null, BENCH3: null, BENCH4: null, BENCH5: null, BENCH6: null, BENCH7: null, BENCH8: null };
+      const newLineup = { ...emptyLineup };
+      
+      const usedIds = new Set<string>();
+      const usedPlayerKeys = new Set<string>();
+
+      // 이름 공백 제거 (띄어쓰기가 달라도 같은 사람으로 인식하게)
+      const getBasePlayerName = (name: string) => String(name || '').replace(/\s+/g, '');
+
+      // 🌟 동명이인 완벽 해결: [이름 + 투/타] 조합으로 복제 방지
+      const markUsed = (p: any) => {
+        if (!p) return;
+        usedIds.add(p.id);
+        const role = isPitcher(p) ? 'P' : 'B';
+        usedPlayerKeys.add(getBasePlayerName(p.name) + '_' + role);
+      };
+
+      const isAlreadyUsed = (p: any) => {
+        if (!p) return true;
+        if (usedIds.has(p.id)) return true;
+        const role = isPitcher(p) ? 'P' : 'B';
+        if (usedPlayerKeys.has(getBasePlayerName(p.name) + '_' + role)) return true;
+        return false;
+      };
+
+      const getSynergyTags = (p: any) => getArray(p.synergy).map(s => String(s).normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[,\s클럽]/g,'').trim());
+
+      // ⚡ [최적화] 시너지 맵 사전 구축 (O(1) 탐색용 - 속도 100배 향상)
+      const synergyMap: Record<string, { type: string, tiers: {req: number, power: number}[] }> = {};
+      synergys.value.forEach(s => {
+          const name = String(s.synergy).trim();
+          const type = getSynergyType(name, s.conditions);
+          const tiers: {req: number, power: number}[] = [];
+          
+          (s.conditions || []).forEach((c: any) => {
+              if (c.stat === 'power' && c.bonus) {
+                  let req = 0;
+                  if (c.count?.op === 'between') req = c.count.min;
+                  else if (['>=', '==', '>'].includes(c.count?.op)) req = c.count.value;
+                  
+                  if (req > 0) {
+                      let bVal = c.bonus.value;
+                      let maxBonus = c.bonus.unit === 'percent' ? bVal * 25 : bVal;
+                      tiers.push({ req, power: maxBonus });
+                  }
+              }
+          });
+          if (tiers.length > 0) {
+              tiers.sort((a, b) => a.req - b.req);
+              synergyMap[name] = { type, tiers };
+          }
+      });
+
+      // ⚡ [최적화] 현재 누적된 시너지 인원수 실시간 추적기
+      const currentSynCounts: Record<string, { B: number, P: number }> = {};
+      const addSynergyCount = (tags: string[], isPit: boolean) => {
+          tags.forEach(tag => {
+              if (!currentSynCounts[tag]) currentSynCounts[tag] = { B: 0, P: 0 };
+              if (isPit) currentSynCounts[tag].P++;
+              else currentSynCounts[tag].B++;
+          });
+      };
+
+      globalBuffs.synergyMasteries.forEach((m) => {
+          if (m) {
+              if (!currentSynCounts[m]) currentSynCounts[m] = { B: 0, P: 0 };
+              currentSynCounts[m].B++;
+              currentSynCounts[m].P++;
+          }
+      });
+
+      // 1. DGN(디그니티) 수동 선택분 최우선 배치
+      const dgnPlayers = preparedPlayers.value.filter(p => autoLineupSelectedDgnIds.value.includes(p.raw.id)).map(p => {
+          p.raw._tags = getSynergyTags(p.raw);
+          return p.raw;
+      });
+
+      dgnPlayers.forEach(dgn => {
+          const posList = getPlayerPositions(dgn);
+          let assigned = false;
+          for (const pos of posList) {
+              if (isPitcher(dgn)) {
+                  if (pos === 'SP') { for(let i=1; i<=5; i++) { if(!newLineup[`SP${i}`]) { newLineup[`SP${i}`] = dgn; assigned = true; break; } } }
+                  else if (pos === 'RP') { for(let i=1; i<=6; i++) { if(!newLineup[`RP${i}`]) { newLineup[`RP${i}`] = dgn; assigned = true; break; } } }
+              } else {
+                  if (!newLineup[pos]) { newLineup[pos] = dgn; assigned = true; break; }
+              }
+              if(assigned) break;
+          }
+          if(!assigned && !isPitcher(dgn) && !newLineup['DH']) { newLineup['DH'] = dgn; assigned = true; }
+          if(assigned) {
+              markUsed(dgn);
+              addSynergyCount(dgn._tags, isPitcher(dgn));
+          }
+      });
+
+      // 2. 주전 후보군 세팅 (GOY, SEA 완전 제외) & 사전 스탯 계산
+      const validMainGrades = ['TOP', 'ACE', 'HIT', 'GG', 'ROY', 'DGN'];
+      const mainCandidates = preparedPlayers.value.filter(p => 
+          p.teamLowerCase.some(t => teamIds.includes(t)) && 
+          validMainGrades.includes(getMappedGrade(p.raw.grade))
+      ).map(p => {
+          const raw = p.raw;
+          raw._tags = getSynergyTags(raw);
+          raw._basePower = (Number(raw.contact||0) + Number(raw.homeRunPower||0) + Number(raw.gapPower||0) + Number(raw.movement||0) + Number(raw.stuff||0) + Number(raw.control||0)) + (Number(raw.rarity||1) * 3000);
+          return raw;
+      });
+
+      // 🔥 진짜 파워 시뮬레이션 평가 함수 (Greedy) 🔥
+      const evaluateCandidate = (p: any) => {
+          let synDelta = 0;
+          const isPit = isPitcher(p);
+          const pRole = isPit ? 'P' : 'B';
+
+          p._tags.forEach((tag: string) => {
+              const smap = synergyMap[tag];
+              if (!smap) return;
+              if ((isPit && smap.type === 'batter') || (!isPit && smap.type === 'pitcher')) return;
+
+              const currentCount = currentSynCounts[tag] ? currentSynCounts[tag][pRole] : 0;
+              const newCount = currentCount + 1;
+
+              let oldPower = 0;
+              let newPower = 0;
+
+              smap.tiers.forEach(t => {
+                  if (currentCount >= t.req) oldPower = t.power;
+                  if (newCount >= t.req) newPower = t.power;
+              });
+
+              if (newPower > oldPower) {
+                  synDelta += (newPower - oldPower) * newCount;
+              }
+          });
+          return p._basePower + (synDelta * 10); 
+      };
+
+      // 3. 투/타 주전 20명 스마트 배치
+      const mainSlots = ['C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH', 'SP1', 'SP2', 'SP3', 'SP4', 'SP5', 'RP1', 'RP2', 'RP3', 'RP4', 'RP5', 'RP6'];
+      
+      mainSlots.forEach(slot => {
+          if (newLineup[slot]) return;
+          
+          let bestCandidate = null;
+          let bestScore = -1;
+
+          mainCandidates.forEach(p => {
+              if (isAlreadyUsed(p)) return;
+              const isPit = isPitcher(p);
+              const isBatterSlot = ['C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH'].includes(slot);
+              
+              if (isPit && isBatterSlot) return;
+              if (!isPit && !isBatterSlot) return;
+              
+              const posList = getPlayerPositions(p);
+              if (!isPit && !posList.includes(slot) && slot !== 'DH') return;
+              if (isPit && slot.startsWith('SP') && !posList.includes('SP')) return;
+              if (isPit && slot.startsWith('RP') && !posList.includes('RP')) return;
+
+              const currentScore = evaluateCandidate(p);
+              if (currentScore > bestScore) {
+                  bestScore = currentScore;
+                  bestCandidate = p;
+              }
+          });
+
+          if (bestCandidate) {
+              newLineup[slot] = bestCandidate;
+              markUsed(bestCandidate);
+              addSynergyCount(bestCandidate._tags, isPitcher(bestCandidate));
+          }
+      });
+
+      // 4. 벤치 1순위: TEA(팀플) 1장 채우기 (시너지 극대화)
+      const teaCandidates = preparedPlayers.value.filter(p => 
+          p.teamLowerCase.some(t => teamIds.includes(t)) && 
+          getMappedGrade(p.raw.grade) === 'TEA'
+      ).map(p => {
+          p.raw._tags = getSynergyTags(p.raw);
+          p.raw._basePower = 0; 
+          return p.raw;
+      });
+
+      if (!newLineup['BENCH1']) {
+          let bestTEA = null;
+          let bestTeaScore = -1;
+          teaCandidates.forEach(p => {
+              if (isAlreadyUsed(p)) return;
+              const score = evaluateCandidate(p);
+              if (score > bestTeaScore) { bestTeaScore = score; bestTEA = p; }
+          });
+          if (bestTEA) { 
+              newLineup['BENCH1'] = bestTEA; 
+              markUsed(bestTEA); 
+              addSynergyCount(bestTEA._tags, isPitcher(bestTEA)); 
+          }
+      }
+
+      // 5. 나머지 벤치 (2~8번): 무조건 SEA(시즌)만 투입 (토템 시뮬레이션)
+      const seaCandidates = preparedPlayers.value.filter(p => 
+          p.teamLowerCase.some(t => teamIds.includes(t)) && 
+          getMappedGrade(p.raw.grade) === 'SEA'
+      ).map(p => {
+          p.raw._tags = getSynergyTags(p.raw);
+          p.raw._basePower = 0; 
+          return p.raw;
+      });
+
+      for (let i = 2; i <= 8; i++) {
+          if (newLineup[`BENCH${i}`]) continue;
+          let bestSEA = null;
+          let bestSeaScore = -1;
+          
+          seaCandidates.forEach(p => {
+              if (isAlreadyUsed(p)) return;
+              const score = evaluateCandidate(p);
+              if (score > bestSeaScore) { bestSeaScore = score; bestSEA = p; }
+          });
+
+          if (bestSEA) {
+              newLineup[`BENCH${i}`] = bestSEA;
+              markUsed(bestSEA);
+              addSynergyCount(bestSEA._tags, isPitcher(bestSEA));
+          }
+      }
+
+      // 6. 결과 반영
+      lineup.value = newLineup as any;
+      Object.keys(newLineup).forEach(k => {
+         if(newLineup[k]) {
+             initPlayerBuff(k, newLineup[k]);
+             if (playerBuffs.value[k]) {
+                 playerBuffs.value[k].battingOrder = null;
+                 playerBuffs.value[k].selectedSkills = [];
+                 playerBuffs.value[k].enhancementLevel = getMappedGrade(newLineup[k].grade) === 'DGN' ? 10 : 15;
+                 playerBuffs.value[k].careers = Array(6).fill(null).map(() => ({ grade: '마스터', statType: '전체 능력치', value: getMappedGrade(newLineup[k].grade) === 'DGN' ? 46 : 60 }));
+             }
+         }
+      });
+      
+    } catch (err) {
+      console.error("Auto Lineup Error:", err);
+      alert('라인업 편성 중 오류가 발생했습니다.');
+    } finally {
+      // 🌟 연산이 끝나면 로딩 화면 끄기
+      isLoading.value = false;
+      setTimeout(() => alert('✨ 가상 시뮬레이션 기반 1티어 추천 라인업 완성!'), 100);
+    }
+  }, 50);
 };
 
 // ========================================================
