@@ -3246,7 +3246,13 @@ const handleTitleClick = () => {
                          </div>
                          <select v-model.number="globalBuffs.tacticLevels[i]" class="text-[11px] sm:text-xs border rounded p-1 font-bold outline-none" :class="[globalBuffs.managerEnhance < tac.req[globalBuffs.tacticLevels[i]] ? 'text-red-500 border-red-300' : 'text-indigo-700 border-indigo-200 bg-indigo-50', globalBuffs.tacticLevels[i] === 0 ? 'text-neutral-500 bg-white border-neutral-200' : '']">
                             <option :value="0">Lv.0</option>
-                            <option :value="1" :disabled="globalBuffs.managerEnhance < tac.req[1]">Lv.1 ({{ tac.pt[1] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[1]"> / 🔒{{tac.req[1]}}강 필요
+<option :value="1" :disabled="globalBuffs.managerEnhance < tac.req[1]">Lv.1 ({{ tac.pt[1] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[1]"> / 🔒{{tac.req[1]}}강 필요</template>)</option>
+<option :value="2" :disabled="globalBuffs.managerEnhance < tac.req[2]">Lv.2 ({{ tac.pt[2] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[2]"> / 🔒{{tac.req[2]}}강 필요</template>)</option>
+<option :value="3" :disabled="globalBuffs.managerEnhance < tac.req[3]">Lv.3 ({{ tac.pt[3] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[3]"> / 🔒{{tac.req[3]}}강 필요</template>)</option>
+<option :value="4" :disabled="globalBuffs.managerEnhance < tac.req[4]">Lv.4 ({{ tac.pt[4] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[4]"> / 🔒{{tac.req[4]}}강 필요</template>)</option>
+<option :value="5" :disabled="globalBuffs.managerEnhance < tac.req[5]">Lv.5 ({{ tac.pt[5] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[5]"> / 🔒{{tac.req[5]}}강 필요</template>)</option>
+</select>
+                              
   <!-- 🌟 AI 추천 라인업 생성 모달 -->
   <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
     <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
@@ -4009,7 +4015,11 @@ const handleTitleClick = () => {
           <span class="text-[10px] text-indigo-700 font-bold shrink-0">주옵션 설정 :</span>
           <select v-model="newImprint.mainStat" class="text-xs font-bold bg-white border rounded p-1 text-indigo-700 outline-none flex-1">
              <template v-if="newImprint.role === '타자'">
-               <option value="컨택">컨택</option><option value="갭파워">갭파워</option><option value="홈런파워">홈런파워</option><option value="선구">선구</option><option value="삼진회피">삼진회피</option>
+  <option value="컨택">컨택</option><option value="갭파워">갭파워</option><option value="홈런파워">홈런파워</option><option value="선구">선구</option><option value="삼진회피">삼진회피</option>
+</template>
+<template v-else>
+  <option value="무브먼트">무브먼트</option><option value="장타억제">장타억제</option><option value="홈런억제">홈런억제</option><option value="컨트롤">컨트롤</option><option value="스터프">스터프</option>
+</template>
              
   <!-- 🌟 AI 추천 라인업 생성 모달 -->
   <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
