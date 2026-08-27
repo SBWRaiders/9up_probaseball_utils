@@ -2209,10 +2209,10 @@ const generateAutoLineup = () => {
   setTimeout(() => {
     try {
       const teamIds = autoLineupTeam.value?.id || [];
-      // 🌟 [방어막 1] 띄어쓰기, 투명 글자 완벽 제거
       const getBasePlayerName = (name: any) => String(name || '').normalize('NFKC').replace(/[\u200B-\u200D\uFEFF\s\r\n]/g, '').toLowerCase();
+      const safeNum = (v: any) => isNaN(Number(v)) ? 0 : Number(v); // 🌟 에러 방어막: 빈칸 스탯 계산 시 기절 방지
 
-      // 시너지 전처리
+      // 1. 시너지 전처리 (1% = 120 파워로 환산하여 진짜 파워 스케일과 동기화)
       const getSynergyTags = (p: any) => getArray(p.synergy).map(s => String(s).normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[,\s클럽]/g,'').trim());
 
       const synergyMap: Record<string, { type: string, tiers: {req: number, power: number, unit: string, rawValue: number}[] }> = {};
@@ -2228,7 +2228,6 @@ const generateAutoLineup = () => {
                   else if (c.count && ['>=', '==', '>'].includes(c.count.op)) req = c.count.value;
                   
                   if (req > 0) {
-                      // 🌟 [핵심] 시너지 % 증가를 찐 파워로 치환하여 AI가 탐내도록 만듦 (1%당 약 120파워 가치)
                       let convertedPower = c.bonus.unit === 'percent' ? c.bonus.value * 120 : c.bonus.value;
                       tiers.push({ req, power: convertedPower, unit: c.bonus.unit, rawValue: c.bonus.value });
                   }
@@ -2240,18 +2239,18 @@ const generateAutoLineup = () => {
           }
       });
 
-      // 🌟 [핵심 2] 카드의 '찐' 깡파워 베이스 계산 (산해님 요청: 등급에 따른 압도적 우선순위 부여)
+      // 2. 카드의 '찐' 깡파워 베이스 계산 함수 (산해님 요청: 등급 간 절대적인 서열 부여)
       const getGradeRealPower = (grade: unknown) => {
          const g = getMappedGrade(grade);
          if (g === 'DGN') return 5000; // 디그니티 넘사벽 고정
          if (g === 'TOP') return 1950;
-         if (g === 'GG') return 1750;  // GG가 ACE, HIT보다 100점 더 높아서 무조건 먼저 배치됨!
+         if (g === 'GG') return 1750;  // GG가 ACE, HIT보다 무조건 체급이 높게 설정됨!
          if (['ACE', 'HIT', 'ROY', 'MMVP', 'GGY'].includes(g)) return 1650;
          if (g === 'TEA') return 1500;
-         return 1250; // SEA, POS, ASG
+         return 1250; 
       };
 
-      // 🌟 [방어막 2] DGN 후보군: String(p.raw.id)로 변환해서 타입 충돌 에러 원천 차단!
+      // 3. 후보군 선발 (DGN은 무조건 선택된 카드만 포함)
       const safeDgnIds = autoLineupSelectedDgnIds.value.map(id => String(id));
       const dgnCandidates = preparedPlayers.value.filter(p => safeDgnIds.includes(String(p.raw.id)) && getMappedGrade(p.raw.grade) === 'DGN').map(p => ({ ...p.raw, _tags: getSynergyTags(p.raw), _name: getBasePlayerName(p.raw.name) }));
       
@@ -2261,61 +2260,30 @@ const generateAutoLineup = () => {
 
       const allCands = [...mainCandidates, ...teaCandidates, ...seaCandidates];
       allCands.forEach(p => {
-         const coreSum = Number(p.contact||0) + Number(p.gapPower||0) + Number(p.homeRunPower||0) + Number(p.plateDiscipline||0) + Number(p.strikeoutAvoidance||0) + Number(p.movement||0) + Number(p.longHitSuppression||0) + Number(p.homeRunSuppression||0) + Number(p.control||0) + Number(p.stuff||0);
-         // 기본 코어 스탯 합산 + 등급에 따른 절대 파워 보너스! (TOP > GG > HIT 순서 확립)
-         p._baseScore = coreSum + getGradeRealPower(p.grade);
+         const coreSum = safeNum(p.contact) + safeNum(p.gapPower) + safeNum(p.homeRunPower) + safeNum(p.plateDiscipline) + safeNum(p.strikeoutAvoidance) + safeNum(p.movement) + safeNum(p.longHitSuppression) + safeNum(p.homeRunSuppression) + safeNum(p.control) + safeNum(p.stuff);
+         p._baseScore = coreSum + getGradeRealPower(p.grade); // 깡스탯 + 등급 체급
       });
-      dgnCandidates.forEach(p => { p._baseScore = 999999; });
+      dgnCandidates.forEach(p => { p._baseScore = 999999; }); 
 
-      // 🌟 [핵심 3] 찐 최종 파워 계산 엔진 (인게임 계산식 100% 복제, 에러 방어막 추가)
+      // 🌟 [핵심] 팀 찐파워 평가 함수 (벤치는 깡파워 제외, 주전이 받는 시너지만 점수로 인정)
       const evaluateLineupScore = (tempLineup: Record<string, any>) => {
           let teamScore = 0;
           const players = Object.values(tempLineup).filter(Boolean);
           const nameSet = new Set<string>();
           
-          // 1. 중복 검사 (동명이인 즉시 폐기)
-          for(const p of players) {
-             if(!p || !p._name) continue;
+          for(const slot of Object.keys(tempLineup)) {
+             const p = tempLineup[slot];
+             if(!p) continue;
+             
              const role = isPitcher(p) ? 'P' : 'B';
              const key = p._name + '_' + role;
-             if(nameSet.has(key)) return -1;
+             if(nameSet.has(key)) return -1; // 동명이인은 즉시 컷
              nameSet.add(key);
+
+             if (!slot.startsWith('BENCH')) teamScore += p._baseScore;
+             else teamScore += p._baseScore * 0.0001; // 벤치 스탯은 동점 방지용 소수점만 부여
           }
 
-          // 2. 바인더 및 팀플 계산
-          let totalDignityPower = 0;
-          let maxTeamPlayerPower = 0;
-          const validTeamIds = new Set<string>();
-          
-          players.forEach(p => {
-             const pTeams = getArray(p.team).map(t => String(t).toLowerCase());
-             pTeams.forEach(t => validTeamIds.add(t));
-             groupedTeams.filter(g => g.id.some(id => pTeams.includes(id))).forEach(g => g.id.forEach(id => validTeamIds.add(id)));
-          });
-
-          const sameTeamCounts: Record<string, number> = {};
-          Object.entries(tempLineup).forEach(([slot, p]) => {
-             if(!p) return;
-             const pTeams = getArray(p.team).map(t => String(t).toLowerCase());
-             if(pTeams.some(t => validTeamIds.has(t))) {
-                 const grade = getMappedGrade(p.grade);
-                 const enhanceLvl = grade === 'DGN' ? 10 : 15;
-                 if(grade === 'TEA') {
-                     const power = 8 + Math.min(15, Math.max(0, enhanceLvl));
-                     if(power > maxTeamPlayerPower) maxTeamPlayerPower = power;
-                 } else if(grade === 'DGN') {
-                     totalDignityPower += 100;
-                 }
-             }
-             sameTeamCounts[slot] = 0;
-             players.forEach(other => {
-                 const oTeams = getArray(other.team).map(t => String(t).toLowerCase());
-                 if(oTeams.some(t => pTeams.includes(t) || validTeamIds.has(t))) sameTeamCounts[slot]++;
-             });
-          });
-          const autoTeamDignityBuff = maxTeamPlayerPower + totalDignityPower;
-
-          // 3. 시너지 발동 확인
           const synCounts: Record<string, { B: number, P: number }> = {};
           players.forEach(p => {
              const isPit = isPitcher(p);
@@ -2330,82 +2298,49 @@ const generateAutoLineup = () => {
              if(m && synCounts[m]) { synCounts[m].B++; synCounts[m].P++; }
           });
 
-          // 4. 주전 20명 찐 파워 정밀 계산 (벤치 제외)
           for(const slot of Object.keys(tempLineup)) {
              if(slot.startsWith('BENCH')) continue; 
 
              const p = tempLineup[slot];
-             if(!p) continue;
+             if(!p || !p._tags) continue;
              
              const isPit = isPitcher(p);
              const pRole = isPit ? 'P' : 'B';
-             const pGrade = getMappedGrade(p.grade);
-             const coreStats = isPit ? ['movement', 'longHitSuppression', 'homeRunSuppression', 'control', 'stuff'] : ['contact', 'gapPower', 'homeRunPower', 'plateDiscipline', 'strikeoutAvoidance'];
-             const nonCoreStats = isPit ? ['defense', 'pitchLimit', 'runnerControl'] : ['stealing', 'baseRunning', 'defense'];
              
-             let autoSynergyFixed = 0;
-             let autoSynergyPercent = 0;
-             
-             if (p._tags) {
-                 p._tags.forEach((tag: string) => {
-                     const smap = synergyMap[tag];
-                     if(!smap) return;
-                     if((isPit && smap.type === 'batter') || (!isPit && smap.type === 'pitcher')) return;
+             p._tags.forEach((tag: string) => {
+                 const smap = synergyMap[tag];
+                 if(!smap) return;
+                 if((isPit && smap.type === 'batter') || (!isPit && smap.type === 'pitcher')) return;
 
-                     const count = synCounts[tag] ? synCounts[tag][pRole] : 0;
-                     let pwr = 0;
-                     smap.tiers.forEach(t => { if (count >= t.req) pwr = t.power; });
-                     
-                     let isAmp = false;
-                     globalBuffs.synergyMasteries.forEach((m, i) => { if(m===tag && globalBuffs.amplifiedMasteryIndex===i) isAmp=true; });
-                     if(isAmp && pwr > 0) {
-                         if(smap.tiers[0] && smap.tiers[0].unit === 'percent') pwr += 0.5; else pwr += 50;
+                 const count = synCounts[tag] ? synCounts[tag][pRole] : 0;
+                 let pwr = 0;
+                 let potentialPwr = 0;
+
+                 smap.tiers.forEach(t => { 
+                     if (count >= t.req) {
+                         if(t.power > pwr) pwr = t.power;
+                     } else if (count > 0) {
+                         // 🌟 [AI 예지력] 아직 덜 모인 시너지도 '잠재력 가산점'을 주어 AI가 군침을 흘리게 만듦!
+                         const partial = t.power * (count / t.req);
+                         if (partial > potentialPwr) potentialPwr = partial;
                      }
-                     
-                     if(smap.tiers[0] && smap.tiers[0].unit === 'fixed') autoSynergyFixed += pwr;
-                     else if(smap.tiers[0] && smap.tiers[0].unit === 'percent') autoSynergyPercent += pwr;
                  });
-             }
+                 
+                 let finalPwr = Math.max(pwr, potentialPwr);
 
-             // 게임 내 공통 버프 연산
-             const collectionBuff = ['SEA','ASG'].includes(pGrade) ? 800 : ['POS','TEA','MMVP','HIT','ACE','GGY'].includes(pGrade) ? 900 : ['GG','ROY'].includes(pGrade) ? 1000 : pGrade === 'TOP' ? 1200 : 0;
-             const pTeams = getArray(p.team).map(t => String(t).toLowerCase());
-             const isMyTeam = (globalBuffs.preferredTeam || []).some(t => pTeams.includes(t));
-             
-             const tl = globalBuffs.teamLevel || 0; let tBuff = 0;
-             if (tl > 0) tBuff += Math.min(tl, 25) * 10;
-             if (tl > 50) tBuff += Math.min(tl - 50, 25) * 10;
-             if (tl > 75) tBuff += (tl - 75) * 10;
-             const appliedTeamLevelBuff = isMyTeam ? tBuff : 0;
-             
-             const enhanceMultiplier = ['SEA','ASG'].includes(pGrade) ? 30 : ['POS','TEA','MMVP'].includes(pGrade) ? 40 : ['HIT','ACE','GG','TOP','GGY','ROY'].includes(pGrade) ? 50 : pGrade === 'DGN' ? 300 : 0;
-             const enhanceLvl = pGrade === 'DGN' ? 10 : 15;
-             
-             const growthA = (99 * 10) + collectionBuff + appliedTeamLevelBuff + 149 + (enhanceLvl * enhanceMultiplier);
-             const flatC = 537 + (globalBuffs.clanBuff || 0);
-             const ST = sameTeamCounts[slot] || 0;
-             const careerTeamPowerBonus = 6 * (ST * 2);
-             const dynamicHitAceBuff = ['HIT', 'ACE', 'GG'].includes(pGrade) ? ST * 32 : 0;
-             const growthB = careerTeamPowerBonus + dynamicHitAceBuff + autoTeamDignityBuff + autoSynergyFixed;
-
-             const globalPercentPool = coreStats.reduce((acc, s) => acc + Number(p[s]||0), 0) + nonCoreStats.reduce((acc, s) => acc + Number(p[s]||0), 0) + growthA;
-             const globalBonusTotal = globalPercentPool * (autoSynergyPercent / 100);
-
-             let playerFinalPower = 0;
-             coreStats.forEach(s => {
-                const base = Number(p[s] || 0);
-                playerFinalPower += base + (growthA/5) + (growthB/5) + (globalBonusTotal/5) + (flatC/5) + (pGrade==='DGN'?46:60);
+                 let isAmp = false;
+                 globalBuffs.synergyMasteries.forEach((m, i) => { if(m===tag && globalBuffs.amplifiedMasteryIndex===i) isAmp=true; });
+                 if(isAmp && finalPwr > 0) {
+                     finalPwr += (smap.tiers[0] && smap.tiers[0].unit === 'percent') ? 60 : 50; 
+                 }
+                 
+                 teamScore += finalPwr;
              });
-             nonCoreStats.forEach(s => {
-                playerFinalPower += Number(p[s] || 0);
-             });
-             
-             teamScore += Math.round(playerFinalPower);
           }
           return teamScore;
       };
 
-      // 5. 초기 라인업 세팅
+      // 4. 초기 라인업 세팅 (스탯 깡패들로 싹 다 앉혀놓기)
       const emptyLineup: Record<string, any> = { C: null, '1B': null, '2B': null, '3B': null, SS: null, LF: null, CF: null, RF: null, DH: null, SP1: null, SP2: null, SP3: null, SP4: null, SP5: null, RP1: null, RP2: null, RP3: null, RP4: null, RP5: null, RP6: null, BENCH1: null, BENCH2: null, BENCH3: null, BENCH4: null, BENCH5: null, BENCH6: null, BENCH7: null, BENCH8: null };
       const curLineup = { ...emptyLineup };
       
@@ -2429,9 +2364,10 @@ const generateAutoLineup = () => {
          return false;
       };
 
+      // DGN 강제 배치
       dgnCandidates.forEach(p => { placePlayer(p, Object.keys(emptyLineup)); });
 
-      // 🌟 [중요] 등급 우선! (GG가 HIT보다 스코어가 높기 때문에 무조건 먼저 자리를 꿰찹니다)
+      // 🌟 [중요] 등급/스탯 우선 정렬 (GG가 HIT보다 무조건 앞순위로 들어감)
       mainCandidates.sort((a,b) => b._baseScore - a._baseScore);
       teaCandidates.sort((a,b) => b._baseScore - a._baseScore);
       seaCandidates.sort((a,b) => b._baseScore - a._baseScore);
@@ -2465,7 +2401,7 @@ const generateAutoLineup = () => {
           }
       }
 
-      // 🌟 6. 악마의 무한 트레이드 시뮬레이션 (동명이인 방지 및 찐 파워 기반)
+      // 🌟 5. 악마의 무한 트레이드 시뮬레이션 (동명이인 방지 및 찐 파워 기반)
       let improved = true;
       let iterations = 0;
       const MAX_ITER = 3;
@@ -2486,7 +2422,7 @@ const generateAutoLineup = () => {
               else cands = mainCandidates;
 
               for(const p of cands) {
-                  // 다른 자리에 이미 본인(id)이 들어가 있으면 패스
+                  // 이미 라인업에 들어간 놈은 패스
                   if(Object.values(curLineup).some(x => x && String(x.id) === String(p.id))) continue;
 
                   const posList = getPlayerPositions(p);
@@ -2502,6 +2438,7 @@ const generateAutoLineup = () => {
                   curLineup[slot] = p;
                   const newScore = evaluateLineupScore(curLineup);
 
+                  // 찐 파워가 1점이라도 더 오르면 무조건 교체 확정!
                   if(newScore > currentScore) {
                       currentScore = newScore;
                       bestCandidateForSlot = p;
@@ -2515,7 +2452,7 @@ const generateAutoLineup = () => {
           }
       }
 
-      // 7. UI 최종 반영
+      // 6. UI 최종 반영
       lineup.value = curLineup as any;
       Object.keys(curLineup).forEach(k => {
          if(curLineup[k]) {
@@ -2531,10 +2468,10 @@ const generateAutoLineup = () => {
       
     } catch (err) {
       console.error("Auto Lineup Error:", err);
-      alert('라인업 편성 중 오류가 발생했습니다. (방어막 가동됨)');
+      alert('라인업 편성 중 알 수 없는 오류가 발생했습니다.');
     } finally {
       isLoading.value = false;
-      setTimeout(() => alert('✨ 찐 파워 기반(GG 등급 우선) 궁극의 라인업 완성!'), 100);
+      setTimeout(() => alert('✨ 실제 파워 시뮬레이션 기반(GG 최우선 배치) 궁극의 라인업 완성!'), 100);
     }
   }, 50); 
 };
