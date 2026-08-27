@@ -2209,9 +2209,10 @@ const generateAutoLineup = () => {
   setTimeout(() => {
     try {
       const teamIds = autoLineupTeam.value.id;
-      const getBasePlayerName = (name: unknown) => String(name || '').normalize('NFKC').replace(/[\u200B-\u200D\uFEFF\s\r\n]/g, '').toLowerCase();
+      // 🌟 투명 글자, 띄어쓰기 전부 무시하고 완벽하게 이름을 추출하는 방어막
+      const getBasePlayerName = (name: any) => String(name || '').normalize('NFKC').replace(/[\u200B-\u200D\uFEFF\s\r\n]/g, '').toLowerCase();
 
-      // 시너지 전처리
+      // 1. 시너지 맵핑 (1% = 120 파워로 환산하여 진짜 파워 스케일과 동기화)
       const getSynergyTags = (p: any) => getArray(p.synergy).map(s => String(s).normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[,\s클럽]/g,'').trim());
 
       const synergyMap: Record<string, { type: string, tiers: {req: number, power: number, unit: string, rawValue: number}[] }> = {};
@@ -2227,9 +2228,9 @@ const generateAutoLineup = () => {
                   else if (['>=', '==', '>'].includes(c.count?.op)) req = c.count.value;
                   
                   if (req > 0) {
-                      // 🌟 [핵심] 시너지가 켜졌을 때의 파워 가치를 대폭 상향해서 AI가 시너지를 갈망하게 만듦!
-                      let maxBonus = c.bonus.unit === 'percent' ? c.bonus.value * 30 : c.bonus.value;
-                      tiers.push({ req, power: maxBonus, unit: c.bonus.unit, rawValue: c.bonus.value });
+                      // 🌟 [핵심] 퍼센트 파워를 실제 체감 깡파워로 환산 (1%당 약 120파워)
+                      let convertedPower = c.bonus.unit === 'percent' ? c.bonus.value * 120 : c.bonus.value;
+                      tiers.push({ req, power: convertedPower, unit: c.bonus.unit, rawValue: c.bonus.value });
                   }
               }
           });
@@ -2239,37 +2240,55 @@ const generateAutoLineup = () => {
           }
       });
 
-      // 🌟 [핵심 1] DGN 후보군: 내가 선택한 ID와 일치하면서, 진짜 등급이 DGN인 카드만 엄선! (분신술 100% 차단)
+      // 2. 카드의 '찐' 깡파워 베이스 계산 함수 (도감/강화/스탯 영혼까지 끌어모음)
+      const getGradeRealPower = (grade: unknown) => {
+         const g = getMappedGrade(grade);
+         if (g === 'DGN') return 3000;
+         if (g === 'TOP') return 1950;
+         if (g === 'GG') return 1750;
+         if (['ACE', 'HIT', 'ROY', 'MMVP', 'GGY'].includes(g)) return 1650;
+         if (g === 'TEA') return 1500;
+         return 1250; // SEA, POS
+      };
+
+      // 3. 후보군 분류 (DGN 선택 안한 건 완벽 차단)
       const dgnCandidates = preparedPlayers.value.filter(p => autoLineupSelectedDgnIds.value.includes(p.raw.id) && getMappedGrade(p.raw.grade) === 'DGN').map(p => ({ ...p.raw, _tags: getSynergyTags(p.raw), _name: getBasePlayerName(p.raw.name) }));
-      // DGN을 제외한 오직 5대장 등급만 주전 후보군에 포함!
       const mainCandidates = preparedPlayers.value.filter(p => p.teamLowerCase.some((t: string) => teamIds.includes(t)) && ['TOP', 'ACE', 'HIT', 'GG', 'ROY'].includes(getMappedGrade(p.raw.grade))).map(p => ({ ...p.raw, _tags: getSynergyTags(p.raw), _name: getBasePlayerName(p.raw.name) }));
       const teaCandidates = preparedPlayers.value.filter(p => p.teamLowerCase.some((t: string) => teamIds.includes(t)) && getMappedGrade(p.raw.grade) === 'TEA').map(p => ({ ...p.raw, _tags: getSynergyTags(p.raw), _name: getBasePlayerName(p.raw.name) }));
       const seaCandidates = preparedPlayers.value.filter(p => p.teamLowerCase.some((t: string) => teamIds.includes(t)) && getMappedGrade(p.raw.grade) === 'SEA').map(p => ({ ...p.raw, _tags: getSynergyTags(p.raw), _name: getBasePlayerName(p.raw.name) }));
 
       const allCands = [...mainCandidates, ...teaCandidates, ...seaCandidates];
       allCands.forEach(p => {
-         p._basePower = (Number(p.contact||0) + Number(p.homeRunPower||0) + Number(p.gapPower||0) + Number(p.movement||0) + Number(p.stuff||0) + Number(p.control||0)) + (Number(p.rarity||1) * 3000);
+         const coreSum = Number(p.contact||0) + Number(p.gapPower||0) + Number(p.homeRunPower||0) + Number(p.plateDiscipline||0) + Number(p.strikeoutAvoidance||0) + Number(p.movement||0) + Number(p.longHitSuppression||0) + Number(p.homeRunSuppression||0) + Number(p.control||0) + Number(p.stuff||0);
+         p._baseScore = coreSum + getGradeRealPower(p.grade);
       });
-      dgnCandidates.forEach(p => {
-         p._basePower = 999999; // DGN 카드는 무조건 고정
-      });
+      dgnCandidates.forEach(p => { p._baseScore = 999999; }); // DGN 절대 지존 고정
 
-      // 🌟 [핵심 2] 라인업 점수 평가 함수 (시너지 가산점 팍팍 줌)
+      // 🌟 [핵심] 팀 찐파워 평가 함수 (벤치는 깡파워 제외, 주전이 받는 시너지만 찐 파워로 인정)
       const evaluateLineupScore = (tempLineup: Record<string, any>) => {
-          let score = 0;
+          let teamScore = 0;
           const players = Object.values(tempLineup).filter(Boolean);
           const nameSet = new Set<string>();
           
-          // 중복 검사 (동일 인물 투/타 구분)
-          for(const p of players) {
+          // 4-1. 깡파워 합산 & 동명이인 컷
+          for(const slot of Object.keys(tempLineup)) {
+             const p = tempLineup[slot];
+             if(!p) continue;
+             
              const role = isPitcher(p) ? 'P' : 'B';
              const key = p._name + '_' + role;
-             if(nameSet.has(key)) return -1; // 중복 발생 시 -1점 (즉시 폐기)
+             if(nameSet.has(key)) return -1; // 동명이인 발생 시 최악의 점수 반환 (즉시 폐기)
              nameSet.add(key);
-             score += p._basePower || 0;
+
+             // 벤치는 팀 깡파워에 안 들어감 (동점 방지용 소수점 0.0001점만 줌)
+             if (!slot.startsWith('BENCH')) {
+                 teamScore += p._baseScore;
+             } else {
+                 teamScore += p._baseScore * 0.0001; 
+             }
           }
 
-          // 시너지 활성화 인원수 계산 (벤치 포함 28명 전체)
+          // 4-2. 발동된 시너지 인원 파악
           const synCounts: Record<string, { B: number, P: number }> = {};
           players.forEach(p => {
              const isPit = isPitcher(p);
@@ -2279,15 +2298,20 @@ const generateAutoLineup = () => {
              });
           });
 
-          // 마스터리 버프 인원 추가
           globalBuffs.synergyMasteries.forEach(m => {
              if(m && synCounts[m]) { synCounts[m].B++; synCounts[m].P++; }
           });
 
-          let synergyScore = 0;
-          players.forEach(p => {
+          // 4-3. 진짜 파워 계산 (메인 로스터가 받는 시너지만 점수에 팍팍 합산!)
+          for(const slot of Object.keys(tempLineup)) {
+             if(slot.startsWith('BENCH')) continue; // 벤치가 받는 잉여 시너지는 무쓸모
+
+             const p = tempLineup[slot];
+             if(!p) continue;
+             
              const isPit = isPitcher(p);
              const pRole = isPit ? 'P' : 'B';
+             
              p._tags.forEach((tag: string) => {
                  const smap = synergyMap[tag];
                  if(!smap) return;
@@ -2297,20 +2321,18 @@ const generateAutoLineup = () => {
                  let pwr = 0;
                  smap.tiers.forEach(t => { if (count >= t.req) pwr = t.power; });
                  
-                 // 증폭 반영
                  let isAmp = false;
                  globalBuffs.synergyMasteries.forEach((m, i) => { if(m===tag && globalBuffs.amplifiedMasteryIndex===i) isAmp=true; });
                  if(isAmp) pwr += 50;
 
-                 // 🌟 AI가 시너지를 갈구하게 만드는 잠재력 뻥튀기! (x50배 가산점)
-                 synergyScore += pwr * 50; 
+                 teamScore += pwr; // 시너지가 주는 찐 파워를 점수에 그대로 꽂음
              });
-          });
+          }
 
-          return score + synergyScore;
+          return teamScore;
       };
 
-      // 1. 초기 라인업 세팅 (Greedy: 일단 스탯 깡패로 빈자리 채우기)
+      // 5. 초기 라인업 세팅 (일단 체급 깡패들로 싹 다 앉혀놓기)
       const emptyLineup: Record<string, any> = { C: null, '1B': null, '2B': null, '3B': null, SS: null, LF: null, CF: null, RF: null, DH: null, SP1: null, SP2: null, SP3: null, SP4: null, SP5: null, RP1: null, RP2: null, RP3: null, RP4: null, RP5: null, RP6: null, BENCH1: null, BENCH2: null, BENCH3: null, BENCH4: null, BENCH5: null, BENCH6: null, BENCH7: null, BENCH8: null };
       const curLineup = { ...emptyLineup };
       
@@ -2334,19 +2356,17 @@ const generateAutoLineup = () => {
          return false;
       };
 
-      // DGN 배치 (절대 불가침 영역)
-      dgnCandidates.forEach(p => {
-         placePlayer(p, ['C','1B','2B','3B','SS','LF','CF','RF','DH','SP1','SP2','SP3','SP4','SP5','RP1','RP2','RP3','RP4','RP5','RP6']);
-      });
+      // DGN 배치
+      dgnCandidates.forEach(p => { placePlayer(p, Object.keys(emptyLineup)); });
 
-      // 스탯 깡패 순으로 줄세우기
-      mainCandidates.sort((a,b) => b._basePower - a._basePower);
-      teaCandidates.sort((a,b) => b._basePower - a._basePower);
-      seaCandidates.sort((a,b) => b._basePower - a._basePower);
+      // 스탯 깡패(GG, TOP 등) 순 정렬
+      mainCandidates.sort((a,b) => b._baseScore - a._baseScore);
+      teaCandidates.sort((a,b) => b._baseScore - a._baseScore);
+      seaCandidates.sort((a,b) => b._baseScore - a._baseScore);
 
       const mainSlots = ['C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH', 'SP1', 'SP2', 'SP3', 'SP4', 'SP5', 'RP1', 'RP2', 'RP3', 'RP4', 'RP5', 'RP6'];
       
-      // 초기 주전 채우기
+      // 대충 주전 채우기
       for(const slot of mainSlots) {
          if(!curLineup[slot]) {
              for(const p of mainCandidates) {
@@ -2357,7 +2377,7 @@ const generateAutoLineup = () => {
          }
       }
 
-      // 초기 벤치 채우기 (BENCH1은 무조건 TEA, 나머진 SEA)
+      // 벤치 채우기
       if(!curLineup['BENCH1']) {
           for(const p of teaCandidates) {
              if(!Object.values(curLineup).some(x => x && x._name === p._name && isPitcher(x) === isPitcher(p))) {
@@ -2372,20 +2392,20 @@ const generateAutoLineup = () => {
                      curLineup[`BENCH${i}`] = p; break;
                  }
              }
-         }
+          }
       }
 
-      // 🌟 3. Hill Climbing (시너지 기반 무한 트레이드 시뮬레이션 알고리즘)
+      // 🌟 6. 악마의 무한 트레이드 시뮬레이션 (Hill Climbing)
       let improved = true;
       let iterations = 0;
-      const MAX_ITER = 3; // 3바퀴 순회하면 최적화 달성
+      const MAX_ITER = 3; // 최적화를 위해 전체 3바퀴 순회
 
       while(improved && iterations < MAX_ITER) {
           improved = false;
           iterations++;
 
           for(const slot of Object.keys(curLineup)) {
-              // DGN 카드는 트레이드 금지 (고정)
+              // DGN 카드는 트레이드 절대 불가
               if(curLineup[slot] && dgnCandidates.some(d => d.id === curLineup[slot].id)) continue;
 
               let currentScore = evaluateLineupScore(curLineup);
@@ -2397,10 +2417,10 @@ const generateAutoLineup = () => {
               else cands = mainCandidates;
 
               for(const p of cands) {
-                  // 이미 라인업 어딘가에 있는 선수는 패스
+                  // 이미 뛰고 있는 놈은 패스
                   if(Object.values(curLineup).some(x => x && x.id === p.id)) continue;
 
-                  // 포지션 호환성 체크 (안 맞으면 패스)
+                  // 포지션 안 맞으면 패스
                   const posList = getPlayerPositions(p);
                   const isPitSlot = slot.startsWith('SP') || slot.startsWith('RP');
                   const isPitPlayer = isPitcher(p);
@@ -2410,28 +2430,28 @@ const generateAutoLineup = () => {
                   if(isPitPlayer && slot.startsWith('SP') && !posList.includes('SP')) continue;
                   if(isPitPlayer && slot.startsWith('RP') && !posList.includes('RP')) continue;
 
-                  // 선수 잠깐 교체해보기 (트레이드 시뮬레이션)
+                  // 잠깐 자리 바꿔보고 점수 계산
                   const oldPlayer = curLineup[slot];
                   curLineup[slot] = p;
                   const newScore = evaluateLineupScore(curLineup);
 
-                  // 팀 점수가 더 오르면, 교체 확정 예약!
+                  // 찐 파워가 오르면 트레이드 예약 확정!
                   if(newScore > currentScore) {
                       currentScore = newScore;
                       bestCandidateForSlot = p;
                       improved = true;
                   }
-                  // 시뮬레이션 끝났으니 원래 선수로 복구
+                  // 시뮬레이션 끝나면 복구
                   curLineup[slot] = oldPlayer;
               }
-              // 가장 팀 점수가 높았던 베스트 후보로 진짜 교체!
+              // 찾은 베스트 후보(가성비 시너지+고급 스탯)로 트레이드 실행
               if(bestCandidateForSlot !== curLineup[slot]) {
                   curLineup[slot] = bestCandidateForSlot;
               }
           }
       }
 
-      // 4. UI 적용 및 각인/스킬 초기화
+      // 7. UI 최종 반영
       lineup.value = curLineup as any;
       Object.keys(curLineup).forEach(k => {
          if(curLineup[k]) {
@@ -2450,7 +2470,7 @@ const generateAutoLineup = () => {
       alert('라인업 편성 중 오류가 발생했습니다.');
     } finally {
       isLoading.value = false;
-      setTimeout(() => alert('✨ 시너지 무한 교체 시뮬레이션으로 궁극의 라인업 완성!'), 100);
+      setTimeout(() => alert('✨ 실제 파워 시뮬레이션 기반 궁극의 라인업 완성!'), 100);
     }
   }, 50); 
 };
