@@ -1704,53 +1704,86 @@ const teamTotalPower = computed(() => {
   return sum
 })
 
-// 🌟 1. 선수 복제 완벽 차단 엔진 (눈에 안 보이는 유령 문자, 공백 완벽 제거)
-const getBasePlayerName = (name: unknown) => {
-  return String(name || '')
-    .normalize('NFKC')
-    .replace(/[\u200B-\u200D\uFEFF\s\r\n]/g, '') // 투명 글자, 줄바꿈, 띄어쓰기 싹 다 제거
-    .toLowerCase();
-};
-
 const isSamePlayer = (p1: Raw, p2: Raw) => {
   if (!p1 || !p2) return false;
   if (p1.id === p2.id) return true;
-
-  // 이름 + 투/타 포지션이 같으면 동일 인물로 취급 (홍현우 복제 삭제 완벽 방어)
-  const cleanName1 = getBasePlayerName(p1.name);
-  const cleanName2 = getBasePlayerName(p2.name);
+  
+  // 이름 + 투/타 포지션이 같으면 동일 인물로 취급 (홍현우 복제 삭제 방지)
+  const cleanName1 = String(p1.name || '').replace(/\s+/g, '');
+  const cleanName2 = String(p2.name || '').replace(/\s+/g, '');
   const role1 = isPitcher(p1) ? 'P' : 'B';
   const role2 = isPitcher(p2) ? 'P' : 'B';
-
+  
   return cleanName1 === cleanName2 && role1 === role2;
 }
 
-// 🌟 2. 좌측 검색 리스트에서 선수를 드래그할 때 쓸 전용 함수 추가
-const onSearchDragStart = (e: DragEvent, p: Raw, pos: string) => {
-  e.dataTransfer?.setData('application/json', JSON.stringify({ type: 'search_player', player: p, pos: pos }));
-  if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy';
+const getAvailableSlot = (basePos: string): string => {
+  if (isManualSelection.value && selectedSlot.value && selectedSlot.value.startsWith(basePos)) {
+    if (['SP', 'RP', 'BENCH'].includes(basePos)) return selectedSlot.value;
+  }
+  if (basePos === 'SP') {
+    for (let i = 1; i <= 5; i++) if (!lineup.value[`SP${i}` as keyof typeof lineup.value]) return `SP${i}`
+    return 'SP1'
+  }
+  if (basePos === 'RP') {
+    for (let i = 1; i <= 6; i++) if (!lineup.value[`RP${i}` as keyof typeof lineup.value]) return `RP${i}`
+    return 'RP1'
+  }
+  if (basePos === 'BENCH') {
+    for (let i = 1; i <= 8; i++) if (!lineup.value[`BENCH${i}` as keyof typeof lineup.value]) return `BENCH${i}`
+    return 'BENCH1'
+  }
+  return basePos
 }
 
-// 🌟 3. 드래그 앤 드롭 시 포지션 제한 룰 적용 및 중복 배치 차단
-const onDrop = (e: DragEvent, targetSlot: string) => {
-  // ① 좌측 검색창에서 선수를 끌어다 놓은 경우 (중복 검사 로직 태우기)
-  const searchDataStr = e.dataTransfer?.getData('application/json');
-  if (searchDataStr) {
-    try {
-      const searchData = JSON.parse(searchDataStr);
-      if (searchData.type === 'search_player') {
-        const p = searchData.player;
-        if (isValidSlotForPlayer(p, targetSlot)) {
-           assignPlayerToSlot(targetSlot, p); // 👈 여기서 중복을 자동으로 지워줌
-        } else {
-           alert(`[${targetSlot}] 슬롯에는 이 선수를 배치할 수 없습니다.`);
-        }
-        return;
-      }
-    } catch (err) {}
-  }
+// 🌟 2. 클릭으로 배치할 때 포지션 제한 룰 적용 및 탭 자동 이동
+const assignPlayerToSlot = (posOrSlot: string, p: Raw) => {
+  const targetSlot = getAvailableSlot(posOrSlot)
+  
+  if (!isValidSlotForPlayer(p, targetSlot)) return;
 
-  // ② 라인업 필드 내에서 서로 자리만 맞바꾸기(Swap) 할 경우
+  Object.keys(lineup.value).forEach(k => { 
+    if (lineup.value[k] && isSamePlayer(lineup.value[k]!, p)) lineup.value[k] = null 
+  })
+  
+  lineup.value[targetSlot] = p
+  initPlayerBuff(targetSlot, p)
+  selectedSlot.value = targetSlot
+  isManualSelection.value = false 
+  rightPanelTab.value = 'player'
+
+  // 🌟 [추가됨] 선수가 들어간 포지션에 맞춰서 화면 탭을 자동으로 전환!
+  if (targetSlot.startsWith('SP') || targetSlot.startsWith('RP')) lineupViewMode.value = 'pitcher';
+  else if (targetSlot.startsWith('BENCH')) lineupViewMode.value = 'bench';
+  else lineupViewMode.value = 'batter';
+}
+
+const clearSlot = (pos: string) => {
+  // 1. 라인업에서 선수 이름표만 뗍니다.
+  lineup.value[pos] = null
+  
+  // 🌟 핵심: 기존에는 여기에 delete playerBuffs.value[pos] 같은 코드가 있어서 장비까지 날아갔습니다.
+  // 이제 선수를 빼더라도 playerBuffs(각인 장비 데이터)는 절대 삭제하지 않고 칸에 그대로 남겨둡니다!
+
+  // 2. 화면 초기화 (선택된 선수 화면 닫기)
+  if (selectedSlot.value === pos) {
+    selectedSlot.value = null
+    rightPanelTab.value = 'global'
+  }
+}
+
+// 🌟 드래그 앤 드롭으로 자리 맞바꾸기 로직 🌟
+const onDragStart = (e: DragEvent, slot: string) => {
+  if (!lineup.value[slot]) {
+    e.preventDefault();
+    return;
+  }
+  e.dataTransfer?.setData('text/plain', slot);
+  if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+}
+
+// 🌟 3. 드래그 앤 드롭 시 포지션 제한 룰 적용 및 탭 자동 이동
+const onDrop = (e: DragEvent, targetSlot: string) => {
   const sourceSlot = e.dataTransfer?.getData('text/plain');
   if (!sourceSlot || sourceSlot === targetSlot) return;
 
@@ -1777,6 +1810,7 @@ const onDrop = (e: DragEvent, targetSlot: string) => {
   if (selectedSlot.value === sourceSlot) selectedSlot.value = targetSlot;
   else if (selectedSlot.value === targetSlot) selectedSlot.value = sourceSlot;
 
+  // 🌟 [추가됨] 선수가 드롭된 포지션에 맞춰서 화면 탭을 자동으로 전환!
   if (targetSlot.startsWith('SP') || targetSlot.startsWith('RP')) lineupViewMode.value = 'pitcher';
   else if (targetSlot.startsWith('BENCH')) lineupViewMode.value = 'bench';
   else lineupViewMode.value = 'batter';
@@ -2698,20 +2732,12 @@ const handleTitleClick = () => {
             </div>
           </div>
 
-          <!-- 🌟 선수 리스트 (분열 버그 방지 고유 Key 적용됨) 부분 안쪽의 버튼 영역을 이걸로 교체 -->
-<div class="flex flex-wrap gap-1 mt-0.5 pl-[60px]">
-   <button v-for="pos in getPlayerPositions(p)" :key="pos" draggable="true" @dragstart="onSearchDragStart($event, p, pos)" 
-           @click="assignPlayerToSlot(pos, p)" 
-           class="px-2 py-0.5 rounded-md text-[10px] font-bold border cursor-grab active:cursor-grabbing hover:-translate-y-0.5 transition-transform bg-white dark:bg-neutral-700 shadow-sm" :class="isPitcher(p) ? 'border-rose-200 text-rose-600 dark:border-rose-800 dark:text-rose-400' : 'border-indigo-200 text-indigo-600 dark:border-indigo-800 dark:text-indigo-400'">
-     {{ pos }}
-   </button>
-   <button v-if="!isPitcher(p)" draggable="true" @dragstart="onSearchDragStart($event, p, 'DH')" 
-           @click="assignPlayerToSlot('DH', p)" 
-           class="px-2 py-0.5 rounded-md text-[10px] font-bold border border-emerald-200 text-emerald-600 bg-white shadow-sm cursor-grab hover:-translate-y-0.5 transition-transform dark:bg-neutral-700 dark:border-emerald-800 dark:text-emerald-400">DH</button>
-   <button draggable="true" @dragstart="onSearchDragStart($event, p, 'BENCH')" 
-           @click="assignPlayerToSlot('BENCH', p)" 
-           class="px-2 py-0.5 rounded-md text-[10px] font-bold border border-neutral-200 text-neutral-500 bg-white shadow-sm cursor-grab hover:-translate-y-0.5 transition-transform dark:bg-neutral-700 dark:border-neutral-600 dark:text-neutral-400">벤치</button>
-</div>
+          <!-- 🌟 선수 리스트 (분열 버그 방지 고유 Key 적용됨) -->
+          <div class="flex-1 overflow-y-auto p-2 sm:p-3 space-y-2 custom-scrollbar relative">
+             <div v-if="paginatedPlayers.length === 0" class="absolute inset-0 flex flex-col items-center justify-center text-neutral-400">
+                <Users class="w-10 h-10 mb-2 opacity-20" />
+                <p class="text-sm font-bold">검색 결과가 없습니다.</p>
+             </div>
              
              <!-- 🌟 고유키(Key)를 완벽하게 조합하여 분신술 렌더링을 차단합니다. -->
              <div v-for="(p, index) in paginatedPlayers" :key="(p.id || p.playerId || '') + '_' + p.name + '_' + p.grade + '_' + index" class="border border-neutral-200 dark:border-neutral-700 rounded-xl p-2 bg-white dark:bg-neutral-800 shadow-sm hover:shadow-md transition-all group flex flex-col gap-2">
@@ -3246,13 +3272,7 @@ const handleTitleClick = () => {
                          </div>
                          <select v-model.number="globalBuffs.tacticLevels[i]" class="text-[11px] sm:text-xs border rounded p-1 font-bold outline-none" :class="[globalBuffs.managerEnhance < tac.req[globalBuffs.tacticLevels[i]] ? 'text-red-500 border-red-300' : 'text-indigo-700 border-indigo-200 bg-indigo-50', globalBuffs.tacticLevels[i] === 0 ? 'text-neutral-500 bg-white border-neutral-200' : '']">
                             <option :value="0">Lv.0</option>
-<option :value="1" :disabled="globalBuffs.managerEnhance < tac.req[1]">Lv.1 ({{ tac.pt[1] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[1]"> / 🔒{{tac.req[1]}}강 필요</template>)</option>
-<option :value="2" :disabled="globalBuffs.managerEnhance < tac.req[2]">Lv.2 ({{ tac.pt[2] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[2]"> / 🔒{{tac.req[2]}}강 필요</template>)</option>
-<option :value="3" :disabled="globalBuffs.managerEnhance < tac.req[3]">Lv.3 ({{ tac.pt[3] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[3]"> / 🔒{{tac.req[3]}}강 필요</template>)</option>
-<option :value="4" :disabled="globalBuffs.managerEnhance < tac.req[4]">Lv.4 ({{ tac.pt[4] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[4]"> / 🔒{{tac.req[4]}}강 필요</template>)</option>
-<option :value="5" :disabled="globalBuffs.managerEnhance < tac.req[5]">Lv.5 ({{ tac.pt[5] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[5]"> / 🔒{{tac.req[5]}}강 필요</template>)</option>
-</select>
-                              
+                            <option :value="1" :disabled="globalBuffs.managerEnhance < tac.req[1]">Lv.1 ({{ tac.pt[1] }}pt<template v-if="globalBuffs.managerEnhance < tac.req[1]"> / 🔒{{tac.req[1]}}강 필요
   <!-- 🌟 AI 추천 라인업 생성 모달 -->
   <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
     <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
@@ -3876,12 +3896,10 @@ const handleTitleClick = () => {
                             </span>
                           </div>
                           <div class="text-[11px] font-medium text-neutral-600 dark:text-neutral-400 leading-snug break-keep whitespace-pre-wrap">
-        {{ getEnhancedSkillEffect(enh, playerBuffs[selectedSlot].enhancementLevel) }}
-      </div>
-    </div>
-  </div>
-</template>
-</div>
+                            {{ getEnhancedSkillEffect(enh, playerBuffs[selectedSlot].enhancementLevel) }}
+                          </div>
+                        </div>
+                      </div>
                     
   <!-- 🌟 AI 추천 라인업 생성 모달 -->
   <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
@@ -4017,11 +4035,7 @@ const handleTitleClick = () => {
           <span class="text-[10px] text-indigo-700 font-bold shrink-0">주옵션 설정 :</span>
           <select v-model="newImprint.mainStat" class="text-xs font-bold bg-white border rounded p-1 text-indigo-700 outline-none flex-1">
              <template v-if="newImprint.role === '타자'">
-  <option value="컨택">컨택</option><option value="갭파워">갭파워</option><option value="홈런파워">홈런파워</option><option value="선구">선구</option><option value="삼진회피">삼진회피</option>
-</template>
-<template v-else>
-  <option value="무브먼트">무브먼트</option><option value="장타억제">장타억제</option><option value="홈런억제">홈런억제</option><option value="컨트롤">컨트롤</option><option value="스터프">스터프</option>
-</template>
+               <option value="컨택">컨택</option><option value="갭파워">갭파워</option><option value="홈런파워">홈런파워</option><option value="선구">선구</option><option value="삼진회피">삼진회피</option>
              
   <!-- 🌟 AI 추천 라인업 생성 모달 -->
   <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
@@ -4158,11 +4172,7 @@ const handleTitleClick = () => {
           <div v-for="(opt, idx) in newImprint.subOptions" :key="idx" class="flex gap-2">
             <select v-model="opt.type" class="text-xs border rounded p-1.5 flex-1 text-neutral-700 font-medium">
               <template v-if="newImprint.role === '타자'">
-  <option value="컨택">컨택</option><option value="갭파워">갭파워</option><option value="홈런파워">홈런파워</option><option value="선구">선구</option><option value="삼진회피">삼진회피</option>
-</template>
-<template v-else>
-  <option value="무브먼트">무브먼트</option><option value="장타억제">장타억제</option><option value="홈런억제">홈런억제</option><option value="컨트롤">컨트롤</option><option value="스터프">스터프</option><option value="한계투구 증가">한계투구 증가</option><option value="1~2선발시 파워증가">1~2선발시 파워증가</option><option value="수비">수비</option><option value="전체 능력치">전체 능력치 (코어 5종 +수치)</option><option value="조건부 파워">조건부 파워 (박빙/주자 등)</option><option value="수익 증가">경기 총 수익 증가</option>
-</template>
+                <option value="컨택">컨택</option><option value="갭파워">갭파워</option><option value="홈런파워">홈런파워</option><option value="선구">선구</option><option value="삼진회피">삼진회피</option>
               
   <!-- 🌟 AI 추천 라인업 생성 모달 -->
   <div v-if="isAdmin && showAutoLineupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
