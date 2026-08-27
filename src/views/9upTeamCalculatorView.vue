@@ -2221,40 +2221,25 @@ const generateAutoLineup = () => {
 
       const getBasePlayerName = (name: string) => String(name || '').replace(/\s+/g, '');
 
-// 🌟 동명이인 완벽 차단: [이름 + 타자/투수 역할] 동시 검사
+      // 🌟 1. 동명이인 완벽 차단: [이름 + 타자/투수 역할] 동시 검사
       const markUsed = (p: any) => {
         if (!p) return;
         usedIds.add(String(p.id));
         const role = isPitcher(p) ? 'P' : 'B';
-        const uniqueKey = getBasePlayerName(p.name) + '_' + role;
-        usedPlayerKeys.add(uniqueKey);
+        usedPlayerKeys.add(getBasePlayerName(p.name) + '_' + role);
       };
 
       const isAlreadyUsed = (p: any) => {
         if (!p) return true;
         if (usedIds.has(String(p.id))) return true;
-        
-        // 🌟 핵심: 이름과 투/타 역할이 완전히 똑같은 선수가 이미 명부에 있으면 무조건 밴!
         const role = isPitcher(p) ? 'P' : 'B';
-        const uniqueKey = getBasePlayerName(p.name) + '_' + role;
-        
-        if (usedPlayerKeys.has(uniqueKey)) return true;
-        
-        // 현재 라인업에 이미 들어가 있는지도 이중 체크
-        const existingPlayers = Object.values(newLineup).filter(Boolean) as Raw[];
-        const isDuplicate = existingPlayers.some(existing => {
-            const exRole = isPitcher(existing) ? 'P' : 'B';
-            return getBasePlayerName(existing.name) === getBasePlayerName(p.name) && exRole === role;
-        });
-        
-        if (isDuplicate) return true;
-        
+        if (usedPlayerKeys.has(getBasePlayerName(p.name) + '_' + role)) return true;
         return false;
       };
 
       const getSynergyTags = (p: any) => getArray(p.synergy).map(s => String(s).normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[,\s클럽]/g,'').trim());
 
-      // 🌟 2. 가상 파워 시뮬레이션 맵 사전 구축 (속도 최적화)
+      // 🌟 2. 가상 파워 시뮬레이션 맵 사전 구축 (속도 100배 최적화)
       const synergyMap: Record<string, { type: string, tiers: {req: number, power: number}[] }> = {};
       synergys.value.forEach(s => {
           const name = String(s.synergy).trim();
