@@ -2295,7 +2295,12 @@ const generateAutoLineup = () => {
           }
       });
 
-      // 🌟 4. DGN(디그니티) 수동 선택분 최우선 배치
+      // 🌟 산해님 아이디어 적용: 선택된 DGN 선수의 [이름+투/타]를 추출해서 절대 방어막 생성!
+      const selectedDgnKeys = preparedPlayers.value
+          .filter(p => autoLineupSelectedDgnIds.value.includes(p.raw.id))
+          .map(p => p.nameNormalized + '_' + (isPitcher(p.raw) ? 'P' : 'B'));
+
+      // DGN(디그니티) 수동 선택분 최우선 배치
       const dgnPlayers = preparedPlayers.value.filter(p => autoLineupSelectedDgnIds.value.includes(p.raw.id)).map(p => {
           p.raw._tags = getSynergyTags(p.raw);
           return p.raw;
@@ -2320,12 +2325,15 @@ const generateAutoLineup = () => {
           }
       });
 
-      // 🌟 5. 주전 후보군 세팅 (GOY, SEA 완전 제외) & 사전 스탯 계산
+      // 주전 후보군 세팅 (GOY, SEA 완전 제외)
       const validMainGrades = ['TOP', 'ACE', 'HIT', 'GG', 'ROY', 'DGN'];
-      const mainCandidates = preparedPlayers.value.filter(p => 
-          p.teamLowerCase.some(t => teamIds.includes(t)) && 
-          validMainGrades.includes(getMappedGrade(p.raw.grade))
-      ).map(p => {
+      const mainCandidates = preparedPlayers.value.filter(p => {
+          const pKey = p.nameNormalized + '_' + (isPitcher(p.raw) ? 'P' : 'B');
+          return p.teamLowerCase.some(t => teamIds.includes(t)) && 
+                 validMainGrades.includes(getMappedGrade(p.raw.grade)) &&
+                 // 🌟 핵심 방어막: DGN 카드에 넣은 선수 이름이면, 오직 내가 선택한 DGN 본인만 후보에 오르고 나머진 싹 다 쳐냄!
+                 (!selectedDgnKeys.includes(pKey) || autoLineupSelectedDgnIds.value.includes(p.raw.id));
+      }).map(p => {
           const raw = p.raw;
           raw._tags = getSynergyTags(raw);
           raw._basePower = (Number(raw.contact||0) + Number(raw.homeRunPower||0) + Number(raw.gapPower||0) + Number(raw.movement||0) + Number(raw.stuff||0) + Number(raw.control||0)) + (Number(raw.rarity||1) * 3000);
@@ -2405,10 +2413,12 @@ const generateAutoLineup = () => {
       });
 
       // 🌟 7. 벤치 1순위: TEA 채우기
-      const teaCandidates = preparedPlayers.value.filter(p => 
-          p.teamLowerCase.some(t => teamIds.includes(t)) && 
-          getMappedGrade(p.raw.grade) === 'TEA'
-      ).map(p => {
+      const teaCandidates = preparedPlayers.value.filter(p => {
+          const pKey = p.nameNormalized + '_' + (isPitcher(p.raw) ? 'P' : 'B');
+          return p.teamLowerCase.some(t => teamIds.includes(t)) && 
+                 getMappedGrade(p.raw.grade) === 'TEA' &&
+                 !selectedDgnKeys.includes(pKey); // 🌟 벤치에는 무조건 DGN 이름 컷!
+      }).map(p => {
           p.raw._tags = getSynergyTags(p.raw);
           p.raw._basePower = 0; 
           return p.raw;
@@ -2430,15 +2440,17 @@ const generateAutoLineup = () => {
       }
 
       // 🌟 8. 나머지 벤치 (2~8번): SEA 채우기
-      const seaCandidates = preparedPlayers.value.filter(p => 
-          p.teamLowerCase.some(t => teamIds.includes(t)) && 
-          getMappedGrade(p.raw.grade) === 'SEA'
-      ).map(p => {
+      const seaCandidates = preparedPlayers.value.filter(p => {
+          const pKey = p.nameNormalized + '_' + (isPitcher(p.raw) ? 'P' : 'B');
+          return p.teamLowerCase.some(t => teamIds.includes(t)) && 
+                 getMappedGrade(p.raw.grade) === 'SEA' &&
+                 !selectedDgnKeys.includes(pKey); // 🌟 벤치에는 무조건 DGN 이름 컷!
+      }).map(p => {
           p.raw._tags = getSynergyTags(p.raw);
           p.raw._basePower = 0; 
           return p.raw;
       });
-
+      
       for (let i = 2; i <= 8; i++) {
           if (newLineup[`BENCH${i}`]) continue;
           let bestSEA = null;
