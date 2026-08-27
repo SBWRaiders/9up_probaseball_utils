@@ -2302,8 +2302,8 @@ const generateAutoLineup = () => {
           .filter(p => autoLineupSelectedDgnIds.value.includes(p.raw.id))
           .map(p => getBasePlayerName(p.raw.name) + '_' + (isPitcher(p.raw) ? 'P' : 'B'));
 
-      // DGN 우선 배치
-      const dgnPlayers = preparedPlayers.value.filter(p => autoLineupSelectedDgnIds.value.includes(p.raw.id)).map(p => {
+// DGN 우선 배치 (분신술 완벽 차단 방어막 추가)
+      const dgnPlayers = preparedPlayers.value.filter(p => autoLineupSelectedDgnIds.value.includes(p.raw.id) && getMappedGrade(p.raw.grade) === 'DGN').map(p => {
           p.raw._tags = getSynergyTags(p.raw);
           return p.raw;
       });
