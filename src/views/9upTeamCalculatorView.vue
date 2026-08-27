@@ -2218,8 +2218,8 @@ const generateAutoLineup = () => {
       const usedIds = new Set<string>();
       const usedPlayerKeys = new Set<string>();
 
-      const getBasePlayerName = (name: string) => String(name || '').replace(/\s+/g, '');
-
+      const getBasePlayerName = (name: string) => normalizeText(name);
+      
       // 🌟 2. 동명이인 및 DGN 카드 복제 완벽 차단!
       const markUsed = (p: any) => {
         if (!p) return;
