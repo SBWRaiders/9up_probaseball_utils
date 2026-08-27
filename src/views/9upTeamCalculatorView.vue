@@ -2194,11 +2194,11 @@ const getDgnPlayerName = (id: string) => {
 const generateAutoLineup = () => {
   if(!confirm('현재 덱이 초기화되고 추천 라인업으로 덮어씌워집니다.\n진행하시겠습니까?')) return;
 
-  // 🌟 1. 즉시 모달을 닫고 로딩 화면(스피너)을 띄웁니다!
-  showAutoLineupModal.value = false;
+  // 🌟 로딩 스피너 활성화 및 모달 닫기
   isLoading.value = true;
+  showAutoLineupModal.value = false;
 
-  // 🌟 2. 브라우저가 로딩 UI를 그릴 시간을 주기 위해 연산을 50ms 늦춥니다. (멈춤 방지)
+  // 브라우저 멈춤 방지를 위해 연산을 50ms 지연 실행
   setTimeout(() => {
     try {
       const teamIds = autoLineupTeam.value.id;
@@ -2209,20 +2209,19 @@ const generateAutoLineup = () => {
       const usedIds = new Set<string>();
       const usedPlayerKeys = new Set<string>();
 
-      // 이름 공백 제거 (띄어쓰기가 달라도 같은 사람으로 인식하게)
       const getBasePlayerName = (name: string) => String(name || '').replace(/\s+/g, '');
 
-      // 🌟 동명이인 완벽 해결: [이름 + 투/타] 조합으로 복제 방지
+      // 🌟 1. 동명이인 완벽 차단: [이름 + 타자/투수 역할] 동시 검사
       const markUsed = (p: any) => {
         if (!p) return;
-        usedIds.add(p.id);
+        usedIds.add(String(p.id));
         const role = isPitcher(p) ? 'P' : 'B';
         usedPlayerKeys.add(getBasePlayerName(p.name) + '_' + role);
       };
 
       const isAlreadyUsed = (p: any) => {
         if (!p) return true;
-        if (usedIds.has(p.id)) return true;
+        if (usedIds.has(String(p.id))) return true;
         const role = isPitcher(p) ? 'P' : 'B';
         if (usedPlayerKeys.has(getBasePlayerName(p.name) + '_' + role)) return true;
         return false;
@@ -2230,7 +2229,7 @@ const generateAutoLineup = () => {
 
       const getSynergyTags = (p: any) => getArray(p.synergy).map(s => String(s).normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[,\s클럽]/g,'').trim());
 
-      // ⚡ [최적화] 시너지 맵 사전 구축 (O(1) 탐색용 - 속도 100배 향상)
+      // 🌟 2. 가상 파워 시뮬레이션 맵 사전 구축 (속도 최적화)
       const synergyMap: Record<string, { type: string, tiers: {req: number, power: number}[] }> = {};
       synergys.value.forEach(s => {
           const name = String(s.synergy).trim();
@@ -2256,7 +2255,6 @@ const generateAutoLineup = () => {
           }
       });
 
-      // ⚡ [최적화] 현재 누적된 시너지 인원수 실시간 추적기
       const currentSynCounts: Record<string, { B: number, P: number }> = {};
       const addSynergyCount = (tags: string[], isPit: boolean) => {
           tags.forEach(tag => {
@@ -2274,7 +2272,7 @@ const generateAutoLineup = () => {
           }
       });
 
-      // 1. DGN(디그니티) 수동 선택분 최우선 배치
+      // DGN(디그니티) 수동 선택분 최우선 배치
       const dgnPlayers = preparedPlayers.value.filter(p => autoLineupSelectedDgnIds.value.includes(p.raw.id)).map(p => {
           p.raw._tags = getSynergyTags(p.raw);
           return p.raw;
@@ -2299,7 +2297,7 @@ const generateAutoLineup = () => {
           }
       });
 
-      // 2. 주전 후보군 세팅 (GOY, SEA 완전 제외) & 사전 스탯 계산
+      // 주전 후보군 세팅 (GOY, SEA 완전 제외)
       const validMainGrades = ['TOP', 'ACE', 'HIT', 'GG', 'ROY', 'DGN'];
       const mainCandidates = preparedPlayers.value.filter(p => 
           p.teamLowerCase.some(t => teamIds.includes(t)) && 
@@ -2311,7 +2309,7 @@ const generateAutoLineup = () => {
           return raw;
       });
 
-      // 🔥 진짜 파워 시뮬레이션 평가 함수 (Greedy) 🔥
+      // 🌟 진짜 파워 시뮬레이션 평가 함수 (Greedy Algorithm)
       const evaluateCandidate = (p: any) => {
           let synDelta = 0;
           const isPit = isPitcher(p);
@@ -2376,13 +2374,13 @@ const generateAutoLineup = () => {
           }
       });
 
-      // 4. 벤치 1순위: TEA(팀플) 1장 채우기 (시너지 극대화)
+      // 🌟 4. 벤치 1순위: TEA 채우기 (주전들과의 시너지 합산 최적화)
       const teaCandidates = preparedPlayers.value.filter(p => 
           p.teamLowerCase.some(t => teamIds.includes(t)) && 
           getMappedGrade(p.raw.grade) === 'TEA'
       ).map(p => {
           p.raw._tags = getSynergyTags(p.raw);
-          p.raw._basePower = 0; 
+          p.raw._basePower = 0; // 토템은 베이스 깡파워 무시
           return p.raw;
       });
 
@@ -2401,13 +2399,13 @@ const generateAutoLineup = () => {
           }
       }
 
-      // 5. 나머지 벤치 (2~8번): 무조건 SEA(시즌)만 투입 (토템 시뮬레이션)
+      // 🌟 5. 나머지 벤치 (2~8번): SEA 채우기 (연산 폭발을 막는 한정된 토템 후보군)
       const seaCandidates = preparedPlayers.value.filter(p => 
           p.teamLowerCase.some(t => teamIds.includes(t)) && 
           getMappedGrade(p.raw.grade) === 'SEA'
       ).map(p => {
           p.raw._tags = getSynergyTags(p.raw);
-          p.raw._basePower = 0; 
+          p.raw._basePower = 0; // 토템은 베이스 깡파워 무시
           return p.raw;
       });
 
@@ -2447,11 +2445,11 @@ const generateAutoLineup = () => {
       console.error("Auto Lineup Error:", err);
       alert('라인업 편성 중 오류가 발생했습니다.');
     } finally {
-      // 🌟 연산이 끝나면 로딩 화면 끄기
+      // 🌟 연산이 끝나면 로딩 스피너 종료 및 완료 메시지
       isLoading.value = false;
       setTimeout(() => alert('✨ 가상 시뮬레이션 기반 1티어 추천 라인업 완성!'), 100);
     }
-  }, 50);
+  }, 50); 
 };
 
 // ========================================================
