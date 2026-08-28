@@ -2213,7 +2213,6 @@ const generateAutoLineup = () => {
       const getPureName = (name: any) => String(name || '').replace(/[^가-힣a-zA-Z]/g, ''); 
       const safeNum = (v: any) => isNaN(Number(v)) ? 0 : Number(v);
 
-      // 🌟 1. 하위 호환 시너지 계단식 족보
       const expandSynergyTags = (rawTags: string[]) => {
           const expanded = new Set(rawTags);
           const hierarchy: Record<string, string[]> = {
@@ -2273,7 +2272,6 @@ const generateAutoLineup = () => {
           }
       });
 
-      // 🌟 2. 벤치 과부하 방지 (SEA, HIT, ACE, TEA만 허용) 및 DGN 통제
       const safeDgnIds = autoLineupSelectedDgnIds.value.map(id => String(id));
       const dgnCandidates = preparedPlayers.value.filter(p => safeDgnIds.includes(String(p.raw.id)) && getMappedGrade(p.raw.grade) === 'DGN').map(p => ({ ...p.raw, _tags: getSynergyTags(p.raw), _name: getBasePlayerName(p.raw.name) }));
       const mainGrades = ['TOP', 'GG', 'HIT', 'ACE', 'ROY'];
@@ -2311,7 +2309,6 @@ const generateAutoLineup = () => {
 
       const mainSlots = ['SP1', 'SP2', 'SP3', 'SP4', 'SP5', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH', 'RP1', 'RP2', 'RP3', 'RP4', 'RP5', 'RP6'];
 
-      // 🌟 3. 산해님표 궁극의 전투력 측정기
       const evaluateLineupScore = (tempLineup: Record<string, any>) => {
           let teamScore = 0;
           let nullMainCount = 0;
@@ -2376,7 +2373,6 @@ const generateAutoLineup = () => {
              }
           });
 
-          // [퍼센트 환율(1%=20점) 및 가상 견적 시스템 조정]
           let potentialScore = 0;
           Object.keys(synCounts).forEach(tag => {
               const smap = synergyMap[tag];
@@ -2400,18 +2396,17 @@ const generateAutoLineup = () => {
                       }
                   }
                   
-                  // 🚨 [산해님 룰 적용] 켜지지 않은 시너지 가불 점수 대폭 하향 (50%)
                   if (nextReq > 0 && !isFullyActive) {
                       const maxPossible = mainCount + availInWarehouse;
                       const pwrVal = nextUnit === 'percent' ? nextPwr * 20 : nextPwr;
                       const totalExpected = pwrVal * mainCount;
 
                       if (maxPossible >= nextReq) {
-                          // 1. 창고 털면 달성 가능 -> 50% 반토막 가불 (거품 붕괴, 철저한 가성비 검증)
                           score += totalExpected * 0.5 * (count / nextReq); 
                       } else {
-                          // 2. 창고 털어도 불가능 -> 가차없이 0점!
-                          score += 0;
+                          // 🚨 [핵심 패치 1] 무임승차(이준호) 척결용 "노력 점수(5%)" 부여!
+                          // 완성 불가능하더라도 0점 주면 잉여가 안 빠지므로 미세한 가산점 줌
+                          score += totalExpected * 0.05 * (count / nextReq);
                       }
                   }
                   return score;
@@ -2542,7 +2537,6 @@ const generateAutoLineup = () => {
           }
       }
 
-      // 🌟 4. 핑퐁 티키타카 & 데스매치
       let improved = true;
       let iterations = 0;
       const MAX_ITER = 3; 
@@ -2562,13 +2556,21 @@ const generateAutoLineup = () => {
                   const pPure = getPureName(p.name);
                   let evictedBenchSlot = null;
                   let evictedBenchPlayer = null;
+                  
+                  // 🚨 [핵심 패치 2] 7인 페널티 방지: 임시 대타(Substitute) 즉시 투입!
                   for (let i = 1; i <= 8; i++) {
                       const bSlot = `BENCH${i}`;
                       const bPlayer = curLineup[bSlot];
                       if (bPlayer && getPureName(bPlayer.name) === pPure && isPitcher(bPlayer) === isPitcher(p)) {
                           evictedBenchSlot = bSlot;
                           evictedBenchPlayer = bPlayer;
-                          curLineup[bSlot] = null; 
+                          
+                          // 창고(벤치풀)에서 현재 라인업에 없는 쩌리 선수 아무나 1명 구출해서 투입
+                          const tempSub = benchCandidates.find(bp => {
+                              const bpPure = getPureName(bp.name);
+                              return bpPure !== pPure && !Object.values(curLineup).some(x => x && getPureName(x.name) === bpPure && isPitcher(x) === isPitcher(bp));
+                          });
+                          curLineup[bSlot] = tempSub || null; // 빈자리 원천 봉쇄! (+32점 증발 방지)
                           break;
                       }
                   }
@@ -2651,7 +2653,6 @@ const generateAutoLineup = () => {
           }
       }
 
-      // 🌟 5. 오버롤(OVR) 순위 정렬
       const getPlayerPowerForSorting = (p: any, slot: string) => {
           const tempLineup = { ...curLineup };
           tempLineup[slot] = p;
@@ -2688,7 +2689,7 @@ const generateAutoLineup = () => {
       alert('라인업 편성 중 오류가 발생했습니다.');
     } finally {
       isLoading.value = false;
-      setTimeout(() => alert('✨ 산해님 룰 적용 완료!\n(불가능 시너지 0점 컷트 / 가능 시너지 50%로 대폭 하향)'), 100);
+      setTimeout(() => alert('✨ 산해님 최종 마스터 룰 적용 완료!\n(+32점 증발 버그 차단 & 무임승차 잉여 벤치 척결)'), 100);
     }
   }, 50); 
 };
