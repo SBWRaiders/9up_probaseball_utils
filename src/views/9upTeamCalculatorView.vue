@@ -2273,16 +2273,15 @@ const generateAutoLineup = () => {
           }
       });
 
-      // 🌟 2. 산해님표 렉 제로 필터링 (DGN VIP 통제 & 벤치 풀 엄격 압축)
+      // 🌟 2. 벤치 과부하 방지 (SEA, HIT, ACE, TEA만 허용) 및 DGN 통제
       const safeDgnIds = autoLineupSelectedDgnIds.value.map(id => String(id));
       const dgnCandidates = preparedPlayers.value.filter(p => safeDgnIds.includes(String(p.raw.id)) && getMappedGrade(p.raw.grade) === 'DGN').map(p => ({ ...p.raw, _tags: getSynergyTags(p.raw), _name: getBasePlayerName(p.raw.name) }));
       const mainGrades = ['TOP', 'GG', 'HIT', 'ACE', 'ROY'];
       const mainCandidates = preparedPlayers.value.filter(p => p.teamLowerCase.some((t: string) => teamIds.includes(t)) && mainGrades.includes(getMappedGrade(p.raw.grade))).map(p => ({ ...p.raw, _tags: getSynergyTags(p.raw), _name: getBasePlayerName(p.raw.name) }));
       
-      // 🚨 벤치 서치 풀은 무조건 SEA, HIT, ACE, TEA로 한정하여 경우의 수 폭발(렉) 원천 차단!
       const benchCandidates = preparedPlayers.value.filter(p => p.teamLowerCase.some((t: string) => teamIds.includes(t)) && ['SEA', 'HIT', 'ACE', 'TEA'].includes(getMappedGrade(p.raw.grade))).map(p => ({ ...p.raw, _tags: getSynergyTags(p.raw), _name: getBasePlayerName(p.raw.name) }));
 
-      // 가상 견적 시스템을 위한 '벤치 창고(Warehouse)' 현황 파악
+      // 7인 페널티 방지용 창고(Warehouse) 가상 견적 데이터 추출
       const warehouseTags: Record<string, { B: number, P: number }> = {};
       benchCandidates.forEach(p => {
           const isPit = isPitcher(p);
@@ -2307,16 +2306,14 @@ const generateAutoLineup = () => {
          return coreSum + nonCoreSum + getExpectedSkillPower(p.grade);
       };
 
-      const gradePriority: Record<string, number> = { 'DGN': 6, 'TOP': 5, 'GG': 4, 'ACE': 3, 'HIT': 3, 'ROY': 2, 'TEA': 1, 'SEA': 0 };
-
+      // 초기 배치를 위한 스탯 정렬 (TOP이 우선적으로 고려되지만, 절대 권력은 아님)
       [...dgnCandidates, ...mainCandidates, ...benchCandidates].forEach(p => {
          p._rawStats = calculateBaseStats(p);
-         p._gradePrio = gradePriority[getMappedGrade(p.grade)] || 0;
       });
 
       const mainSlots = ['SP1', 'SP2', 'SP3', 'SP4', 'SP5', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH', 'RP1', 'RP2', 'RP3', 'RP4', 'RP5', 'RP6'];
 
-      // 🌟 3. 한계 기여도 평가기 (가상 견적 + 환율 완벽 적용)
+      // 🌟 3. 산해님표 궁극의 전투력 측정기
       const evaluateLineupScore = (tempLineup: Record<string, any>) => {
           let teamScore = 0;
           let nullMainCount = 0;
@@ -2334,7 +2331,7 @@ const generateAutoLineup = () => {
              const role = isPitcher(p) ? 'P' : 'B';
              const key = pureName + '_' + role;
              
-             if(nameSet.has(key)) return -2000000; // 동명이인 원천 차단
+             if(nameSet.has(key)) return -2000000; // 동명이인 출전 즉시 처형
              nameSet.add(key);
              if (getMappedGrade(p.grade) === 'GG') ggCount++;
           }
@@ -2381,14 +2378,14 @@ const generateAutoLineup = () => {
              }
           });
 
-          // 🌟 가상 견적(잠재력) 채점 시스템
+          // [퍼센트 환율(1%=20점) 및 가상 견적(대타 투입) 채점]
           let potentialScore = 0;
           Object.keys(synCounts).forEach(tag => {
               const smap = synergyMap[tag];
               if(!smap) return;
 
               const calcPot = (count: number, mainCount: number, availInWarehouse: number, isValidType: boolean) => {
-                  if (!isValidType || mainCount === 0 || count === 0) return 0; // 주전에 수혜자가 없으면 즉시 0점 (허세 컷트)
+                  if (!isValidType || mainCount === 0 || count === 0) return 0; // 주전 수혜자 0명이면 가차 없이 0점
                   
                   let score = 0;
                   let nextReq = 0, nextPwr = 0, nextUnit = 'fixed';
@@ -2397,7 +2394,7 @@ const generateAutoLineup = () => {
                   for (let t of smap.tiers) {
                       if (count >= t.req) {
                           const pwrVal = t.unit === 'percent' ? t.power * 20 : t.power;
-                          score += pwrVal * mainCount; // 1% = 20점 환율 * 수혜자 수
+                          score += pwrVal * mainCount; // (1% = 20점) * 주전 명수
                           isFullyActive = true;
                       } else {
                           nextReq = t.req; nextPwr = t.power; nextUnit = t.unit;
@@ -2405,17 +2402,15 @@ const generateAutoLineup = () => {
                       }
                   }
                   
-                  // 아직 불이 안 켜졌다면(빌드업 구간), 창고 재고를 확인해 가상 견적 산출
+                  // 벤치 철거(7인 페널티) 발생 시, 창고 데이터를 바탕으로 대타 가상 점수 90% 지급!
                   if (nextReq > 0 && !isFullyActive) {
                       const maxPossible = mainCount + availInWarehouse;
                       const pwrVal = nextUnit === 'percent' ? nextPwr * 20 : nextPwr;
                       const totalExpected = pwrVal * mainCount;
 
                       if (maxPossible >= nextReq) {
-                          // 창고 털면 켤 수 있다! ➔ 90% 가불 (N빵 비율 곱해서 빌드업 장려)
                           score += totalExpected * 0.9 * (count / nextReq); 
                       } else {
-                          // 창고 다 털어도 못 켬 ➔ 희망 고문 50% 가불
                           score += totalExpected * 0.5 * (count / nextReq);
                       }
                   }
@@ -2432,7 +2427,7 @@ const generateAutoLineup = () => {
              if(!p) continue;
 
              if(slot.startsWith('BENCH')) {
-                 teamScore += (p._rawStats || 0) * 0.0000001; // 벤치는 깡스탯 무시, 철저히 시너지 점수로만 평가
+                 teamScore += (p._rawStats || 0) * 0.0000001; // 벤치 깡스탯 무시
                  continue; 
              }
 
@@ -2470,7 +2465,9 @@ const generateAutoLineup = () => {
                  });
              }
 
+             // 🚨 [핵심 1] 300점 차이의 완벽한 밸런스 계급 보너스 (TOP 1200 / ACE,HIT 900)
              const collectionBuff = ['SEA','ASG'].includes(pGrade) ? 800 : ['POS','TEA','MMVP','HIT','ACE','GGY'].includes(pGrade) ? 900 : ['GG','ROY'].includes(pGrade) ? 1000 : pGrade === 'TOP' ? 1200 : 0;
+             
              const isMyTeam = getArray(p.team).some(t => validTeamIds.has(String(t).toLowerCase()));
              const enhanceMultiplier = ['SEA','ASG'].includes(pGrade) ? 30 : ['POS','TEA','MMVP'].includes(pGrade) ? 40 : ['HIT','ACE','GG','TOP','GGY','ROY'].includes(pGrade) ? 50 : pGrade === 'DGN' ? 300 : 0;
              const enhanceLvl = pGrade === 'DGN' ? 10 : 15;
@@ -2482,7 +2479,10 @@ const generateAutoLineup = () => {
              
              const growthA = 990 + collectionBuff + (isMyTeam ? tBuff : 0) + 149 + (enhanceLvl * enhanceMultiplier);
              const ST = sameTeamCounts[slot] || 0;
-             const growthB = (6 * ST * 2) + (['HIT', 'ACE', 'GG'].includes(pGrade) ? ST * 32 : 0) + autoTeamDignityBuff + autoSynergyFixed;
+             
+             // 🚨 [핵심 2] ACE, HIT, GG 고유 스킬 폭발! 자팀 1명당 파워 +32점 합산!
+             const specificSkillBuff = ['HIT', 'ACE', 'GG'].includes(pGrade) ? (ST * 32) : 0;
+             const growthB = (6 * ST * 2) + specificSkillBuff + autoTeamDignityBuff + autoSynergyFixed;
              const flatC = 537 + (globalBuffs.clanBuff || 15) + (pGrade === 'DGN' ? 46 : 60);
 
              const globalPercentPool = p._rawStats + growthA;
@@ -2521,12 +2521,8 @@ const generateAutoLineup = () => {
          return false;
       };
 
-      // 1순위: 깡스탯 기반 초기 세팅
-      mainCandidates.sort((a,b) => {
-          if (b._gradePrio !== a._gradePrio) return b._gradePrio - a._gradePrio;
-          return b._rawStats - a._rawStats; 
-      });
-
+      // 초기 세팅: 깡스탯 기반 주입 (이후 핑퐁 턴에서 데스매치)
+      mainCandidates.sort((a,b) => b._rawStats - a._rawStats);
       dgnCandidates.forEach(p => { placePlayer(p, mainSlots); });
 
       for(const slot of mainSlots) {
@@ -2549,7 +2545,7 @@ const generateAutoLineup = () => {
           }
       }
 
-      // 🌟 4. 핑퐁 티키타카 & 데스매치 (무한루프 방지 3회 왕복)
+      // 🌟 4. 핑퐁 티키타카 & 데스매치
       let improved = true;
       let iterations = 0;
       const MAX_ITER = 3; 
@@ -2577,7 +2573,7 @@ const generateAutoLineup = () => {
                       if (bPlayer && getPureName(bPlayer.name) === pPure && isPitcher(bPlayer) === isPitcher(p)) {
                           evictedBenchSlot = bSlot;
                           evictedBenchPlayer = bPlayer;
-                          curLineup[bSlot] = null; // 강제 철거!
+                          curLineup[bSlot] = null; // 강제 철거 (7인 페널티 발생 -> 가상 견적으로 방어!)
                           break;
                       }
                   }
@@ -2590,14 +2586,14 @@ const generateAutoLineup = () => {
                           (!curLineup[s] || getMappedGrade(curLineup[s].grade) !== 'DGN')
                       );
                       if (!altSlotForDGN) {
-                          if (evictedBenchSlot) curLineup[evictedBenchSlot] = evictedBenchPlayer; // 롤백
+                          if (evictedBenchSlot) curLineup[evictedBenchSlot] = evictedBenchPlayer; 
                           continue; 
                       }
                   }
 
                   if (!altSlotForDGN) {
                       if(Object.entries(curLineup).some(([s, x]) => s !== slot && x && getPureName(x.name) === pPure && isPitcher(x) === isPitcher(p))) {
-                          if (evictedBenchSlot) curLineup[evictedBenchSlot] = evictedBenchPlayer; // 롤백
+                          if (evictedBenchSlot) curLineup[evictedBenchSlot] = evictedBenchPlayer; 
                           continue;
                       }
                   }
@@ -2606,6 +2602,7 @@ const generateAutoLineup = () => {
                   curLineup[slot] = p;
                   if (altSlotForDGN) curLineup[altSlotForDGN] = oldPlayer;
                   
+                  // 공정한 28 vs 28 대결 점수 산출
                   const newScore = evaluateLineupScore(curLineup);
 
                   if(newScore > currentScore) {
@@ -2615,14 +2612,14 @@ const generateAutoLineup = () => {
                       improved = true;
                   }
                   
-                  // 테스트 종료 후 롤백 (선택된 경우 나중에 한꺼번에 반영)
+                  // 테스트 종료 후 롤백
                   curLineup[slot] = oldPlayer;
                   if (altSlotForDGN) curLineup[altSlotForDGN] = kickedOut;
                   if (evictedBenchSlot) curLineup[evictedBenchSlot] = evictedBenchPlayer; 
               }
 
               if(bestCandidateForSlot !== curLineup[slot]) {
-                  // 최종 확정 시 벤치 인질 영구 퇴출
+                  // 주전 확정 시 벤치 인질 완벽 퇴출
                   const pPure = getPureName(bestCandidateForSlot.name);
                   for (let i = 1; i <= 8; i++) {
                       const bSlot = `BENCH${i}`;
@@ -2647,7 +2644,7 @@ const generateAutoLineup = () => {
                   if(Object.entries(curLineup).some(([s, x]) => s !== slot && x && getPureName(x.name) === pPure && isPitcher(x) === isPitcher(p))) continue;
 
                   const oldPlayer = curLineup[slot];
-                  curLineup[slot] = p; // 잉여 강제 퇴거 및 새 후보 투입
+                  curLineup[slot] = p; 
                   const newScore = evaluateLineupScore(curLineup);
 
                   if (newScore > currentScore) {
@@ -2655,13 +2652,32 @@ const generateAutoLineup = () => {
                       bestTotem = p;
                       improved = true;
                   }
-                  curLineup[slot] = oldPlayer; // 롤백
+                  curLineup[slot] = oldPlayer; 
               }
               if (bestTotem !== curLineup[slot]) {
                   curLineup[slot] = bestTotem;
               }
           }
       }
+
+      // 🌟 5. 최종 마감: 선발 및 계투진 오버롤(OVR) 순위 정렬 (하극상 방지)
+      const getPlayerPowerForSorting = (p: any, slot: string) => {
+          const tempLineup = { ...curLineup };
+          tempLineup[slot] = p;
+          const oldScore = evaluateLineupScore(curLineup);
+          const newScore = evaluateLineupScore(tempLineup);
+          return newScore - oldScore + (p._rawStats || 0); 
+      };
+
+      const spSlots = ['SP1', 'SP2', 'SP3', 'SP4', 'SP5'];
+      const spPlayers = spSlots.map(s => curLineup[s]).filter(Boolean);
+      spPlayers.sort((a, b) => getPlayerPowerForSorting(b, 'SP1') - getPlayerPowerForSorting(a, 'SP1'));
+      spSlots.forEach((s, i) => curLineup[s] = spPlayers[i] || null);
+
+      const rpSlots = ['RP1', 'RP2', 'RP3', 'RP4', 'RP5', 'RP6']; // 승리조 ~ 추격조
+      const rpPlayers = rpSlots.map(s => curLineup[s]).filter(Boolean);
+      rpPlayers.sort((a, b) => getPlayerPowerForSorting(b, 'RP1') - getPlayerPowerForSorting(a, 'RP1'));
+      rpSlots.forEach((s, i) => curLineup[s] = rpPlayers[i] || null);
 
       lineup.value = curLineup as any;
       Object.keys(curLineup).forEach(k => {
@@ -2681,7 +2697,7 @@ const generateAutoLineup = () => {
       alert('라인업 편성 중 오류가 발생했습니다.');
     } finally {
       isLoading.value = false;
-      setTimeout(() => alert('✨ 산해님표 궁극 알고리즘 가동 완료!\n(벤치 인질 분쇄 및 퍼센트 시너지 가불 시스템 적용)'), 100);
+      setTimeout(() => alert('✨ 산해님표 궁극 알고리즘 가동 완료!\n(계급 어드밴티지 유지 / 고유 스킬 폭발 / 벤치 대타 투입 적용)'), 100);
     }
   }, 50); 
 };
