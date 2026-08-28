@@ -2212,7 +2212,7 @@ const generateAutoLineup = () => {
       const getBasePlayerName = (name: any) => String(name || '').normalize('NFKC').replace(/[\u200B-\u200D\uFEFF\s\r\n]/g, '').toLowerCase();
       const safeNum = (v: any) => isNaN(Number(v)) ? 0 : Number(v);
 
-      // 🌟 1. 하위 호환 시너지 동시 점화 (산해님표 완벽 족보)
+      // 🌟 1. 하위 호환 시너지 계단식 족보
       const expandSynergyTags = (rawTags: string[]) => {
           const expanded = new Set(rawTags);
           const hierarchy: Record<string, string[]> = {
@@ -2226,8 +2226,8 @@ const generateAutoLineup = () => {
               '30세이브 클럽': ['20세이브 클럽'],
               '30홀드 클럽': ['20홀드 클럽'],
               '계투 80이닝 클럽': ['계투 70이닝 클럽'],
-              '통산 2000경기 클럽': ['통산 1500경기 클럽'], // 타자 통산
-              '통산 700경기 클럽': ['통산 500경기 클럽'],  // 투수 통산
+              '통산 2000경기 클럽': ['통산 1500경기 클럽'], 
+              '통산 700경기 클럽': ['통산 500경기 클럽'],  
               '통산 2000안타 클럽': ['통산 1500안타 클럽'],
               '통산 300도루 클럽': ['통산 200도루 클럽'],
               '통산 300홈런 클럽': ['통산 200홈런 클럽'],
@@ -2247,7 +2247,7 @@ const generateAutoLineup = () => {
           return expandSynergyTags(raw);
       };
 
-      // 🌟 2. 렉 제로 1티어 메타 시너지 컷트라인
+      // 🌟 2. 렉 제로 1티어 메타 시너지 필터
       const TEAM_KEYWORDS = ["SSG", "SK", "키움", "넥센", "히어로즈", "KIA", "해태", "기아", "삼성", "두산", "OB", "롯데", "LG", "MBC", "한화", "빙그레", "NC", "KT", "현대", "태평양", "청보", "삼미", "쌍방울"];
       const COMMON_KEYWORDS = ["1차 지명", "출신", "FA", "트레이드", "MVP", "실업야구", "황금세대", "고춧가루", "동명이인", "형제", "거액 계약", "철인", "철강왕"];
       const STAT_KEYWORDS = ["170안타", "180안타", "190안타", "100타점", "30홈런", "40홈런", "30도루", "40도루", "20-20", "150탈삼진", "180탈삼진", "180이닝", "200이닝", "15승", "20승", "계투 70이닝", "계투 80이닝", "20세이브", "30세이브", "20홀드", "30홀드", "통산", "경기 출장"];
@@ -2315,6 +2315,7 @@ const generateAutoLineup = () => {
 
       const mainSlots = ['SP1', 'SP2', 'SP3', 'SP4', 'SP5', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH', 'RP1', 'RP2', 'RP3', 'RP4', 'RP5', 'RP6'];
 
+      // 🌟 3. 한계 기여도 파워 계산기 (+ 마이크로 빵부스러기 점수 유도)
       const evaluateLineupScore = (tempLineup: Record<string, any>) => {
           let teamScore = 0;
           let nullMainCount = 0;
@@ -2327,9 +2328,12 @@ const generateAutoLineup = () => {
           let ggCount = 0;
           
           for(const p of players) {
-             if(!p || !p._name) continue;
+             if(!p || !p.name) continue;
+             // 🚨 연도 꼬리표 강제 삭제: 순수 한글/영문 이름만 추출하여 복제인간 완벽 차단!
+             const pureName = String(p.name).replace(/[^가-힣a-zA-Z]/g, '');
              const role = isPitcher(p) ? 'P' : 'B';
-             const key = p._name + '_' + role;
+             const key = pureName + '_' + role;
+             
              if(nameSet.has(key)) return -2000000; 
              nameSet.add(key);
              if (getMappedGrade(p.grade) === 'GG') ggCount++;
@@ -2373,12 +2377,23 @@ const generateAutoLineup = () => {
              if(m && synCounts[m]) { synCounts[m].B++; synCounts[m].P++; }
           });
 
+          // 🌟 빵부스러기 점수 (Micro Points): 시너지 태그를 공유하기만 해도 0.1점씩 부여
+          let microScore = 0;
+          Object.keys(synCounts).forEach(tag => {
+              const smap = synergyMap[tag];
+              if(!smap) return;
+              if (smap.type === 'batter' || smap.type === 'both') microScore += synCounts[tag].B * 0.1;
+              if (smap.type === 'pitcher' || smap.type === 'both') microScore += synCounts[tag].P * 0.1;
+          });
+          teamScore += microScore; // AI가 깡스탯 대신 태그 보유자를 선택하도록 멱살 잡고 유도
+
           for(const slot of Object.keys(tempLineup)) {
              const p = tempLineup[slot];
              if(!p) continue;
 
              if(slot.startsWith('BENCH')) {
-                 teamScore += p._rawStats * 0.00001; 
+                 // 벤치 선수의 깡스탯은 0.0000001로 짓눌러서 마이크로 점수(0.1)를 절대 못 이기게 만듦
+                 teamScore += (p._rawStats || 0) * 0.0000001; 
                  continue; 
              }
 
@@ -2440,12 +2455,11 @@ const generateAutoLineup = () => {
           return teamScore;
       };
 
-      // 🌟 3. 산해님의 '순수 기여도(Marginal Contribution)' 벤치 서치
+      // 🌟 4. 스나이퍼 벤치 서치
       const optimizeBenchForMain = (currentLineup: Record<string, any>) => {
           let bestBench = {};
           const usedIds = new Set();
           
-          // Step 1: 최적의 TEAM 카드 찾기
           let maxTeaScore = -Infinity;
           let bestTea = null;
           for (const tea of teaCandidates) {
@@ -2457,28 +2471,31 @@ const generateAutoLineup = () => {
           bestBench['BENCH1'] = bestTea;
           if (bestTea) usedIds.add(String(bestTea.id));
 
-          // Step 2: 잉여 차단! 파워 기여도가 가장 높은 토템만 줄 세우기
           for (let i = 2; i <= 8; i++) {
               let currentTotalScore = evaluateLineupScore(currentLineup);
               let bestTotem = null;
-              // 🌟 기준점: 무조건 현재 점수보다 '높아야만(과잉 시너지 배제)' 합격!
               let bestTotemScore = currentTotalScore; 
 
               for (const totem of benchCandidates) {
                   if (usedIds.has(String(totem.id))) continue;
                   currentLineup[`BENCH${i}`] = totem;
                   const score = evaluateLineupScore(currentLineup);
+                  // 빵부스러기(0.1점)라도 올랐다면 무조건 합격!
                   if (score > bestTotemScore) { 
                       bestTotemScore = score; 
                       bestTotem = totem; 
                   }
               }
 
-              // 파워를 1점도 못 올렸다면 아무나 남는 애로 빈자리만 채움 (어차피 0점짜리)
               if (!bestTotem) {
+                  // 올려줄 빵부스러기조차 없는 경우, 복제인간 버그(-200만점)를 피해서 아무나 채워넣음
                   for (const totem of benchCandidates) {
                       if (!usedIds.has(String(totem.id))) {
-                          bestTotem = totem; break; 
+                          currentLineup[`BENCH${i}`] = totem;
+                          if (evaluateLineupScore(currentLineup) > -1000000) {
+                              bestTotem = totem; 
+                              break; 
+                          }
                       }
                   }
               }
@@ -2540,16 +2557,15 @@ const generateAutoLineup = () => {
       }
       Object.assign(curLineup, optimizeBenchForMain(curLineup));
 
-      // 🌟 4. 핑퐁 교대 최적화 (Ping-Pong Optimization) : 경우의 수를 22만 번 -> 1,500번으로 압축
+      // 🌟 5. 핑퐁 교대 최적화 (Ping-Pong Optimization)
       let improved = true;
       let iterations = 0;
-      const MAX_ITER = 3; // 주전-벤치 티키타카는 3바퀴면 완벽히 수렴함
+      const MAX_ITER = 3; 
 
       while(improved && iterations < MAX_ITER) {
           improved = false;
           iterations++;
 
-          // 🏓 [Ping] 주전 20명 최적화 턴
           for(const slot of mainSlots) {
               let currentScore = evaluateLineupScore(curLineup);
               let bestCandidateForSlot = curLineup[slot];
@@ -2569,7 +2585,9 @@ const generateAutoLineup = () => {
                   }
 
                   if (!altSlotForDGN) {
-                      if(Object.values(curLineup).some(x => x && x._name === p._name && isPitcher(x) === isPitcher(p) && x !== oldPlayer)) continue;
+                      // 🚨 여기서도 동일하게 복제인간 검사 강화
+                      const pPure = String(p.name).replace(/[^가-힣a-zA-Z]/g, '');
+                      if(Object.values(curLineup).some(x => x && String(x.name).replace(/[^가-힣a-zA-Z]/g, '') === pPure && isPitcher(x) === isPitcher(p) && x !== oldPlayer)) continue;
                   }
 
                   const kickedOut = altSlotForDGN ? curLineup[altSlotForDGN] : null;
@@ -2585,7 +2603,6 @@ const generateAutoLineup = () => {
                       improved = true;
                   }
                   
-                  // 임시 스왑 원상복구
                   curLineup[slot] = oldPlayer;
                   if (altSlotForDGN) curLineup[altSlotForDGN] = kickedOut;
               }
@@ -2596,7 +2613,6 @@ const generateAutoLineup = () => {
               }
           }
 
-          // 🏓 [Pong] 벤치 8명 한계 기여도 맞춤 최적화 턴
           let currentScoreBeforeBench = evaluateLineupScore(curLineup);
           const newBench = optimizeBenchForMain(curLineup);
           Object.assign(curLineup, newBench);
@@ -2624,7 +2640,7 @@ const generateAutoLineup = () => {
       alert('라인업 편성 중 오류가 발생했습니다.');
     } finally {
       isLoading.value = false;
-      setTimeout(() => alert('✨ 산해님표 프리징 0초, 과잉 시너지 원천 차단 알고리즘 가동 완료!'), 100);
+      setTimeout(() => alert('✨ 산해님표 벤치 스위치 전면 개조 가동 완료!\n(빵부스러기 유도 및 복제인간 척결)'), 100);
     }
   }, 50); 
 };
