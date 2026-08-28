@@ -2281,7 +2281,6 @@ const generateAutoLineup = () => {
       
       const benchCandidates = preparedPlayers.value.filter(p => p.teamLowerCase.some((t: string) => teamIds.includes(t)) && ['SEA', 'HIT', 'ACE', 'TEA'].includes(getMappedGrade(p.raw.grade))).map(p => ({ ...p.raw, _tags: getSynergyTags(p.raw), _name: getBasePlayerName(p.raw.name) }));
 
-      // 7인 페널티 방지용 창고(Warehouse) 가상 견적 데이터 추출
       const warehouseTags: Record<string, { B: number, P: number }> = {};
       benchCandidates.forEach(p => {
           const isPit = isPitcher(p);
@@ -2393,7 +2392,7 @@ const generateAutoLineup = () => {
                   for (let t of smap.tiers) {
                       if (count >= t.req) {
                           const pwrVal = t.unit === 'percent' ? t.power * 20 : t.power;
-                          score += pwrVal * mainCount; // (1% = 20점) * 수혜자
+                          score += pwrVal * mainCount; 
                           isFullyActive = true;
                       } else {
                           nextReq = t.req; nextPwr = t.power; nextUnit = t.unit;
@@ -2401,17 +2400,17 @@ const generateAutoLineup = () => {
                       }
                   }
                   
-                  // 🚨 [산해님 룰 적용] 켜지지 않은 시너지 가불 점수 컷트라인
+                  // 🚨 [산해님 룰 적용] 켜지지 않은 시너지 가불 점수 대폭 하향 (50%)
                   if (nextReq > 0 && !isFullyActive) {
                       const maxPossible = mainCount + availInWarehouse;
                       const pwrVal = nextUnit === 'percent' ? nextPwr * 20 : nextPwr;
                       const totalExpected = pwrVal * mainCount;
 
                       if (maxPossible >= nextReq) {
-                          // 1. 창고 털면 달성 가능 -> 80% 가불 (N빵 비율 적용)
-                          score += totalExpected * 0.8 * (count / nextReq); 
+                          // 1. 창고 털면 달성 가능 -> 50% 반토막 가불 (거품 붕괴, 철저한 가성비 검증)
+                          score += totalExpected * 0.5 * (count / nextReq); 
                       } else {
-                          // 2. 창고 털어도 불가능 (예: 타팀 동명이인) -> 가차없이 0점 처형!
+                          // 2. 창고 털어도 불가능 -> 가차없이 0점!
                           score += 0;
                       }
                   }
@@ -2466,7 +2465,6 @@ const generateAutoLineup = () => {
                  });
              }
 
-             // TOP 1200 / ACE,HIT 900 계급 보너스 유지
              const collectionBuff = ['SEA','ASG'].includes(pGrade) ? 800 : ['POS','TEA','MMVP','HIT','ACE','GGY'].includes(pGrade) ? 900 : ['GG','ROY'].includes(pGrade) ? 1000 : pGrade === 'TOP' ? 1200 : 0;
              
              const isMyTeam = getArray(p.team).some(t => validTeamIds.has(String(t).toLowerCase()));
@@ -2481,7 +2479,6 @@ const generateAutoLineup = () => {
              const growthA = 990 + collectionBuff + (isMyTeam ? tBuff : 0) + 149 + (enhanceLvl * enhanceMultiplier);
              const ST = sameTeamCounts[slot] || 0;
              
-             // 자팀 1명당 고유 스킬(+32) 완벽 반영
              const specificSkillBuff = ['HIT', 'ACE', 'GG'].includes(pGrade) ? (ST * 32) : 0;
              const growthB = (6 * ST * 2) + specificSkillBuff + autoTeamDignityBuff + autoSynergyFixed;
              const flatC = 537 + (globalBuffs.clanBuff || 15) + (pGrade === 'DGN' ? 46 : 60);
@@ -2691,7 +2688,7 @@ const generateAutoLineup = () => {
       alert('라인업 편성 중 오류가 발생했습니다.');
     } finally {
       isLoading.value = false;
-      setTimeout(() => alert('✨ 산해님 룰 적용 완료!\n(불가능 시너지 0점 컷트 / 가능 시너지 80% 보존)'), 100);
+      setTimeout(() => alert('✨ 산해님 룰 적용 완료!\n(불가능 시너지 0점 컷트 / 가능 시너지 50%로 대폭 하향)'), 100);
     }
   }, 50); 
 };
