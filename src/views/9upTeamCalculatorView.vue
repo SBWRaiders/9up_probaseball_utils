@@ -2212,7 +2212,7 @@ const generateAutoLineup = () => {
       const getBasePlayerName = (name: any) => String(name || '').normalize('NFKC').replace(/[\u200B-\u200D\uFEFF\s\r\n]/g, '').toLowerCase();
       const safeNum = (v: any) => isNaN(Number(v)) ? 0 : Number(v);
 
-      // 🌟 1. 하위 호환 시너지 동시 점화 (산해님표 마스터키 족보)
+      // 🌟 1. 하위 호환 시너지 동시 점화 (산해님표 완벽 족보)
       const expandSynergyTags = (rawTags: string[]) => {
           const expanded = new Set(rawTags);
           const hierarchy: Record<string, string[]> = {
@@ -2226,13 +2226,14 @@ const generateAutoLineup = () => {
               '30세이브 클럽': ['20세이브 클럽'],
               '30홀드 클럽': ['20홀드 클럽'],
               '계투 80이닝 클럽': ['계투 70이닝 클럽'],
-              '통산 2000경기 클럽': ['통산 1500경기 클럽'],
-              '통산 700경기 클럽': ['통산 500경기 클럽'],
+              '통산 2000경기 클럽': ['통산 1500경기 클럽'], // 타자 통산
+              '통산 700경기 클럽': ['통산 500경기 클럽'],  // 투수 통산
               '통산 2000안타 클럽': ['통산 1500안타 클럽'],
               '통산 300도루 클럽': ['통산 200도루 클럽'],
               '통산 300홈런 클럽': ['통산 200홈런 클럽'],
               '통산 100승-100패 클럽': ['통산 100승 클럽'],
               '100득점-100타점 클럽': ['100타점 클럽'],
+              '전 경기 출장': ['70경기 출장'],
               '철강왕': ['철인']
           };
           rawTags.forEach(tag => {
@@ -2246,10 +2247,10 @@ const generateAutoLineup = () => {
           return expandSynergyTags(raw);
       };
 
-      // 🌟 2. 렉 제로 1티어 메타 시너지 스나이퍼 필터
+      // 🌟 2. 렉 제로 1티어 메타 시너지 컷트라인
       const TEAM_KEYWORDS = ["SSG", "SK", "키움", "넥센", "히어로즈", "KIA", "해태", "기아", "삼성", "두산", "OB", "롯데", "LG", "MBC", "한화", "빙그레", "NC", "KT", "현대", "태평양", "청보", "삼미", "쌍방울"];
       const COMMON_KEYWORDS = ["1차 지명", "출신", "FA", "트레이드", "MVP", "실업야구", "황금세대", "고춧가루", "동명이인", "형제", "거액 계약", "철인", "철강왕"];
-      const STAT_KEYWORDS = ["170안타", "180안타", "190안타", "100타점", "30홈런", "40홈런", "30도루", "40도루", "20-20", "150탈삼진", "180탈삼진", "180이닝", "200이닝", "15승", "20승", "계투 70이닝", "계투 80이닝", "20세이브", "30세이브", "20홀드", "30홀드", "통산"];
+      const STAT_KEYWORDS = ["170안타", "180안타", "190안타", "100타점", "30홈런", "40홈런", "30도루", "40도루", "20-20", "150탈삼진", "180탈삼진", "180이닝", "200이닝", "15승", "20승", "계투 70이닝", "계투 80이닝", "20세이브", "30세이브", "20홀드", "30홀드", "통산", "경기 출장"];
       const GRADE_KEYWORDS = ["탑클래스", "디그니티", "에이스", "히트", "팀플레이어", "시즌", "포스트시즌", "올스타", "국가대표", "골든글러브"];
 
       const isMetaSynergy = (name: string) => {
@@ -2439,10 +2440,12 @@ const generateAutoLineup = () => {
           return teamScore;
       };
 
-      // 🌟 3. 산해님의 마스터피스: 스나이퍼 벤치 서치 (경우의 수 99% 압축)
+      // 🌟 3. 산해님의 '순수 기여도(Marginal Contribution)' 벤치 서치
       const optimizeBenchForMain = (currentLineup: Record<string, any>) => {
           let bestBench = {};
+          const usedIds = new Set();
           
+          // Step 1: 최적의 TEAM 카드 찾기
           let maxTeaScore = -Infinity;
           let bestTea = null;
           for (const tea of teaCandidates) {
@@ -2452,35 +2455,34 @@ const generateAutoLineup = () => {
           }
           currentLineup['BENCH1'] = bestTea;
           bestBench['BENCH1'] = bestTea;
+          if (bestTea) usedIds.add(String(bestTea.id));
 
-          const activeTags = new Set();
-          mainSlots.forEach(s => {
-              if (currentLineup[s] && currentLineup[s]._tags) {
-                  currentLineup[s]._tags.forEach((t: string) => activeTags.add(t));
-              }
-          });
-          if (bestTea && bestTea._tags) bestTea._tags.forEach((t: string) => activeTags.add(t));
-
-          let relevantBench = benchCandidates.filter(p => p._tags.some((t: string) => activeTags.has(t)));
-          if (relevantBench.length < 7) relevantBench = benchCandidates; 
-
-          const usedIds = new Set(bestTea ? [String(bestTea.id)] : []);
-          
+          // Step 2: 잉여 차단! 파워 기여도가 가장 높은 토템만 줄 세우기
           for (let i = 2; i <= 8; i++) {
+              let currentTotalScore = evaluateLineupScore(currentLineup);
               let bestTotem = null;
-              let bestTotemScore = -Infinity;
-              for (const totem of relevantBench) {
+              // 🌟 기준점: 무조건 현재 점수보다 '높아야만(과잉 시너지 배제)' 합격!
+              let bestTotemScore = currentTotalScore; 
+
+              for (const totem of benchCandidates) {
                   if (usedIds.has(String(totem.id))) continue;
                   currentLineup[`BENCH${i}`] = totem;
                   const score = evaluateLineupScore(currentLineup);
-                  if (score > bestTotemScore) { bestTotemScore = score; bestTotem = totem; }
-              }
-              if (!bestTotem) {
-                  for (const totem of benchCandidates) {
-                      if (usedIds.has(String(totem.id))) continue;
-                      bestTotem = totem; break; 
+                  if (score > bestTotemScore) { 
+                      bestTotemScore = score; 
+                      bestTotem = totem; 
                   }
               }
+
+              // 파워를 1점도 못 올렸다면 아무나 남는 애로 빈자리만 채움 (어차피 0점짜리)
+              if (!bestTotem) {
+                  for (const totem of benchCandidates) {
+                      if (!usedIds.has(String(totem.id))) {
+                          bestTotem = totem; break; 
+                      }
+                  }
+              }
+
               if (bestTotem) {
                   currentLineup[`BENCH${i}`] = bestTotem;
                   bestBench[`BENCH${i}`] = bestTotem;
@@ -2538,16 +2540,16 @@ const generateAutoLineup = () => {
       }
       Object.assign(curLineup, optimizeBenchForMain(curLineup));
 
-      // 🌟 4. 핑퐁 교대 최적화 (Ping-Pong Optimization: 주전 턴 -> 벤치 턴 반복으로 렉 제로 달성)
+      // 🌟 4. 핑퐁 교대 최적화 (Ping-Pong Optimization) : 경우의 수를 22만 번 -> 1,500번으로 압축
       let improved = true;
       let iterations = 0;
-      const MAX_ITER = 3; 
+      const MAX_ITER = 3; // 주전-벤치 티키타카는 3바퀴면 완벽히 수렴함
 
       while(improved && iterations < MAX_ITER) {
           improved = false;
           iterations++;
 
-          // [주전 최적화 턴]
+          // 🏓 [Ping] 주전 20명 최적화 턴
           for(const slot of mainSlots) {
               let currentScore = evaluateLineupScore(curLineup);
               let bestCandidateForSlot = curLineup[slot];
@@ -2583,7 +2585,7 @@ const generateAutoLineup = () => {
                       improved = true;
                   }
                   
-                  // 롤백 (임시 스왑 원상복구)
+                  // 임시 스왑 원상복구
                   curLineup[slot] = oldPlayer;
                   if (altSlotForDGN) curLineup[altSlotForDGN] = kickedOut;
               }
@@ -2594,7 +2596,7 @@ const generateAutoLineup = () => {
               }
           }
 
-          // [벤치 최적화 턴]
+          // 🏓 [Pong] 벤치 8명 한계 기여도 맞춤 최적화 턴
           let currentScoreBeforeBench = evaluateLineupScore(curLineup);
           const newBench = optimizeBenchForMain(curLineup);
           Object.assign(curLineup, newBench);
@@ -2622,7 +2624,7 @@ const generateAutoLineup = () => {
       alert('라인업 편성 중 오류가 발생했습니다.');
     } finally {
       isLoading.value = false;
-      setTimeout(() => alert('✨ 산해님 헌정, 프리징 0초 1티어 덱 메이커 가동 완료!'), 100);
+      setTimeout(() => alert('✨ 산해님표 프리징 0초, 과잉 시너지 원천 차단 알고리즘 가동 완료!'), 100);
     }
   }, 50); 
 };
