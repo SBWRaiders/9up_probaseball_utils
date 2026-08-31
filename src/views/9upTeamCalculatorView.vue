@@ -2303,9 +2303,6 @@ const generateAutoLineup = () => {
       const evaluateLineupScore = (tempLineup: Record<string, any>) => {
           let teamScore = 0;
           
-          // 🚨 [버그 수정 1] 빈자리 -100만점 페널티 완벽 삭제! 
-          // 페널티가 있으면 AI가 가성비를 판별하지 못하고 첫 번째 선수만 무지성으로 픽하게 됨
-          
           const players = Object.values(tempLineup).map((p, i) => { if(p) p._slot = Object.keys(tempLineup)[i]; return p; }).filter(Boolean);
           const nameSet = new Set<string>();
           let ggCount = 0;
@@ -2389,7 +2386,7 @@ const generateAutoLineup = () => {
                   if (nextReq > 0 && !isFullyActive) {
                       const pwrVal = nextUnit === 'percent' ? nextPwr * 20 : nextPwr;
                       const totalExpected = pwrVal * mainCount;
-                      score += totalExpected * 0.05 * (count / nextReq); // 방향성 가이드(나침반) 점수 5%
+                      score += totalExpected * 0.05 * (count / nextReq); 
                   }
                   return score;
               };
@@ -2459,23 +2456,30 @@ const generateAutoLineup = () => {
              const growthB = (6 * ST * 2) + specificSkillBuff + autoTeamDignityBuff + autoSynergyFixed;
              const flatC = 537 + (globalBuffs.clanBuff || 15) + (pGrade === 'DGN' ? 46 : 60);
 
-             const globalPercentPool = p._rawStats + growthA;
+             const globalPercentPool = (p._rawStats || 0) + growthA;
              const percentBonusTotal = globalPercentPool * (autoSynergyPercent / 100);
 
-             const finalPlayerPower = p._rawStats + growthA + growthB + flatC + percentBonusTotal;
+             const finalPlayerPower = (p._rawStats || 0) + growthA + growthB + flatC + percentBonusTotal;
              teamScore += finalPlayerPower;
           }
           return teamScore;
       };
 
-      // 기존 라인업 보존(Anchoring)
       const curLineup = { ...lineup.value } as Record<string, any>;
+
+      // 🚨 [핵심 버그 수정] 이미 라인업에 배치된 고정 선수들의 데이터(태그, 스탯)를 읽어옵니다. 
+      // 이 코드가 없으면 고정 선수 점수가 NaN(에러)이 되어 AI가 빈칸 채우기를 포기합니다!
+      Object.values(curLineup).forEach(p => {
+          if (p) {
+              if (!p._tags) p._tags = getSynergyTags(p);
+              if (p._rawStats === undefined) p._rawStats = calculateBaseStats(p);
+          }
+      });
       
       const emptyMainSlots = mainSlots.filter(s => !curLineup[s]);
       const emptyBenchSlots = benchSlots.filter(s => !curLineup[s]);
 
       const getPlayerPositions = (p: any) => {
-         // 🚨 [버그 수정 2] 대소문자 무시 & 한국어 포지션('선발', '좌익수' 등) 완벽 인식
          let posList = getArray(p.position).map(normalizePosition);
          if(getMappedGrade(p.grade) === 'DGN' && globalBuffs.dignityMultiPosition) {
              if (posList.some(po => ['1B','2B','3B','SS'].includes(po))) posList = Array.from(new Set([...posList, '1B','2B','3B','SS']));
@@ -2492,7 +2496,7 @@ const generateAutoLineup = () => {
           return slot === 'DH' || getPlayerPositions(p).includes(slot);
       };
 
-      // 디그니티 빈 자리 채우기
+      // 디그니티 빈 자리 자동 채우기
       dgnCandidates.forEach(p => { 
          for(const slot of emptyMainSlots) {
             if(!curLineup[slot] && canPlayPos(p, slot)) { curLineup[slot] = p; break; }
@@ -2514,7 +2518,7 @@ const generateAutoLineup = () => {
               for(const p of mainCandidates) {
                   if (!canPlayPos(p, slot)) continue;
                   const pPure = getPureName(p.name);
-                  if (Object.values(curLineup).some(x => x && x._slot !== slot && getPureName(x.name) === pPure && isPitcher(x) === isPitcher(p))) continue;
+                  if (Object.values(curLineup).some(x => x && x._slot !== slot && getPureName(x.name) === pPure && isPitcher(x) === isPitcher(p))) continue; 
 
                   const oldPlayer = curLineup[slot];
                   curLineup[slot] = p;
@@ -2524,7 +2528,7 @@ const generateAutoLineup = () => {
                       currentScore = testScore;
                       bestCandidate = p;
                   }
-                  curLineup[slot] = oldPlayer;
+                  curLineup[slot] = oldPlayer; 
               }
               if (bestCandidate !== curLineup[slot]) curLineup[slot] = bestCandidate;
           }
@@ -2542,7 +2546,6 @@ const generateAutoLineup = () => {
                   curLineup[slot] = p;
                   const testScore = evaluateLineupScore(curLineup);
 
-                  // 진흥고+고려대 다중 시너지 켜는 녀석이 여기서 점수 폭발해서 무조건 발탁됨
                   if (testScore > currentScore) {
                       currentScore = testScore;
                       bestCandidate = p;
