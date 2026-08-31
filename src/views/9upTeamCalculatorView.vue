@@ -2264,8 +2264,6 @@ const generateAutoLineup = () => {
 
       const safeDgnIds = autoLineupSelectedDgnIds.value.map(id => String(id));
       const dgnCandidates = preparedPlayers.value.filter(p => safeDgnIds.includes(String(p.raw.id)) && getMappedGrade(p.raw.grade) === 'DGN').map(p => ({ ...p.raw, _tags: getSynergyTags(p.raw), _name: getBasePlayerName(p.raw.name) }));
-      
-      // ✨ [수정 1] 스탯 괴물 SEA(시즌) 카드도 당당하게 주전 후보로 포함!
       const mainGrades = ['TOP', 'GG', 'HIT', 'ACE', 'ROY', 'SEA'];
       const mainCandidates = preparedPlayers.value.filter(p => p.teamLowerCase.some((t: string) => teamIds.includes(t)) && mainGrades.includes(getMappedGrade(p.raw.grade))).map(p => ({ ...p.raw, _tags: getSynergyTags(p.raw), _name: getBasePlayerName(p.raw.name) }));
       
@@ -2305,7 +2303,9 @@ const generateAutoLineup = () => {
       const evaluateLineupScore = (tempLineup: Record<string, any>) => {
           let teamScore = 0;
           
-          // 🚨 [수정 2] 빈자리 -100만점 페널티 완벽 삭제! (있는 선수들끼리의 순수 시너지 파워를 계산해야 가성비 판별 가능)
+          // 🚨 [버그 수정 1] 빈자리 -100만점 페널티 완벽 삭제! 
+          // 페널티가 있으면 AI가 가성비를 판별하지 못하고 첫 번째 선수만 무지성으로 픽하게 됨
+          
           const players = Object.values(tempLineup).map((p, i) => { if(p) p._slot = Object.keys(tempLineup)[i]; return p; }).filter(Boolean);
           const nameSet = new Set<string>();
           let ggCount = 0;
@@ -2387,11 +2387,9 @@ const generateAutoLineup = () => {
                   }
                   
                   if (nextReq > 0 && !isFullyActive) {
-                      // 🚨 [산해님 룰] 미완성 시너지에 가불(거품) 0점 부여!
-                      // 단, AI가 빈자리에 넣을 때 '방향성(진흥고, 거계 등)'을 잡을 수 있게 5%만 나침반 점수 부여
                       const pwrVal = nextUnit === 'percent' ? nextPwr * 20 : nextPwr;
                       const totalExpected = pwrVal * mainCount;
-                      score += totalExpected * 0.05 * (count / nextReq);
+                      score += totalExpected * 0.05 * (count / nextReq); // 방향성 가이드(나침반) 점수 5%
                   }
                   return score;
               };
@@ -2470,14 +2468,14 @@ const generateAutoLineup = () => {
           return teamScore;
       };
 
-      // 🌟 [핵심 변경] 기존 라인업을 보존하고(Anchoring) 빈 자리만 찾아냅니다.
+      // 기존 라인업 보존(Anchoring)
       const curLineup = { ...lineup.value } as Record<string, any>;
       
       const emptyMainSlots = mainSlots.filter(s => !curLineup[s]);
       const emptyBenchSlots = benchSlots.filter(s => !curLineup[s]);
 
       const getPlayerPositions = (p: any) => {
-         // 🚨 [수정 3] '선발', '우익' 등 한국어 포지션을 'SP', 'RF'로 완벽 번역! (AI 인식 활성화)
+         // 🚨 [버그 수정 2] 대소문자 무시 & 한국어 포지션('선발', '좌익수' 등) 완벽 인식
          let posList = getArray(p.position).map(normalizePosition);
          if(getMappedGrade(p.grade) === 'DGN' && globalBuffs.dignityMultiPosition) {
              if (posList.some(po => ['1B','2B','3B','SS'].includes(po))) posList = Array.from(new Set([...posList, '1B','2B','3B','SS']));
@@ -2494,20 +2492,18 @@ const generateAutoLineup = () => {
           return slot === 'DH' || getPlayerPositions(p).includes(slot);
       };
 
-      // 디그니티 빈 자리 자동 채우기
+      // 디그니티 빈 자리 채우기
       dgnCandidates.forEach(p => { 
          for(const slot of emptyMainSlots) {
             if(!curLineup[slot] && canPlayPos(p, slot)) { curLineup[slot] = p; break; }
          }
       });
 
-      // 🌟 반자동 빈자리 채우기 (Greedy 최적화 알고리즘) 
+      // 반자동 빈자리 채우기
       mainCandidates.sort((a,b) => b._rawStats - a._rawStats);
       benchCandidates.sort((a,b) => b._rawStats - a._rawStats);
 
-      // 교집합 시너지를 최대로 뽑아내기 위해 2바퀴 돕니다.
       for (let iter = 0; iter < 2; iter++) {
-          
           // 1. 주전 빈자리 채우기
           for(const slot of emptyMainSlots) {
               if (curLineup[slot] && getMappedGrade(curLineup[slot].grade) === 'DGN') continue;
@@ -2518,7 +2514,7 @@ const generateAutoLineup = () => {
               for(const p of mainCandidates) {
                   if (!canPlayPos(p, slot)) continue;
                   const pPure = getPureName(p.name);
-                  if (Object.values(curLineup).some(x => x && x._slot !== slot && getPureName(x.name) === pPure && isPitcher(x) === isPitcher(p))) continue; // 동명이인 금지
+                  if (Object.values(curLineup).some(x => x && x._slot !== slot && getPureName(x.name) === pPure && isPitcher(x) === isPitcher(p))) continue;
 
                   const oldPlayer = curLineup[slot];
                   curLineup[slot] = p;
@@ -2528,12 +2524,12 @@ const generateAutoLineup = () => {
                       currentScore = testScore;
                       bestCandidate = p;
                   }
-                  curLineup[slot] = oldPlayer; // 롤백
+                  curLineup[slot] = oldPlayer;
               }
               if (bestCandidate !== curLineup[slot]) curLineup[slot] = bestCandidate;
           }
 
-          // 2. 벤치 빈자리 채우기 (다중 시너지 발동자 우선 영입)
+          // 2. 벤치 빈자리 채우기
           for(const slot of emptyBenchSlots) {
               let currentScore = evaluateLineupScore(curLineup);
               let bestCandidate = curLineup[slot];
@@ -2546,12 +2542,12 @@ const generateAutoLineup = () => {
                   curLineup[slot] = p;
                   const testScore = evaluateLineupScore(curLineup);
 
-                  // 진흥고+고려대 (다중) 켜는 선수가 진흥고(단일)만 켜는 선수보다 점수가 높으므로 무조건 픽됨!
+                  // 진흥고+고려대 다중 시너지 켜는 녀석이 여기서 점수 폭발해서 무조건 발탁됨
                   if (testScore > currentScore) {
                       currentScore = testScore;
                       bestCandidate = p;
                   }
-                  curLineup[slot] = oldPlayer; // 롤백
+                  curLineup[slot] = oldPlayer; 
               }
               if (bestCandidate !== curLineup[slot]) curLineup[slot] = bestCandidate;
           }
@@ -2559,7 +2555,6 @@ const generateAutoLineup = () => {
 
       lineup.value = curLineup as any;
       
-      // 새로 들어온 선수들에게만 기본 버프(강화, 스킬) 초기화
       Object.keys(curLineup).forEach(k => {
          if(curLineup[k] && !playerBuffs.value[k]) {
              initPlayerBuff(k, curLineup[k]);
