@@ -2386,7 +2386,7 @@ const generateAutoLineup = () => {
                   if (nextReq > 0 && !isFullyActive) {
                       const pwrVal = nextUnit === 'percent' ? nextPwr * 20 : nextPwr;
                       const totalExpected = pwrVal * mainCount;
-                      score += totalExpected * 0.05 * (count / nextReq); 
+                      score += totalExpected * 0.05 * (count / nextReq); // 방향성 가이드(나침반) 점수 5%
                   }
                   return score;
               };
@@ -2467,8 +2467,6 @@ const generateAutoLineup = () => {
 
       const curLineup = { ...lineup.value } as Record<string, any>;
 
-      // 🚨 [핵심 버그 수정] 이미 라인업에 배치된 고정 선수들의 데이터(태그, 스탯)를 읽어옵니다. 
-      // 이 코드가 없으면 고정 선수 점수가 NaN(에러)이 되어 AI가 빈칸 채우기를 포기합니다!
       Object.values(curLineup).forEach(p => {
           if (p) {
               if (!p._tags) p._tags = getSynergyTags(p);
@@ -2496,63 +2494,115 @@ const generateAutoLineup = () => {
           return slot === 'DH' || getPlayerPositions(p).includes(slot);
       };
 
-      // 디그니티 빈 자리 자동 채우기
+      // 디그니티 빈 자리 채우기
       dgnCandidates.forEach(p => { 
          for(const slot of emptyMainSlots) {
             if(!curLineup[slot] && canPlayPos(p, slot)) { curLineup[slot] = p; break; }
          }
       });
 
-      // 반자동 빈자리 채우기
       mainCandidates.sort((a,b) => b._rawStats - a._rawStats);
       benchCandidates.sort((a,b) => b._rawStats - a._rawStats);
 
-      for (let iter = 0; iter < 2; iter++) {
-          // 1. 주전 빈자리 채우기
-          for(const slot of emptyMainSlots) {
-              if (curLineup[slot] && getMappedGrade(curLineup[slot].grade) === 'DGN') continue;
-              
-              let currentScore = evaluateLineupScore(curLineup);
-              let bestCandidate = curLineup[slot];
+      // 💡 코어 태그 수집: 벤치 셔틀이 아직 없어서 억울하게 탈락할 에이스들을 구출하기 위해!
+      const coreTags = new Map<string, number>();
+      Object.values(curLineup).forEach(p => {
+         if (p && p._tags) { p._tags.forEach((t: string) => coreTags.set(t, (coreTags.get(t) || 0) + 1)); }
+      });
 
-              for(const p of mainCandidates) {
-                  if (!canPlayPos(p, slot)) continue;
-                  const pPure = getPureName(p.name);
-                  if (Object.values(curLineup).some(x => x && x._slot !== slot && getPureName(x.name) === pPure && isPitcher(x) === isPitcher(p))) continue; 
+      // 🌟 [STEP 1] 주전 빈자리 채우기 (비전 점수 도입)
+      for (const slot of emptyMainSlots) {
+          if (curLineup[slot] && getMappedGrade(curLineup[slot].grade) === 'DGN') continue;
+          
+          let bestScore = -Infinity;
+          let bestCandidate = curLineup[slot];
 
-                  const oldPlayer = curLineup[slot];
-                  curLineup[slot] = p;
-                  const testScore = evaluateLineupScore(curLineup);
+          for (const p of mainCandidates) {
+              if (!canPlayPos(p, slot)) continue;
+              const pPure = getPureName(p.name);
+              if (Object.values(curLineup).some(x => x && x._slot !== slot && getPureName(x.name) === pPure && isPitcher(x) === isPitcher(p))) continue;
 
-                  if (testScore > currentScore) {
-                      currentScore = testScore;
-                      bestCandidate = p;
-                  }
-                  curLineup[slot] = oldPlayer; 
+              curLineup[slot] = p;
+              let testScore = evaluateLineupScore(curLineup);
+
+              // 비전 점수 렌즈 장착: 코어들과 시너지가 얼마나 겹치는지 체크
+              let visionBonus = 0;
+              if (p._tags) {
+                  p._tags.forEach((tag: string) => {
+                      if (coreTags.has(tag)) visionBonus += 10000; // 겹치는 시너지당 1만점의 막대한 잠재력!
+                  });
               }
-              if (bestCandidate !== curLineup[slot]) curLineup[slot] = bestCandidate;
+              
+              const finalScore = testScore + visionBonus;
+
+              if (finalScore > bestScore) {
+                  bestScore = finalScore;
+                  bestCandidate = p;
+              }
+              curLineup[slot] = null; // 롤백
           }
+          if (bestCandidate) {
+              curLineup[slot] = bestCandidate;
+              // 확정된 주전의 태그도 코어 태그 풀에 즉시 업데이트
+              if (bestCandidate._tags) {
+                  bestCandidate._tags.forEach((t: string) => coreTags.set(t, (coreTags.get(t) || 0) + 1));
+              }
+          }
+      }
 
-          // 2. 벤치 빈자리 채우기
-          for(const slot of emptyBenchSlots) {
+      // 🌟 [STEP 2] 벤치 1차 채우기 (다중 시너지 우선 영입)
+      for (const slot of emptyBenchSlots) {
+          let bestScore = -Infinity;
+          let bestCandidate = curLineup[slot];
+
+          for (const p of benchCandidates) {
+              const pPure = getPureName(p.name);
+              if (Object.values(curLineup).some(x => x && x._slot !== slot && getPureName(x.name) === pPure && isPitcher(x) === isPitcher(p))) continue;
+
+              curLineup[slot] = p;
+              const testScore = evaluateLineupScore(curLineup);
+
+              if (testScore > bestScore) {
+                  bestScore = testScore;
+                  bestCandidate = p;
+              }
+              curLineup[slot] = null;
+          }
+          if (bestCandidate) curLineup[slot] = bestCandidate;
+      }
+
+      // 🌟 [STEP 3] 벤치 구조조정 (산해님의 궁극기: 잉여 방출 및 결핍 해결)
+      let restructuring = true;
+      let restructIter = 0;
+      while (restructuring && restructIter < 3) {
+          restructuring = false;
+          restructIter++;
+
+          for (const slot of emptyBenchSlots) {
+              const currentPlayer = curLineup[slot];
+              if (!currentPlayer) continue;
+
               let currentScore = evaluateLineupScore(curLineup);
-              let bestCandidate = curLineup[slot];
+              let bestCandidate = currentPlayer;
+              let bestScore = currentScore;
 
-              for(const p of benchCandidates) {
+              for (const p of benchCandidates) {
                   const pPure = getPureName(p.name);
                   if (Object.values(curLineup).some(x => x && x._slot !== slot && getPureName(x.name) === pPure && isPitcher(x) === isPitcher(p))) continue;
 
-                  const oldPlayer = curLineup[slot];
                   curLineup[slot] = p;
                   const testScore = evaluateLineupScore(curLineup);
 
-                  if (testScore > currentScore) {
-                      currentScore = testScore;
+                  // 기존 선수보다 새로운 선수가 점수를 "확실히" 높여주면 교체!
+                  // (기존 선수의 시너지가 이미 오버된 상태라면 걔를 빼도 점수 하락이 없음.
+                  // 새로운 선수가 비어있는 다른 시너지를 채워주면 점수가 무조건 돌파됨!)
+                  if (testScore > bestScore + 10) { 
+                      bestScore = testScore;
                       bestCandidate = p;
+                      restructuring = true; // 교체가 일어났으므로 벤치 전체를 한 바퀴 더 검사
                   }
-                  curLineup[slot] = oldPlayer; 
               }
-              if (bestCandidate !== curLineup[slot]) curLineup[slot] = bestCandidate;
+              curLineup[slot] = bestCandidate;
           }
       }
 
@@ -2575,7 +2625,7 @@ const generateAutoLineup = () => {
       alert('라인업 편성 중 오류가 발생했습니다.');
     } finally {
       isLoading.value = false;
-      setTimeout(() => alert('✨ 산해님 반자동 코어 세팅 적용 완료!\n(기존 선수는 유지하고 빈 자리를 다중 시너지 교집합으로 꽉 채웠습니다!)'), 100);
+      setTimeout(() => alert('✨ 산해님 반자동 코어 세팅 적용 완료!\n(기존 선수는 유지하고, 과잉된 벤치를 솎아내어 교집합으로 꽉 채웠습니다!)'), 100);
     }
   }, 50); 
 };
