@@ -2374,7 +2374,6 @@ const generateAutoLineup = () => {
 
                   for (let t of smap.tiers) {
                       if (count >= t.req) {
-                          // 🌟 [핵심 변경] 퍼센트(%) 가중치를 20 -> 25로 상향하여 학교/대학 시너지 가치를 대폭 증가시킴!
                           const pwrVal = t.unit === 'percent' ? t.power * 25 : t.power;
                           score += pwrVal * mainCount; 
                           isFullyActive = true;
@@ -2385,7 +2384,6 @@ const generateAutoLineup = () => {
                   }
                   
                   if (nextReq > 0 && !isFullyActive) {
-                      // 🌟 [핵심 변경] 달성 전 가이드 점수 역시 25를 곱해 방향성을 뚜렷하게 잡아줌
                       const pwrVal = nextUnit === 'percent' ? nextPwr * 25 : nextPwr;
                       const totalExpected = pwrVal * mainCount;
                       score += totalExpected * 0.05 * (count / nextReq);
@@ -2505,11 +2503,7 @@ const generateAutoLineup = () => {
       mainCandidates.sort((a,b) => b._rawStats - a._rawStats);
       benchCandidates.sort((a,b) => b._rawStats - a._rawStats);
 
-      const coreTags = new Map<string, number>();
-      Object.values(curLineup).forEach(p => {
-         if (p && p._tags) { p._tags.forEach((t: string) => coreTags.set(t, (coreTags.get(t) || 0) + 1)); }
-      });
-
+      // 🌟 [STEP 1] 주전 빈자리 채우기 (가짜 비전 점수 완전 삭제! 순수 실력주의!)
       for (const slot of emptyMainSlots) {
           if (curLineup[slot] && getMappedGrade(curLineup[slot].grade) === 'DGN') continue;
           
@@ -2524,29 +2518,17 @@ const generateAutoLineup = () => {
               curLineup[slot] = p;
               let testScore = evaluateLineupScore(curLineup);
 
-              let visionBonus = 0;
-              if (p._tags) {
-                  p._tags.forEach((tag: string) => {
-                      if (coreTags.has(tag)) visionBonus += 10000;
-                  });
-              }
-              
-              const finalScore = testScore + visionBonus;
-
-              if (finalScore > bestScore) {
-                  bestScore = finalScore;
+              // 꼼수 점수 없이 순수 팀 파워만으로 판단합니다.
+              if (testScore > bestScore) {
+                  bestScore = testScore;
                   bestCandidate = p;
               }
               curLineup[slot] = null; 
           }
-          if (bestCandidate) {
-              curLineup[slot] = bestCandidate;
-              if (bestCandidate._tags) {
-                  bestCandidate._tags.forEach((t: string) => coreTags.set(t, (coreTags.get(t) || 0) + 1));
-              }
-          }
+          if (bestCandidate) curLineup[slot] = bestCandidate;
       }
 
+      // 🌟 [STEP 2] 벤치 1차 채우기 
       for (const slot of emptyBenchSlots) {
           let bestScore = -Infinity;
           let bestCandidate = curLineup[slot];
@@ -2567,9 +2549,11 @@ const generateAutoLineup = () => {
           if (bestCandidate) curLineup[slot] = bestCandidate;
       }
 
+      // 🌟 [STEP 3] 벤치 무한 솎아내기 (산해님의 궁극기: 잉여 방출 및 결핍 타겟팅)
       let restructuring = true;
       let restructIter = 0;
-      while (restructuring && restructIter < 3) {
+      // 점수가 더 안 오를 때까지 벤치를 무한 핑퐁! (브라우저 보호를 위해 최대 4바퀴 제한)
+      while (restructuring && restructIter < 4) {
           restructuring = false;
           restructIter++;
 
@@ -2588,13 +2572,15 @@ const generateAutoLineup = () => {
                   curLineup[slot] = p;
                   const testScore = evaluateLineupScore(curLineup);
 
-                  if (testScore > bestScore + 10) { 
+                  // 🚨 10점 컷 완전 삭제! 단 0.001점(소수점 오차 방지용 최소치)이라도 오르면 무조건 교체!
+                  // 잉여 벤치(빼도 점수 하락 0) 자리에, 새로운 놈이 들어와서 단 하나의 시너지라도 더 켜면 즉시 스왑됩니다!
+                  if (testScore > bestScore + 0.001) { 
                       bestScore = testScore;
                       bestCandidate = p;
                       restructuring = true; 
                   }
               }
-              curLineup[slot] = bestCandidate;
+              curLineup[slot] = bestCandidate; // 최고의 효율을 낸 선수로 벤치 알박기
           }
       }
 
@@ -2617,7 +2603,7 @@ const generateAutoLineup = () => {
       alert('라인업 편성 중 오류가 발생했습니다.');
     } finally {
       isLoading.value = false;
-      setTimeout(() => alert('✨ 산해님 반자동 코어 세팅 적용 완료!\n(기존 선수는 유지하고, 과잉된 벤치를 솎아내어 교집합으로 꽉 채웠습니다!)'), 100);
+      setTimeout(() => alert('✨ 산해님표 3단계 핑퐁 최적화 세팅 적용 완료!\n(기존 선수는 유지하고, 가성비 테스트를 통과한 최강의 퍼즐 조각들만 채워 넣었습니다!)'), 100);
     }
   }, 50); 
 };
