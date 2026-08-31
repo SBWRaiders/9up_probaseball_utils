@@ -2302,6 +2302,8 @@ const generateAutoLineup = () => {
 
       const evaluateLineupScore = (tempLineup: Record<string, any>) => {
           let teamScore = 0;
+          
+          // 🚨 [수정 1] 빈자리 마이너스 페널티 완벽 삭제! (있는 코어 선수들끼리만 순수 파워 계산)
           const players = Object.values(tempLineup).map((p, i) => { if(p) p._slot = Object.keys(tempLineup)[i]; return p; }).filter(Boolean);
           const nameSet = new Set<string>();
           let ggCount = 0;
@@ -2471,15 +2473,11 @@ const generateAutoLineup = () => {
       
       const emptyMainSlots = mainSlots.filter(s => !curLineup[s]);
       const emptyBenchSlots = benchSlots.filter(s => !curLineup[s]);
-
+      
       const getPlayerPositions = (p: any) => {
-         let posList = getArray(p.position).map(String);
+         // 🚨 [수정 2] '선발', '좌익' 등 한국어를 'SP', 'LF'로 완벽 번역해서 인식!
+         let posList = getArray(p.position).map(normalizePosition);
          if(getMappedGrade(p.grade) === 'DGN' && globalBuffs.dignityMultiPosition) {
-             if (posList.some(po => ['1B','2B','3B','SS'].includes(po))) posList = Array.from(new Set([...posList, '1B','2B','3B','SS']));
-             if (posList.some(po => ['LF','CF','RF'].includes(po))) posList = Array.from(new Set([...posList, 'LF','CF','RF']));
-         }
-         return posList;
-      };
       
       const canPlayPos = (p: any, slot: string) => {
           const isPitSlot = slot.startsWith('SP') || slot.startsWith('RP');
