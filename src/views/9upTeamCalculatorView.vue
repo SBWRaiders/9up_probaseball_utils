@@ -2264,6 +2264,8 @@ const generateAutoLineup = () => {
 
       const safeDgnIds = autoLineupSelectedDgnIds.value.map(id => String(id));
       const dgnCandidates = preparedPlayers.value.filter(p => safeDgnIds.includes(String(p.raw.id)) && getMappedGrade(p.raw.grade) === 'DGN').map(p => ({ ...p.raw, _tags: getSynergyTags(p.raw), _name: getBasePlayerName(p.raw.name) }));
+      
+      // ✨ [수정 1] 스탯 괴물 SEA(시즌) 카드도 당당하게 주전 후보로 포함!
       const mainGrades = ['TOP', 'GG', 'HIT', 'ACE', 'ROY', 'SEA'];
       const mainCandidates = preparedPlayers.value.filter(p => p.teamLowerCase.some((t: string) => teamIds.includes(t)) && mainGrades.includes(getMappedGrade(p.raw.grade))).map(p => ({ ...p.raw, _tags: getSynergyTags(p.raw), _name: getBasePlayerName(p.raw.name) }));
       
@@ -2303,7 +2305,7 @@ const generateAutoLineup = () => {
       const evaluateLineupScore = (tempLineup: Record<string, any>) => {
           let teamScore = 0;
           
-          // 🚨 [수정 1] 빈자리 마이너스 페널티 완벽 삭제! (있는 코어 선수들끼리만 순수 파워 계산)
+          // 🚨 [수정 2] 빈자리 -100만점 페널티 완벽 삭제! (있는 선수들끼리의 순수 시너지 파워를 계산해야 가성비 판별 가능)
           const players = Object.values(tempLineup).map((p, i) => { if(p) p._slot = Object.keys(tempLineup)[i]; return p; }).filter(Boolean);
           const nameSet = new Set<string>();
           let ggCount = 0;
@@ -2314,7 +2316,7 @@ const generateAutoLineup = () => {
              const role = isPitcher(p) ? 'P' : 'B';
              const key = pureName + '_' + role;
              
-             if(nameSet.has(key)) return -2000000; // 동명이인 락 방지
+             if(nameSet.has(key)) return -2000000; 
              nameSet.add(key);
              if (getMappedGrade(p.grade) === 'GG') ggCount++;
           }
@@ -2385,8 +2387,8 @@ const generateAutoLineup = () => {
                   }
                   
                   if (nextReq > 0 && !isFullyActive) {
-                      // 🚨 [산해님 룰] 미완성 시너지에 가불(거품) 0점! 
-                      // 대신 다중 시너지를 가진 벤치 요원이 우선 발탁되도록 방향성 가이드 점수 5%만 부여
+                      // 🚨 [산해님 룰] 미완성 시너지에 가불(거품) 0점 부여!
+                      // 단, AI가 빈자리에 넣을 때 '방향성(진흥고, 거계 등)'을 잡을 수 있게 5%만 나침반 점수 부여
                       const pwrVal = nextUnit === 'percent' ? nextPwr * 20 : nextPwr;
                       const totalExpected = pwrVal * mainCount;
                       score += totalExpected * 0.05 * (count / nextReq);
@@ -2473,11 +2475,16 @@ const generateAutoLineup = () => {
       
       const emptyMainSlots = mainSlots.filter(s => !curLineup[s]);
       const emptyBenchSlots = benchSlots.filter(s => !curLineup[s]);
-      
+
       const getPlayerPositions = (p: any) => {
-         // 🚨 [수정 2] '선발', '좌익' 등 한국어를 'SP', 'LF'로 완벽 번역해서 인식!
+         // 🚨 [수정 3] '선발', '우익' 등 한국어 포지션을 'SP', 'RF'로 완벽 번역! (AI 인식 활성화)
          let posList = getArray(p.position).map(normalizePosition);
          if(getMappedGrade(p.grade) === 'DGN' && globalBuffs.dignityMultiPosition) {
+             if (posList.some(po => ['1B','2B','3B','SS'].includes(po))) posList = Array.from(new Set([...posList, '1B','2B','3B','SS']));
+             if (posList.some(po => ['LF','CF','RF'].includes(po))) posList = Array.from(new Set([...posList, 'LF','CF','RF']));
+         }
+         return posList;
+      };
       
       const canPlayPos = (p: any, slot: string) => {
           const isPitSlot = slot.startsWith('SP') || slot.startsWith('RP');
@@ -2503,7 +2510,7 @@ const generateAutoLineup = () => {
           
           // 1. 주전 빈자리 채우기
           for(const slot of emptyMainSlots) {
-              if (curLineup[slot] && getMappedGrade(curLineup[slot].grade) === 'DGN') continue; // DGN은 건드리지 않음
+              if (curLineup[slot] && getMappedGrade(curLineup[slot].grade) === 'DGN') continue;
               
               let currentScore = evaluateLineupScore(curLineup);
               let bestCandidate = curLineup[slot];
