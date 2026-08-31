@@ -2366,27 +2366,33 @@ const generateAutoLineup = () => {
               if(!smap) return;
 
               const calcPot = (count: number, mainCount: number, availInWarehouse: number, isValidType: boolean) => {
-                  if (!isValidType || mainCount === 0 || count === 0) return 0; 
+                  if (!isValidType || count === 0) return 0; 
                   
-                  let score = 0;
+                  let activePwrVal = 0;
                   let nextReq = 0, nextPwr = 0, nextUnit = 'fixed';
-                  let isFullyActive = false;
 
+                  // 🌟 [수술 3] 달성한 최고 티어만 적용. 요구 인원을 초과(4/3, 5/3)해도 상한선(Cap)에 막혀 추가 점수 절대 없음!
                   for (let t of smap.tiers) {
                       if (count >= t.req) {
-                          const pwrVal = t.unit === 'percent' ? t.power * 25 : t.power;
-                          score += pwrVal * mainCount; 
-                          isFullyActive = true;
+                          activePwrVal = t.unit === 'percent' ? t.power * 25 : t.power;
                       } else {
+                          // 아직 달성 못한 다음 목표 티어 기억해두기 (2/3 -> 3/3 목표!)
                           nextReq = t.req; nextPwr = t.power; nextUnit = t.unit;
                           break;
                       }
                   }
                   
-                  if (nextReq > 0 && !isFullyActive) {
+                  let score = activePwrVal * mainCount;
+
+                  if (nextReq > 0) {
+                      // 🌟 [수술 2] 주전(타겟)이 0명이더라도 나침반 점수 폭격! 
+                      // (최소 1명 있다고 가정하여 AI가 무조건 조각을 모으게 만듦)
+                      const effectiveMainCount = Math.max(1, mainCount); 
                       const pwrVal = nextUnit === 'percent' ? nextPwr * 25 : nextPwr;
-                      const totalExpected = pwrVal * mainCount;
-                      score += totalExpected * 0.05 * (count / nextReq);
+                      const totalExpected = pwrVal * effectiveMainCount;
+                      
+                      // 🌟 목표 달성률에 따라 가산점 40% 부여 (새로운 퍼즐 조각의 절대적 우위 보장!)
+                      score += totalExpected * 0.40 * (count / nextReq); 
                   }
                   return score;
               };
@@ -2503,7 +2509,7 @@ const generateAutoLineup = () => {
       mainCandidates.sort((a,b) => b._rawStats - a._rawStats);
       benchCandidates.sort((a,b) => b._rawStats - a._rawStats);
 
-      // 🌟 [STEP 1] 주전 빈자리 채우기 (가짜 비전 점수 완전 삭제! 순수 실력주의!)
+      // 🌟 주전 빈자리 채우기 (순수 실력주의!)
       for (const slot of emptyMainSlots) {
           if (curLineup[slot] && getMappedGrade(curLineup[slot].grade) === 'DGN') continue;
           
@@ -2518,7 +2524,6 @@ const generateAutoLineup = () => {
               curLineup[slot] = p;
               let testScore = evaluateLineupScore(curLineup);
 
-              // 꼼수 점수 없이 순수 팀 파워만으로 판단합니다.
               if (testScore > bestScore) {
                   bestScore = testScore;
                   bestCandidate = p;
@@ -2528,7 +2533,7 @@ const generateAutoLineup = () => {
           if (bestCandidate) curLineup[slot] = bestCandidate;
       }
 
-      // 🌟 [STEP 2] 벤치 1차 채우기 
+      // 🌟 벤치 1차 채우기 
       for (const slot of emptyBenchSlots) {
           let bestScore = -Infinity;
           let bestCandidate = curLineup[slot];
@@ -2549,10 +2554,10 @@ const generateAutoLineup = () => {
           if (bestCandidate) curLineup[slot] = bestCandidate;
       }
 
-      // 🌟 [STEP 3] 벤치 무한 솎아내기 (산해님의 궁극기: 잉여 방출 및 결핍 타겟팅)
+      // 🌟 벤치 무한 솎아내기 
       let restructuring = true;
       let restructIter = 0;
-      // 점수가 더 안 오를 때까지 벤치를 무한 핑퐁! (브라우저 보호를 위해 최대 4바퀴 제한)
+      
       while (restructuring && restructIter < 4) {
           restructuring = false;
           restructIter++;
@@ -2572,15 +2577,14 @@ const generateAutoLineup = () => {
                   curLineup[slot] = p;
                   const testScore = evaluateLineupScore(curLineup);
 
-                  // 🚨 10점 컷 완전 삭제! 단 0.001점(소수점 오차 방지용 최소치)이라도 오르면 무조건 교체!
-                  // 잉여 벤치(빼도 점수 하락 0) 자리에, 새로운 놈이 들어와서 단 하나의 시너지라도 더 켜면 즉시 스왑됩니다!
+                  // 🚨 교체 커트라인 0.001점 초과! (스탯만 높아도, 나침반 조각 하나만 더 가져와도 무조건 가차 없이 방출!)
                   if (testScore > bestScore + 0.001) { 
                       bestScore = testScore;
                       bestCandidate = p;
                       restructuring = true; 
                   }
               }
-              curLineup[slot] = bestCandidate; // 최고의 효율을 낸 선수로 벤치 알박기
+              curLineup[slot] = bestCandidate; 
           }
       }
 
@@ -2603,7 +2607,7 @@ const generateAutoLineup = () => {
       alert('라인업 편성 중 오류가 발생했습니다.');
     } finally {
       isLoading.value = false;
-      setTimeout(() => alert('✨ 산해님표 3단계 핑퐁 최적화 세팅 적용 완료!\n(기존 선수는 유지하고, 가성비 테스트를 통과한 최강의 퍼즐 조각들만 채워 넣었습니다!)'), 100);
+      setTimeout(() => alert('✨ 산해님표 궁극의 실력주의 세팅 적용 완료!\n(잉여 선수는 가차 없이 쫓아내고 완벽한 교집합만 살려두었습니다!)'), 100);
     }
   }, 50); 
 };
