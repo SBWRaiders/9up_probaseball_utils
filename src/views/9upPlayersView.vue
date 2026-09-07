@@ -30,7 +30,7 @@ const fieldLabels: Record<string, string> = {
   team: '팀',
   year: '연도',
   position: '포지션',
-  pitchingFormGroup: '투구 폼 (좌우놀이)', // 🌟 좌우놀이 필터 라벨 추가
+  pitchingFormGroup: '투구 폼 (좌우놀이)',
   throwBatting: '투/타',
   battingHand: '타격 유형',
   throwHand: '투구 유형',
@@ -42,7 +42,6 @@ const fieldLabels: Record<string, string> = {
   search: '이름/시너지 검색'
 }
 
-// 🌟 pitchingFormGroup (좌우놀이 필터) 추가
 const selectFields = computed(() => [
   'grade',
   'position',
@@ -157,7 +156,7 @@ const filterOptions = computed(() => {
   const fieldsToScan = [...selectFields.value, 'team', 'grade', 'skill'] as const
 
   for (const field of fieldsToScan) {
-    if (field === 'pitchingFormGroup') continue // 수동 옵션이므로 패스
+    if (field === 'pitchingFormGroup') continue 
     
     options[field] = new Set<string>()
     for (const p of players.value) {
@@ -296,25 +295,27 @@ const filteredPlayers = computed(() => {
             continue
           }
 
-          // 🌟 좌우놀이 핵심 로직 추가! 🌟
+          // 🌟 투수 신분증 검사 로직 🌟
           if (field === 'pitchingFormGroup') {
             const pType = String(p.pitchingType || '').toUpperCase().trim();
             const tHand = String(p.throwHand || '').toUpperCase().trim();
-            const pos = String(p.position || '').toUpperCase();
             
+            // 🚨 타자 커트: positionLc(소문자 포지션 배열)에 'p'(투수, sp, rp)가 포함되지 않으면 탈락!
+            const isPitcher = positionLc.some(pos => pos.includes('p'));
+            if (!isPitcher) return false;
+
             let group = '';
             
-            // 1. U(언더)나 S(사이드)면 좌/우 손 방향 상관없이 무조건 언더·사이드로 분류
+            // 투수이면서 언더나 사이드인 경우
             if (pType === 'U' || pType === 'S') {
                group = '언더·사이드';
             } 
-            // 2. O(오버핸드)이거나, 투구 폼 데이터는 비어있지만 포지션이 투수(P)인 경우
-            else if (pType === 'O' || (pType === '' && pos.includes('P'))) {
+            // 그 외 (오버핸드이거나 기본값)
+            else {
                if (tHand === 'L') group = '좌완';
                if (tHand === 'R') group = '우완';
             }
             
-            // 일치하는 투구 폼 그룹이 없거나(타자 등), 선택한 그룹에 포함되지 않으면 필터 탈락
             if (group === '' || !(selected as string[]).includes(group)) return false;
             continue;
           }
@@ -463,7 +464,6 @@ async function loadCsv() {
   if (!Array.isArray(filters.value.synergy)) filters.value.synergy = []
   if (!Array.isArray(filters.value.search)) filters.value.search = []
   if (typeof filters.value.hsUniSynergyOnly !== 'boolean') filters.value.hsUniSynergyOnly = false
-  // 🌟 좌우놀이 필터 배열 초기화
   if (!Array.isArray(filters.value.pitchingFormGroup)) filters.value.pitchingFormGroup = []
 
   await loadSynergyOptions()
