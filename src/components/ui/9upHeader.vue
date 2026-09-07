@@ -18,7 +18,7 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app); // <-- export 단어 삭제!
+const auth = getAuth(app); 
 const provider = new GoogleAuthProvider();
 
 const user = ref<User | null>(null);
@@ -44,7 +44,6 @@ const logout = async () => {
     console.error("Logout failed", error);
   }
 };
-
 
 const isSidebarOpen = ref(false)
 const sidebarRef = ref<HTMLElement | null>(null)
@@ -92,7 +91,7 @@ const handleEscKey = (event: KeyboardEvent) => {
 // ==========================================
 // 🌟 메뉴 버튼 드래그 앤 드롭 로직 🌟
 // ==========================================
-const buttonPos = ref({ x: 16, y: 16 }) // 초기 위치 (좌측 상단)
+const buttonPos = ref({ x: 16, y: 16 }) 
 const isDragging = ref(false)
 const isMoved = ref(false)
 let startCoords = { x: 0, y: 0 }
@@ -114,13 +113,12 @@ const onPointerMove = (e: PointerEvent) => {
   const dx = e.clientX - startCoords.x
   const dy = e.clientY - startCoords.y
   
-  // 마우스가 조금이라도 움직였다면 드래그로 간주
-  if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+  // 🌟 [핵심 변경] 모바일 터치 민감도 8px로 보정! 미세한 손떨림은 쿨하게 무시합니다! 🌟
+  if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
     isMoved.value = true
   }
   
   if (isMoved.value) {
-    // 버튼이 화면 밖으로 나가지 않도록 경계값 설정
     buttonPos.value = {
       x: Math.max(0, Math.min(window.innerWidth - 60, startPos.x + dx)),
       y: Math.max(0, Math.min(window.innerHeight - 60, startPos.y + dy))
@@ -133,7 +131,6 @@ const onPointerUp = (e: PointerEvent) => {
   document.removeEventListener('pointermove', onPointerMove)
   document.removeEventListener('pointerup', onPointerUp)
   
-  // 제자리에서 클릭만 했다면 사이드바 오픈
   if (!isMoved.value) {
     isSidebarOpen.value = true
   }
@@ -199,7 +196,6 @@ const navigate = (item: { path: string; disabled?: boolean }) => {
             <h2 class="text-base font-bold text-gray-800 dark:text-neutral-100">{{title}}</h2>
           </div>
           
-          <!-- 🌟 다크모드 버튼을 메뉴 안으로 이동! 🌟 -->
           <div class="flex items-center gap-1">
             <button @click="toggleDarkMode" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors text-gray-600 dark:text-neutral-300">
               <component :is="isDark ? Sun : Moon" class="w-5 h-5" />
@@ -222,13 +218,11 @@ const navigate = (item: { path: string; disabled?: boolean }) => {
           </button>
         </nav>
 
-        <!-- 🌟 구글 로그인 영역 (사이드바 하단 고정) 🌟 -->
         <div class="mt-auto pt-4 border-t border-neutral-200 dark:border-neutral-700 flex-shrink-0">
           <div v-if="isAuthLoading" class="flex justify-center py-2">
             <Loader2 class="w-6 h-6 animate-spin text-blue-500" />
           </div>
           
-          <!-- 로그인 된 상태 -->
           <div v-else-if="user" class="flex flex-col gap-3">
             <div class="flex items-center gap-3 bg-neutral-50 dark:bg-neutral-900 p-2 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-sm">
               <img :src="user.photoURL || '/assets/logos/teams/unknown.png'" alt="profile" class="w-9 h-9 rounded-full border border-neutral-300 dark:border-neutral-600" referrerpolicy="no-referrer" />
@@ -242,7 +236,6 @@ const navigate = (item: { path: string; disabled?: boolean }) => {
             </button>
           </div>
 
-          <!-- 로그아웃 된 상태 -->
           <button v-else @click="login" class="w-full flex items-center justify-center gap-2 py-2.5 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-700 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-600 transition-all shadow-sm group">
             <svg class="w-4 h-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
             <span class="text-sm font-bold text-neutral-600 dark:text-neutral-300 group-hover:text-blue-600 dark:group-hover:text-blue-400">구글로 시작하기</span>
