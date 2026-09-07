@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import {ref, onMounted, watch} from 'vue'
 import { Star, ExternalLink, ChevronDown, ChevronUp} from 'lucide-vue-next'
-import SideModal from './SideModal.vue' // 실제 위치에 맞게 수정
-import PlayerDetail from './PlayerDetail.vue' // 경로 반드시 맞게!
+import SideModal from './SideModal.vue'
+import PlayerDetail from './PlayerDetail.vue'
 
 const props = defineProps({
   items: {
@@ -25,6 +25,7 @@ interface TeamSetting {
   history: TeamHistory[]
 }
 
+// 🌟 본사에서 넘어오는 throwBatting 번역 추가!
 const head = {
   grade : '등급',
   rarity : '희귀도',
@@ -32,7 +33,7 @@ const head = {
   team : '구단',
   year : '연도',
   position : '포지션',
-  handType : '투타',
+  throwBatting : '투/타', // 🌟 이 부분이 핵심!
   pitchingType : '피칭타입',
   skill : '스킬',
   synergy : '시너지',
@@ -71,13 +72,6 @@ function parsePosition(value: string): string {
   } catch {
     return value
   }
-}
-
-function translateDirection(input: string): string {
-  if (input === 'L') return '좌'
-  if (input === 'R') return '우'
-  if (input === 'S') return '양'
-  return input
 }
 
 function translatePitchingType(input: string): string {
@@ -119,8 +113,6 @@ function toggleExpanded(index: number) {
           class="rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-sm hover:shadow-md transition-shadow"
       >
         <div class="p-4 flex items-start gap-4">
-          <!-- 등급 배지 -->
-          <!-- 모바일 카드: 등급 배지 -->
           <div class="shrink-0 w-16 h-16 rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center">
             <img
                 :src="`/assets/logos/grade/${item.grade}.png`"
@@ -130,7 +122,6 @@ function toggleExpanded(index: number) {
           </div>
 
           <div class="flex-1 min-w-0">
-            <!-- 상단: 이름 + 희귀도 -->
             <div class="flex items-start justify-between gap-3">
               <h3 class="text-base font-bold text-neutral-900 dark:text-neutral-100 truncate">
                 {{ item.name }}
@@ -145,7 +136,6 @@ function toggleExpanded(index: number) {
               </div>
             </div>
 
-            <!-- 팀 + 연도 -->
             <div class="mt-1 flex items-center gap-3 text-sm text-neutral-600 dark:text-neutral-300">
               <div class="flex items-center gap-2">
                 <img
@@ -159,20 +149,19 @@ function toggleExpanded(index: number) {
               <span>{{ item.year || '해당 없음' }}</span>
             </div>
 
-            <!-- 포지션 / 투타 / 타입 -->
             <div class="mt-2 flex flex-wrap items-center gap-2">
               <span class="px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200 border border-blue-200 dark:border-blue-800">
                 {{ parsePosition(item.position) }}
               </span>
-              <span class="px-2 py-0.5 rounded-full text-xs bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800">
-                {{ translateDirection(item.throwHand) + '투' + translateDirection(item.battingHand) + '타' }}
+              <!-- 🌟 모바일 카드에서도 throwBatting 본사 데이터 직접 사용 -->
+              <span v-if="item.throwBatting" class="px-2 py-0.5 rounded-full text-xs bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800">
+                {{ item.throwBatting }}
               </span>
               <span v-if="item.pitchingType" class="px-2 py-0.5 rounded-full text-xs bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-200 border border-purple-200 dark:border-purple-800">
                 {{ translatePitchingType(item.pitchingType) }}
               </span>
             </div>
 
-            <!-- 시너지 -->
             <div
                 class="mt-3 w-full rounded-lg bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 px-3 py-2"
             >
@@ -195,7 +184,6 @@ function toggleExpanded(index: number) {
               </button>
             </div>
 
-            <!-- 상세 버튼 -->
             <div class="mt-3 flex justify-end">
               <button
                   @click="openModal(item)"
@@ -215,6 +203,7 @@ function toggleExpanded(index: number) {
       <table class="min-w-full text-sm table-fixed rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-700">
         <thead class="bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 font-semibold text-xs uppercase tracking-wide">
         <tr>
+          <!-- 🌟 기둥 너비 조절: throwBatting을 100px로 깔끔하게 배치 -->
           <th
               v-for="col in columns"
               :key="'th-' + col"
@@ -225,14 +214,15 @@ function toggleExpanded(index: number) {
                 col === 'team' ? 'w-[180px]' :
                 col === 'year' ? 'w-[100px]' :
                 col === 'position' ? 'w-[120px]' :
-                col === 'handType' ? 'w-[120px]' :
+                col === 'throwBatting' ? 'w-[100px]' : 
                 col === 'pitchingType' ? 'w-[140px]' :
                 col === 'synergy' ? 'w-[600px]' :
                 col === 'open' ? 'w-[90px]' :
                 'w-[140px]'
               ]"
           >
-            {{ head[col] }}
+            <!-- 🌟 본사에서 등록한 head 객체의 한글 이름 렌더링 -->
+            {{ head[col as keyof typeof head] || col }} 
           </th>
         </tr>
         </thead>
@@ -251,7 +241,6 @@ function toggleExpanded(index: number) {
                 col === 'synergy' ? 'text-left' : 'text-center'
               ]"
           >
-            <!-- 데스크탑 테이블: 등급 -->
             <template v-if="col === 'grade'">
               <img
                   :src="`/assets/logos/grade/${item[col]}.png`"
@@ -294,8 +283,9 @@ function toggleExpanded(index: number) {
               <span>{{ parsePosition(item[col]) }}</span>
             </template>
 
-            <template v-else-if="col === 'handType'">
-              <span>{{ translateDirection(item.throwHand) + '투' + translateDirection(item.battingHand) + '타' }}</span>
+            <!-- 🌟 데스크탑 테이블에서도 throwBatting 본사 데이터 직접 렌더링 -->
+            <template v-else-if="col === 'throwBatting'">
+              <span>{{ item[col] }}</span>
             </template>
 
             <template v-else-if="col === 'pitchingType'">
