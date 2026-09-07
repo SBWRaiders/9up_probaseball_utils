@@ -96,12 +96,14 @@ const isDragging = ref(false)
 const isMoved = ref(false)
 let startCoords = { x: 0, y: 0 }
 let startPos = { x: 0, y: 0 }
+let startTime = 0 // 🌟 손가락이 닿은 찰나의 시간을 기록할 타이머 변수
 
 const onPointerDown = (e: PointerEvent) => {
   isDragging.value = true
   isMoved.value = false
   startCoords = { x: e.clientX, y: e.clientY }
   startPos = { ...buttonPos.value }
+  startTime = Date.now() // 🌟 터치 시작! 시간 기록
   
   document.addEventListener('pointermove', onPointerMove)
   document.addEventListener('pointerup', onPointerUp)
@@ -113,7 +115,7 @@ const onPointerMove = (e: PointerEvent) => {
   const dx = e.clientX - startCoords.x
   const dy = e.clientY - startCoords.y
   
-  // 🌟 [핵심 변경] 모바일 터치 민감도 8px로 보정! 미세한 손떨림은 쿨하게 무시합니다! 🌟
+  // 8픽셀 민감도 유지
   if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
     isMoved.value = true
   }
@@ -131,7 +133,16 @@ const onPointerUp = (e: PointerEvent) => {
   document.removeEventListener('pointermove', onPointerMove)
   document.removeEventListener('pointerup', onPointerUp)
   
-  if (!isMoved.value) {
+  const touchDuration = Date.now() - startTime // 🌟 터치하고 있던 시간 계산
+  
+  // 🌟 [핵심 수술] 8px 이하로 움직였거나, OR 0.2초(200ms) 미만의 빠른 톡톡! 이면 무조건 클릭!
+  if (!isMoved.value || touchDuration < 200) {
+    
+    // 빠른 톡톡이었는데 좌표가 튀어서 버튼이 찔끔 이동해버렸다면? 원래 자리로 되돌리기!
+    if (isMoved.value && touchDuration < 200) {
+      buttonPos.value = { ...startPos }
+    }
+    
     isSidebarOpen.value = true
   }
 }
