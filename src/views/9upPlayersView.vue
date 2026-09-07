@@ -20,19 +20,19 @@ const pageSize = 20
 /* =========================
    Fields
 ========================= */
-// 🌟 'excludedName' (제외할 이름) 칸 추가!
 const inputFields = ['name', 'excludedName', 'team', 'year', 'skill', 'synergy', 'excludedSynergy'] as const
 const rarityField = 'rarity'
 const fieldLabels: Record<string, string> = {
   grade: '등급',
   rarity: '레어도',
   name: '이름 (부분 일치)',
-  excludedName: '제외할 이름 (NOT)', // 🌟 제외할 이름 라벨 추가
+  excludedName: '제외할 이름 (NOT)',
   team: '팀',
   year: '연도',
   position: '포지션',
-  throwBatting: '투/타', // 🌟 투/타 통합 테이블 헤더용 라벨
-  battingHand: '타격 유형', 
+  pitchingFormGroup: '투구 폼 (좌우놀이)', // 🌟 좌우놀이 필터 라벨 추가
+  throwBatting: '투/타',
+  battingHand: '타격 유형',
   throwHand: '투구 유형',
   pitchingType: '투구 폼',
   skill: '스킬',
@@ -42,10 +42,11 @@ const fieldLabels: Record<string, string> = {
   search: '이름/시너지 검색'
 }
 
-// 탭 제거 → 양쪽 필드 모두 노출
+// 🌟 pitchingFormGroup (좌우놀이 필터) 추가
 const selectFields = computed(() => [
   'grade',
   'position',
+  'pitchingFormGroup', 
   'battingHand',
   'throwHand',
   'pitchingType',
@@ -59,7 +60,6 @@ const allFields = computed(() => [...inputFields, ...selectFields.value, rarityF
 /* =========================
    Table Columns
 ========================= */
-// 🌟 battingHand, throwHand를 빼고 'throwBatting' (투/타) 한 칸으로 통합!
 const columns = ref([
   'grade',
   'rarity',
@@ -67,7 +67,7 @@ const columns = ref([
   'team',
   'year',
   'position',
-  'throwBatting', // 🌟 통합된 투/타 기둥
+  'throwBatting',
   'pitchingType',
   'synergy',
   'open',
@@ -84,7 +84,6 @@ const normText = (s: unknown) =>
         .replace(/\s+/g, ' ')
         .trim()
         .toLowerCase()
-
 
 const POSITION_ALIASES: Record<string, string> = {
   'b1': '1B', '1b': '1B', '1': '1B', '1루': '1B',
@@ -145,7 +144,6 @@ async function loadSynergyOptions() {
     }
   } catch { /* ignore */ }
 
-  // fallback: CSV에서 추출
   const tokens: string[] = []
   for (const p of players.value) toArray(p.synergy).forEach(t => tokens.push(String(t)))
   synergyOptions.value = dedupeCI(tokens.map(s => s.trim())).sort((a, b) => a.localeCompare(b))
@@ -159,6 +157,8 @@ const filterOptions = computed(() => {
   const fieldsToScan = [...selectFields.value, 'team', 'grade', 'skill'] as const
 
   for (const field of fieldsToScan) {
+    if (field === 'pitchingFormGroup') continue // 수동 옵션이므로 패스
+    
     options[field] = new Set<string>()
     for (const p of players.value) {
       const raw = p[field as string]
@@ -186,7 +186,6 @@ const filterOptions = computed(() => {
       Object.entries(options).map(([k, set]) => [k, [...set].sort((a, b) => a.localeCompare(b))])
   )
   
-  // 가장 최신 팀 ID(대표 ID)만 남겨서 FilterPanel에서 로고를 정상적으로 불러올 수 있게 합니다.
   res['team'] = [
     'ssg',
     'kiwoom',
@@ -296,6 +295,29 @@ const filteredPlayers = computed(() => {
             if (!(selected as string[]).some(sel => positionLc.includes(normalizePosition(sel).toLowerCase()))) return false
             continue
           }
+
+          // 🌟 좌우놀이 핵심 로직 추가! 🌟
+          if (field === 'pitchingFormGroup') {
+            const pType = String(p.pitchingType || '').toUpperCase().trim();
+            const tHand = String(p.throwHand || '').toUpperCase().trim();
+            const pos = String(p.position || '').toUpperCase();
+            
+            let group = '';
+            
+            // 1. U(언더)나 S(사이드)면 좌/우 손 방향 상관없이 무조건 언더·사이드로 분류
+            if (pType === 'U' || pType === 'S') {
+               group = '언더·사이드';
+            } 
+            // 2. O(오버핸드)이거나, 투구 폼 데이터는 비어있지만 포지션이 투수(P)인 경우
+            else if (pType === 'O' || (pType === '' && pos.includes('P'))) {
+               if (tHand === 'L') group = '좌완';
+               if (tHand === 'R') group = '우완';
+            }
+            
+            // 일치하는 투구 폼 그룹이 없거나(타자 등), 선택한 그룹에 포함되지 않으면 필터 탈락
+            if (group === '' || !(selected as string[]).includes(group)) return false;
+            continue;
+          }
           
           if (field === 'name') {
              const searchGroups = String(selected).split(',').map(g => g.trim()).filter(Boolean)
@@ -307,14 +329,12 @@ const filteredPlayers = computed(() => {
              continue
           }
 
-          // 🌟 이름 제외 검색 로직 추가 (제외할 조건: NOT)
           if (field === 'excludedName') {
             const rawExcluded = String(selected);
             const searchGroups = rawExcluded.split(',').map(g => g.trim()).filter(Boolean)
                  .map(g => g.split(/\s+/).map(t => normText(t)).filter(Boolean));
             
             if (searchGroups.length > 0) {
-               // 🌟 제외할 이름 그룹 중 하나라도 일치하면 즉시 검색 탈락!
                const isMatch = searchGroups.some(tokens => tokens.every(t => nameNorm.includes(t)));
                if (isMatch) return false; 
             }
@@ -363,7 +383,6 @@ const filteredPlayers = computed(() => {
             continue
           }
 
-          // 기본 동일성 비교
           if (Array.isArray(selected)) {
             if (!(selected as unknown[]).map(String).includes(String(p[field]))) return false
           } else {
@@ -409,13 +428,12 @@ async function loadCsv() {
   const res = await fetch(path)
   const text = await res.text()
 
-  // 🌟 영어(R/L)를 한글(우/좌/양)로 바꿔주는 번역기 함수
   const translateHand = (hand: string) => {
     if (!hand) return '';
     const h = String(hand).toUpperCase().trim();
     if (h === 'R') return '우';
     if (h === 'L') return '좌';
-    if (h === 'S' || h === 'B') return '양'; // 스위치 히터 대응
+    if (h === 'S' || h === 'B') return '양'; 
     return h;
   };
 
@@ -425,11 +443,9 @@ async function loadCsv() {
     skipEmptyLines: true,
     complete: (results) => {
       for (const row of results.data as any[]) {
-        // 🌟 [B안 적용] CSV에서 불러올 때 투/타 데이터를 '우투우타' 형식으로 자동 합성!
         const t = translateHand(row.throwHand);
         const b = translateHand(row.battingHand);
         row.throwBatting = (t && b) ? `${t}투${b}타` : '';
-        
         parsed.push(row)
       }
     }
@@ -443,10 +459,12 @@ async function loadCsv() {
     filters.value.grade = grades
   }
   if (typeof filters.value.name !== 'string') filters.value.name = ''
-  if (typeof filters.value.excludedName !== 'string') filters.value.excludedName = '' // 🌟 제외할 이름 초기값 설정
+  if (typeof filters.value.excludedName !== 'string') filters.value.excludedName = '' 
   if (!Array.isArray(filters.value.synergy)) filters.value.synergy = []
   if (!Array.isArray(filters.value.search)) filters.value.search = []
   if (typeof filters.value.hsUniSynergyOnly !== 'boolean') filters.value.hsUniSynergyOnly = false
+  // 🌟 좌우놀이 필터 배열 초기화
+  if (!Array.isArray(filters.value.pitchingFormGroup)) filters.value.pitchingFormGroup = []
 
   await loadSynergyOptions()
   currentPage.value = 1
@@ -460,7 +478,6 @@ defineExpose({ totalFiltered: totalCount, totalAll })
 
 <template>
   <div class="min-h-screen space-y-8 font-sans">
-    <!-- Filters -->
     <FilterPanel
         :all-fields="allFields"
         :select-fields="selectFields"
@@ -472,10 +489,8 @@ defineExpose({ totalFiltered: totalCount, totalAll })
         v-model:filters="filters"
     />
 
-    <!-- Table -->
     <PlayerTable :items="paginatedPlayers" :columns="columns" />
 
-    <!-- Pagination -->
     <div v-if="totalPages > 1" class="mt-6 flex flex-col items-center gap-3">
       <nav class="inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
         <button
