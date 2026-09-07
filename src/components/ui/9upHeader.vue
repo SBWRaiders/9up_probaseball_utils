@@ -89,21 +89,19 @@ const handleEscKey = (event: KeyboardEvent) => {
 }
 
 // ==========================================
-// 🌟 메뉴 버튼 드래그 앤 드롭 로직 🌟
+// 🌟 메뉴 버튼 드래그 앤 드롭 로직 (순정 클릭 + 방패 막기) 🌟
 // ==========================================
 const buttonPos = ref({ x: 16, y: 16 }) 
 const isDragging = ref(false)
 const isMoved = ref(false)
 let startCoords = { x: 0, y: 0 }
 let startPos = { x: 0, y: 0 }
-let startTime = 0 // 🌟 손가락이 닿은 찰나의 시간을 기록할 타이머 변수
 
 const onPointerDown = (e: PointerEvent) => {
   isDragging.value = true
-  isMoved.value = false
+  isMoved.value = false // 화면에 손이 닿는 순간 무조건 방패(드래그 판정) 해제
   startCoords = { x: e.clientX, y: e.clientY }
   startPos = { ...buttonPos.value }
-  startTime = Date.now() // 🌟 터치 시작! 시간 기록
   
   document.addEventListener('pointermove', onPointerMove)
   document.addEventListener('pointerup', onPointerUp)
@@ -115,9 +113,9 @@ const onPointerMove = (e: PointerEvent) => {
   const dx = e.clientX - startCoords.x
   const dy = e.clientY - startCoords.y
   
-  // 8픽셀 민감도 유지
+  // 8픽셀 이상 움직였을 때만 드래그로 간주하고 방패를 켬!
   if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
-    isMoved.value = true
+    isMoved.value = true 
   }
   
   if (isMoved.value) {
@@ -132,19 +130,19 @@ const onPointerUp = (e: PointerEvent) => {
   isDragging.value = false
   document.removeEventListener('pointermove', onPointerMove)
   document.removeEventListener('pointerup', onPointerUp)
-  
-  const touchDuration = Date.now() - startTime // 🌟 터치하고 있던 시간 계산
-  
-  // 🌟 [핵심 수술] 8px 이하로 움직였거나, OR 0.2초(200ms) 미만의 빠른 톡톡! 이면 무조건 클릭!
-  if (!isMoved.value || touchDuration < 200) {
-    
-    // 빠른 톡톡이었는데 좌표가 튀어서 버튼이 찔끔 이동해버렸다면? 원래 자리로 되돌리기!
-    if (isMoved.value && touchDuration < 200) {
-      buttonPos.value = { ...startPos }
-    }
-    
-    isSidebarOpen.value = true
+  // 💡 여기서 사이드바 여는 로직은 삭제했습니다! 브라우저 순정 클릭 이벤트에 맡깁니다.
+}
+
+// 🌟 브라우저 순정 클릭 이벤트 핸들러
+const onButtonClick = (e: MouseEvent) => {
+  if (isMoved.value) {
+    // 8픽셀 이상 드래그를 해서 방패가 켜져 있다면, 사이드바 열기를 취소하고 무시!
+    e.preventDefault()
+    e.stopPropagation()
+    return
   }
+  // 방패가 안 켜져 있는 '순수 톡톡 터치'일 때만 확 열어버림!
+  isSidebarOpen.value = true
 }
 
 onMounted(() => {
@@ -183,11 +181,12 @@ const navigate = (item: { path: string; disabled?: boolean }) => {
 
 <template>
   <div>
-    <!-- 🌟 드래그 가능한 플로팅 햄버거 메뉴 🌟 -->
+    <!-- 🌟 버튼에 순정 @click 이벤트 추가 🌟 -->
     <button 
       class="fixed z-50 p-3 bg-white/90 dark:bg-neutral-800/90 backdrop-blur-md rounded-xl shadow-lg border border-neutral-200 dark:border-neutral-700 text-gray-800 dark:text-neutral-100 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors cursor-move"
       :style="{ top: `${buttonPos.y}px`, left: `${buttonPos.x}px`, touchAction: 'none' }"
       @pointerdown="onPointerDown"
+      @click="onButtonClick"
       title="드래그해서 이동할 수 있습니다"
     >
       <Menu class="w-6 h-6 pointer-events-none" />
