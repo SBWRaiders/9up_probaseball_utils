@@ -20,16 +20,19 @@ const pageSize = 20
 /* =========================
    Fields
 ========================= */
-const inputFields = ['name', 'team', 'year', 'skill', 'synergy', 'excludedSynergy'] as const
+// 🌟 'excludedName' (제외할 이름) 칸 추가!
+const inputFields = ['name', 'excludedName', 'team', 'year', 'skill', 'synergy', 'excludedSynergy'] as const
 const rarityField = 'rarity'
 const fieldLabels: Record<string, string> = {
   grade: '등급',
   rarity: '레어도',
   name: '이름 (부분 일치)',
+  excludedName: '제외할 이름 (NOT)', // 🌟 제외할 이름 라벨 추가
   team: '팀',
   year: '연도',
   position: '포지션',
-  battingHand: '타격 유형',
+  throwBatting: '투/타', // 🌟 투/타 통합 테이블 헤더용 라벨
+  battingHand: '타격 유형', 
   throwHand: '투구 유형',
   pitchingType: '투구 폼',
   skill: '스킬',
@@ -56,6 +59,7 @@ const allFields = computed(() => [...inputFields, ...selectFields.value, rarityF
 /* =========================
    Table Columns
 ========================= */
+// 🌟 battingHand, throwHand를 빼고 'throwBatting' (투/타) 한 칸으로 통합!
 const columns = ref([
   'grade',
   'rarity',
@@ -63,8 +67,7 @@ const columns = ref([
   'team',
   'year',
   'position',
-  'battingHand',
-  'throwHand',
+  'throwBatting', // 🌟 통합된 투/타 기둥
   'pitchingType',
   'synergy',
   'open',
@@ -235,7 +238,6 @@ const filteredPlayers = computed(() => {
   return preparedPlayers.value
       .filter(({ raw: p, teamLc, skillLc, enhancedSkillLc, positionLc, yearsNum, nameNorm, synergyNormSet }) => {
 
-        // 🌟 완벽 수정됨: 데이터(JSON) 이름 규칙 "OO고 출신", "OO대 출신" 기반 100% 정확한 필터링 엔진
         if (filters.value.hsUniSynergyOnly) {
            let hasHs = false;
            let hasUni = false;
@@ -256,7 +258,6 @@ const filteredPlayers = computed(() => {
             continue
           }
           if (field === 'team') {
-            // 대표 팀 ID를 선택하면 전신 구단까지 모두 포함하여 검색하도록 확장
             const teamExpand: Record<string, string[]> = {
               'ssg': ['ssg', 'sk'],
               'kiwoom': ['kiwoom', 'nexen'],
@@ -295,7 +296,7 @@ const filteredPlayers = computed(() => {
             if (!(selected as string[]).some(sel => positionLc.includes(normalizePosition(sel).toLowerCase()))) return false
             continue
           }
-          // 🌟 이름 복합 검색 (쉼표=OR, 띄어쓰기=AND)
+          
           if (field === 'name') {
              const searchGroups = String(selected).split(',').map(g => g.trim()).filter(Boolean)
                  .map(g => g.split(/\s+/).map(t => normText(t)).filter(Boolean));
@@ -305,7 +306,21 @@ const filteredPlayers = computed(() => {
              }
              continue
           }
-          // 🌟 시너지 복합 검색 (포함해야 하는 조건: AND)
+
+          // 🌟 이름 제외 검색 로직 추가 (제외할 조건: NOT)
+          if (field === 'excludedName') {
+            const rawExcluded = String(selected);
+            const searchGroups = rawExcluded.split(',').map(g => g.trim()).filter(Boolean)
+                 .map(g => g.split(/\s+/).map(t => normText(t)).filter(Boolean));
+            
+            if (searchGroups.length > 0) {
+               // 🌟 제외할 이름 그룹 중 하나라도 일치하면 즉시 검색 탈락!
+               const isMatch = searchGroups.some(tokens => tokens.every(t => nameNorm.includes(t)));
+               if (isMatch) return false; 
+            }
+            continue
+          }
+          
           if (field === 'synergy') {
             if (Array.isArray(selected)) {
               const selectedTerms = selected.map(s => normText(String(s)));
@@ -327,14 +342,12 @@ const filteredPlayers = computed(() => {
             continue
           }
 
-          // 🌟 시너지 제외 검색 (제외할 조건: NOT)
           if (field === 'excludedSynergy') {
             if (Array.isArray(selected)) {
               const excludedTerms = selected.map(s => normText(String(s)));
               const hasAny = excludedTerms.some(term => 
                  Array.from(synergyNormSet).some(playerSyn => playerSyn.includes(term))
               );
-              // 제외 키워드가 하나라도 포함되어 있으면 즉시 검색 탈락!
               if (hasAny) return false; 
             } else {
               const rawExcluded = String(selected);
@@ -343,7 +356,6 @@ const filteredPlayers = computed(() => {
               
               if (searchGroups.length > 0) {
                  const hay = Array.from(synergyNormSet).join(' ');
-                 // 제외 키워드 그룹에 하나라도 일치하면 검색 탈락!
                  const isMatch = searchGroups.some(tokens => tokens.every(t => hay.includes(t)));
                  if (isMatch) return false; 
               }
@@ -397,24 +409,41 @@ async function loadCsv() {
   const res = await fetch(path)
   const text = await res.text()
 
+  // 🌟 영어(R/L)를 한글(우/좌/양)로 바꿔주는 번역기 함수
+  const translateHand = (hand: string) => {
+    if (!hand) return '';
+    const h = String(hand).toUpperCase().trim();
+    if (h === 'R') return '우';
+    if (h === 'L') return '좌';
+    if (h === 'S' || h === 'B') return '양'; // 스위치 히터 대응
+    return h;
+  };
+
   const parsed: Record<string, any>[] = []
   Papa.parse(text, {
     header: true,
     skipEmptyLines: true,
     complete: (results) => {
-      for (const row of results.data as any[]) parsed.push(row)
+      for (const row of results.data as any[]) {
+        // 🌟 [B안 적용] CSV에서 불러올 때 투/타 데이터를 '우투우타' 형식으로 자동 합성!
+        const t = translateHand(row.throwHand);
+        const b = translateHand(row.battingHand);
+        row.throwBatting = (t && b) ? `${t}투${b}타` : '';
+        
+        parsed.push(row)
+      }
     }
   })
 
   players.value = parsed
   await nextTick()
 
-  // 초기 필터: 등급 전체 선택, 나머지 기본값
   const grades = filterOptions.value.grade ?? []
   if (!Array.isArray(filters.value.grade) || filters.value.grade.length === 0) {
     filters.value.grade = grades
   }
   if (typeof filters.value.name !== 'string') filters.value.name = ''
+  if (typeof filters.value.excludedName !== 'string') filters.value.excludedName = '' // 🌟 제외할 이름 초기값 설정
   if (!Array.isArray(filters.value.synergy)) filters.value.synergy = []
   if (!Array.isArray(filters.value.search)) filters.value.search = []
   if (typeof filters.value.hsUniSynergyOnly !== 'boolean') filters.value.hsUniSynergyOnly = false
