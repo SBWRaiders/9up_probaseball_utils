@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { defineProps, defineEmits, computed, watch, onMounted, onBeforeUnmount, ref } from 'vue'
-// 🌟 수정됨: Check 아이콘 임포트 추가! (버튼 렌더링용)
 import { Star, Search, ChevronDown, Check } from 'lucide-vue-next'
 import type { PropType } from 'vue'
 
@@ -17,10 +16,9 @@ const decodeHtmlEntities = (text: string): string => {
     .replace(/&quot;/g, '"')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&'); // 마지막에 처리
+    .replace(/&amp;/g, '&');
 }
 
-// JSON 데이터의 텍스트 필드를 재귀적으로 디코딩
 const decodeJsonData = (data: any): any => {
   if (typeof data === 'string') {
     return decodeHtmlEntities(data);
@@ -40,14 +38,13 @@ const decodeJsonData = (data: any): any => {
    Props / Emits
 ========================= */
 const props = defineProps({
-  tabKey: { type: String, default: 'Batters' }, // 탭 구분 키(Batters/Pitchers)
+  tabKey: { type: String, default: 'Batters' },
   allFields: Array as () => string[],
   selectFields: Array as () => string[],
   rarityField: String,
   filterOptions: Object as PropType<Record<string, string[]>>,
   fieldLabels: Object as PropType<Record<string, string>>,
   filters: Object as PropType<Record<string, any>>,
-  // 자동완성 옵션
   synergyOptions: Array as () => string[] | undefined,
   nameOptions: Array as () => string[] | undefined,
 })
@@ -73,9 +70,6 @@ const toggleFilter = (field: string, value: string) => {
 const update = (field: string, value: unknown) =>
   emit('update:filters', { ...(props.filters ?? {}), [field]: value })
 
-/* =========================
-   이미지 에러 핸들러 (타입스크립트 에러 방지)
-========================= */
 const handleImageError = (e: Event) => {
   const target = e.target as HTMLElement
   if (target) {
@@ -88,9 +82,6 @@ const handleImageError = (e: Event) => {
   }
 }
 
-/* =========================
-   연도 옵션 (올해 제외)
-========================= */
 const currentYear = new Date().getFullYear()
 const yearOptions = computed(() => {
   const years: string[] = []
@@ -98,9 +89,6 @@ const yearOptions = computed(() => {
   return years
 })
 
-/* =========================
-   포지션 / 등급 / 팀
-========================= */
 const gradeOrder = ['DGN', 'TOP', 'GG', 'ACE', 'HIT', 'GGY', 'MMVP', 'ROY', 'TEA', 'POS', 'ASG', 'SEA'] as const
 const visibleGrades = computed(() =>
   gradeOrder.filter((g) => props.filterOptions?.grade?.includes(g))
@@ -110,7 +98,6 @@ const areAllGradesSelected = computed(
   () => visibleGrades.value.length > 0 && visibleGrades.value.every((g) => isSelected('grade', g))
 )
 
-/** ✅ 팀: '모두 선택된 경우'에만 true (선택 비었으면 false) */
 const allTeamsSelected = computed(() => {
   const teams = props.filterOptions?.team ?? []
   if (!teams.length) return false
@@ -137,7 +124,6 @@ const toggleAllTeams = () => {
   })
 }
 
-/** ✅ 팀 옵션 진입 시: 선택이 비어 있으면 "전체 선택"으로 초기화 */
 watch(
   () => props.filterOptions?.team,
   (teams) => {
@@ -150,9 +136,6 @@ watch(
   { immediate: true }
 )
 
-/* =========================
-   접힘 상태 (탭별로 보유 & 영구저장)
-========================= */
 type CollapsibleKey = 'skill' | 'enhancedSkill' | 'position' | 'year' | 'rgt'
 type Collapses = Record<CollapsibleKey, boolean>
 
@@ -185,17 +168,11 @@ watch(() => props.tabKey, (t) => setByTab(t), { immediate: true })
 watch(collapses, persistCurrent, { deep: true })
 const toggleCollapse = (k: CollapsibleKey) => { collapses.value[k] = !collapses.value[k] }
 
-/* =========================
-   선택 개수/데이터 보유 여부
-========================= */
 const selectedCount = (field: 'skill' | 'enhancedSkill') =>
   Array.isArray(props.filters?.[field]) ? props.filters![field].length : 0
 const hasSkills = computed(() => (props.filterOptions?.skill?.length ?? 0) > 0)
 const hasEnhancedSkills = computed(() => (props.filterOptions?.enhancedSkill?.length ?? 0) > 0)
 
-/* =========================
-   팀 로고 / 스킬 아이콘
-========================= */
 const teamLogos: Record<string, string> = {
   kia: '/assets/logos/symbol/emblem_s_01_kia.png',
   haitai: '/assets/logos/symbol/emblem_s_01_haitai.png',
@@ -225,7 +202,6 @@ const teamLogos: Record<string, string> = {
 const normalSkillData = ref<any[]>([])
 const enhancedSkillData = ref<any[]>([])
 
-// ✅ JSON 로드 시 HTML 엔티티 디코딩 적용
 onMounted(async () => {
   try {
     const [n, e] = await Promise.all([
@@ -236,7 +212,6 @@ onMounted(async () => {
     const normalData = await n.json()
     const enhancedData = await e.json()
     
-    // HTML 엔티티 디코딩 적용
     normalSkillData.value = decodeJsonData(normalData)
     enhancedSkillData.value = enhancedData
   
@@ -251,7 +226,6 @@ const matchSkillInfo = (skill: string, type: string) => {
   return ''
 }
 
-// ✅ 스킬 텍스트를 안전하게 반환하는 함수 추가
 const getSkillText = (skill: string, type: 'normal' | 'enhanced' = 'enhanced'): string => {
   if (type === 'normal') {
     const found = normalSkillData.value.find((s) => s.skill === skill)
@@ -288,6 +262,33 @@ const moveName = (delta: number) => {
 }
 const onNameEnter = () => {
   if (showNameSuggestions.value && nameActiveIndex.value >= 0) pickName(filteredNameSuggestions.value[nameActiveIndex.value])
+}
+
+/* =========================
+   🌟 제외할 이름 입력 (부분 일치) + 자동완성
+========================= */
+const excludedNameInput = ref('')
+const excludedNameWrapperRef = ref<HTMLElement | null>(null)
+const showExcludedNameSuggestions = ref(false)
+const excludedNameActiveIndex = ref(-1)
+
+watch(() => props.filters?.excludedName, (v) => { excludedNameInput.value = (v ?? '').toString() }, { immediate: true })
+watch(excludedNameInput, (v) => emit('update:filters', { ...(props.filters ?? {}), excludedName: (v ?? '').toString() }))
+
+const filteredExcludedNameSuggestions = computed(() => {
+  const q = norm(excludedNameInput.value)
+  const src = Array.from(new Set((props.nameOptions ?? []).filter(Boolean)))
+  const list = q ? src.filter(n => n.toLowerCase().includes(q)) : src
+  return list.slice(0, 100)
+})
+const pickExcludedName = (val: string) => { excludedNameInput.value = val; showExcludedNameSuggestions.value = false }
+const moveExcludedName = (delta: number) => {
+  if (!showExcludedNameSuggestions.value || filteredExcludedNameSuggestions.value.length === 0) return
+  const n = filteredExcludedNameSuggestions.value.length
+  excludedNameActiveIndex.value = ((excludedNameActiveIndex.value + delta + n) % n)
+}
+const onExcludedNameEnter = () => {
+  if (showExcludedNameSuggestions.value && excludedNameActiveIndex.value >= 0) pickExcludedName(filteredExcludedNameSuggestions.value[excludedNameActiveIndex.value])
 }
 
 /* =========================
@@ -328,7 +329,6 @@ const filteredExcludedSuggestions = computed(() => {
     .slice(0, 100)
 })
 
-// 🌟 데이터 동기화 시 excludedSynergy까지 확실하게 연결
 const syncFromParent = () => {
   const src = props.filters?.synergy
   selectedTags.value = Array.isArray(src) ? [...new Set(src.filter(Boolean).map(String))] : []
@@ -345,7 +345,6 @@ const pushToParent = () => {
   emit('update:filters', next)
 }
 
-// 🌟 일반 시너지 함수
 const addTag = (v: string) => {
   const val = (v ?? '').trim()
   if (!val) return
@@ -388,7 +387,6 @@ const onSynergyBackspace = (e: KeyboardEvent) => {
   }
 }
 
-// 🌟 제외할 시너지 함수
 const addExcludedTag = (v: string) => {
   const val = (v ?? '').trim()
   if (!val) return
@@ -431,19 +429,16 @@ const onExcludedBackspace = (e: KeyboardEvent) => {
   }
 }
 
-/* =========================
-   바깥 클릭 → 드롭다운 닫기
-========================= */
 const onDocClick = (ev: MouseEvent) => {
   const t = ev.target as Node
   if (nameWrapperRef.value && !nameWrapperRef.value.contains(t)) showNameSuggestions.value = false
+  if (excludedNameWrapperRef.value && !excludedNameWrapperRef.value.contains(t)) showExcludedNameSuggestions.value = false
   if (wrapperRef.value && !wrapperRef.value.contains(t)) showSuggestions.value = false
   if (excludedWrapperRef.value && !excludedWrapperRef.value.contains(t)) showExcludedSuggestions.value = false
 }
 onMounted(() => document.addEventListener('click', onDocClick))
 onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 
-// ✅ 유틸리티 함수들을 외부에서 사용할 수 있도록 export
 defineExpose({
   decodeHtmlEntities,
   getSkillText
@@ -452,13 +447,8 @@ defineExpose({
 
 <template>
   <div class="mx-auto max-w-[1280px] p-2 mt-2 space-y-4 md:space-y-6">
-
-    <!-- ===== 본문: 2열 그리드 (좌: 스킬들, 우: 포지션/연도) ===== -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-
-      <!-- === LEFT COLUMN: 스킬 + 강화 스킬 === -->
       <div class="space-y-4">
-        <!-- 스킬 -->
         <section class="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white/95 dark:bg-neutral-900/95 shadow-sm">
           <button type="button" class="w-full px-4 py-3 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-t-lg transition-colors"
                   @click="toggleCollapse('skill')" :aria-expanded="collapses.skill">
@@ -468,7 +458,6 @@ defineExpose({
               <ChevronDown class="w-4 h-4 transition-transform" :class="collapses.skill ? 'rotate-180' : ''"/>
             </div>
           </button>
-
           <div v-if="collapses.skill" class="p-4 pt-0">
             <div v-if="hasSkills"
                  class="overflow-y-auto overscroll-contain rounded-lg border border-neutral-200 dark:border-neutral-700 p-2 bg-neutral-50/80 dark:bg-neutral-800/80 max-h-56">
@@ -492,7 +481,6 @@ defineExpose({
           </div>
         </section>
 
-        <!-- 강화 스킬 -->
         <section class="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white/95 dark:bg-neutral-900/95 shadow-sm">
           <button type="button" class="w-full px-4 py-3 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-t-lg transition-colors"
                   @click="toggleCollapse('enhancedSkill')" :aria-expanded="collapses.enhancedSkill">
@@ -502,7 +490,6 @@ defineExpose({
               <ChevronDown class="w-4 h-4 transition-transform" :class="collapses.enhancedSkill ? 'rotate-180' : ''"/>
             </div>
           </button>
-
           <div v-if="collapses.enhancedSkill" class="p-4 pt-0">
             <div v-if="hasEnhancedSkills"
                  class="overflow-y-auto overscroll-contain rounded-lg border border-neutral-200 dark:border-neutral-700 p-2 bg-neutral-50/80 dark:bg-neutral-800/80 max-h-56">
@@ -527,16 +514,13 @@ defineExpose({
         </section>
       </div>
 
-      <!-- === RIGHT COLUMN: 포지션 + 연도 === -->
       <div class="space-y-4">
-        <!-- 포지션 -->
         <section class="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white/95 dark:bg-neutral-900/95 shadow-sm">
           <button type="button" class="w-full px-4 py-3 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-t-lg transition-colors"
                   @click="toggleCollapse('position')" :aria-expanded="collapses.position">
             <h3 class="text-sm font-semibold text-neutral-700 dark:text-neutral-200">{{ fieldLabels?.position || '포지션' }}</h3>
             <ChevronDown class="w-4 h-4 text-neutral-500 dark:text-neutral-400 transition-transform" :class="collapses.position ? 'rotate-180' : ''"/>
           </button>
-
           <div v-if="collapses.position" class="px-4 pb-4 space-y-4 sm:space-y-5">
             <div>
               <h4 class="text-xs font-semibold text-neutral-600 dark:text-neutral-400 mb-2">외야수 / 지명타자</h4>
@@ -550,7 +534,6 @@ defineExpose({
                 </button>
               </div>
             </div>
-
             <div>
               <h4 class="text-xs font-semibold text-neutral-600 dark:text-neutral-400 mb-2">내야</h4>
               <div class="grid grid-cols-5 gap-2 sm:gap-3">
@@ -563,7 +546,6 @@ defineExpose({
                 </button>
               </div>
             </div>
-
             <div>
               <h4 class="text-xs font-semibold text-neutral-600 dark:text-neutral-400 mb-2">선발투수 / 중간계투</h4>
               <div class="grid grid-cols-3 gap-2 sm:gap-3">
@@ -579,14 +561,12 @@ defineExpose({
           </div>
         </section>
 
-        <!-- 연도 -->
         <section class="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white/95 dark:bg-neutral-900/95 shadow-sm">
           <button type="button" class="w-full px-4 py-3 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-t-lg transition-colors"
                   @click="toggleCollapse('year')" :aria-expanded="collapses.year">
             <h3 class="text-sm font-semibold text-neutral-700 dark:text-neutral-200">{{ fieldLabels?.year || '연도' }}</h3>
             <ChevronDown class="w-4 h-4 text-neutral-500 dark:text-neutral-400 transition-transform" :class="collapses.year ? 'rotate-180' : ''"/>
           </button>
-
           <div v-if="collapses.year" class="flex-1 overflow-y-auto m-4 mt-2 rounded-lg border border-neutral-200 dark:border-neutral-700 p-2 bg-neutral-50/80 dark:bg-neutral-800/80">
             <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-2">
               <button
@@ -606,7 +586,6 @@ defineExpose({
         </section>
       </div>
 
-<!-- === FULL-WIDTH: 레어도 · 등급 · 팀 (3행, 반응형) === -->
       <section class="col-span-full md:col-span-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white/95 dark:bg-neutral-900/95 shadow-sm">
         <button
           type="button"
@@ -626,17 +605,12 @@ defineExpose({
         <div v-if="collapses.rgt" class="p-2 sm:p-3 md:p-4 pt-0">
           <section class="rounded-lg bg-white/95 dark:bg-neutral-900/95">
             <div class="divide-y divide-neutral-200 dark:divide-neutral-700">
-
-              <!-- Row 1: 레어도 (아이콘만 클릭) -->
               <div class="grid grid-cols-1 sm:grid-cols-[auto_1fr_auto] md:grid-cols-[auto_1fr_auto] items-center gap-2 sm:gap-2.5 md:gap-3 px-3 sm:px-3.5 md:px-4 py-3 sm:py-2.5 md:py-3">
                 <span class="text-xs sm:text-[11px] md:text-xs font-semibold text-neutral-600 dark:text-neutral-300 sm:w-12 md:w-14 leading-tight">
                   {{ fieldLabels?.rarity || '레어도' }}
                 </span>
-
-                <!-- 모바일: 가로 스와이프, 스냅, 페이드 -->
                 <div class="min-w-0 overflow-x-auto whitespace-nowrap no-scrollbar scroll-fade-x snap-x snap-mandatory touch-pan-x overscroll-x-contain -mx-1.5 sm:-mx-1 px-1.5 sm:px-1">
                   <div class="inline-flex items-center gap-2 sm:gap-1.5 md:gap-2">
-                    <!-- wrapper는 클릭 막음, Star만 클릭 허용 -->
                     <div
                       v-for="i in 6" :key="'star-'+i"
                       class="p-1 rounded-lg sm:rounded-md snap-start select-none pointer-events-none"
@@ -655,7 +629,6 @@ defineExpose({
                     </div>
                   </div>
                 </div>
-
                 <button
                   v-if="props.filters?.[props.rarityField!]"
                   @click="update(props.rarityField!, '')"
@@ -665,9 +638,7 @@ defineExpose({
                 </button>
               </div>
 
-              <!-- Row 2: 등급 (모바일=수직/그리드, 데스크탑=가로 스크롤) 이미지만 클릭 -->
               <div class="px-3 sm:px-3.5 md:px-4 py-3 sm:py-2.5 md:py-3">
-                <!-- 모바일/태블릿 -->
                 <div class="md:hidden space-y-3">
                   <div class="flex items-center justify-between">
                     <span class="text-xs font-semibold text-neutral-600 dark:text-neutral-300">
@@ -703,12 +674,10 @@ defineExpose({
                   </div>
                 </div>
 
-                <!-- 데스크톱 -->
                 <div class="hidden md:grid md:grid-cols-[auto_1fr_auto] items-center gap-3">
                   <span class="text-xs font-semibold text-neutral-600 dark:text-neutral-300 w-14">
                     {{ fieldLabels?.grade || '등급' }}
                   </span>
-
                   <div class="min-w-0 overflow-x-auto whitespace-nowrap no-scrollbar scroll-fade-x snap-x snap-mandatory touch-pan-x overscroll-x-contain -mx-1 px-1">
                     <div class="inline-flex items-center gap-2">
                       <button
@@ -730,7 +699,6 @@ defineExpose({
                       </button>
                     </div>
                   </div>
-
                   <button
                     @click="toggleAllGrades"
                     class="px-2 py-1 text-xs rounded-md border transition-all duration-200"
@@ -742,9 +710,7 @@ defineExpose({
                 </div>
               </div>
 
-              <!-- Row 3: 팀 (모바일=수직/그리드, 데스크탑=가로 스크롤) 이미지만 클릭 -->
               <div class="px-3 sm:px-3.5 md:px-4 py-3 sm:py-2.5 md:py-3">
-                <!-- 모바일/태블릿 -->
                 <div class="md:hidden space-y-3">
                   <div class="flex items-center justify-between">
                     <span class="text-xs font-semibold text-neutral-600 dark:text-neutral-300">
@@ -759,7 +725,6 @@ defineExpose({
                       {{ allTeamsSelected ? '해제' : '전체' }}
                     </button>
                   </div>
-
                   <div class="grid grid-cols-8 gap-2">
                     <button
                       v-for="team in props.filterOptions?.team ?? []" :key="team"
@@ -780,12 +745,10 @@ defineExpose({
                   </div>
                 </div>
 
-                <!-- 데스크톱 -->
                 <div class="hidden md:grid md:grid-cols-[auto_1fr_auto] items-center gap-3">
                   <span class="text-xs font-semibold text-neutral-600 dark:text-neutral-300 w-14">
                     {{ fieldLabels?.team || '팀' }}
                   </span>
-
                   <div class="min-w-0 overflow-x-auto whitespace-nowrap no-scrollbar scroll-fade-x snap-x snap-mandatory touch-pan-x overscroll-x-contain -mx-1 px-1">
                     <div class="inline-flex items-center gap-2">
                       <button
@@ -806,7 +769,6 @@ defineExpose({
                       </button>
                     </div>
                   </div>
-
                   <button
                     @click="toggleAllTeams"
                     class="px-2 py-1 text-xs rounded-md border transition-all duration-200"
@@ -817,20 +779,19 @@ defineExpose({
                   </button>
                 </div>
               </div>
-
             </div>
           </section>
         </div>
       </section>
 
-    </div> <!-- /grid -->
+    </div>
 
-    <!-- 🌟 수정됨: Toolbar: 이름 · 시너지 · 제외 시너지 + 고졸대졸 셔틀 체크박스 -->
+    <!-- 🌟 수정됨: 4칸 그리드로 변경 (이름, 제외할 이름, 시너지, 제외할 시너지, 체크박스 레이아웃 조정) -->
     <section class="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white/95 dark:bg-neutral-900/95 shadow-sm p-3 md:p-4">
-      <div class="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_auto] gap-3 md:gap-4 items-start">
+      <div class="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-3 md:gap-4 items-start">
+        
         <!-- 이름 -->
         <div>
-          <!-- 🌟 중복 텍스트 버그 수정 -->
           <label class="block text-xs font-semibold text-neutral-600 dark:text-neutral-300 mb-1">
             {{ fieldLabels?.name || '이름 (부분 일치)' }}
           </label>
@@ -869,9 +830,48 @@ defineExpose({
           </div>
         </div>
 
+        <!-- 🌟 새롭게 추가된 '제외할 이름 (NOT)' 칸 -->
+        <div>
+          <label class="block text-xs font-semibold text-rose-600 dark:text-rose-400 mb-1">
+            {{ fieldLabels?.excludedName || '제외할 이름 (NOT)' }}
+          </label>
+          <div ref="excludedNameWrapperRef" class="relative">
+            <input
+              v-model="excludedNameInput"
+              @focus="showExcludedNameSuggestions = true"
+              @keydown.down.prevent="moveExcludedName(1)"
+              @keydown.up.prevent="moveExcludedName(-1)"
+              @keydown.enter.prevent="onExcludedNameEnter"
+              @keydown.esc="showExcludedNameSuggestions = false"
+              placeholder="제외할 선수명을 입력해 주세요."
+              class="w-full bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-600 rounded-md px-3 py-2 pr-10 text-sm text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition-colors"
+              role="combobox" aria-expanded="showExcludedNameSuggestions" aria-controls="excluded-name-suggest"
+            />
+            <Search class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-rose-400 dark:text-rose-500 pointer-events-none" />
+            <ul
+              v-if="showExcludedNameSuggestions && filteredExcludedNameSuggestions.length"
+              id="excluded-name-suggest"
+              class="absolute z-10 w-full mt-1 bg-white dark:bg-neutral-800 border border-rose-200 dark:border-rose-800 rounded-md shadow-lg max-h-56 md:max-h-64 overflow-y-auto"
+              role="listbox"
+            >
+              <li
+                v-for="(suggestion, idx) in filteredExcludedNameSuggestions"
+                :key="suggestion"
+                @mousedown.prevent="pickExcludedName(suggestion)"
+                @mouseenter="excludedNameActiveIndex = idx"
+                class="px-3 py-2 text-sm cursor-pointer hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
+                :class="idx === excludedNameActiveIndex ? 'bg-rose-50 dark:bg-rose-900/20' : ''"
+                role="option"
+                :aria-selected="idx === excludedNameActiveIndex"
+              >
+                {{ suggestion }}
+              </li>
+            </ul>
+          </div>
+        </div>
+
         <!-- 포함할 시너지 -->
         <div>
-          <!-- 🌟 중복 텍스트 버그 수정 -->
           <label class="block text-xs font-semibold text-neutral-600 dark:text-neutral-300 mb-1">
             {{ fieldLabels?.synergy || '시너지 (정확 일치 AND)' }}
           </label>
@@ -892,7 +892,6 @@ defineExpose({
               role="combobox" aria-expanded="showSuggestions" aria-controls="syn-suggest"
             />
             <Search class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 dark:text-neutral-500 pointer-events-none" />
-
             <ul
               v-if="showSuggestions && filteredSuggestions.length"
               id="syn-suggest"
@@ -913,8 +912,6 @@ defineExpose({
               </li>
             </ul>
           </div>
-
-          <!-- 태그 뱃지 -->
           <div class="flex flex-wrap gap-2 mt-2">
             <span
               v-for="tag in selectedTags" :key="tag"
@@ -926,7 +923,7 @@ defineExpose({
           </div>
         </div>
 
-        <!-- 🌟 새롭게 추가된 제외할 시너지 (NOT) 칸 -->
+        <!-- 제외할 시너지 -->
         <div>
           <label class="block text-xs font-semibold text-rose-600 dark:text-rose-400 mb-1">
             {{ fieldLabels?.excludedSynergy || '제외할 시너지 (NOT)' }}
@@ -948,7 +945,6 @@ defineExpose({
               role="combobox" aria-expanded="showExcludedSuggestions" aria-controls="exc-suggest"
             />
             <Search class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-rose-400 dark:text-rose-500 pointer-events-none" />
-
             <ul
               v-if="showExcludedSuggestions && filteredExcludedSuggestions.length"
               id="exc-suggest"
@@ -969,8 +965,6 @@ defineExpose({
               </li>
             </ul>
           </div>
-
-          <!-- 제외할 시너지 태그 뱃지 -->
           <div class="flex flex-wrap gap-2 mt-2">
             <span
               v-for="tag in selectedExcludedTags" :key="tag"
@@ -982,7 +976,6 @@ defineExpose({
           </div>
         </div>
 
-        <!-- 🌟 새롭게 추가된 벤치용 고졸+대졸 셔틀 체크박스 -->
         <div class="flex flex-col h-full md:mt-0 mt-2">
           <label class="block text-[11px] font-bold text-transparent select-none mb-1 hidden md:block">필터</label>
           <button 
@@ -1016,17 +1009,13 @@ defineExpose({
   opacity: 0;
   transform: scaleY(.98);
 }
-/* ===== 작은 디테일들: 대비/그림자/애니 ===== */
 .drop-glow {
   filter: drop-shadow(0 0 6px rgba(250, 204, 21, 0.45));
 }
-/* 전환 순간만 전체 트랜지션 비활성화 */
 .theme-switching *, .theme-switching *::before, .theme-switching *::after {
   transition: none !important;
   animation: none !important;
 }
-
-/* 스크롤바 통일 */
 select::-webkit-scrollbar,
 .overflow-y-auto::-webkit-scrollbar { width: 8px; height: 8px; }
 select::-webkit-scrollbar-track,
@@ -1035,21 +1024,11 @@ select::-webkit-scrollbar-thumb,
 .overflow-y-auto::-webkit-scrollbar-thumb { background: rgba(100,116,139,0.35); border-radius: 4px; }
 select::-webkit-scrollbar-thumb:hover,
 .overflow-y-auto::-webkit-scrollbar-thumb:hover { background: rgba(100,116,139,0.55); }
-
-/* 커서 */
 button, select { cursor: pointer; }
 input[type="text"] { cursor: text; }
-
-/* 포커스 visible만 강조 (접근성) */
 :focus { outline: none; }
-
-/* 호버 보더 컬러 미세 업 */
 input:hover, select:hover { border-color: #9ca3af; }
-
-/* 라벨 컬러 부드럽게 */
 .space-y-1 > label { transition: color .2s ease; }
-
-/* 모션 감약 사용자의 경우 전환 제거 */
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; transform: none !important; }
 }
