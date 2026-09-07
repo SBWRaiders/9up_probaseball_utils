@@ -3,9 +3,6 @@ import { defineProps, defineEmits, computed, watch, onMounted, onBeforeUnmount, 
 import { Star, Search, ChevronDown, Check } from 'lucide-vue-next'
 import type { PropType } from 'vue'
 
-/* =========================
-   HTML 디코딩 유틸리티 함수
-========================= */
 const decodeHtmlEntities = (text: string): string => {
   if (!text) return text;
   
@@ -34,9 +31,6 @@ const decodeJsonData = (data: any): any => {
   return data;
 }
 
-/* =========================
-   Props / Emits
-========================= */
 const props = defineProps({
   tabKey: { type: String, default: 'Batters' },
   allFields: Array as () => string[],
@@ -50,9 +44,6 @@ const props = defineProps({
 })
 const emit = defineEmits(['update:filters'])
 
-/* =========================
-   공통 토글/업데이트 (케이스 무시)
-========================= */
 const normVal = (v: unknown) => String(v ?? '').trim().toLowerCase()
 
 const isSelected = (field: string, value: string) =>
@@ -236,9 +227,6 @@ const getSkillText = (skill: string, type: 'normal' | 'enhanced' = 'enhanced'): 
   return found ? decodeHtmlEntities(found.enhanced_skill || skill) : skill
 }
 
-/* =========================
-   이름 입력 (부분 일치) + 자동완성
-========================= */
 const nameInput = ref('')
 const nameWrapperRef = ref<HTMLElement | null>(null)
 const showNameSuggestions = ref(false)
@@ -264,9 +252,6 @@ const onNameEnter = () => {
   if (showNameSuggestions.value && nameActiveIndex.value >= 0) pickName(filteredNameSuggestions.value[nameActiveIndex.value])
 }
 
-/* =========================
-   🌟 제외할 이름 입력 (부분 일치) + 자동완성
-========================= */
 const excludedNameInput = ref('')
 const excludedNameWrapperRef = ref<HTMLElement | null>(null)
 const showExcludedNameSuggestions = ref(false)
@@ -291,9 +276,6 @@ const onExcludedNameEnter = () => {
   if (showExcludedNameSuggestions.value && excludedNameActiveIndex.value >= 0) pickExcludedName(filteredExcludedNameSuggestions.value[excludedNameActiveIndex.value])
 }
 
-/* =========================
-   시너지 자동완성 & 태그 (정확 일치 AND)
-========================= */
 const searchInput = ref('')
 const showSuggestions = ref(false)
 const isComposing = ref(false)
@@ -301,9 +283,6 @@ const wrapperRef = ref<HTMLElement | null>(null)
 const selectedTags = ref<string[]>([])
 const synergyActiveIndex = ref(-1)
 
-/* =========================
-   제외할 시너지 (NOT) 자동완성 & 태그
-========================= */
 const excludedInput = ref('')
 const showExcludedSuggestions = ref(false)
 const isExcludedComposing = ref(false)
@@ -446,6 +425,7 @@ defineExpose({
 </script>
 
 <template>
+  <!-- 🌟 mt-2 삭제 완료: 상단 하얀 띠 소멸! -->
   <div class="mx-auto max-w-[1280px] p-2 space-y-4 md:space-y-6">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
       <div class="space-y-4">
@@ -515,12 +495,14 @@ defineExpose({
       </div>
 
       <div class="space-y-4">
+        <!-- 🌟 포지션 패널 -->
         <section class="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white/95 dark:bg-neutral-900/95 shadow-sm">
           <button type="button" class="w-full px-4 py-3 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-t-lg transition-colors"
                   @click="toggleCollapse('position')" :aria-expanded="collapses.position">
             <h3 class="text-sm font-semibold text-neutral-700 dark:text-neutral-200">{{ fieldLabels?.position || '포지션' }}</h3>
             <ChevronDown class="w-4 h-4 text-neutral-500 dark:text-neutral-400 transition-transform" :class="collapses.position ? 'rotate-180' : ''"/>
           </button>
+          
           <div v-if="collapses.position" class="px-4 pb-4 space-y-4 sm:space-y-5">
             <div>
               <h4 class="text-xs font-semibold text-neutral-600 dark:text-neutral-400 mb-2">외야수 / 지명타자</h4>
@@ -558,6 +540,22 @@ defineExpose({
                 </button>
               </div>
             </div>
+            
+            <!-- 🌟 새롭게 추가된 '좌우놀이'용 투구 폼 버튼! -->
+            <div class="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700">
+              <h4 class="text-xs font-semibold text-neutral-600 dark:text-neutral-400 mb-2">{{ fieldLabels?.pitchingFormGroup || '투구 폼 (좌우놀이)' }}</h4>
+              <div class="grid grid-cols-3 gap-2 sm:gap-3">
+                <button v-for="form in ['좌완', '우완', '언더·사이드']" :key="'form-'+form"
+                        @click="toggleFilter('pitchingFormGroup', form)"
+                        :class="['px-2 py-1.5 rounded-md text-sm font-bold border transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500',
+                                 isSelected('pitchingFormGroup', form) ? 'bg-blue-500 text-white border-blue-500 shadow-md hover:bg-blue-600 dark:bg-blue-700 dark:border-blue-700 dark:hover:bg-blue-600'
+                                                                       : 'bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 border-neutral-200 dark:border-neutral-600 hover:bg-blue-50 dark:hover:bg-neutral-700 hover:border-blue-300 dark:hover:border-neutral-500']">
+                  {{ form }}
+                </button>
+              </div>
+            </div>
+            <!-- 🌟 ------------------------------------ -->
+
           </div>
         </section>
 
@@ -783,14 +781,11 @@ defineExpose({
           </section>
         </div>
       </section>
-
     </div>
 
-    <!-- 🌟 수정됨: 4칸 그리드로 변경 (이름, 제외할 이름, 시너지, 제외할 시너지, 체크박스 레이아웃 조정) -->
     <section class="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white/95 dark:bg-neutral-900/95 shadow-sm p-3 md:p-4">
       <div class="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-3 md:gap-4 items-start">
         
-        <!-- 이름 -->
         <div>
           <label class="block text-xs font-semibold text-neutral-600 dark:text-neutral-300 mb-1">
             {{ fieldLabels?.name || '이름 (부분 일치)' }}
@@ -830,7 +825,6 @@ defineExpose({
           </div>
         </div>
 
-        <!-- 🌟 새롭게 추가된 '제외할 이름 (NOT)' 칸 -->
         <div>
           <label class="block text-xs font-semibold text-rose-600 dark:text-rose-400 mb-1">
             {{ fieldLabels?.excludedName || '제외할 이름 (NOT)' }}
@@ -870,7 +864,6 @@ defineExpose({
           </div>
         </div>
 
-        <!-- 포함할 시너지 -->
         <div>
           <label class="block text-xs font-semibold text-neutral-600 dark:text-neutral-300 mb-1">
             {{ fieldLabels?.synergy || '시너지 (정확 일치 AND)' }}
@@ -923,7 +916,6 @@ defineExpose({
           </div>
         </div>
 
-        <!-- 제외할 시너지 -->
         <div>
           <label class="block text-xs font-semibold text-rose-600 dark:text-rose-400 mb-1">
             {{ fieldLabels?.excludedSynergy || '제외할 시너지 (NOT)' }}
