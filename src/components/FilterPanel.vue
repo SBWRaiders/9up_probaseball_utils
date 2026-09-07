@@ -446,7 +446,7 @@ defineExpose({
 </script>
 
 <template>
-  <div class="mx-auto max-w-[1280px] p-2 mt-2 space-y-4 md:space-y-6">
+  <div class="mx-auto max-w-[1280px] p-2 space-y-4 md:space-y-6">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
       <div class="space-y-4">
         <section class="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white/95 dark:bg-neutral-900/95 shadow-sm">
