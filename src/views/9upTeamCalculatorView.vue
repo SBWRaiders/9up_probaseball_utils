@@ -2,8 +2,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, reactive, watch } from 'vue'
 import Papa from 'papaparse'
 // 상단 lucide-vue-next 임포트 목록에 RefreshCw 추가
-import { Search, Calculator, Star, Shield, Zap, TrendingUp, X, Users, ArrowUpCircle, Sparkles, UserCheck, Filter, ChevronRight as ChevronRightIcon, Check, Save, FolderOpen, Download, Upload, Camera, RefreshCw } from 'lucide-vue-next'
-import { createWorker } from 'tesseract.js'
+import { Search, Calculator, Star, Shield, Zap, TrendingUp, X, Users, ArrowUpCircle, Sparkles, UserCheck, Filter, ChevronRight as ChevronRightIcon, Check, Save, FolderOpen, Download, Upload, RefreshCw } from 'lucide-vue-next'
   
 type Raw = Record<string, any>
 type CountOp = '==' | '>=' | '<=' | '>' | '<' | 'between'
@@ -1913,22 +1912,6 @@ const selectSlot = (slot: string) => {
   }
 }
 
-// ========================================================
-// 📸 [분리 크롭 & 듀얼 머지 엔진] 얼굴/전투력 숫자 100% 차단
-// ========================================================
-const ocrFileInput = ref<HTMLInputElement | null>(null)
-const isOcrProcessing = ref(false)
-const ocrProgressText = ref('')
-
-interface OcrDebugItem {
-  slot: string
-  imgUrl: string
-  rawText: string
-  matchedName: string | null
-  matchedCard: string | null
-}
-const ocrDebugList = ref<OcrDebugItem[]>([])
-
 // FC 온라인식 카드 교체 모달 상태
 const showCardSwapModal = ref(false)
 const swapTargetSlot = ref<string | null>(null)
@@ -1976,246 +1959,6 @@ const applyCardSwap = (newCard: Raw) => {
   initPlayerBuff(slot, newCard)
   showToast(`[${newCard.name}] 카드가 성공적으로 교체되었습니다!`, 'success')
   showCardSwapModal.value = false
-}
-
-// ========================================================
-// 📸 [황금 대칭 좌표계 복원] 듀얼 머지 크롭 엔진
-// ========================================================
-const OCR_SLOTS = [
-  // 1열 (외야): 좌 - 중 - 우
-  { pos: 'LF', x: 0.215, y: 0.10, w: 0.145, h: 0.32 },
-  { pos: 'CF', x: 0.415, y: 0.10, w: 0.145, h: 0.32 },
-  { pos: 'RF', x: 0.615, y: 0.10, w: 0.145, h: 0.32 },
-
-  // 2열 (키스톤): 유격 - 2루
-  { pos: 'SS', x: 0.315, y: 0.26, w: 0.145, h: 0.32 },
-  { pos: '2B', x: 0.515, y: 0.26, w: 0.145, h: 0.32 },
-
-  // 3열 (코너): 3루 - 1루
-  { pos: '3B', x: 0.215, y: 0.39, w: 0.145, h: 0.32 },
-  { pos: '1B', x: 0.615, y: 0.39, w: 0.145, h: 0.32 },
-
-  // 4열 (하단): 포수 - 지명타자
-  { pos: 'C',  x: 0.415, y: 0.67, w: 0.145, h: 0.32 },
-  { pos: 'DH', x: 0.525, y: 0.67, w: 0.145, h: 0.32 }
-]
-
-const triggerOcrInput = () => {
-  ocrFileInput.value?.click()
-}
-
-// ========================================================
-// 📸 [황금 대칭 좌표계 복원 & 단일 통합 크롭 엔진]
-// ========================================================
-const cropDualCardImages = (image: HTMLImageElement, slot: typeof OCR_SLOTS[0]) => {
-  const canvas = document.createElement('canvas')
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return { dualUrl: null }
-
-  const imgW = image.naturalWidth
-  const imgH = image.naturalHeight
-
-  const cardX = imgW * slot.x
-  const cardY = imgH * slot.y
-  const cardW = imgW * slot.w
-  const cardH = imgH * slot.h
-
-  // 🌟 정밀 좌우 좌표 및 Y축 세팅 (왼쪽 잘림 방지 및 오른쪽 불필요 여백 컷팅)
-  const badgeX = cardX + (cardW * 0.14)
-  const badgeY = cardY + (cardH * 0.40)
-  const badgeW = cardW * 0.32
-  const badgeH = cardH * 0.16
-
-  const nameX = cardX + (cardW * 0.12)
-  const nameY = cardY + (cardH * 0.73)
-  const nameW = cardW * 0.65
-  const nameH = cardH * 0.15
-
-  const scale = 3
-  const badgeW_scaled = Math.round(badgeW * scale)
-  const badgeH_scaled = Math.round(badgeH * scale)
-  const nameW_scaled = Math.round(nameW * scale)
-  const nameH_scaled = Math.round(nameH * scale)
-  
-  const padding = 12
-  const destW = Math.max(badgeW_scaled, nameW_scaled) + (padding * 2)
-
-  canvas.width = destW
-  canvas.height = badgeH_scaled + nameH_scaled + (padding * 3)
-
-  ctx.imageSmoothingEnabled = true
-  ctx.imageSmoothingQuality = 'high'
-  ctx.fillStyle = '#000000'
-  ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-  ctx.drawImage(
-    image, badgeX, badgeY, badgeW, badgeH, 
-    padding + Math.round((destW - badgeW_scaled - (padding * 2)) / 2), 
-    padding, 
-    badgeW_scaled, badgeH_scaled
-  )
-  
-  ctx.drawImage(
-    image, nameX, nameY, nameW, nameH, 
-    padding + Math.round((destW - nameW_scaled - (padding * 2)) / 2), 
-    badgeH_scaled + (padding * 2), 
-    nameW_scaled, nameH_scaled
-  )
-
-  return {
-    dualUrl: canvas.toDataURL('image/png')
-  }
-}
-
-// ========================================================
-// 📸 [카드 매칭 및 인식 엔진 (processCardSlot)]
-// ========================================================
-const processCardSlot = (rawText: string, targetPos: string): { player: Raw | null; name: string | null } => {
-  const cleanText = rawText.replace(/[\s\d'’\[\]\(\)\-\.]/g, '')
-
-  const batterList = players.value.filter(p => !['SP', 'RP', 'CP'].includes(String(p.position).toUpperCase()))
-
-  let matchedName = ''
-  for (const p of batterList) {
-    const pName = String(p.name || '').trim()
-    if (pName.length >= 2 && cleanText.includes(pName)) {
-      matchedName = pName
-      break
-    }
-  }
-
-  if (!matchedName) {
-    for (const p of batterList) {
-      const pName = String(p.name || '').trim()
-      if (pName.length === 3 && cleanText.includes(pName[0]) && cleanText.includes(pName[2])) {
-        matchedName = pName
-        break
-      }
-    }
-  }
-
-  if (!matchedName) return { player: null, name: null }
-
-  const candidates = batterList.filter(p => String(p.name || '').trim() === matchedName)
-  if (candidates.length <= 1) return { player: candidates[0] || null, name: matchedName }
-
-  const upperRaw = rawText.toUpperCase()
-  const detectedYears: string[] = []
-  const quoted = rawText.match(/['’](\d{2})/)
-  if (quoted) detectedYears.push(quoted[1])
-  const yearMatches = Array.from(rawText.matchAll(/\b([89012]\d)\b/g))
-  for (const m of yearMatches) {
-    if (!detectedYears.includes(m[1])) detectedYears.push(m[1])
-  }
-
-  let detectedGrade = ''
-  if (/(?:HIT|H1T|H!T|H\|T|HT|HI7|히트)/i.test(upperRaw)) {
-    detectedGrade = 'HIT'
-  } else if (/(?:TOP|T0P|TDP|TOR|10P|탑)/i.test(upperRaw)) {
-    detectedGrade = 'TOP'
-  } else if (/(?:DGN|디그|D6N|IGN|OGN)/i.test(upperRaw)) {
-    detectedGrade = 'DGN'
-  } else if (/(?:GOLDEN|GLOVE|GG|골글)/i.test(upperRaw)) {
-    detectedGrade = 'GG'
-  }
-
-  let bestCard = candidates[0]
-  let maxScore = -999
-
-  for (const card of candidates) {
-    let score = 0
-    const cardGrade = getMappedGrade(card.grade)
-    const cardYears = getArray(card.year).map(y => String(y).replace(/\D/g, '').slice(-2))
-
-    if (detectedGrade) {
-      if (cardGrade === detectedGrade) score += 40
-      else score -= 20
-    } else {
-      if (cardGrade === 'HIT' || cardGrade === 'TOP') score += 10
-      else if (cardGrade === 'DGN') score -= 10
-    }
-
-    if (detectedYears.length > 0 && cardYears.some(y => detectedYears.includes(y))) {
-      score += 50
-    }
-
-    if (isValidSlotForPlayer(card, targetPos)) {
-      score += 5
-    }
-
-    if (score > maxScore) {
-      maxScore = score
-      bestCard = card
-    }
-  }
-
-  return { player: bestCard, name: matchedName }
-}
-
-// ========================================================
-// 📸 [스크린샷 일괄 등록 및 안정적인 OCR 실행]
-// ========================================================
-const handleOcrUpload = async (event: Event) => {
-  const target = event.target as HTMLInputElement
-  const file = target.files?.[0]
-  if (!file) return
-
-  try {
-    isOcrProcessing.value = true
-    ocrProgressText.value = 'OCR 엔진을 초기화하고 있습니다...'
-    ocrDebugList.value = []
-
-    const img = new Image()
-    img.src = URL.createObjectURL(file)
-    await img.decode()
-
-    const worker = await createWorker('kor+eng')
-    let matchedCount = 0
-
-    for (let i = 0; i < OCR_SLOTS.length; i++) {
-      const slot = OCR_SLOTS[i]
-      ocrProgressText.value = `[${i + 1}/${OCR_SLOTS.length}] ${slot.pos} 슬롯 분석 중...`
-
-      const { dualUrl } = cropDualCardImages(img, slot)
-      if (!dualUrl) continue
-
-      const { data: { text } } = await worker.recognize(dualUrl)
-      const { player: matchedPlayer, name: foundName } = processCardSlot(text, slot.pos)
-
-      ocrDebugList.value.push({
-        slot: slot.pos,
-        imgUrl: dualUrl, 
-        rawText: text.trim().replace(/\n+/g, ' '),
-        matchedName: foundName,
-        matchedCard: matchedPlayer ? `[${matchedPlayer.grade}] ${matchedPlayer.name}` : null
-      })
-
-      if (matchedPlayer) {
-        Object.keys(lineup.value).forEach(k => {
-          if (lineup.value[k] && isSameCard(lineup.value[k]!, matchedPlayer)) {
-            lineup.value[k] = null
-          }
-        })
-
-        lineup.value[slot.pos] = matchedPlayer
-        initPlayerBuff(slot.pos, matchedPlayer)
-        matchedCount++
-      }
-    }
-
-    await worker.terminate()
-    URL.revokeObjectURL(img.src)
-
-    lineupViewMode.value = 'batter'
-    showToast(`라인업 스캔 완료: 총 ${matchedCount}명이 배치되었습니다!`, 'success')
-  } catch (err) {
-    console.error('OCR 처리 실패:', err)
-    showToast('스크린샷을 인식하는 중 오류가 발생했습니다.', 'error')
-  } finally {
-    isOcrProcessing.value = false
-    ocrProgressText.value = ''
-    if (ocrFileInput.value) ocrFileInput.value.value = ''
-  }
 }
   
 const fileInput = ref<HTMLInputElement | null>(null)  
@@ -2567,15 +2310,6 @@ const getPlayerImage = (p: Raw | null) => {
              <div class="w-px h-3 bg-white/20 mx-1"></div>
              <button @click="exportToFile" class="p-1.5 text-emerald-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="PC에 파일로 내보내기"><Download class="w-3.5 h-3.5" /><span class="text-[10px] font-bold hidden sm:block">파일 저장</span></button>
              <button @click="triggerFileInput" class="p-1.5 text-emerald-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="PC에서 파일 불러오기"><Upload class="w-3.5 h-3.5" /><span class="text-[10px] font-bold hidden sm:block">파일 열기</span></button>
-             <div class="w-px h-3 bg-white/20 mx-1"></div>
-
-             <!-- 🌟 신규 추가: 스크린샷 자동 등록 버튼 -->
-             <input type="file" ref="ocrFileInput" accept="image/*" class="hidden" @change="handleOcrUpload" />
-             <button @click="triggerOcrInput" :disabled="isOcrProcessing" class="p-1.5 text-amber-300 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="인게임 라인업 스크린샷으로 자동 등록">
-               <Camera class="w-3.5 h-3.5" />
-               <span class="text-[10px] font-bold hidden sm:block">스크린샷 등록</span>
-             </button>
-
              <div class="w-px h-3 bg-white/20 mx-1"></div>
              <button @click="resetLineup" class="p-1.5 text-rose-300 hover:text-white hover:bg-rose-500/50 rounded-md transition-colors flex items-center gap-1" title="각인 유지하고 라인업 초기화"><X class="w-3.5 h-3.5" /><span class="text-[10px] font-bold hidden sm:block">초기화</span></button>
           </div>
@@ -3880,15 +3614,6 @@ const getPlayerImage = (p: Raw | null) => {
       <div class="absolute bottom-0 w-3 h-3 bg-neutral-900 dark:bg-white rotate-45 border-r border-b border-neutral-700 dark:border-neutral-200"
            :style="{ left: tooltipState.arrowLeft, transform: 'translate(-50%, 50%)' }"></div>
   </div>
-<!-- 🌟 OCR 분석 진행 오버레이 모달 -->
-  <div v-if="isOcrProcessing" class="fixed inset-0 z-[999999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-    <div class="bg-neutral-900 border border-neutral-700 p-6 rounded-2xl shadow-2xl flex flex-col items-center max-w-xs w-full text-center">
-      <div class="animate-spin rounded-full border-4 border-neutral-700 border-t-amber-400 h-10 w-10 mb-4"></div>
-      <h3 class="text-sm font-black text-white mb-1">인게임 라인업 스캔 중</h3>
-      <p class="text-xs font-bold text-amber-400">{{ ocrProgressText }}</p>
-      <span class="text-[10px] text-neutral-400 mt-3">기기 사양에 따라 5~10초 정도 소요될 수 있습니다.</span>
-    </div>
-  </div>
 <!-- 🌟 FC 온라인 스타일: 동일 선수 시즌 교체 모달 🌟 -->
   <div v-if="showCardSwapModal && swapTargetSlot" class="fixed inset-0 z-[99999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
     <div class="bg-white dark:bg-neutral-900 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] border border-neutral-200 dark:border-neutral-700">
@@ -3950,51 +3675,6 @@ const getPlayerImage = (p: Raw | null) => {
       </div>
     </div>
   </div> <!-- 👈 1. 카드 교체 모달이 여기서 정상적으로 닫힙니다 -->
-
-  <!-- ======================================================= -->
-  <!-- 🔍 2. 독립된 OCR 크롭 검사기 (화면 최상단 z-index 하단 서랍장) -->
-  <!-- ======================================================= -->
-  <div v-if="ocrDebugList.length > 0" class="fixed inset-x-0 bottom-0 z-[999999] max-h-[60vh] bg-neutral-950/95 backdrop-blur-md border-t-2 border-emerald-500 shadow-2xl p-4 overflow-y-auto text-white">
-    <div class="max-w-7xl mx-auto">
-      <div class="flex items-center justify-between mb-3 pb-2 border-b border-neutral-800">
-        <div class="flex items-center gap-2">
-          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-          <h3 class="font-bold text-sm sm:text-base text-emerald-400">🔍 OCR 크롭 검사기 (9개 슬롯 실제 캡처 및 인식 결과)</h3>
-          <span class="text-xs text-neutral-400 hidden sm:inline">사진 속 글자가 위아래로 잘리지 않았는지 확인하세요</span>
-        </div>
-        <button @click="ocrDebugList = []" class="px-2.5 py-1 text-xs bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded border border-neutral-600 transition-colors font-bold">✕ 닫기</button>
-      </div>
-      
-      <div class="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-9 gap-2">
-        <div 
-          v-for="item in ocrDebugList" 
-          :key="item.slot"
-          class="bg-neutral-900 p-2 rounded-xl border text-center flex flex-col items-center shadow-lg"
-          :class="item.matchedCard ? 'border-emerald-500/50' : 'border-rose-500/60'"
-        >
-          <div class="w-full flex items-center justify-between mb-1 px-1">
-            <span class="font-black text-xs px-1.5 py-0.2 rounded" :class="item.matchedCard ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'">
-              {{ item.slot }}
-            </span>
-            <span class="text-[10px] font-bold" :class="item.matchedCard ? 'text-emerald-400' : 'text-rose-400'">
-              {{ item.matchedCard ? '성공' : '실패' }}
-            </span>
-          </div>
-
-          <!-- 실제 캡처된 크롭 이미지 -->
-          <div class="w-full h-24 bg-black rounded-lg border border-neutral-800 flex items-center justify-center overflow-hidden mb-1 p-0.5">
-            <img :src="item.imgUrl" class="w-full h-full object-contain" />
-          </div>
-          
-          <!-- 확정된 카드 명 -->
-          <div class="text-[11px] font-bold truncate w-full text-center" :class="item.matchedCard ? 'text-emerald-300' : 'text-rose-400'">
-            {{ item.matchedCard || '미인식' }}
-          </div>
-          
-          <!-- OCR이 읽은 날것의 텍스트 -->
-          <div class="text-[9px] text-neutral-400 truncate w-full mt-1 bg-neutral-950 px-1 py-0.5 rounded border border-neutral-800" :title="item.rawText">
-            "{{ item.rawText || '텍스트 없음' }}"
-          </div>
         </div>
       </div>
     </div>
