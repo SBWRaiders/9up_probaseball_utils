@@ -1931,11 +1931,31 @@ const swapCandidates = computed(() => {
   if (!swapTargetSlot.value) return []
   const currentP = lineup.value[swapTargetSlot.value]
   if (!currentP) return []
+  
+  // 공백 제거한 이름
   const cleanName = String(currentP.name || '').replace(/\s+/g, '')
   
+  // 🌟 동명이인 구별용 신분증 (생년월일 또는 선수 고유 식별자)
+  const currentBirth = String(currentP.birth || '').trim()
+  // p.id는 카드 고유번호일 수 있으므로 playerId나 pId 등 사람 고유번호를 우선 확인합니다.
+  const currentPId = String(currentP.playerId || currentP.pId || '').trim()
+
   return players.value.filter(p => {
+    // 1. 이름이 다르면 1차 탈락
     const isNameMatch = String(p.name || '').replace(/\s+/g, '') === cleanName
     if (!isNameMatch) return false
+
+    // 2. 🌟 동명이인 신분증 깐깐 검사 🌟
+    const pBirth = String(p.birth || '').trim()
+    const pId = String(p.playerId || p.pId || '').trim()
+
+    // 둘 다 생년월일 데이터가 존재하는데 서로 다르면 동명이인으로 간주하고 컷!
+    if (currentBirth && pBirth && currentBirth !== pBirth) return false
+    
+    // 둘 다 선수 고유번호가 존재하는데 서로 다르면 동명이인으로 간주하고 컷!
+    if (currentPId && pId && currentPId !== pId) return false
+
+    // 3. 해당 슬롯에 들어갈 수 있는 포지션인지 최종 검사
     return isValidSlotForPlayer(p, swapTargetSlot.value!)
   })
 })
