@@ -2666,7 +2666,12 @@ const getPlayerImage = (p: Raw | null) => {
                       <span class="text-[24px] font-black opacity-30">+</span>
                    </div>
                    <div v-else draggable="true" @dragstart="onDragStart($event, 'SP'+(index+1))" class="relative h-full max-w-full aspect-[5/7] border rounded-xl flex flex-col items-center p-0 cursor-pointer transition-all shadow-sm group overflow-hidden bg-neutral-100 dark:bg-neutral-800" :class="{'border-indigo-500 ring-2 ring-indigo-400': selectedSlot === 'SP'+(index+1), 'border-neutral-200 dark:border-neutral-600': selectedSlot !== 'SP'+(index+1)}" @click="selectSlot('SP'+(index+1))">
-                      <button class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/50 text-white hover:bg-red-500 flex items-center justify-center text-[14px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm" @click.stop="clearSlot('SP'+(index+1))">×</button>
+                      <!-- 🌟 여기에 추가! (선발투수 교체 버튼) -->
+<button class="absolute top-1.5 right-8 w-6 h-6 rounded-full bg-black/50 text-white hover:bg-indigo-600 flex items-center justify-center text-[11px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm shadow-sm" @click.stop="openCardSwapModal('SP'+(index+1))" title="다른 시즌 카드로 교체">
+  <RefreshCw class="w-3 h-3" />
+</button>
+<!-- 기존 X 버튼 -->
+<button class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/50 text-white hover:bg-red-500 flex items-center justify-center text-[14px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm" @click.stop="clearSlot('SP'+(index+1))">×</button>
                       <img :src="getPlayerImage(lineup['SP'+(index+1)])" class="absolute inset-0 w-full h-full object-cover" @error="hideImage" />
                       <div class="absolute bottom-0 inset-x-0 h-[45%] bg-gradient-to-t from-black/95 via-black/50 to-transparent flex flex-col justify-end items-center pb-2 px-1 pointer-events-none">
                          <div class="text-[11px] sm:text-[13px] font-bold text-white w-full flex items-baseline justify-center truncate drop-shadow-md leading-tight">
@@ -2689,7 +2694,12 @@ const getPlayerImage = (p: Raw | null) => {
                        <span class="text-[20px] font-black opacity-30">+</span>
                    </div>
                    <div v-else draggable="true" @dragstart="onDragStart($event, 'RP'+(index+1))" class="relative h-full max-w-full aspect-[5/7] border rounded-xl flex flex-col items-center p-0 cursor-pointer transition-all shadow-sm group overflow-hidden bg-neutral-100 dark:bg-neutral-800" :class="{'border-indigo-500 ring-2 ring-indigo-400': selectedSlot === 'RP'+(index+1), 'border-neutral-200 dark:border-neutral-600': selectedSlot !== 'RP'+(index+1)}" @click="selectSlot('RP'+(index+1))">
-                      <button class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/50 text-white hover:bg-red-500 flex items-center justify-center text-[14px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm" @click.stop="clearSlot('RP'+(index+1))">×</button>
+                      <!-- 🌟 여기에 추가! (계투 교체 버튼) -->
+<button class="absolute top-1.5 right-8 w-6 h-6 rounded-full bg-black/50 text-white hover:bg-indigo-600 flex items-center justify-center text-[11px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm shadow-sm" @click.stop="openCardSwapModal('RP'+(index+1))" title="다른 시즌 카드로 교체">
+  <RefreshCw class="w-3 h-3" />
+</button>
+<!-- 기존 X 버튼 -->
+<button class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/50 text-white hover:bg-red-500 flex items-center justify-center text-[14px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm" @click.stop="clearSlot('RP'+(index+1))">×</button>
                       <img :src="getPlayerImage(lineup['RP'+(index+1)])" class="absolute inset-0 w-full h-full object-cover" @error="hideImage" />
                       <div class="absolute bottom-0 inset-x-0 h-[45%] bg-gradient-to-t from-black/95 via-black/50 to-transparent flex flex-col justify-end items-center pb-1.5 px-1 pointer-events-none">
                          <div class="text-[10px] sm:text-[12px] font-bold text-white w-full flex items-baseline justify-center truncate drop-shadow-md leading-tight">
@@ -2712,7 +2722,12 @@ const getPlayerImage = (p: Raw | null) => {
                     <div v-for="i in 4" :key="'BENCH'+i" @dragover.prevent @drop="onDrop($event, 'BENCH'+i)" class="flex-1 max-w-[24%] h-full flex justify-center items-start min-w-0 min-h-0">
                        <div v-if="!lineup['BENCH'+i]" class="relative h-full max-w-full aspect-[5/7] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === 'BENCH'+i}" @click="selectSlot('BENCH'+i)"><span class="text-[12px] font-bold">{{ 'BENCH'+i }}</span></div>
                      <div v-else draggable="true" @dragstart="onDragStart($event, 'BENCH'+i)" class="relative h-full max-w-full aspect-[5/7] border rounded-xl flex flex-col items-center p-0 cursor-pointer transition-all shadow-sm group overflow-hidden bg-white dark:bg-neutral-800" :class="{'border-indigo-500 ring-2 ring-indigo-400': selectedSlot === 'BENCH'+i, 'border-neutral-200 dark:border-neutral-600': selectedSlot === 'BENCH'+i}" @click="selectSlot('BENCH'+i)">
-                        <button class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/50 text-white hover:bg-red-500 flex items-center justify-center text-[14px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm" @click.stop="clearSlot('BENCH'+i)">×</button>
+                        <!-- 🌟 여기에 추가! (벤치 1~4 교체 버튼) -->
+<button class="absolute top-1.5 right-8 w-6 h-6 rounded-full bg-black/50 text-white hover:bg-indigo-600 flex items-center justify-center text-[11px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm shadow-sm" @click.stop="openCardSwapModal('BENCH'+i)" title="다른 시즌 카드로 교체">
+  <RefreshCw class="w-3 h-3" />
+</button>
+<!-- 기존 X 버튼 -->
+<button class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/50 text-white hover:bg-red-500 flex items-center justify-center text-[14px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm" @click.stop="clearSlot('BENCH'+i)">×</button>
                         <img :src="getPlayerImage(lineup['BENCH'+i])" class="absolute inset-0 w-full h-full object-cover object-top" @error="hideImage" />
                         <div class="absolute bottom-0 inset-x-0 h-[45%] bg-gradient-to-t from-black/95 via-black/50 to-transparent flex flex-col justify-end items-center pb-2 px-1 pointer-events-none">
                            <div class="text-[11px] sm:text-[13px] font-bold text-white w-full flex items-baseline justify-center truncate drop-shadow-md leading-tight">
@@ -2728,7 +2743,12 @@ const getPlayerImage = (p: Raw | null) => {
                     <div v-for="i in 4" :key="'BENCH'+(i+4)" @dragover.prevent @drop="onDrop($event, 'BENCH'+(i+4))" class="flex-1 max-w-[24%] h-full flex justify-center items-start min-w-0 min-h-0">
                        <div v-if="!lineup['BENCH'+(i+4)]" class="relative h-full max-w-full aspect-[5/7] border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all border-neutral-300 dark:border-neutral-600 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-400" :class="{'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30': selectedSlot === 'BENCH'+(i+4)}" @click="selectSlot('BENCH'+(i+4))"><span class="text-[12px] font-bold">{{ 'BENCH'+(i+4) }}</span></div>
                      <div v-else draggable="true" @dragstart="onDragStart($event, 'BENCH'+(i+4))" class="relative h-full max-w-full aspect-[5/7] border rounded-xl flex flex-col items-center p-0 cursor-pointer transition-all shadow-sm group overflow-hidden bg-white dark:bg-neutral-800" :class="{'border-indigo-500 ring-2 ring-indigo-400': selectedSlot === 'BENCH'+(i+4), 'border-neutral-200 dark:border-neutral-600': selectedSlot !== 'BENCH'+(i+4)}" @click="selectSlot('BENCH'+(i+4))">
-                        <button class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/50 text-white hover:bg-red-500 flex items-center justify-center text-[14px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm" @click.stop="clearSlot('BENCH'+(i+4))">×</button>
+                        <!-- 🌟 여기에 추가! (벤치 5~8 교체 버튼) -->
+<button class="absolute top-1.5 right-8 w-6 h-6 rounded-full bg-black/50 text-white hover:bg-indigo-600 flex items-center justify-center text-[11px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm shadow-sm" @click.stop="openCardSwapModal('BENCH'+(i+4))" title="다른 시즌 카드로 교체">
+  <RefreshCw class="w-3 h-3" />
+</button>
+<!-- 기존 X 버튼 -->
+<button class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/50 text-white hover:bg-red-500 flex items-center justify-center text-[14px] opacity-0 group-hover:opacity-100 transition-opacity z-20 backdrop-blur-sm" @click.stop="clearSlot('BENCH'+(i+4))">×</button>
                         <img :src="getPlayerImage(lineup['BENCH'+(i+4)])" class="absolute inset-0 w-full h-full object-cover object-top" @error="hideImage" />
                         <div class="absolute bottom-0 inset-x-0 h-[45%] bg-gradient-to-t from-black/95 via-black/50 to-transparent flex flex-col justify-end items-center pb-2 px-1 pointer-events-none">
                            <div class="text-[11px] sm:text-[13px] font-bold text-white w-full flex items-baseline justify-center truncate drop-shadow-md leading-tight">
