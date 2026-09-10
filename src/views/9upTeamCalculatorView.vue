@@ -2247,6 +2247,23 @@ const resetLineup = () => {
   rightPanelTab.value = 'global';
 }
 
+// =========================================================================
+// 🌟 [여기에 추가!] 증발했던 불러오기 핵심 엔진 (applyLoadedData) 복구 🌟
+// =========================================================================
+const applyLoadedData = (data) => {
+  if (!data) return;
+  
+  if (data.lineups) lineups.value = data.lineups;
+  if (data.allPlayerBuffs) allPlayerBuffs.value = data.allPlayerBuffs;
+  if (data.imprintInventory) imprintInventory.value = data.imprintInventory;
+  
+  if (data.globalBuffsAll) {
+    // globalBuffsAll은 reactive 객체이므로 완전히 갈아끼우지 않고 속성을 덮어씌웁니다.
+    if (data.globalBuffsAll[1]) Object.assign(globalBuffsAll[1], data.globalBuffsAll[1]);
+    if (data.globalBuffsAll[2]) Object.assign(globalBuffsAll[2], data.globalBuffsAll[2]);
+  }
+}  
+
 // 🌟 다중 페이지 저장 (이름 지정) 🌟
 const saveToLocalStorage = () => {
   const saveName = prompt('저장할 라인업 이름을 입력하세요:\n(예: 국대전용, 홈런타자세팅 등)');
