@@ -1916,8 +1916,13 @@ const selectSlot = (slot: string) => {
 const showCardSwapModal = ref(false)
 const swapTargetSlot = ref<string | null>(null)
 
+// 🌟 교체용 카드 동일성 검사 (ID 추가)
 const isSameCard = (c1: Raw | null, c2: Raw | null) => {
   if (!c1 || !c2) return false
+  
+  // 🌟 고유 ID(주민등록번호)가 다르면 동명이인이므로 무조건 컷!
+  if (c1.id && c2.id && String(c1.id) !== String(c2.id)) return false;
+
   const n1 = String(c1.name || '').trim()
   const n2 = String(c2.name || '').trim()
   const g1 = getMappedGrade(c1.grade)
@@ -1927,35 +1932,26 @@ const isSameCard = (c1: Raw | null, c2: Raw | null) => {
   return n1 === n2 && g1 === g2 && y1 === y2
 }
 
+// 🌟 교체 후보군 추출 엔진 완벽 개선
 const swapCandidates = computed(() => {
   if (!swapTargetSlot.value) return []
   const currentP = lineup.value[swapTargetSlot.value]
   if (!currentP) return []
   
-  // 공백 제거한 이름
+  // 🌟 핵심: 현재 카드의 고유 ID 추출
+  const currentId = String(currentP.id || '').trim()
   const cleanName = String(currentP.name || '').replace(/\s+/g, '')
   
-  // 🌟 동명이인 구별용 신분증 (생년월일 또는 선수 고유 식별자)
-  const currentBirth = String(currentP.birth || '').trim()
-  // p.id는 카드 고유번호일 수 있으므로 playerId나 pId 등 사람 고유번호를 우선 확인합니다.
-  const currentPId = String(currentP.playerId || currentP.pId || '').trim()
-
   return players.value.filter(p => {
-    // 1. 이름이 다르면 1차 탈락
+    // 1. 고유 ID 완벽 검사: CSV의 'id' 칼럼 사용
+    const pId = String(p.id || '').trim()
+    if (currentId && pId && currentId !== pId) return false // 다르면 동명이인 컷!
+
+    // 2. 만약 id가 누락된 카드를 위한 이름 방어막
     const isNameMatch = String(p.name || '').replace(/\s+/g, '') === cleanName
     if (!isNameMatch) return false
 
-    // 2. 🌟 동명이인 신분증 깐깐 검사 🌟
-    const pBirth = String(p.birth || '').trim()
-    const pId = String(p.playerId || p.pId || '').trim()
-
-    // 둘 다 생년월일 데이터가 존재하는데 서로 다르면 동명이인으로 간주하고 컷!
-    if (currentBirth && pBirth && currentBirth !== pBirth) return false
-    
-    // 둘 다 선수 고유번호가 존재하는데 서로 다르면 동명이인으로 간주하고 컷!
-    if (currentPId && pId && currentPId !== pId) return false
-
-    // 3. 해당 슬롯에 들어갈 수 있는 포지션인지 최종 검사
+    // 3. 투/타 및 포지션 룰 검사 (김성한 같은 진짜 이도류 선수 보호)
     return isValidSlotForPlayer(p, swapTargetSlot.value!)
   })
 })
