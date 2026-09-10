@@ -3675,10 +3675,6 @@ const getPlayerImage = (p: Raw | null) => {
       </div>
     </div>
   </div> <!-- 👈 1. 카드 교체 모달이 여기서 정상적으로 닫힙니다 -->
-        </div>
-      </div>
-    </div>
-  </div>
 </template>
 
 <style scoped>
