@@ -84,17 +84,19 @@ const percentableGrowthA = computed(() => {
          Number(careerLevelBuff.value || 0)
 })
 
+// ✅ 수정 후 코드
 const percentableGrowthB = computed(() => {
   return Number((careerTeamCount.value || 0) * 112) + 
          Number(hitAceBuff.value || 0) +
-         Number(teamPlayerDignityBuff.value || 0)
+         Number(teamPlayerDignityBuff.value || 0) +
+         Number(imprintStarterPower.value || 0) // 👈 그룹 C에 있던 녀석을 일로 데려옵니다!
 })
 
 const unpercentableGrowthC = computed(() => {
   return Number(binderBuff.value || 0) + 
          Number(clanBuff.value || 0) +
-         Number(imprintStarterPower.value || 0) +
-         Number(careerAllStatFlat.value || 0)
+         // 👈 여기에 있던 Number(imprintStarterPower.value || 0) + 삭제!
+         Number(careerAllStatFlat.value || 0) 
 })
 
 const enhancementLevel = ref(15)
