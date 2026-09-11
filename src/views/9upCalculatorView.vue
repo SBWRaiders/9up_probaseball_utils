@@ -497,7 +497,7 @@ const getFinalStat = (calc: any, key: string) => calc.selectedPlayer ? calc.getS
                   </div>
                   <!-- 그룹 C -->
                   <div class="p-4 bg-fuchsia-50 dark:bg-fuchsia-900/10 rounded-xl border border-fuchsia-100 dark:border-fuchsia-800/30">
-                    <label class="text-sm font-bold text-fuchsia-600 block mb-2">바인더/클랜/각인/커리어,각인 전체능력치</label>
+                    <label class="text-sm font-bold text-fuchsia-600 block mb-2">바인더/클랜/1,2선발 파워증가각인/커리어,각인 전체능력치</label>
                     <div class="grid grid-cols-4 gap-2">
                       <input type="number" v-model.number="calc.binderBuff" class="w-full text-center text-sm px-2 py-1.5 rounded-lg border outline-none"/>
                       <input type="number" v-model.number="calc.clanBuff" class="w-full text-center text-sm px-2 py-1.5 rounded-lg border outline-none"/>
