@@ -520,15 +520,23 @@ const getFinalStat = (calc: any, key: string) => calc.selectedPlayer ? calc.getS
 
                 <!-- 스킬 & 시너지 (가로/세로 유연하게 복구) -->
                 <div class="flex flex-col xl:flex-row gap-4">
-                  <!-- 스킬 영역 -->
+                  <!-- 스킬 영역 (가시성 및 짤림 현상 완벽 개선) -->
                   <div class="flex-1 p-4 bg-neutral-50 dark:bg-neutral-800/50 rounded-xl border border-neutral-200 dark:border-neutral-700">
                      <div class="flex justify-between items-center mb-3">
                         <label class="text-sm font-bold text-indigo-600">장착 스킬 ({{calc.selectedSkills.length}}/{{calc.maxSkillSlots}})</label>
                         <div class="flex items-center gap-2"><span class="text-xs text-blue-500 font-bold">얼티밋(%)</span><input type="number" v-model.number="calc.ultimateImprintPercent" class="w-12 text-center text-sm p-1 border rounded outline-none"></div>
                      </div>
-                     <div class="flex flex-wrap gap-2">
-                        <button v-for="skill in calc.availableSkills" :key="skill" @click="calc.toggleSkill(skill)" @mouseenter="showSkillTooltip($event, skill)" @mouseleave="hideSkillTooltip" :class="calc.selectedSkills.includes(skill) ? 'bg-indigo-600 ring-4 ring-indigo-300' : 'bg-neutral-200 dark:bg-neutral-600 hover:ring-2 ring-neutral-400'" class="w-10 h-10 rounded-lg flex items-center justify-center transition-all">
-                           <div class="w-8 h-8 bg-white/20 rounded-md" :class="`bg-${matchSkillInfo(skill)}`"></div>
+                     <div class="flex flex-wrap gap-2.5"> <!-- 간격을 gap-2.5로 넓혀서 숨통을 틔움 -->
+                        <button v-for="skill in calc.availableSkills" :key="skill" 
+                           @click="calc.toggleSkill(skill)" 
+                           @mouseenter="showSkillTooltip($event, skill)" 
+                           @mouseleave="hideSkillTooltip" 
+                           :class="calc.selectedSkills.includes(skill) 
+                              ? 'ring-4 ring-blue-600 dark:ring-blue-500 bg-blue-100 dark:bg-blue-900/50 scale-110 z-10 shadow-md' 
+                              : 'bg-white dark:bg-neutral-700 ring-1 ring-neutral-300 dark:ring-neutral-600 hover:ring-2 hover:ring-blue-400'" 
+                           class="w-11 h-11 rounded-lg flex items-center justify-center transition-all duration-200">
+                           <!-- bg-contain, bg-center 속성을 추가하여 이미지가 짤리지 않게 수정 -->
+                           <div class="w-9 h-9 bg-contain bg-center bg-no-repeat rounded-md" :class="`bg-${matchSkillInfo(skill)}`"></div>
                         </button>
                      </div>
                   </div>
