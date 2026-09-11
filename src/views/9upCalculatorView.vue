@@ -100,11 +100,18 @@ const synergyHierarchy: Record<string, string[]> = {
 // ==========================================
 // 🚀 단일 계산기 코어 (Factory Function)
 // ==========================================
+// ==========================================
+// 🚀 단일 계산기 코어 (Factory Function)
+// ==========================================
 function createCalculator(name: string) {
   const searchQuery = ref('')
   const searchFocused = ref(false)
   const selectedGrade = ref('')
   const selectedPlayer = ref<Raw | null>(null)
+
+  // 🌟 멀티 포지션 관련 상태 추가
+  const selectedPosition = ref('')
+  const multiPositionData = ref<Record<string, number>>({})
 
   const batterStats = reactive({
     contact: { base: 0, skill: 0, career: 0, imprint: 0, manager: 0, label: '컨택', isCore: true },
@@ -134,6 +141,23 @@ function createCalculator(name: string) {
     return pos.includes('SP') || pos.includes('RP') || !!selectedPlayer.value.movement
   })
 
+  // 🌟 사용 가능한 포지션 목록 (버튼 생성용)
+  const availablePositions = computed(() => {
+    if (!selectedPlayer.value) return []
+    if (Object.keys(multiPositionData.value).length > 0) return Object.keys(multiPositionData.value)
+    return [selectedPosition.value]
+  })
+
+  // 🌟 포지션 변경 시 수비 스탯 실시간 업데이트 로직
+  const changePosition = (pos: string) => {
+    selectedPosition.value = pos
+    if (selectedPlayer.value) {
+      const defValue = multiPositionData.value[pos] !== undefined ? multiPositionData.value[pos] : Number(selectedPlayer.value.defense || 0)
+      if (isPitcher.value) pitcherStats.defense.base = defValue
+      else batterStats.defense.base = defValue
+    }
+  }
+
   const playerLevel = ref(100); const collectionBuff = ref(0); const teamLevelBuff = ref(750); const careerLevelBuff = ref(149)
   const careerTeamCount = ref(0); const hitAceBuff = ref(0); const teamPlayerDignityBuff = ref(0)
   const binderBuff = ref(537); const clanBuff = ref(15)
@@ -144,9 +168,9 @@ function createCalculator(name: string) {
 
   const parsedRarity = computed(() => selectedPlayer.value ? Math.max(0, parseInt(String(selectedPlayer.value.rarity), 10) || 0) : 0)
 
-  // 🌟 imprintStarterPower를 percentableGrowthB로 이동 (스킬 % 적용 받도록 수정 완료)
   const percentableGrowthA = computed(() => Number(Math.max(0, playerLevel.value - 1) * 10) + Number(collectionBuff.value || 0) + Number(teamLevelBuff.value || 0) + Number(careerLevelBuff.value || 0))
   const percentableGrowthB = computed(() => Number((careerTeamCount.value || 0) * 112) + Number(hitAceBuff.value || 0) + Number(teamPlayerDignityBuff.value || 0) + Number(imprintStarterPower.value || 0))
+  // 이전 대화에서 수정한 전능(전체능력치) x 5 로직 유지
   const unpercentableGrowthC = computed(() => Number(binderBuff.value || 0) + Number(clanBuff.value || 0) + (Number(careerAllStatFlat.value || 0) * 5))
 
   const maxEnhanceLevel = computed(() => selectedPlayer.value && String(selectedPlayer.value.grade).toUpperCase() === 'DGN' ? 10 : 15)
@@ -317,14 +341,35 @@ function createCalculator(name: string) {
     if (isPitcher.value) {
       pitcherStats.movement.base = Number(p.movement || 0); pitcherStats.longHitSup.base = Number(p.longHitSuppression || 0)
       pitcherStats.hrSup.base = Number(p.homeRunSuppression || 0); pitcherStats.control.base = Number(p.control || 0)
-      pitcherStats.stuff.base = Number(p.stuff || 0); pitcherStats.defense.base = Number(p.defense || 0)
+      pitcherStats.stuff.base = Number(p.stuff || 0)
       pitcherStats.pitchLimit.base = Number(p.pitchLimit || 0); pitcherStats.runnerCtrl.base = Number(p.runnerControl || 0)
     } else {
       batterStats.contact.base = Number(p.contact || 0); batterStats.gapPower.base = Number(p.gapPower || 0)
       batterStats.homeRunPower.base = Number(p.homeRunPower || 0); batterStats.plateDiscipline.base = Number(p.plateDiscipline || 0)
       batterStats.strikeoutAvoidance.base = Number(p.strikeoutAvoidance || 0); batterStats.stealing.base = Number(p.stealing || 0)
-      batterStats.baseRunning.base = Number(p.baseRunning || 0); batterStats.defense.base = Number(p.defense || 0)
+      batterStats.baseRunning.base = Number(p.baseRunning || 0)
     }
+
+    // 🌟 멀티 포지션 데이터 파싱
+    multiPositionData.value = {}
+    if (p.multiPosition) {
+      String(p.multiPosition).split(',').forEach(part => {
+        const [pos, val] = part.split('=')
+        if (pos && val) multiPositionData.value[pos.trim()] = Number(val.trim())
+      })
+    }
+    
+    // 🌟 대표(주) 포지션 추출 (예: '["SS", "RF"]' -> 'SS')
+    let mainPos = ''
+    try {
+      const parsed = JSON.parse(String(p.position))
+      mainPos = Array.isArray(parsed) ? parsed[0] : String(p.position)
+    } catch {
+      mainPos = String(p.position).replace(/[\[\]"]/g, '').split(',')[0].trim()
+    }
+    
+    // 🌟 포지션 설정 및 수비 스탯 덮어씌우기
+    changePosition(mainPos)
   }
 
   const toggleSkill = (skill: string) => {
@@ -348,8 +393,10 @@ function createCalculator(name: string) {
     return `${cond.count.value}명 이상`
   }
 
+  // 🌟 반환 객체에 포지션 관련 변수 추가
   return reactive({
     name, searchQuery, searchFocused, selectedGrade, selectedPlayer,
+    selectedPosition, availablePositions, changePosition, // <--- 추가됨!
     batterStats, pitcherStats, isPitcher, playerLevel, collectionBuff, teamLevelBuff, careerLevelBuff,
     careerTeamCount, hitAceBuff, teamPlayerDignityBuff, binderBuff, clanBuff, imprintStarterPower, careerAllStatFlat,
     enhancementLevel, breakthroughLevel, ultimateImprintPercent, selectedSkills, activeSynergyConditions,
@@ -450,26 +497,36 @@ const getFinalStat = (calc: any, key: string) => calc.selectedPlayer ? calc.getS
                 </div>
               </div>
 
-              <!-- 2. 선수 정보 카드 (크기 원상복구) -->
+              <!-- 2. 선수 정보 카드 (멀티 포지션 탭 적용 완료) -->
               <div v-if="calc.selectedPlayer" class="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 rounded-2xl text-white flex items-center gap-6 shadow-md">
                 <img :src="`/assets/logos/grade/${calc.selectedPlayer.grade || 'C'}.png`" class="w-16 h-16 object-contain bg-white/10 rounded-xl p-2" />
                 <div class="flex-1">
+                  
                   <div class="flex items-center gap-2 mb-1.5">
                     <span class="px-2 py-0.5 bg-white/20 rounded text-xs font-bold">{{ calc.isPitcher ? '투수' : '타자' }}</span>
-                    <span class="px-2 py-0.5 bg-white/20 rounded text-xs font-bold">{{ calc.selectedPlayer.position }}</span>
-                    <span class="text-blue-100 text-sm ml-2">{{ calc.selectedPlayer.team }} · {{ calc.selectedPlayer.year }}</span>
+                    <!-- 기존의 지저분한 ["SS", "RF"] 텍스트는 삭제했습니다 -->
+                    <span class="text-blue-100 text-sm ml-1">{{ calc.selectedPlayer.team }} · {{ calc.selectedPlayer.year }}</span>
                   </div>
+                  
                   <h2 class="text-3xl font-extrabold flex items-center gap-2">{{ calc.selectedPlayer.name }}
                     <div class="flex text-amber-300 ml-1"><Star v-for="n in calc.parsedRarity" :key="n" class="w-4 h-4" fill="currentColor" /></div>
+                    
+                    <!-- 🌟 꿀기능: 멀티 포지션 선택 버튼 (별 바로 옆에 배치) -->
+                    <div class="flex gap-1.5 ml-3">
+                      <button v-for="pos in calc.availablePositions" :key="pos"
+                              @click="calc.changePosition(pos)"
+                              :class="calc.selectedPosition === pos ? 'bg-white text-blue-700 shadow-md scale-105 ring-2 ring-white/50' : 'bg-white/20 text-white hover:bg-white/30'"
+                              class="px-3 py-1 rounded-lg text-sm font-black transition-all">
+                        {{ pos }}
+                      </button>
+                    </div>
                   </h2>
+
                 </div>
                 <div class="text-right flex flex-col items-end bg-black/20 p-4 rounded-xl border border-white/10">
                   <span class="text-blue-200 text-xs font-bold uppercase mb-1">총합 파워</span>
                   <span class="text-4xl font-black tabular-nums">{{ calc.totalPower.finalSum }}</span>
                 </div>
-              </div>
-              <div v-else class="h-[136px] bg-neutral-100 dark:bg-neutral-800/50 rounded-2xl border-2 border-dashed border-neutral-300 dark:border-neutral-700 flex items-center justify-center text-neutral-400 font-bold text-base">
-                <UserSearch class="w-6 h-6 mr-2 opacity-50"/> 위 검색창에서 선수를 선택해주세요
               </div>
 
               <!-- 3. 널널하고 시원한 세팅창 (가로 2칸 배열로 롤백) -->
