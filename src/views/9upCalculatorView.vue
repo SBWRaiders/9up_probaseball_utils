@@ -263,25 +263,31 @@ function createCalculator(name: string) {
     return total
   })
 
-// 🌟 [수정됨] 퍼센트(%) 버프의 기준이 되는 베이스 파워 고정 엔진
+// 1. 베이스 뼈대 고정 (화면 스탯이 아닌 CSV 원본 사용)
   const baseTotalPower = computed(() => {
     if (!selectedPlayer.value) return 0
     let sum = 0
     const p = selectedPlayer.value
-    
-    // 🌟 핵심: 현재 선택된 포지션의 수비 스탯(반응형)을 더하는 것이 아니라, 
-    // 선수의 CSV 원본(주 포지션) 스탯을 그대로 가져와서 합산하도록 뼈대를 고정합니다!
-    // 이렇게 하면 수비 위치를 중견수로 바꿔도 타격 스탯 보너스가 절대 깎이지 않습니다.
     const rawKeys = isPitcher.value 
       ? ['movement', 'longHitSuppression', 'homeRunSuppression', 'control', 'stuff', 'defense', 'pitchLimit', 'runnerControl']
       : ['contact', 'gapPower', 'homeRunPower', 'plateDiscipline', 'strikeoutAvoidance', 'stealing', 'baseRunning', 'defense']
-    
     rawKeys.forEach(k => sum += Number(p[k] || 0))
     return sum
   })
 
-  const getStatTotal = (stat: { base: number, skill: number, career: number, imprint: number, manager: number, isCore: boolean }) => {
-    let finalVal = Number(stat.base || 0)
+  // 2. 개별 스탯 계산 (수비력 % 계산을 위해 원본/변경 분리)
+  const getStatTotal = (stat: { base: number, skill: number, career: number, imprint: number, manager: number, isCore: boolean }, isDefenseSlot: boolean = false) => {
+    // 🌟 핵심: 파워 계산(%)을 할 때는 무조건 '원본(주포지션) 수비력'을 쓰고, 
+    // 최종 결과물에만 (변경된 수비력 - 원본 수비력) 차이값을 더해줍니다!
+    let originalBase = Number(stat.base || 0);
+    let currentBase = Number(stat.base || 0);
+
+    if (isDefenseSlot && selectedPlayer.value) {
+       originalBase = Number(selectedPlayer.value.defense || 0);
+    }
+    
+    let finalVal = originalBase; // % 계산은 오리지널로 시작
+
     if (stat.isCore) {
       let growthA = Number(percentableGrowthA.value) + Number(autoEnhanceFixed.value)
       let growthB = Number(percentableGrowthB.value) + Number(autoSynergyFixed.value)
@@ -296,14 +302,41 @@ function createCalculator(name: string) {
     } else {
       if (stat.skill) finalVal += finalVal * (Number(stat.skill) / 100)
     }
+    
     finalVal += Number(stat.career || 0) + Number(stat.imprint || 0) + Number(stat.manager || 0)
+
+    // 🌟 마지막에 수비력 차이(current - original)를 순수 깡수치로 더해줌 (음수면 알아서 깎임)
+    if (isDefenseSlot) {
+       finalVal += (currentBase - originalBase);
+    }
+
     return Math.round(finalVal)
   }
 
+  // 3. 총합 파워 계산 (getStatTotal에 수비 스탯인지 알려줌)
   const totalPower = computed(() => {
     let finalSum = 0
-    const stats = isPitcher.value ? Object.values(pitcherStats) : Object.values(batterStats)
-    stats.forEach(s => finalSum += getStatTotal(s))
+    
+    if (isPitcher.value) {
+       finalSum += getStatTotal(pitcherStats.movement)
+       finalSum += getStatTotal(pitcherStats.longHitSup)
+       finalSum += getStatTotal(pitcherStats.hrSup)
+       finalSum += getStatTotal(pitcherStats.control)
+       finalSum += getStatTotal(pitcherStats.stuff)
+       finalSum += getStatTotal(pitcherStats.pitchLimit)
+       finalSum += getStatTotal(pitcherStats.runnerCtrl)
+       finalSum += getStatTotal(pitcherStats.defense, true) // 수비 스탯!
+    } else {
+       finalSum += getStatTotal(batterStats.contact)
+       finalSum += getStatTotal(batterStats.gapPower)
+       finalSum += getStatTotal(batterStats.homeRunPower)
+       finalSum += getStatTotal(batterStats.plateDiscipline)
+       finalSum += getStatTotal(batterStats.strikeoutAvoidance)
+       finalSum += getStatTotal(batterStats.stealing)
+       finalSum += getStatTotal(batterStats.baseRunning)
+       finalSum += getStatTotal(batterStats.defense, true) // 수비 스탯!
+    }
+
     return {
       finalSum, autoBreakthroughFixed: autoBreakthroughFixed.value, autoSynergyFixed: autoSynergyFixed.value,
       percentableGrowthBuffSum: Number(percentableGrowthA.value) + Number(percentableGrowthB.value) + Number(autoSynergyFixed.value),
@@ -311,7 +344,7 @@ function createCalculator(name: string) {
       totalPercentBonus: autoPowerPercent.value + ultimateImprintPercent.value, synergyPercentBonus: autoSynergyPercent.value
     }
   })
-
+  
   const filteredPlayers = computed(() => {
     let result = players.value
     if (selectedGrade.value) result = result.filter(p => String(p.grade).toUpperCase() === selectedGrade.value)
@@ -450,7 +483,8 @@ const globalRole = computed(() => {
 const activeStatKeys = computed(() => globalRole.value === 'pitcher' ? pitcherKeys : batterKeys)
 
 const getStatRef = (calc: any, key: string) => globalRole.value === 'pitcher' ? calc.pitcherStats[key] : calc.batterStats[key]
-const getFinalStat = (calc: any, key: string) => calc.selectedPlayer ? calc.getStatTotal(getStatRef(calc, key)) : 0
+// 기존 코드: const getFinalStat = (calc: any, key: string) => calc.selectedPlayer ? calc.getStatTotal(getStatRef(calc, key)) : 0
+const getFinalStat = (calc: any, key: string) => calc.selectedPlayer ? calc.getStatTotal(getStatRef(calc, key), key === 'defense') : 0
 </script>
 
 <template>
