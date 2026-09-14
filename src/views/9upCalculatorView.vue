@@ -263,10 +263,20 @@ function createCalculator(name: string) {
     return total
   })
 
+// 🌟 [수정됨] 퍼센트(%) 버프의 기준이 되는 베이스 파워 고정 엔진
   const baseTotalPower = computed(() => {
+    if (!selectedPlayer.value) return 0
     let sum = 0
-    const stats = isPitcher.value ? Object.values(pitcherStats) : Object.values(batterStats)
-    stats.forEach(s => sum += Number(s.base || 0))
+    const p = selectedPlayer.value
+    
+    // 🌟 핵심: 현재 선택된 포지션의 수비 스탯(반응형)을 더하는 것이 아니라, 
+    // 선수의 CSV 원본(주 포지션) 스탯을 그대로 가져와서 합산하도록 뼈대를 고정합니다!
+    // 이렇게 하면 수비 위치를 중견수로 바꿔도 타격 스탯 보너스가 절대 깎이지 않습니다.
+    const rawKeys = isPitcher.value 
+      ? ['movement', 'longHitSuppression', 'homeRunSuppression', 'control', 'stuff', 'defense', 'pitchLimit', 'runnerControl']
+      : ['contact', 'gapPower', 'homeRunPower', 'plateDiscipline', 'strikeoutAvoidance', 'stealing', 'baseRunning', 'defense']
+    
+    rawKeys.forEach(k => sum += Number(p[k] || 0))
     return sum
   })
 
