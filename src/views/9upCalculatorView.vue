@@ -21,6 +21,34 @@ interface JsonSynergy {
 }
 
 const filterGrades = ['DGN', 'TOP', 'GG', 'GGY', 'HIT', 'ACE', 'ROY', 'MMVP', 'TEA', 'POS', 'ASG', 'SEA']
+// 🌟 1. 등급 맵핑 함수 (grade 필터 버그 및 이미지 출력 공통 사용)
+const getMappedGrade = (grade: unknown) => {
+  if (!grade) return 'C';
+  // 🌟 핵심 변경: .trim()을 추가하여 눈에 보이지 않는 공백 완벽 제거!
+  const g = String(grade).trim().toUpperCase();
+  const map: Record<string, string> = {
+    'DIGNITY':'DGN', '디그니티':'DGN', 
+    'TOP CLASS':'TOP', '탑클래스':'TOP', 
+    'GOLDEN GLOVE':'GG', '골든글러브':'GG', '골글':'GG', 
+    'ACE PITCHER':'ACE', '에이스':'ACE', 
+    'HIT BATTER':'HIT', '히트':'HIT', 
+    'TEAM PLAYER':'TEA', '팀플':'TEA',
+    'MONTHLY MVP':'MMVP', '월간MVP':'MMVP', '월간':'MMVP', 
+    'ROOKIE OF THE YEAR':'ROY', '신인왕':'ROY', 
+    'GG OF THE YEAR':'GGY', '연도골글':'GGY', '연글':'GGY',
+    'NATIONAL TEAM':'NT', '국가대표':'NT', 
+    'ALLSTAR':'ASG', '올스타':'ASG', 
+    'SEASON':'SEA', '시즌':'SEA', 
+    'POST SEASON':'POS', '포스트시즌':'POS'
+  };
+  return map[g] || g;
+}
+
+// 엑스박스 방지용 스마트 이미지 경로 로더
+const getGradeImage = (grade: unknown) => {
+  const mappedGrade = getMappedGrade(grade);
+  return mappedGrade ? `/assets/logos/grade/${mappedGrade}.png` : '';
+}
 
 // 전역 데이터 (한 번만 로드하여 두 계산기가 공유)
 const isLoading = ref(true)
@@ -263,31 +291,15 @@ function createCalculator(name: string) {
     return total
   })
 
-// 1. 베이스 뼈대 고정 (화면 스탯이 아닌 CSV 원본 사용)
   const baseTotalPower = computed(() => {
-    if (!selectedPlayer.value) return 0
     let sum = 0
-    const p = selectedPlayer.value
-    const rawKeys = isPitcher.value 
-      ? ['movement', 'longHitSuppression', 'homeRunSuppression', 'control', 'stuff', 'defense', 'pitchLimit', 'runnerControl']
-      : ['contact', 'gapPower', 'homeRunPower', 'plateDiscipline', 'strikeoutAvoidance', 'stealing', 'baseRunning', 'defense']
-    rawKeys.forEach(k => sum += Number(p[k] || 0))
+    const stats = isPitcher.value ? Object.values(pitcherStats) : Object.values(batterStats)
+    stats.forEach(s => sum += Number(s.base || 0))
     return sum
   })
 
-  // 2. 개별 스탯 계산 (수비력 % 계산을 위해 원본/변경 분리)
-  const getStatTotal = (stat: { base: number, skill: number, career: number, imprint: number, manager: number, isCore: boolean }, isDefenseSlot: boolean = false) => {
-    // 🌟 핵심: 파워 계산(%)을 할 때는 무조건 '원본(주포지션) 수비력'을 쓰고, 
-    // 최종 결과물에만 (변경된 수비력 - 원본 수비력) 차이값을 더해줍니다!
-    let originalBase = Number(stat.base || 0);
-    let currentBase = Number(stat.base || 0);
-
-    if (isDefenseSlot && selectedPlayer.value) {
-       originalBase = Number(selectedPlayer.value.defense || 0);
-    }
-    
-    let finalVal = originalBase; // % 계산은 오리지널로 시작
-
+  const getStatTotal = (stat: { base: number, skill: number, career: number, imprint: number, manager: number, isCore: boolean }) => {
+    let finalVal = Number(stat.base || 0)
     if (stat.isCore) {
       let growthA = Number(percentableGrowthA.value) + Number(autoEnhanceFixed.value)
       let growthB = Number(percentableGrowthB.value) + Number(autoSynergyFixed.value)
@@ -302,41 +314,14 @@ function createCalculator(name: string) {
     } else {
       if (stat.skill) finalVal += finalVal * (Number(stat.skill) / 100)
     }
-    
     finalVal += Number(stat.career || 0) + Number(stat.imprint || 0) + Number(stat.manager || 0)
-
-    // 🌟 마지막에 수비력 차이(current - original)를 순수 깡수치로 더해줌 (음수면 알아서 깎임)
-    if (isDefenseSlot) {
-       finalVal += (currentBase - originalBase);
-    }
-
     return Math.round(finalVal)
   }
 
-  // 3. 총합 파워 계산 (getStatTotal에 수비 스탯인지 알려줌)
   const totalPower = computed(() => {
     let finalSum = 0
-    
-    if (isPitcher.value) {
-       finalSum += getStatTotal(pitcherStats.movement)
-       finalSum += getStatTotal(pitcherStats.longHitSup)
-       finalSum += getStatTotal(pitcherStats.hrSup)
-       finalSum += getStatTotal(pitcherStats.control)
-       finalSum += getStatTotal(pitcherStats.stuff)
-       finalSum += getStatTotal(pitcherStats.pitchLimit)
-       finalSum += getStatTotal(pitcherStats.runnerCtrl)
-       finalSum += getStatTotal(pitcherStats.defense, true) // 수비 스탯!
-    } else {
-       finalSum += getStatTotal(batterStats.contact)
-       finalSum += getStatTotal(batterStats.gapPower)
-       finalSum += getStatTotal(batterStats.homeRunPower)
-       finalSum += getStatTotal(batterStats.plateDiscipline)
-       finalSum += getStatTotal(batterStats.strikeoutAvoidance)
-       finalSum += getStatTotal(batterStats.stealing)
-       finalSum += getStatTotal(batterStats.baseRunning)
-       finalSum += getStatTotal(batterStats.defense, true) // 수비 스탯!
-    }
-
+    const stats = isPitcher.value ? Object.values(pitcherStats) : Object.values(batterStats)
+    stats.forEach(s => finalSum += getStatTotal(s))
     return {
       finalSum, autoBreakthroughFixed: autoBreakthroughFixed.value, autoSynergyFixed: autoSynergyFixed.value,
       percentableGrowthBuffSum: Number(percentableGrowthA.value) + Number(percentableGrowthB.value) + Number(autoSynergyFixed.value),
@@ -344,14 +329,24 @@ function createCalculator(name: string) {
       totalPercentBonus: autoPowerPercent.value + ultimateImprintPercent.value, synergyPercentBonus: autoSynergyPercent.value
     }
   })
-  
-  const filteredPlayers = computed(() => {
+
+const filteredPlayers = computed(() => {
     let result = players.value
-    if (selectedGrade.value) result = result.filter(p => String(p.grade).toUpperCase() === selectedGrade.value)
-    if (searchQuery.value.trim()) {
-      const query = searchQuery.value.toLowerCase().trim()
-      result = result.filter(p => String(p.name || '').toLowerCase().includes(query))
+    
+    // 🌟 수정됨: 등급 필터가 번역기(getMappedGrade)를 거치도록 변경!
+    if (selectedGrade.value) {
+      result = result.filter(p => getMappedGrade(p.grade) === selectedGrade.value)
     }
+    
+    // 🌟 수정됨: 띄어쓰기(AND) 검색 지원 추가
+    if (searchQuery.value.trim()) {
+      const searchTokens = searchQuery.value.toLowerCase().trim().split(/\s+/).filter(Boolean);
+      result = result.filter(p => {
+        const hay = [String(p.name || ''), String(p.team || ''), String(p.position || ''), String(p.year || '')].join(' ').toLowerCase();
+        return searchTokens.every(t => hay.includes(t));
+      });
+    }
+    
     if (!searchQuery.value.trim() && !selectedGrade.value) return []
     return result.slice(0, 50)
   })
@@ -483,8 +478,7 @@ const globalRole = computed(() => {
 const activeStatKeys = computed(() => globalRole.value === 'pitcher' ? pitcherKeys : batterKeys)
 
 const getStatRef = (calc: any, key: string) => globalRole.value === 'pitcher' ? calc.pitcherStats[key] : calc.batterStats[key]
-// 기존 코드: const getFinalStat = (calc: any, key: string) => calc.selectedPlayer ? calc.getStatTotal(getStatRef(calc, key)) : 0
-const getFinalStat = (calc: any, key: string) => calc.selectedPlayer ? calc.getStatTotal(getStatRef(calc, key), key === 'defense') : 0
+const getFinalStat = (calc: any, key: string) => calc.selectedPlayer ? calc.getStatTotal(getStatRef(calc, key)) : 0
 </script>
 
 <template>
@@ -531,8 +525,9 @@ const getFinalStat = (calc: any, key: string) => calc.selectedPlayer ? calc.getS
 
                 <!-- 검색 결과 드롭다운 팝업 -->
                 <div v-show="(calc.searchFocused || calc.searchQuery) && calc.filteredPlayers.length > 0" class="absolute top-full left-0 w-full max-h-[400px] overflow-y-auto bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 shadow-2xl rounded-xl z-50 divide-y divide-neutral-100 dark:divide-neutral-700">
-                  <button v-for="p in calc.filteredPlayers" :key="p.id" @click="calc.selectPlayer(p)" class="w-full text-left p-4 hover:bg-blue-50 dark:hover:bg-neutral-700/50 transition-all flex items-center gap-4">
-                    <img :src="`/assets/logos/grade/${p.grade || 'C'}.png`" class="w-10 h-10 object-contain" />
+                  <!-- 🌟 핵심 변경: 분열 버그 방지를 위해 무적의 고유 Key 적용 -->
+                  <button v-for="(p, index) in calc.filteredPlayers" :key="(p.id || p.playerId || '') + '_' + p.name + '_' + p.grade + '_' + p.year + '_' + index" @click="calc.selectPlayer(p)" class="w-full text-left p-4 hover:bg-blue-50 dark:hover:bg-neutral-700/50 transition-all flex items-center gap-4">
+                    <img :src="getGradeImage(p.grade)" class="w-10 h-10 object-contain" />
                     <div>
                       <div class="font-bold text-base text-neutral-900 dark:text-neutral-100 flex items-center gap-2">{{ p.name }} <span class="text-xs bg-neutral-100 dark:bg-neutral-600 px-2 py-0.5 rounded text-neutral-600 dark:text-neutral-300">{{ p.position }}</span></div>
                       <div class="text-sm text-neutral-500 mt-1">{{ p.team }} · {{ p.year }}</div>
@@ -543,7 +538,7 @@ const getFinalStat = (calc: any, key: string) => calc.selectedPlayer ? calc.getS
 
               <!-- 2. 선수 정보 카드 (멀티 포지션 탭 적용 완료) -->
               <div v-if="calc.selectedPlayer" class="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 rounded-2xl text-white flex items-center gap-6 shadow-md">
-                <img :src="`/assets/logos/grade/${calc.selectedPlayer.grade || 'C'}.png`" class="w-16 h-16 object-contain bg-white/10 rounded-xl p-2" />
+                <img :src="getGradeImage(calc.selectedPlayer.grade)" class="w-16 h-16 object-contain bg-white/10 rounded-xl p-2" />
                 <div class="flex-1">
                   
                   <div class="flex items-center gap-2 mb-1.5">
