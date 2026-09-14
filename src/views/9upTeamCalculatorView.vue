@@ -2092,7 +2092,29 @@ const exportToFile = () => {
 
 const triggerFileInput = () => { fileInput.value?.click() }
 
-// 🌟 2. 파일 불러오기 기능 (다중 저장 복구 안내 메시지 추가) 🌟
+// 🌟 2. 파일 불러오기 기능 (다중 저장 병합 및 현재 화면 보호) 🌟
+// 🌟 다중 페이지 이름 수정 (새로 추가됨) 🌟
+const renameSpecificSave = (oldName: string) => {
+  const newName = prompt(`'${oldName}' 라인업의 새 이름을 입력하세요:`, oldName);
+  if (!newName || newName === oldName) return;
+
+  const saves = JSON.parse(localStorage.getItem('9up_multi_saves') || '{}');
+  
+  if (saves[newName]) {
+    showToast(`이미 '${newName}' 이름으로 저장된 라인업이 있습니다. 다른 이름을 사용해주세요.`, 'error');
+    return;
+  }
+
+  // 데이터 옮기고 기존 이름 삭제
+  saves[newName] = saves[oldName];
+  delete saves[oldName];
+  
+  localStorage.setItem('9up_multi_saves', JSON.stringify(saves));
+  savedLineupsList.value = Object.keys(saves); // 리스트 실시간 갱신
+  showToast(`라인업 이름이 '${newName}'(으)로 변경되었습니다.`, 'success');
+};
+
+// 🌟 2. 파일 불러오기 기능 (다중 저장 병합 및 현재 화면 보호 로직 완벽 적용) 🌟
 const importFromFile = (event: Event) => {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
@@ -2105,14 +2127,46 @@ const importFromFile = (event: Event) => {
       if (!result) throw new Error("파일이 비어있습니다.");
       
       const data = JSON.parse(result)
-      applyLoadedData(data)
-      
-      // 파일 안에 다중 저장 데이터가 포함되어 있다면 알림창에 내용 추가!
-      const msg = data.multiSaves && Object.keys(data.multiSaves).length > 0
-        ? '✅ 파일 불러오기 완료!\n(다중 저장 목록도 무사히 복구되었습니다!)'
-        : '✅ 파일에서 라인업을 성공적으로 불러왔습니다!';
-      showToast(msg, 'success');
-      
+      let existingSaves = JSON.parse(localStorage.getItem('9up_multi_saves') || '{}');
+
+      // 1. 파일 안의 다중 저장 목록 병합 (이름 겹치면 꼬리표 추가)
+      if (data.multiSaves) {
+        Object.keys(data.multiSaves).forEach(key => {
+          let finalKey = key;
+          while (existingSaves[finalKey]) {
+            finalKey = finalKey + ' (불러옴)';
+          }
+          existingSaves[finalKey] = data.multiSaves[key];
+        });
+      }
+
+      // 2. 파일 저장 '당시 화면 데이터'도 하나의 세이브 파일로 조용히 추가
+      if (data.lineups) {
+         const timeStr = new Date().toLocaleTimeString('ko-KR', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+         let autoKey = `파일화면_${timeStr}`;
+         while (existingSaves[autoKey]) { autoKey += '_1'; }
+         existingSaves[autoKey] = {
+            lineups: data.lineups,
+            allPlayerBuffs: data.allPlayerBuffs,
+            globalBuffsAll: data.globalBuffsAll,
+            imprintInventory: data.imprintInventory
+         };
+      }
+
+      // 3. 각인 보관함 병합 (중복된 각인은 제외하고 추가)
+      if (data.imprintInventory) {
+         const existingIds = new Set(imprintInventory.value.map(imp => imp.id));
+         data.imprintInventory.forEach((imp: any) => {
+            if (!existingIds.has(imp.id)) imprintInventory.value.push(imp);
+         });
+      }
+
+      // 4. 로컬 스토리지에 최종 병합 저장 및 목록 갱신 (현재 화면 덮어쓰기 절대 안 함!)
+      localStorage.setItem('9up_multi_saves', JSON.stringify(existingSaves));
+      savedLineupsList.value = Object.keys(existingSaves);
+
+      showToast('✅ 파일 불러오기 완료! (현재 화면은 유지되며, 불러온 데이터는 저장 목록에 추가되었습니다)', 'success');
+
     } catch (err: any) {
       console.error("파일 파싱 에러:", err)
       showToast('파일 불러오기 실패: 형식이 맞지 않거나 손상된 파일입니다.', 'error');
@@ -3552,6 +3606,7 @@ const viewConfigs = computed(() => {
             
             <div class="flex items-center gap-1.5 shrink-0 pl-2">
                <button @click="loadSpecificSave(name)" class="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-500 rounded-lg text-xs font-black transition-colors border border-indigo-200 dark:border-indigo-800 shadow-sm">불러오기</button>
+               <button @click="renameSpecificSave(name)" class="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-600 hover:text-white dark:hover:bg-emerald-500 rounded-lg text-xs font-black transition-colors border border-emerald-200 dark:border-emerald-800 shadow-sm">이름 수정</button>
                <button @click="deleteSpecificSave(name)" class="px-3 py-1.5 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 hover:bg-rose-600 hover:text-white dark:hover:bg-rose-500 rounded-lg text-xs font-black transition-colors border border-rose-200 dark:border-rose-800 shadow-sm">삭제</button>
             </div>
          </div>
