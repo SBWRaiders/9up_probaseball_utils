@@ -20,7 +20,7 @@ interface JsonSynergy {
   conditions: JsonCond[]
 }
 
-const filterGrades = ['DGN', 'TOP', 'GG', 'GGY', 'HIT', 'ACE', 'ROY', 'MMVP', 'TEA', 'POS', 'ASG', 'SEA']
+const filterGrades = ['DGN', 'TOP', 'GG', 'GOY', 'HIT', 'ACE', 'ROY', 'MMVP', 'TEA', 'POS', 'ASG', 'SEA']
 // 🌟 1. 등급 맵핑 함수 (grade 필터 버그 및 이미지 출력 공통 사용)
 const getMappedGrade = (grade: unknown) => {
   if (!grade) return 'C';
@@ -35,7 +35,7 @@ const getMappedGrade = (grade: unknown) => {
     'TEAM PLAYER':'TEA', '팀플':'TEA',
     'MONTHLY MVP':'MMVP', '월간MVP':'MMVP', '월간':'MMVP', 
     'ROOKIE OF THE YEAR':'ROY', '신인왕':'ROY', 
-    'GG OF THE YEAR':'GGY', '연도골글':'GGY', '연글':'GGY',
+    'GG OF THE YEAR':'GOY', '연도골글':'GOY', '연글':'GOY',
     'NATIONAL TEAM':'NT', '국가대표':'NT', 
     'ALLSTAR':'ASG', '올스타':'ASG', 
     'SEASON':'SEA', '시즌':'SEA', 
@@ -210,7 +210,7 @@ function createCalculator(name: string) {
   const enhanceMultiplier = computed(() => {
     if (!selectedPlayer.value) return 0
     const grade = String(selectedPlayer.value.grade).toUpperCase()
-    const map: Record<string, number> = { 'SEA': 30, 'ASG': 30, 'POS': 40, 'TEA': 40, 'MMVP': 40, 'ROY': 50, 'HIT': 50, 'ACE': 50, 'GG': 50, 'TOP': 50, 'GGY': 50, 'DGN': 300 }
+    const map: Record<string, number> = { 'SEA': 30, 'ASG': 30, 'POS': 40, 'TEA': 40, 'MMVP': 40, 'ROY': 50, 'HIT': 50, 'ACE': 50, 'GG': 50, 'TOP': 50, 'GOY': 50, 'DGN': 300 }
     return map[grade] || 0
   })
   const autoEnhanceFixed = computed(() => Number(enhancementLevel.value) * Number(enhanceMultiplier.value))
@@ -222,7 +222,7 @@ function createCalculator(name: string) {
     const lvl = Number(breakthroughLevel.value)
     if (['SEA', 'ASG', 'POS'].includes(grade)) return 30 * ([0, 1, 3, 6, 10, 15, 21, 28, 36][lvl] || 0)
     if (['TEA', 'ROY', 'MMVP'].includes(grade)) return 50 * ([0, 1, 3, 6, 10, 15, 21, 28, 36][lvl] || 0)
-    if (['HIT', 'ACE', 'GG', 'TOP', 'GGY'].includes(grade)) return 100 * ([0, 1, 2.5, 4.5, 7, 10, 15, 21, 28][lvl] || 0)
+    if (['HIT', 'ACE', 'GG', 'TOP', 'GOY'].includes(grade)) return 100 * ([0, 1, 2.5, 4.5, 7, 10, 15, 21, 28][lvl] || 0)
     return 0
   })
 
@@ -371,7 +371,7 @@ const filteredPlayers = computed(() => {
     const grade = String(p.grade || '').toUpperCase()
     enhancementLevel.value = grade === 'DGN' ? 10 : 15
     if (['SEA', 'ASG'].includes(grade)) collectionBuff.value = 800
-    else if (['POS', 'TEA', 'MMVP', 'HIT', 'ACE', 'GGY'].includes(grade)) collectionBuff.value = 900
+    else if (['POS', 'TEA', 'MMVP', 'HIT', 'ACE', 'GOY'].includes(grade)) collectionBuff.value = 900
     else if (grade === 'GG' || grade === 'ROY') collectionBuff.value = 1000
     else if (grade === 'TOP') collectionBuff.value = 1200
     else collectionBuff.value = 0
