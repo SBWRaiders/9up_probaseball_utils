@@ -648,6 +648,7 @@ defineExpose({
         <div v-if="collapses.rgt" class="p-2 sm:p-3 md:p-4 pt-0">
           <section class="rounded-lg bg-white/95 dark:bg-neutral-900/95">
             <div class="divide-y divide-neutral-200 dark:divide-neutral-700">
+              <!-- 레어도 영역 -->
               <div class="grid grid-cols-1 sm:grid-cols-[auto_1fr_auto] md:grid-cols-[auto_1fr_auto] items-center gap-2 sm:gap-2.5 md:gap-3 px-3 sm:px-3.5 md:px-4 py-3 sm:py-2.5 md:py-3">
                 <span class="text-xs sm:text-[11px] md:text-xs font-semibold text-neutral-600 dark:text-neutral-300 sm:w-12 md:w-14 leading-tight">
                   {{ fieldLabels?.rarity || '레어도' }}
@@ -681,6 +682,7 @@ defineExpose({
                 </button>
               </div>
 
+              <!-- 등급 영역 -->
               <div class="px-3 sm:px-3.5 md:px-4 py-3 sm:py-2.5 md:py-3">
                 <div class="md:hidden space-y-3">
                   <div class="flex items-center justify-between">
@@ -703,8 +705,6 @@ defineExpose({
                       :title="grade"
                       class="relative aspect-square p-1 rounded-lg border transition-all duration-200 select-none overflow-hidden flex items-center justify-center focus:outline-none"
                       :class="isSelected('grade', grade) ? 'border-blue-500 bg-blue-50 dark:border-blue-500 dark:bg-blue-900/30' : 'border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-700'">
-                      
-                      <!-- 🌟 수정됨: 높이 고정 및 비율 유지 (모바일) -->
                       <img
                         :src="`/assets/logos/grade/${grade}.png`"
                         :alt="grade"
@@ -724,7 +724,6 @@ defineExpose({
                     {{ fieldLabels?.grade || '등급' }}
                   </span>
                   <div class="min-w-0 overflow-x-auto whitespace-nowrap no-scrollbar scroll-fade-x snap-x snap-mandatory touch-pan-x overscroll-x-contain -mx-1 px-1">
-                    <!-- 🌟 날아갔던 감싸는 div 복구! -->
                     <div class="inline-flex items-center gap-2">
                       <button
                         v-for="grade in visibleGrades" :key="grade"
@@ -732,8 +731,6 @@ defineExpose({
                         :title="grade"
                         class="relative inline-flex w-16 h-16 p-1 rounded-md items-center justify-center border transition-all duration-200 select-none snap-start overflow-hidden focus:outline-none"
                         :class="isSelected('grade', grade) ? 'border-blue-500 bg-blue-50 dark:border-blue-500 dark:bg-blue-900/30' : 'border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-700'">
-                        
-                        <!-- 🌟 수정됨: 높이 고정 및 비율 유지 (PC) -->
                         <img
                           :src="`/assets/logos/grade/${grade}.png`"
                           :alt="grade"
@@ -747,7 +744,6 @@ defineExpose({
                       </button>
                     </div>
                   </div>
-                  <!-- 🌟 날아갔던 데스크탑 전체해제 버튼 복구! -->
                   <button
                     @click="toggleAllGrades"
                     class="px-2 py-1 text-xs rounded-md border transition-all duration-200"
@@ -759,7 +755,7 @@ defineExpose({
                 </div>
               </div>
 
-              <!-- 🌟 여기서부터 팀 영역 (수정 없음, 그대로 복구) -->
+              <!-- 팀 영역 -->
               <div class="px-3 sm:px-3.5 md:px-4 py-3 sm:py-2.5 md:py-3">
                 <div class="md:hidden space-y-3">
                   <div class="flex items-center justify-between">
@@ -829,13 +825,8 @@ defineExpose({
                   </button>
                 </div>
               </div>
-                </div>
-              </div>
             </div>
           </section>
-        </div>
-      </section>
-    </div>
 
     <section class="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white/95 dark:bg-neutral-900/95 shadow-sm p-3 md:p-4">
       <div class="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-3 md:gap-4 items-start">
