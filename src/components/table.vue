@@ -242,11 +242,14 @@ function toggleExpanded(index: number) {
               ]"
           >
             <template v-if="col === 'grade'">
-              <img
-                  :src="`/assets/logos/grade/${item[col]}.png`"
-                  :alt="item[col]"
-                  class="w-[90px] mx-auto"
-              />
+              <div class="flex justify-center items-center h-full">
+                <!-- 🌟 수정: 억지로 w-[90px]에 가두지 않고, 높이를 고정(h-10)하여 비율(w-auto) 유지 -->
+                <img
+                    :src="`/assets/logos/grade/${item[col]}.png`"
+                    :alt="item[col]"
+                    class="h-10 w-auto object-contain drop-shadow-sm scale-110"
+                />
+              </div>
             </template>
 
             <template v-else-if="col === 'rarity'">

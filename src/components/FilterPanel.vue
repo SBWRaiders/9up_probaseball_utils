@@ -703,17 +703,20 @@ defineExpose({
                       :title="grade"
                       class="relative aspect-square p-1 rounded-lg border transition-all duration-200 select-none overflow-hidden flex items-center justify-center focus:outline-none"
                       :class="isSelected('grade', grade) ? 'border-blue-500 bg-blue-50 dark:border-blue-500 dark:bg-blue-900/30' : 'border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-700'">
+                      
+                      <!-- 🌟 수정: 높이 제한과 1.25배 줌으로 텍스트 크기 일치화 -->
                       <img
                         :src="`/assets/logos/grade/${grade}.png`"
                         :alt="grade"
-                        class="w-full h-full object-contain drop-shadow-sm transition-all duration-300"
-                        :class="isSelected('grade', grade) ? 'grayscale-0 brightness-100 scale-105' : 'grayscale brightness-75 hover:grayscale-0 hover:brightness-100'"
+                        class="h-[75%] w-auto object-contain drop-shadow-sm transition-all duration-300"
+                        :class="isSelected('grade', grade) ? 'grayscale-0 brightness-100 scale-125' : 'grayscale brightness-75 hover:grayscale-0 hover:brightness-100 scale-[1.15]'"
                         loading="lazy"
                         @error="handleImageError"
                       />
                       <span class="hidden w-full h-full items-center justify-center text-[11px] font-bold"
                             :class="isSelected('grade', grade) ? 'text-blue-600 dark:text-blue-400' : 'text-neutral-500 dark:text-neutral-400'">{{ grade }}</span>
                     </button>
+                  </div>
                   </div>
                 </div>
 
@@ -722,26 +725,6 @@ defineExpose({
                     {{ fieldLabels?.grade || '등급' }}
                   </span>
                   <div class="min-w-0 overflow-x-auto whitespace-nowrap no-scrollbar scroll-fade-x snap-x snap-mandatory touch-pan-x overscroll-x-contain -mx-1 px-1">
-                    <div class="inline-flex items-center gap-2">
-                      <button
-                        v-for="grade in visibleGrades" :key="grade"
-                        @click="toggleFilter('grade', grade)"
-                        :title="grade"
-                        class="relative inline-flex w-16 h-16 p-1 rounded-md items-center justify-center border transition-all duration-200 select-none snap-start overflow-hidden focus:outline-none"
-                        :class="isSelected('grade', grade) ? 'border-blue-500 bg-blue-50 dark:border-blue-500 dark:bg-blue-900/30' : 'border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-700'">
-                        <img
-                          :src="`/assets/logos/grade/${grade}.png`"
-                          :alt="grade"
-                          class="w-full h-full object-contain drop-shadow-sm transition-all duration-300"
-                          :class="isSelected('grade', grade) ? 'grayscale-0 brightness-100 scale-105' : 'grayscale brightness-75 hover:grayscale-0 hover:brightness-100'"
-                          loading="lazy"
-                          @error="handleImageError"
-                        />
-                        <span class="hidden w-full h-full items-center justify-center text-[13px] font-bold break-all whitespace-normal leading-tight"
-                              :class="isSelected('grade', grade) ? 'text-blue-600 dark:text-blue-400' : 'text-neutral-500 dark:text-neutral-400'">{{ grade }}</span>
-                      </button>
-                    </div>
-                  </div>
                   <button
                     @click="toggleAllGrades"
                     class="px-2 py-1 text-xs rounded-md border transition-all duration-200"
