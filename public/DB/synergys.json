@@ -5938,7 +5938,7 @@
   },
   {
     "id": 304,
-    "synergy": "현대의 유산1",
+    "synergy": "현대의 유산(타자)",
     "synergy_effect": "- 라인업에 3명 이상 기용 시 파워 +40 ",
     "description": "현대 출신으로 2008년 이후에도 크게 활약한 타자들입니다.",
     "stackable": false,
@@ -5958,7 +5958,7 @@
   },
   {
     "id": 305,
-    "synergy": "현대의 유산2",
+    "synergy": "현대의 유산(투수)",
     "synergy_effect": "- 라인업에 3명 이상 기용 시 파워 +40 ",
     "description": "현대 출신으로 2008년 이후에도 크게 활약한 투수들입니다.",
     "stackable": false,
@@ -5978,7 +5978,7 @@
   },
   {
     "id": 306,
-    "synergy": "형제(김범수-김윤수)",
+    "synergy": "형제(김범수-김무신)",
     "synergy_effect": "- 라인업에 2명 기용 시 파워 +5% ",
     "description": "친형제가 나란히 KBO 무대에서 활동하고 있습니다.",
     "stackable": false,
@@ -6038,7 +6038,7 @@
   },
   {
     "id": 309,
-    "synergy": "형제(구대성-구대진)",
+    "synergy": "형제(구대진-구대성)",
     "synergy_effect": "- 라인업에 2명 기용 시 파워 +5% ",
     "description": "친형제가 나란히 KBO 무대에서 활동했습니다.",
     "stackable": false,
@@ -6138,7 +6138,7 @@
   },
   {
     "id": 314,
-    "synergy": "형제(양현-양훈)",
+    "synergy": "형제(양훈-양현)",
     "synergy_effect": "- 라인업에 2명 기용 시 파워 +5% ",
     "description": "친형제가 나란히 KBO 무대에서 활동하고 있습니다.",
     "stackable": false,
@@ -6158,7 +6158,7 @@
   },
   {
     "id": 315,
-    "synergy": "형제(박영현-박정현)",
+    "synergy": "형제(박정현-박영현)",
     "synergy_effect": "- 라인업에 2명 기용 시 파워 +5% ",
     "description": "친형제가 나란히 KBO 무대에서 활동하고 있습니다.",
     "stackable": false,
@@ -6178,7 +6178,7 @@
   },
   {
     "id": 316,
-    "synergy": "형제(조동찬-조동화)",
+    "synergy": "형제(조동화-조동찬)",
     "synergy_effect": "- 라인업에 2명 기용 시 파워 +5% ",
     "description": "친형제가 나란히 KBO 무대에서 활동하고 있습니다.",
     "stackable": false,
@@ -6198,7 +6198,7 @@
   },
   {
     "id": 317,
-    "synergy": "형제(윤형배-윤동배)",
+    "synergy": "형제(윤동배-윤형배)",
     "synergy_effect": "- 라인업에 2명 기용 시 파워 +5% ",
     "description": "친형제가 나란히 KBO 무대에서 활동했습니다.",
     "stackable": false,
@@ -6238,7 +6238,7 @@
   },
   {
     "id": 319,
-    "synergy": "형제(김동기-김상기)",
+    "synergy": "형제(김상기-김동기)",
     "synergy_effect": "- 라인업에 2명 기용 시 파워 +5% ",
     "description": "친형제가 나란히 KBO 무대에서 활동했습니다.",
     "stackable": false,
@@ -8126,7 +8126,7 @@
   },
   {
     "id": 388,
-    "synergy": "외국인",
+    "synergy": "외국인(교포)",
     "synergy_effect": "- 라인업에 2명 기용 시 파워 +5% \n- 라인업에 3명 이상 기용 시 파워 +8% ",
     "description": "한국 이외 국적을 가진 외국인 선수들입니다.",
     "stackable": false,
@@ -10215,5 +10215,85 @@
         }
       }
     ]
+  },
+  {
+    "synergy": "KK포",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +30",
+    "description": "김동기, 김경기 듀오가 함께 기용될 때 발동하는 시너지입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "fixed",
+          "value": 30.0
+        }
+      }
+    ],
+    "id": 482
+  },
+  {
+    "synergy": "노이조",
+    "synergy_effect": "- 라인업에 3명 기용 시 파워 +40",
+    "description": "노경은, 이로운, 조병현 3명의 선수가 함께 기용될 때 발동하는 시너지입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 3
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "fixed",
+          "value": 40.0
+        }
+      }
+    ],
+    "id": 483
+  },
+  {
+    "synergy": "문노채",
+    "synergy_effect": "- 라인업에 3명 기용 시 파워 +40",
+    "description": "문현빈, 노시환, 채은성 3명의 선수가 함께 기용될 때 발동하는 시너지입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 3
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "fixed",
+          "value": 40.0
+        }
+      }
+    ],
+    "id": 484
+  },
+  {
+    "synergy": "최원태인",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +30",
+    "description": "최원태, 원태인 두 선수가 함께 기용될 때 발동하는 시너지입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "fixed",
+          "value": 30.0
+        }
+      }
+    ],
+    "id": 485
   }
 ]
