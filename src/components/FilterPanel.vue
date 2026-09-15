@@ -704,7 +704,7 @@ defineExpose({
                       class="relative aspect-square p-1 rounded-lg border transition-all duration-200 select-none overflow-hidden flex items-center justify-center focus:outline-none"
                       :class="isSelected('grade', grade) ? 'border-blue-500 bg-blue-50 dark:border-blue-500 dark:bg-blue-900/30' : 'border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-700'">
                       
-                      <!-- 🌟 수정: 높이 제한과 1.25배 줌으로 텍스트 크기 일치화 -->
+                      <!-- 🌟 수정됨: 높이 고정 및 비율 유지 (모바일) -->
                       <img
                         :src="`/assets/logos/grade/${grade}.png`"
                         :alt="grade"
@@ -717,7 +717,6 @@ defineExpose({
                             :class="isSelected('grade', grade) ? 'text-blue-600 dark:text-blue-400' : 'text-neutral-500 dark:text-neutral-400'">{{ grade }}</span>
                     </button>
                   </div>
-                  </div>
                 </div>
 
                 <div class="hidden md:grid md:grid-cols-[auto_1fr_auto] items-center gap-3">
@@ -725,6 +724,30 @@ defineExpose({
                     {{ fieldLabels?.grade || '등급' }}
                   </span>
                   <div class="min-w-0 overflow-x-auto whitespace-nowrap no-scrollbar scroll-fade-x snap-x snap-mandatory touch-pan-x overscroll-x-contain -mx-1 px-1">
+                    <!-- 🌟 날아갔던 감싸는 div 복구! -->
+                    <div class="inline-flex items-center gap-2">
+                      <button
+                        v-for="grade in visibleGrades" :key="grade"
+                        @click="toggleFilter('grade', grade)"
+                        :title="grade"
+                        class="relative inline-flex w-16 h-16 p-1 rounded-md items-center justify-center border transition-all duration-200 select-none snap-start overflow-hidden focus:outline-none"
+                        :class="isSelected('grade', grade) ? 'border-blue-500 bg-blue-50 dark:border-blue-500 dark:bg-blue-900/30' : 'border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-700'">
+                        
+                        <!-- 🌟 수정됨: 높이 고정 및 비율 유지 (PC) -->
+                        <img
+                          :src="`/assets/logos/grade/${grade}.png`"
+                          :alt="grade"
+                          class="h-[60%] w-auto object-contain drop-shadow-sm transition-all duration-300"
+                          :class="isSelected('grade', grade) ? 'grayscale-0 brightness-100 scale-125' : 'grayscale brightness-75 hover:grayscale-0 hover:brightness-100 scale-110'"
+                          loading="lazy"
+                          @error="handleImageError"
+                        />
+                        <span class="hidden w-full h-full items-center justify-center text-[13px] font-bold break-all whitespace-normal leading-tight"
+                              :class="isSelected('grade', grade) ? 'text-blue-600 dark:text-blue-400' : 'text-neutral-500 dark:text-neutral-400'">{{ grade }}</span>
+                      </button>
+                    </div>
+                  </div>
+                  <!-- 🌟 날아갔던 데스크탑 전체해제 버튼 복구! -->
                   <button
                     @click="toggleAllGrades"
                     class="px-2 py-1 text-xs rounded-md border transition-all duration-200"
@@ -736,6 +759,7 @@ defineExpose({
                 </div>
               </div>
 
+              <!-- 🌟 여기서부터 팀 영역 (수정 없음, 그대로 복구) -->
               <div class="px-3 sm:px-3.5 md:px-4 py-3 sm:py-2.5 md:py-3">
                 <div class="md:hidden space-y-3">
                   <div class="flex items-center justify-between">
@@ -803,6 +827,8 @@ defineExpose({
                       : 'border-neutral-200 text-neutral-700 bg-white hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-200 dark:bg-neutral-800 hover:dark:bg-neutral-700'">
                     {{ allTeamsSelected ? '해제' : '전체' }}
                   </button>
+                </div>
+              </div>
                 </div>
               </div>
             </div>
