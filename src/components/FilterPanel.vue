@@ -92,7 +92,7 @@ const yearGrid = computed(() => {
   return rows
 })
 
-const gradeOrder = ['DGN', 'TOP', 'GG', 'ACE', 'HIT', 'GGY', 'MMVP', 'ROY', 'TEA', 'POS', 'ASG', 'SEA'] as const
+const gradeOrder = ['DGN', 'TOP', 'GG', 'ACE', 'HIT', 'GOY', 'MMVP', 'ROY', 'TEA', 'POS', 'ASG', 'SEA'] as const
 const visibleGrades = computed(() =>
   gradeOrder.filter((g) => props.filterOptions?.grade?.includes(g))
 )
