@@ -75,7 +75,7 @@ const columns = ref([
 /* =========================
    Utils
 ========================= */
-const CSV_SPLIT = /[,\u3001;、]+/
+const CSV_SPLIT = /[,、;、]+/
 const lc = (s: unknown) => String(s ?? '').toLowerCase().trim()
 const normText = (s: unknown) =>
     String(s ?? '')
@@ -109,7 +109,7 @@ const toArray = (v: unknown, { allowComma = true }: { allowComma?: boolean } = {
   if (Array.isArray(v)) return v.map(x => String(x).replace(/[\[\]"'`]/g, '').trim()).filter(Boolean)
   if (typeof v === 'string') {
     const t = v.replace(/[\[\]"'`]/g, '').trim()
-    const splitter = allowComma ? CSV_SPLIT : /[\u3001;、;]+/
+    const splitter = allowComma ? CSV_SPLIT : /[、;、;]+/
     return t.split(splitter).map(s => s.trim()).filter(Boolean)
   }
   return [String(v ?? '').replace(/[\[\]"'`]/g, '').trim()].filter(Boolean)
@@ -186,18 +186,18 @@ const filterOptions = computed(() => {
   )
   
   res['team'] = [
-    'ssg',
-    'kiwoom',
+    'lotte',
+    'doosan',
+    'lg',
     'kia',
     'samsung',
-    'doosan',
-    'lotte',
-    'lg',
-    'hanwha',
-    'nc',
-    'kt',
     'hyundai',
-    'sbw'
+    'hanwha',
+    'sbw',
+    'ssg',
+    'kiwoom',
+    'nc',
+    'kt'
   ]
   return res
 })
