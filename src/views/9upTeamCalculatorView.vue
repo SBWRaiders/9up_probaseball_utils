@@ -160,7 +160,7 @@ const getMappedGrade = (grade: unknown) => {
     'TEAM PLAYER':'TEA', '팀플':'TEA',
     'MONTHLY MVP':'MMVP', '월간MVP':'MMVP', '월간':'MMVP', 
     'ROOKIE OF THE YEAR':'ROY', '신인왕':'ROY', 
-    'GG OF THE YEAR':'GGY', '연도골글':'GGY', '연글':'GGY',
+    'GG OF THE YEAR':'GOY', '연도골글':'GOY', '연글':'GOY',
     'NATIONAL TEAM':'NT', '국가대표':'NT', 
     'ALLSTAR':'ASG', '올스타':'ASG', 
     'SEASON':'SEA', '시즌':'SEA', 
@@ -563,7 +563,7 @@ const initPlayerBuff = (slot: string, p: Raw) => {
   let colBuff = 1200
   
   if (['SEA', 'ASG'].includes(grade)) colBuff = 800
-  else if (['POS', 'TEA', 'MMVP', 'HIT', 'ACE', 'GGY'].includes(grade)) colBuff = 900
+  else if (['POS', 'TEA', 'MMVP', 'HIT', 'ACE', 'GOY'].includes(grade)) colBuff = 900
   else if (['GG', 'ROY'].includes(grade)) colBuff = 1000
   else if (grade === 'TOP') colBuff = 1200
   else if (grade === 'DGN') colBuff = 0
@@ -1388,7 +1388,7 @@ const getMaxBreakthrough = (p: Raw | null) => {
 
 const getEnhanceMultiplier = (p: Raw) => {
   const grade = String(p.grade).toUpperCase()
-  const map: Record<string, number> = { 'SEA':30, 'ASG':30, 'POS':40, 'TEA':40, 'MMVP':40, 'ROY':50, 'HIT':50, 'ACE':50, 'GG':50, 'TOP':50, 'GGY':50, 'DGN':300 }
+  const map: Record<string, number> = { 'SEA':30, 'ASG':30, 'POS':40, 'TEA':40, 'MMVP':40, 'ROY':50, 'HIT':50, 'ACE':50, 'GG':50, 'TOP':50, 'GOY':50, 'DGN':300 }
   return map[grade] || 0
 }
 
@@ -1401,7 +1401,7 @@ const getBreakthroughFixed = (p: Raw, level: number) => {
   } else if (['TEA','ROY','MMVP'].includes(grade)) {
     const mults = [0, 1, 3, 6, 10, 15, 21, 28, 36]
     return 50 * (mults[level] || 0)
-  } else if (['HIT','ACE','GG','TOP','GGY'].includes(grade)) {
+  } else if (['HIT','ACE','GG','TOP','GOY'].includes(grade)) {
     const mults = [0, 1, 2.5, 4.5, 7, 10, 15, 21, 28] 
     return 100 * (mults[level] || 0)
   }
@@ -1481,7 +1481,7 @@ const getBinderMatchCount = (val: string, p: Raw, type: string) => {
   if (type === 'grade') {
     const map: Record<string, string> = {
       '디그니티':'DGN', '탑클래스':'TOP', '에이스':'ACE', '히트':'HIT', '팀플':'TEA',
-      '월간mvp':'MMVP', '월간':'MMVP', '신인왕':'ROY', '연도골글':'GGY', '연글':'GGY', 
+      '월간mvp':'MMVP', '월간':'MMVP', '신인왕':'ROY', '연도골글':'GOY', '연글':'GOY', 
       '골든글러브':'GG', '골글':'GG', '국가대표':'NT', '올스타':'ASG', '시즌':'SEA', '포스트시즌':'POS'
     }
     const targetG = map[v] || v;
@@ -2322,7 +2322,7 @@ const getPlayerImage = (p: Raw | null) => {
   let grade = String(p.grade || '').trim().toUpperCase();
   const gradeMap: Record<string, string> = {
     '디그니티':'DGN', '탑클래스':'TOP', '에이스':'ACE', '히트':'HIT', '팀플':'TEA',
-    '월간MVP':'MMVP', '월간':'MMVP', '신인왕':'ROY', '연도골글':'GGY', '연글':'GGY', 
+    '월간MVP':'MMVP', '월간':'MMVP', '신인왕':'ROY', '연도골글':'GOY', '연글':'GOY', 
     '골든글러브':'GG', '골글':'GG', '국가대표':'NT', '올스타':'ASG', '시즌':'SEA', '포스트시즌':'POS'
   };
   grade = gradeMap[grade] || grade;
@@ -3394,7 +3394,7 @@ const viewConfigs = computed(() => {
         <div v-if="newImprint.grade === '얼티밋'" class="flex items-center gap-2 bg-red-50 border border-red-200 p-2 rounded">
           <span class="text-[10px] font-bold text-red-600 shrink-0">등급 효과(얼티밋)</span>
           <select v-model="newImprint.ultimateBonus.targetGrade" class="text-xs border rounded p-1 text-red-800">
-            <option value="DGN">디그니티 (DGN)</option><option value="TOP">탑클래스 (TOP)</option><option value="GG">골글 (GG)</option><option value="ACE">에이스 (ACE)</option><option value="HIT">히트 (HIT)</option><option value="GGY">연도골글 (GGY)</option><option value="MMVP">월간MVP (MMVP)</option><option value="ROY">신인왕 (ROY)</option><option value="TEA">팀플 (TEA)</option>
+            <option value="DGN">디그니티 (DGN)</option><option value="TOP">탑클래스 (TOP)</option><option value="GG">골글 (GG)</option><option value="ACE">에이스 (ACE)</option><option value="HIT">히트 (HIT)</option><option value="GOY">연도골글 (GOY)</option><option value="MMVP">월간MVP (MMVP)</option><option value="ROY">신인왕 (ROY)</option><option value="TEA">팀플 (TEA)</option>
           </select>
           <span class="text-[10px] text-neutral-500 font-black">+</span>
           <input v-model="newImprint.ultimateBonus.power" type="number" class="w-16 text-xs border rounded p-1 text-center font-bold text-red-600 outline-none bg-white">
