@@ -74,10 +74,22 @@ const handleImageError = (e: Event) => {
 }
 
 const currentYear = new Date().getFullYear()
-const yearOptions = computed(() => {
-  const years: string[] = []
-  for (let y = currentYear - 1; y >= 1982; y--) years.push(String(y))
-  return years
+const maxYear = currentYear - 1
+const yearGrid = computed(() => {
+  const rows = []
+  for (let decade = Math.floor(maxYear / 10) * 10; decade >= 1980; decade -= 10) {
+    const row = []
+    for (let i = 0; i < 10; i++) {
+      const y = decade + i
+      if (y > maxYear || y < 1982) {
+        row.push(null)
+      } else {
+        row.push(String(y))
+      }
+    }
+    if (row.some(y => y !== null)) rows.push(row)
+  }
+  return rows
 })
 
 const gradeOrder = ['DGN', 'TOP', 'GG', 'ACE', 'HIT', 'GGY', 'MMVP', 'ROY', 'TEA', 'POS', 'ASG', 'SEA'] as const
@@ -474,10 +486,11 @@ defineExpose({
 </script>
 
 <template>
-  <div class="mx-auto max-w-[1280px] p-2 space-y-4 md:space-y-6">
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-      <div class="space-y-4">
-        <section class="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white/95 dark:bg-neutral-900/95 shadow-sm">
+  <div class="w-full px-2 sm:px-4 space-y-4 md:space-y-6">
+    
+    <!-- 🌟 Row 1: 스킬 & 포지션 (동일 높이) -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 items-start">
+      <section class="md:col-span-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white/95 dark:bg-neutral-900/95 shadow-sm">
           <button type="button" class="w-full px-4 py-3 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-t-lg transition-colors"
                   @click="toggleCollapse('skill')" :aria-expanded="collapses.skill">
             <h3 class="text-sm font-semibold text-neutral-700 dark:text-neutral-200">{{ fieldLabels?.skill || '스킬' }}</h3>
@@ -488,8 +501,8 @@ defineExpose({
           </button>
           <div v-if="collapses.skill" class="p-4 pt-0">
             <div v-if="hasSkills"
-                 class="overflow-y-auto overscroll-contain rounded-lg border border-neutral-200 dark:border-neutral-700 p-2 bg-neutral-50/80 dark:bg-neutral-800/80 max-h-56">
-              <div class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-1.5 sm:gap-2">
+                 class="overflow-y-auto overscroll-contain rounded-lg border border-neutral-200 dark:border-neutral-700 p-2 bg-neutral-50/80 dark:bg-neutral-800/80 h-[308px]">
+              <div class="flex flex-wrap gap-1.5 sm:gap-2">
                 <button
                   v-for="skill in props.filterOptions?.skill ?? []" :key="skill" :title="skill"
                   @click="toggleFilter('skill', skill)"
@@ -508,42 +521,7 @@ defineExpose({
             <div v-else class="px-4 py-8 text-sm text-center text-neutral-500 dark:text-neutral-400">스킬 데이터가 없습니다.</div>
           </div>
         </section>
-
-        <section class="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white/95 dark:bg-neutral-900/95 shadow-sm">
-          <button type="button" class="w-full px-4 py-3 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-t-lg transition-colors"
-                  @click="toggleCollapse('enhancedSkill')" :aria-expanded="collapses.enhancedSkill">
-            <h3 class="text-sm font-semibold text-neutral-700 dark:text-neutral-200">{{ fieldLabels?.enhancedSkill || '강화 스킬' }}</h3>
-            <div class="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
-              <span>선택 {{ selectedCount('enhancedSkill') }}개</span>
-              <ChevronDown class="w-4 h-4 transition-transform" :class="collapses.enhancedSkill ? 'rotate-180' : ''"/>
-            </div>
-          </button>
-          <div v-if="collapses.enhancedSkill" class="p-4 pt-0">
-            <div v-if="hasEnhancedSkills"
-                 class="overflow-y-auto overscroll-contain rounded-lg border border-neutral-200 dark:border-neutral-700 p-2 bg-neutral-50/80 dark:bg-neutral-800/80 max-h-56">
-              <div class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-1.5 sm:gap-2">
-                <button
-                  v-for="skill in props.filterOptions?.enhancedSkill ?? []" :key="skill" :title="skill"
-                  @click="toggleFilter('enhancedSkill', skill)"
-                  class="group relative inline-flex flex-col items-center justify-center gap-2 rounded-xl border py-2 text-xs font-medium select-none
-                         focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all duration-200
-                         w-[70px] md:w-[74px] lg:w-[78px]"
-                  :class="isSelected('enhancedSkill', skill)
-                    ? 'bg-blue-500 text-white border-blue-500 shadow-md hover:bg-blue-600 dark:bg-blue-700 dark:border-blue-700 dark:hover:bg-blue-600'
-                    : 'bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 border-neutral-200 dark:border-neutral-600 hover:bg-blue-50 dark:hover:bg-neutral-700 hover:border-blue-300 dark:hover:border-neutral-500'">
-                  <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-lg"
-                       :class="['bg-neutral-100 dark:bg-neutral-700', isSelected('enhancedSkill', skill) ? 'ring-2 ring-blue-300 bg-white/20' : '', `bg-${matchSkillInfo(skill,'enhanced')}`]"/>
-                  <span class="block w-full text-center font-semibold">{{ skill }}</span>
-                </button>
-              </div>
-            </div>
-            <div v-else class="px-4 py-8 text-sm text-center text-neutral-500 dark:text-neutral-400">강화 스킬 데이터가 없습니다.</div>
-          </div>
-        </section>
-      </div>
-
-      <div class="space-y-4">
-        <section class="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white/95 dark:bg-neutral-900/95 shadow-sm">
+      <section class="md:col-span-1 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white/95 dark:bg-neutral-900/95 shadow-sm">
           <button type="button" class="w-full px-4 py-3 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-t-lg transition-colors"
                   @click="toggleCollapse('position')" :aria-expanded="collapses.position">
             <h3 class="text-sm font-semibold text-neutral-700 dark:text-neutral-200">{{ fieldLabels?.position || '포지션' }}</h3>
@@ -603,51 +581,73 @@ defineExpose({
 
           </div>
         </section>
+    </div>
 
-        <section class="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white/95 dark:bg-neutral-900/95 shadow-sm">
+    <!-- 🌟 Row 2: 강화 스킬 & 연도 (동일 높이) -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 items-start">
+      <section class="md:col-span-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white/95 dark:bg-neutral-900/95 shadow-sm">
+          <button type="button" class="w-full px-4 py-3 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-t-lg transition-colors"
+                  @click="toggleCollapse('enhancedSkill')" :aria-expanded="collapses.enhancedSkill">
+            <h3 class="text-sm font-semibold text-neutral-700 dark:text-neutral-200">{{ fieldLabels?.enhancedSkill || '강화 스킬' }}</h3>
+            <div class="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+              <span>선택 {{ selectedCount('enhancedSkill') }}개</span>
+              <ChevronDown class="w-4 h-4 transition-transform" :class="collapses.enhancedSkill ? 'rotate-180' : ''"/>
+            </div>
+          </button>
+          <div v-if="collapses.enhancedSkill" class="p-4 pt-0">
+            <div v-if="hasEnhancedSkills"
+                 class="overflow-y-auto overscroll-contain rounded-lg border border-neutral-200 dark:border-neutral-700 p-2 bg-neutral-50/80 dark:bg-neutral-800/80 h-[192px]">
+              <div class="flex flex-wrap gap-1.5 sm:gap-2">
+                <button
+                  v-for="skill in props.filterOptions?.enhancedSkill ?? []" :key="skill" :title="skill"
+                  @click="toggleFilter('enhancedSkill', skill)"
+                  class="group relative inline-flex flex-col items-center justify-center gap-2 rounded-xl border py-2 text-xs font-medium select-none
+                         focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all duration-200
+                         w-[70px] md:w-[74px] lg:w-[78px]"
+                  :class="isSelected('enhancedSkill', skill)
+                    ? 'bg-blue-500 text-white border-blue-500 shadow-md hover:bg-blue-600 dark:bg-blue-700 dark:border-blue-700 dark:hover:bg-blue-600'
+                    : 'bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 border-neutral-200 dark:border-neutral-600 hover:bg-blue-50 dark:hover:bg-neutral-700 hover:border-blue-300 dark:hover:border-neutral-500'">
+                  <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-lg"
+                       :class="['bg-neutral-100 dark:bg-neutral-700', isSelected('enhancedSkill', skill) ? 'ring-2 ring-blue-300 bg-white/20' : '', `bg-${matchSkillInfo(skill,'enhanced')}`]"/>
+                  <span class="block w-full text-center font-semibold">{{ skill }}</span>
+                </button>
+              </div>
+            </div>
+            <div v-else class="px-4 py-8 text-sm text-center text-neutral-500 dark:text-neutral-400">강화 스킬 데이터가 없습니다.</div>
+          </div>
+        </section>
+      <section class="md:col-span-1 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white/95 dark:bg-neutral-900/95 shadow-sm">
           <button type="button" class="w-full px-4 py-3 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-t-lg transition-colors"
                   @click="toggleCollapse('year')" :aria-expanded="collapses.year">
             <h3 class="text-sm font-semibold text-neutral-700 dark:text-neutral-200">{{ fieldLabels?.year || '연도' }}</h3>
             <ChevronDown class="w-4 h-4 text-neutral-500 dark:text-neutral-400 transition-transform" :class="collapses.year ? 'rotate-180' : ''"/>
           </button>
-          <div v-if="collapses.year" class="flex-1 overflow-y-auto m-4 mt-2 rounded-lg border border-neutral-200 dark:border-neutral-700 p-2 bg-neutral-50/80 dark:bg-neutral-800/80">
-            <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-2">
-              <button
-                v-for="year in yearOptions" :key="year"
-                @click="toggleFilter('year', year)"
-                :class="[
-                  'inline-flex items-center justify-center px-2.5 py-1.5 rounded-md text-xs font-medium text-center border transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500',
-                  isSelected('year', year)
-                    ? 'bg-blue-500 text-white border-blue-500 shadow-md hover:bg-blue-600 dark:bg-blue-700 dark:border-blue-700 dark:hover:bg-blue-600'
-                    : 'bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 border-neutral-200 dark:border-neutral-600 hover:bg-blue-50 dark:hover:bg-neutral-700 hover:border-blue-300 dark:hover:border-neutral-500'
-                ]"
-              >
-                {{ year }}
-              </button>
+          <div v-if="collapses.year" class="m-4 mt-2 rounded-lg border border-neutral-200 dark:border-neutral-700 p-2 bg-neutral-50/80 dark:bg-neutral-800/80">
+            <div class="grid grid-cols-10 gap-1 sm:gap-2 w-full min-w-[280px]">
+              <template v-for="(row, rIdx) in yearGrid" :key="'row-' + rIdx">
+                <template v-for="(year, cIdx) in row" :key="'cell-' + rIdx + '-' + cIdx">
+                  <button
+                    v-if="year"
+                    @click="toggleFilter('year', year)"
+                    :class="[
+                      'flex items-center justify-center py-1 sm:py-1.5 rounded text-[10px] sm:text-xs font-bold border transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500',
+                      isSelected('year', year)
+                        ? 'bg-blue-500 text-white border-blue-500 shadow-md hover:bg-blue-600 dark:bg-blue-700 dark:border-blue-700 dark:hover:bg-blue-600'
+                        : 'bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 border-neutral-200 dark:border-neutral-600 hover:bg-blue-50 dark:hover:bg-neutral-700 hover:border-blue-300 dark:hover:border-neutral-500'
+                    ]"
+                  >
+                    '{{ year.slice(2) }}
+                  </button>
+                  <div v-else class="pointer-events-none"></div>
+                </template>
+              </template>
             </div>
           </div>
         </section>
-      </div>
+    </div>
 
-      <!-- 레어도/등급/팀 통합 섹션 -->
-      <section class="col-span-full md:col-span-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white/95 dark:bg-neutral-900/95 shadow-sm">
-        <button
-          type="button"
-          class="w-full px-3 md:px-4 py-3 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-t-lg transition-colors"
-          @click="toggleCollapse('rgt')"
-          :aria-expanded="collapses.rgt"
-        >
-          <h3 class="text-sm font-semibold text-neutral-700 dark:text-neutral-200">
-            {{ (fieldLabels?.rarity || '레어도') }} · {{ (fieldLabels?.grade || '등급') }} · {{ (fieldLabels?.team || '팀') }}
-          </h3>
-          <ChevronDown
-            class="w-4 h-4 text-neutral-500 dark:text-neutral-400 transition-transform"
-            :class="collapses.rgt ? 'rotate-180' : ''"
-          />
-        </button>
-
-        <div v-if="collapses.rgt" class="p-2 sm:p-3 md:p-4 pt-0">
-          <section class="rounded-lg bg-white/95 dark:bg-neutral-900/95">
+    <!-- 🌟 Row 3: 레어도/등급/팀 -->
+    <section class="rounded-lg bg-white/95 dark:bg-neutral-900/95">
             <div class="divide-y divide-neutral-200 dark:divide-neutral-700">
               
               <!-- 레어도 영역 -->
@@ -834,10 +834,8 @@ defineExpose({
 
             </div>
           </section>
-        </div>
-      </section>
-    </div>
 
+    <!-- 🌟 Row 4: 하단 검색창 -->
     <!-- 하단 검색바 (부분일치/제외/시너지 등) -->
     <section class="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white/95 dark:bg-neutral-900/95 shadow-sm p-3 md:p-4">
       <div class="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-3 md:gap-4 items-start">
@@ -1057,6 +1055,7 @@ defineExpose({
 
       </div>
     </section>
+
   </div>
 </template>
 
