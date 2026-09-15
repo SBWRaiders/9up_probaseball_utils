@@ -104,7 +104,7 @@ function toggleExpanded(index: number) {
 </script>
 
 <template>
-  <div v-if="items.length !=0" class="max-w-[1600px] w-full mx-auto p-2">
+  <div v-if="items.length !=0" class="w-full px-2 sm:px-4">
     <!-- 모바일/태블릿: 카드 리스트 -->
     <div class="grid gap-3 md:hidden">
       <article
@@ -199,8 +199,8 @@ function toggleExpanded(index: number) {
     </div>
 
     <!-- 데스크탑: 테이블 -->
-    <div class="overflow-x-auto hidden md:block">
-      <table class="min-w-full text-sm table-fixed rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-700">
+    <div class="overflow-x-auto hidden md:block w-full">
+      <table class="min-w-full w-full text-sm table-fixed rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-700">
         <thead class="bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 font-semibold text-xs uppercase tracking-wide">
         <tr>
           <!-- 🌟 기둥 너비 조절: throwBatting을 100px로 깔끔하게 배치 -->
@@ -216,7 +216,7 @@ function toggleExpanded(index: number) {
                 col === 'position' ? 'w-[120px]' :
                 col === 'throwBatting' ? 'w-[100px]' : 
                 col === 'pitchingType' ? 'w-[140px]' :
-                col === 'synergy' ? 'w-[600px]' :
+                col === 'synergy' ? 'w-auto min-w-[400px]' :
                 col === 'open' ? 'w-[90px]' :
                 'w-[140px]'
               ]"
@@ -346,7 +346,7 @@ function toggleExpanded(index: number) {
       <PlayerDetail :player="selectedItem" />
     </SideModal>
   </div>
-  <div v-else class="max-w-[1600px] w-full h-[700px] mx-auto p-2 text-center">
+  <div v-else class="w-full h-[700px] px-2 sm:px-4 text-center">
     <span class="text-xl font-bold">
       조건에 맞는 선수가 없어요.
     </span>
