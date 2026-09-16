@@ -2,10 +2,11 @@
 import { ref, computed, watch, reactive, onMounted, nextTick } from 'vue'
 import { 
   Zap, RefreshCw, ArrowRight, Check, X, Calculator, History, 
-  Lock, Unlock, Play, Star, Settings, Pause, Edit3, Target, BarChart, Info, Gem, RefreshCcw, Plus, Trash2, Search
+  Lock, Unlock, Play, Star, Settings, Pause, Edit3, Target, BarChart, Info, Gem, RefreshCcw, Plus, Trash2, Search,
+  Calendar, Wallet, ShoppingCart, Package, RotateCcw
 } from 'lucide-vue-next'
 
-const activeTab = ref<'enhance' | 'career' | 'engraving'>('career')
+const activeTab = ref<'enhance' | 'career' | 'engraving' | 'dignity'>('dignity')
 
 // ==============================================
 // 🌟 Chart.js 동적 로딩
@@ -927,6 +928,10 @@ const dgnRunPlanner = () => {
     <!-- 탭 메뉴 -->
     <div class="flex justify-center shrink-0 mb-4">
       <div class="bg-white dark:bg-neutral-800 p-1.5 rounded-xl shadow-sm border border-neutral-200 dark:border-neutral-700 flex gap-1">
+        <!-- 🔥 새로 추가된 디그니티 버튼 🔥 -->
+        <button @click="activeTab = 'dignity'" class="px-6 py-2.5 rounded-lg font-bold text-sm transition-colors flex items-center gap-2" :class="activeTab === 'dignity' ? 'bg-slate-800 text-white shadow-md' : 'text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-700'"><Gem class="w-4 h-4"/>디그니티 시뮬레이터</button>
+        
+        <!-- 기존 버튼들 -->
         <button @click="activeTab = 'engraving'" class="px-6 py-2.5 rounded-lg font-bold text-sm transition-colors flex items-center gap-2" :class="activeTab === 'engraving' ? 'bg-amber-500 text-white shadow-md' : 'text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-700'"><Gem class="w-4 h-4"/>각인 시뮬레이터</button>
         <button @click="activeTab = 'enhance'" class="px-6 py-2.5 rounded-lg font-bold text-sm transition-colors flex items-center gap-2" :class="activeTab === 'enhance' ? 'bg-blue-600 text-white shadow-md' : 'text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-700'"><Zap class="w-4 h-4"/>강화 시뮬레이터</button>
         <button @click="activeTab = 'career'" class="px-6 py-2.5 rounded-lg font-bold text-sm transition-colors flex items-center gap-2" :class="activeTab === 'career' ? 'bg-purple-600 text-white shadow-md' : 'text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-700'"><Star class="w-4 h-4"/>커리어 시뮬레이터</button>
