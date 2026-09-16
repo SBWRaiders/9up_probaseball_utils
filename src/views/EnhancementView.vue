@@ -663,7 +663,7 @@ const dgnResetAll = () => {
 const dgnNextMonth = () => {
   dgnState.month++
   dgnState.shop = { wQ: 0, wC: 0, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0, unl: 0 }
-  // 🔥 월 초기화 시 총 누적 금액(totalKrw)과 무한스택(inf)은 절대 날리지 않음! (NaN 방지)
+  // 🔥 월 초기화 시 총 누적 금액(totalKrw)과 무한스택(inf)은 절대 날리지 않음! (NaN 방지 완벽 해결)
   dgnState.payback = { spent: 0, totalKrw: dgnState.payback.totalKrw, t1: false, t2: false, t3: false, t4: false, inf: dgnState.payback.inf } 
   dgnLog(`🗓️ ${dgnState.month}개월 차 시작! 월간 상점 및 페이백이 갱신되었습니다.`, 'action')
 }
@@ -710,11 +710,11 @@ const dgnBuyPkg = (key: keyof typeof dgnState.shop, limit: number, price: number
   if(!isCash) dgnProcessPayback()
 }
 
-// 🔥 일반팩 (천장 카운트다운 O & 1팩당 티켓 2장 페이백 복구!)
+// 🔥 일반팩 (1팩당 티켓 2장 페이백 복구 & 천장 카운트다운 O)
 const dgnOpenPack = (count: number) => {
   if (dgnState.inv.normal < count) return alert("일반팩이 부족합니다.")
-  dgnState.inv.normal -= count;
-  dgnState.inv.tickets += (count * 2); // 🔥 1팩당 티켓 2개 정상 페이백!
+  dgnState.inv.normal -= count; 
+  dgnState.inv.tickets += (count * 2); // 🔥 마법의 티켓 복사 버그가 아니라 진짜 인게임 페이백 복구!
   for (let i=0; i<count; i++) {
     for (let j=0; j<8; j++) {
       if (Math.random() < 0.03) {
@@ -727,7 +727,7 @@ const dgnOpenPack = (count: number) => {
         else { dgnState.inv.otherTop++; dgnState.topAlbum[top.team][top.name]++ }
       }
     }
-    dgnState.pity.pack--; // 🔥 카운트다운
+    dgnState.pity.pack--; // 🔥 0을 향해 줄어드는 카운트다운!
     if(dgnState.pity.pack <= 0) {
       dgnState.inv.myDgn++; dgnLog(`🎉[팩 천장] 선택권으로 자팀 디그니티 확정 획득!`, 'epic')
       dgnState.pity.pack = 50 // 리셋
@@ -788,7 +788,7 @@ const dgnOpenPerfect = (count: number) => {
   dgnLog(`[파이브스타 퍼펙트 팩] ${count}팩 개봉 (TOP ${count * 8}장 획득!)`, 'action')
 }
 
-// 🔥 플래너 변수 및 기댓값 계산식
+// 🔥 플래너 변수
 const dgnPlan = reactive({ target: 3, otherMonthlyKrw: 0, wQ: true, wC: 40, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0, unl: 0 })
 const dgnPlanTotalKrw = computed(() => dgnPlan.rk*55000 + dgnPlan.pt*99000 + dgnPlan.pk*99000 + dgnPlan.pr*99000 + dgnPlan.lg*149000 + dgnPlan.unl*55000 + dgnPlan.otherMonthlyKrw )
 const dgnPlanPureKrw = computed(() => dgnPlan.rk*55000 + dgnPlan.pt*99000 + dgnPlan.pk*99000 + dgnPlan.pr*99000 + dgnPlan.lg*149000 + dgnPlan.unl*55000 )
@@ -815,6 +815,7 @@ const renderDgnChart = (data: number[], isMonth: boolean) => {
   })
 }
 
+// 🔥 산해님표 갓성비 통계 계산식 반영 완료 (TOP 카드 가치 = 0)
 const dgnRunPlanner = () => {
   isDgnSim.value = true; dgnSimResult.value = null; dgnMyLuckPercentile.value = null; dgnUserSpentKrw.value = null
   setTimeout(() => {
@@ -838,6 +839,7 @@ const dgnRunPlanner = () => {
         let wQ = dgnPlan.wQ ? 1 : 0; let wC = Math.floor(dgnPlan.wC / 4);
         tkt += wC;
         for(let k=0; k<wQ; k++) {
+          tkt += 2; // 페이백 복구
           for(let j=0; j<8; j++) { if(Math.random()<0.03){let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++} else { if(Math.random()>=(TOP_DB[dgnState.myTeam].length/212)) totalGainedTop++ } }
           pPack--; if(pPack<=0) { myDgn++; pPack=50; } // 🔥 일반팩 까고 카운트다운
         }
@@ -855,6 +857,7 @@ const dgnRunPlanner = () => {
 
           for(let k=0; k<mp; k++) { let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++ }
           for(let k=0; k<mn; k++) {
+            tkt+=2; // 페이백 복구
             for(let j=0; j<8; j++) { if(Math.random()<0.03){let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++} else { if(Math.random()>=(TOP_DB[dgnState.myTeam].length/212)) totalGainedTop++ } }
             pPack--; if(pPack<=0) { myDgn++; pPack=50; } // 🔥 일반팩 까고 카운트다운
           }
@@ -893,7 +896,7 @@ const dgnRunPlanner = () => {
   }, 50)
 }
 
-// 🔥 누락되었던 운세 판독기 함수 완벽 복구
+// 🔥 누락되었던 운세 판독기 함수 완벽 복구!
 const dgnCheckMyLuck = () => {
   if (!dgnUserSpentKrw.value || dgnSimRawResults.value.length === 0) return alert("시뮬레이션을 먼저 가동한 후 결과값을 입력해주세요.")
   const val = dgnUserSpentKrw.value
@@ -1355,7 +1358,7 @@ const dgnCheckMyLuck = () => {
       </div>
     </div>
     
-<<!-- 💎 [4] 디그니티 탭 (독립형) -->
+<!-- 💎 [4] 디그니티 탭 (독립형) -->
     <div v-show="activeTab==='dignity'" class="grid grid-cols-1 xl:grid-cols-12 gap-5 w-full animate-fade-in max-w-[1600px] mx-auto text-neutral-100">
       
       <!-- [좌측] 상점 & 설정 -->
@@ -1413,30 +1416,30 @@ const dgnCheckMyLuck = () => {
             <!-- 🔥 부활 & 가성비 추가: 5.5만 루키 -->
             <button @click="dgnBuyPkg('rk', 1, 55000, 1, 0, 20, '루키 패키지')" :disabled="dgnState.shop.rk>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.rk<1?'bg-orange-900/20 border border-orange-800/50':'bg-[#2a2a35] opacity-50'">
               <div><div class="text-[10px] text-orange-400">루키 패키지 [{{dgnState.shop.rk}}/1]</div><div class="text-xs font-bold text-white">일반1 + 티켓20</div></div>
-              <div class="text-right"><div class="text-[11px] font-bold text-green-500">5.5만</div><div class="text-[9px] text-orange-300 font-bold mt-0.5 whitespace-nowrap">S급 (약 9만/1장)</div></div>
+              <div class="text-right"><div class="text-[11px] font-bold text-green-500">5.5만</div><div class="text-[9px] text-orange-300 font-bold mt-0.5 whitespace-nowrap" title="TOP카드 가치 0원 기준, 자팀 1장 획득 기대값">자팀 기댓값: 약 46만/1장</div></div>
             </button>
             <!-- 🔥 5.5만 무한 -->
             <button @click="dgnBuyPkg('unl', 9999, 55000, 1, 0, 1, '무한 패키지')" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50">
               <div><div class="text-[10px] text-teal-400">무한 패키지 [제한없음]</div><div class="text-xs font-bold text-white">일반1 + 티켓1</div></div>
-              <div class="text-right"><div class="text-[11px] font-bold text-green-500">5.5만</div><div class="text-[9px] text-neutral-500 font-bold mt-0.5 whitespace-nowrap">D급 (약 82만/1장)</div></div>
+              <div class="text-right"><div class="text-[11px] font-bold text-green-500">5.5만</div><div class="text-[9px] text-neutral-500 font-bold mt-0.5 whitespace-nowrap" title="TOP카드 가치 0원 기준, 자팀 1장 획득 기대값">자팀 기댓값: 약 106만/1장</div></div>
             </button>
             <!-- 9.9만 3형제 -->
             <button @click="dgnBuyPkg('pt', 1, 99000, 3, 0, 10, '프레스티지')" :disabled="dgnState.shop.pt>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pt<1?'bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50':'bg-[#2a2a35] opacity-50'">
               <div><div class="text-[10px] text-neutral-400">프레스티지 [{{dgnState.shop.pt}}/1]</div><div class="text-xs font-bold text-white">일반3 + 티켓10</div></div>
-              <div class="text-right"><div class="text-[11px] font-bold text-green-500">9.9만</div><div class="text-[9px] text-yellow-500 font-bold mt-0.5 whitespace-nowrap">A급 (약 25만/1장)</div></div>
+              <div class="text-right"><div class="text-[11px] font-bold text-green-500">9.9만</div><div class="text-[9px] text-yellow-500 font-bold mt-0.5 whitespace-nowrap" title="TOP카드 가치 0원 기준, 자팀 1장 획득 기대값">자팀 기댓값: 약 55만/1장</div></div>
             </button>
             <button @click="dgnBuyPkg('pr', 5, 99000, 2, 0, 10, '프로 패키지')" :disabled="dgnState.shop.pr>=5" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pr<5?'bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50':'bg-[#2a2a35] opacity-50'">
               <div><div class="text-[10px] text-neutral-400">프로 패키지 [{{dgnState.shop.pr}}/5]</div><div class="text-xs font-bold text-white">일반2 + 티켓10</div></div>
-              <div class="text-right"><div class="text-[11px] font-bold text-green-500">9.9만</div><div class="text-[9px] text-yellow-600 font-bold mt-0.5 whitespace-nowrap">B급 (약 28만/1장)</div></div>
+              <div class="text-right"><div class="text-[11px] font-bold text-green-500">9.9만</div><div class="text-[9px] text-yellow-600 font-bold mt-0.5 whitespace-nowrap" title="TOP카드 가치 0원 기준, 자팀 1장 획득 기대값">자팀 기댓값: 약 75만/1장</div></div>
             </button>
             <button @click="dgnBuyPkg('pk', 1, 99000, 0, 2, 0, '픽업 프레스티지')" :disabled="dgnState.shop.pk>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pk<1?'bg-purple-900/20 border border-purple-800/50':'bg-[#2a2a35] opacity-50'">
               <div><div class="text-[10px] text-purple-400">픽업 프레스티지 [{{dgnState.shop.pk}}/1]</div><div class="text-xs font-bold text-purple-300">픽업팩 2</div></div>
-              <div class="text-right"><div class="text-[11px] font-bold text-green-500">9.9만</div><div class="text-[9px] text-neutral-400 font-bold mt-0.5 whitespace-nowrap">C급 (약 60만/1장)</div></div>
+              <div class="text-right"><div class="text-[11px] font-bold text-green-500">9.9만</div><div class="text-[9px] text-purple-400 font-bold mt-0.5 whitespace-nowrap" title="TOP카드 가치 0원 기준, 자팀 1장 획득 기대값">자팀 기댓값: 약 41만/1장</div></div>
             </button>
             <!-- 14.9만 -->
             <button @click="dgnBuyPkg('lg', 3, 149000, 2, 1, 0, '레전드 패키지')" :disabled="dgnState.shop.lg>=3" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.lg<3?'bg-amber-900/20 border border-amber-800/50':'bg-[#2a2a35] opacity-50'">
               <div><div class="text-[10px] text-amber-500">레전드 패키지 [{{dgnState.shop.lg}}/3]</div><div class="text-xs font-bold text-amber-300">일반2 + 픽업1</div></div>
-              <div class="text-right"><div class="text-[11px] font-bold text-green-500">14.9만</div><div class="text-[9px] text-neutral-600 font-bold mt-0.5 whitespace-nowrap">F급 (약 91만/1장)</div></div>
+              <div class="text-right"><div class="text-[11px] font-bold text-green-500">14.9만</div><div class="text-[9px] text-neutral-400 font-bold mt-0.5 whitespace-nowrap" title="TOP카드 가치 0원 기준, 자팀 1장 획득 기대값">자팀 기댓값: 약 69만/1장</div></div>
             </button>
           </div>
         </div>
