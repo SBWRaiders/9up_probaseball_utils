@@ -588,8 +588,6 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
 // ==============================================
 // 💎 [4] 디그니티 시뮬레이터 전용 로직
 // ==============================================
-import { Calendar, Wallet, ShoppingCart, Package, RefreshCw, Gem, Lock, Target, BarChart, RotateCcw } from 'lucide-vue-next'
-
 const TEAMS = ['kia', 'ssg', 'kiwoom', 'samsung', 'doosan', 'lg', 'hanwha', 'lotte', 'hyundai', 'kt', 'sbw', 'nc']
 const T_NAMES: Record<string, string> = { kia:'KIA', ssg:'SSG', kiwoom:'키움', samsung:'삼성', doosan:'두산', lg:'LG', hanwha:'한화', lotte:'롯데', hyundai:'현대', kt:'KT', sbw:'쌍방울', nc:'NC' }
 const T_COLORS: Record<string, string> = { kia:'text-red-600', ssg:'text-red-500', kiwoom:'text-rose-800', samsung:'text-blue-600', doosan:'text-indigo-800', lg:'text-pink-600', hanwha:'text-orange-500', lotte:'text-cyan-800', hyundai:'text-green-600', kt:'text-black dark:text-white', sbw:'text-yellow-600', nc:'text-blue-400' }
@@ -621,8 +619,6 @@ const TOP_DB: Record<string, string[]> = {
 const ALL_TOPS = Object.entries(TOP_DB).flatMap(([t, players]) => players.map(p => ({ team: t, name: p })))
 
 // 상태 관리
-import { reactive, ref, computed, watch } from 'vue' // 이미 상단에 import 되어 있다면 지우셔도 됩니다.
-
 const dgnState = reactive({
   month: 1,
   myTeam: 'kia',
@@ -811,50 +807,36 @@ const dgnRunPlanner = () => {
     isDgnSim.value = false
   }, 50)
 }
-
 </script>
 
 <template>
   <div class="w-full mx-auto px-2 sm:px-4 py-4 font-sans text-neutral-900 dark:text-neutral-100 flex flex-col min-h-screen relative">
     
-    <!-- 🌟 [모달] 커리어 자동 스핀 설정 (인게임 완벽 복제) 🌟 -->
+    <!-- 🌟 [모달] 커리어 자동 스핀 설정 -->
     <div v-if="isAutoModalOpen" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
       <div class="bg-white dark:bg-[#1a1b1e] rounded-xl w-full max-w-[600px] shadow-2xl border border-blue-200/50 dark:border-blue-900/30 flex flex-col overflow-hidden">
-        
-        <!-- 모달 헤더 -->
         <div class="bg-gradient-to-b from-blue-400 to-cyan-500 p-3.5 flex justify-between items-center text-white shadow-sm">
-          <div class="w-8"></div> <!-- 밸런스용 빈 공간 -->
+          <div class="w-8"></div>
           <h3 class="font-extrabold text-[15px] tracking-wide text-center flex-1">자동 승급 옵션 설정</h3>
           <button @click="isAutoModalOpen = false" class="text-white hover:text-blue-100 transition-colors w-8 flex justify-end"><X class="w-5 h-5"/></button>
         </div>
         
-        <!-- 서브 텍스트 -->
         <div class="text-center py-3 bg-white dark:bg-[#1a1b1e] border-b border-neutral-100 dark:border-neutral-800">
-          <p class="text-[11px] font-bold text-neutral-600 dark:text-neutral-400 leading-tight">
-            잠금 상태를 제외한 모든 커리어 승급 옵션이<br>
-            선택한 등급 및 옵션의 설정이 적용될 때까지 변경이 시도됩니다.
-          </p>
+          <p class="text-[11px] font-bold text-neutral-600 dark:text-neutral-400 leading-tight">잠금 상태를 제외한 모든 커리어 승급 옵션이<br>선택한 등급 및 옵션의 설정이 적용될 때까지 변경이 시도됩니다.</p>
         </div>
 
-        <!-- 메인 콘텐츠 영역 (좌측 탭 + 우측 상세) -->
         <div class="flex h-[340px] bg-neutral-50 dark:bg-[#151619]">
-          
-          <!-- 좌측 탭 메뉴 -->
           <div class="w-[120px] bg-neutral-100 dark:bg-[#1f2024] flex flex-col p-2 gap-1.5 border-r border-neutral-200 dark:border-neutral-800 shrink-0">
             <button v-for="(label, key) in { set: '세트 도달', tier: '등급 도달', master: '마스터', pro: '프로', elite: '엘리트', rookie: '루키' }" :key="key" 
                     @click="autoMenuTab = key as any"
                     class="py-2.5 px-2 rounded font-extrabold text-[12px] transition-all text-center border relative"
                     :class="autoMenuTab === key ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white border-blue-400 shadow-md translate-x-1' : 'bg-white dark:bg-[#2a2b30] text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-[#303136]'">
               {{ label }}
-              <!-- 활성화된 탭 우측 포인트 디자인 -->
               <div v-if="autoMenuTab === key" class="absolute -right-2 top-1/2 -translate-y-1/2 w-0 h-0 border-y-[6px] border-y-transparent border-l-[6px] border-l-cyan-500"></div>
             </button>
           </div>
           
-          <!-- 우측 상세 내용 -->
           <div class="flex-1 p-0 flex flex-col bg-white dark:bg-[#1a1b1e] relative">
-            
-            <!-- [전체 선택] 헤더 (등급 도달 탭 제외) -->
             <div v-if="autoMenuTab !== 'tier'" class="flex justify-end p-2 border-b border-neutral-100 dark:border-neutral-800 absolute top-0 right-0 left-0 bg-white/90 dark:bg-[#1a1b1e]/90 backdrop-blur z-10">
                <label class="flex items-center gap-1.5 cursor-pointer px-2">
                  <span class="text-[11px] font-bold text-neutral-500">전체</span>
@@ -864,45 +846,31 @@ const dgnRunPlanner = () => {
                </label>
             </div>
 
-            <!-- 내용 스크롤 영역 -->
             <div class="flex-1 overflow-y-auto px-4 pb-4 pt-10">
-              
-              <!-- 탭 1: 등급 도달 -->
               <div v-if="autoMenuTab === 'tier'" class="space-y-6 pt-2">
                 <div class="space-y-3">
                   <div class="font-extrabold text-sm text-neutral-800 dark:text-neutral-200 border-b border-neutral-200 dark:border-neutral-700 pb-1">마스터 <span class="text-[9px] font-normal text-neutral-400 ml-1">(순수 마스터 개수)</span></div>
                   <div class="flex gap-4 px-2">
-                    <label v-for="n in 5" :key="n" class="flex items-center gap-1.5 cursor-pointer group">
-                      <span class="text-xs font-bold text-neutral-600 dark:text-neutral-400 group-hover:text-cyan-500">{{n}}개</span>
-                      <input type="checkbox" :checked="autoState.tierTargetMaster === n" @change="autoState.tierTargetMaster = (autoState.tierTargetMaster === n ? 0 : n)" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
-                    </label>
+                    <label v-for="n in 5" :key="n" class="flex items-center gap-1.5 cursor-pointer group"><span class="text-xs font-bold text-neutral-600 dark:text-neutral-400 group-hover:text-cyan-500">{{n}}개</span><input type="checkbox" :checked="autoState.tierTargetMaster === n" @change="autoState.tierTargetMaster = (autoState.tierTargetMaster === n ? 0 : n)" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer"></label>
                   </div>
                 </div>
                 <div class="space-y-3">
                   <div class="font-extrabold text-sm text-neutral-800 dark:text-neutral-200 border-b border-neutral-200 dark:border-neutral-700 pb-1">프로 <span class="text-[9px] font-normal text-neutral-400 ml-1">(프로+마스터 포함)</span></div>
                   <div class="flex gap-4 px-2">
-                    <label v-for="n in 5" :key="n" class="flex items-center gap-1.5 cursor-pointer group">
-                      <span class="text-xs font-bold text-neutral-600 dark:text-neutral-400 group-hover:text-cyan-500">{{n}}개</span>
-                      <input type="checkbox" :checked="autoState.tierTargetPro === n" @change="autoState.tierTargetPro = (autoState.tierTargetPro === n ? 0 : n)" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
-                    </label>
+                    <label v-for="n in 5" :key="n" class="flex items-center gap-1.5 cursor-pointer group"><span class="text-xs font-bold text-neutral-600 dark:text-neutral-400 group-hover:text-cyan-500">{{n}}개</span><input type="checkbox" :checked="autoState.tierTargetPro === n" @change="autoState.tierTargetPro = (autoState.tierTargetPro === n ? 0 : n)" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer"></label>
                   </div>
                 </div>
                 <div class="space-y-3">
                   <div class="font-extrabold text-sm text-neutral-800 dark:text-neutral-200 border-b border-neutral-200 dark:border-neutral-700 pb-1">엘리트 <span class="text-[9px] font-normal text-neutral-400 ml-1">(엘리트+프로+마스터 포함)</span></div>
                   <div class="flex gap-4 px-2">
-                    <label v-for="n in 5" :key="n" class="flex items-center gap-1.5 cursor-pointer group">
-                      <span class="text-xs font-bold text-neutral-600 dark:text-neutral-400 group-hover:text-cyan-500">{{n}}개</span>
-                      <input type="checkbox" :checked="autoState.tierTargetElite === n" @change="autoState.tierTargetElite = (autoState.tierTargetElite === n ? 0 : n)" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
-                    </label>
+                    <label v-for="n in 5" :key="n" class="flex items-center gap-1.5 cursor-pointer group"><span class="text-xs font-bold text-neutral-600 dark:text-neutral-400 group-hover:text-cyan-500">{{n}}개</span><input type="checkbox" :checked="autoState.tierTargetElite === n" @change="autoState.tierTargetElite = (autoState.tierTargetElite === n ? 0 : n)" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer"></label>
                   </div>
                 </div>
               </div>
 
-              <!-- 탭 2~6: 옵션 리스트 (세트, 마스터, 프로, 엘리트, 루키) -->
               <div v-else class="flex flex-col gap-0.5">
                  <label v-for="opt in CURRENT_DATA" :key="opt.id" class="flex justify-between items-center py-2 px-2 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 rounded cursor-pointer group border-b border-neutral-100 dark:border-neutral-800/50 last:border-0">
                    <span class="text-[12px] font-bold text-neutral-700 dark:text-neutral-300 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">{{ opt.name }}</span>
-                   
                    <input v-if="autoMenuTab === 'set'" type="checkbox" :value="opt.id" v-model="autoState.setTargetOptions" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
                    <input v-else-if="autoMenuTab === 'master'" type="checkbox" :value="opt.id" v-model="autoState.masterOptions" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
                    <input v-else-if="autoMenuTab === 'pro'" type="checkbox" :value="opt.id" v-model="autoState.proOptions" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
@@ -910,17 +878,13 @@ const dgnRunPlanner = () => {
                    <input v-else-if="autoMenuTab === 'rookie'" type="checkbox" :value="opt.id" v-model="autoState.rookieOptions" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
                  </label>
               </div>
-
             </div>
           </div>
         </div>
 
-        <!-- 하단 시작 버튼 영역 -->
         <div class="p-3 bg-neutral-100 dark:bg-[#1f2024] border-t border-neutral-200 dark:border-neutral-800 flex justify-between items-center px-6">
           <span class="text-[10px] font-bold text-neutral-500">재화 부족 시 자동 종료 됩니다.</span>
-          <button @click="startAutoSpin" class="px-10 py-2.5 bg-gradient-to-b from-teal-400 to-cyan-600 hover:from-teal-300 hover:to-cyan-500 text-white font-extrabold text-[13px] rounded-sm shadow-md transition-all active:scale-95 tracking-widest border border-cyan-300/30">
-            시작
-          </button>
+          <button @click="startAutoSpin" class="px-10 py-2.5 bg-gradient-to-b from-teal-400 to-cyan-600 hover:from-teal-300 hover:to-cyan-500 text-white font-extrabold text-[13px] rounded-sm shadow-md transition-all active:scale-95 tracking-widest border border-cyan-300/30">시작</button>
         </div>
       </div>
     </div>
@@ -930,7 +894,6 @@ const dgnRunPlanner = () => {
       <div class="bg-white dark:bg-neutral-800 p-1.5 rounded-xl shadow-sm border border-neutral-200 dark:border-neutral-700 flex gap-1">
         <!-- 🔥 새로 추가된 디그니티 버튼 🔥 -->
         <button @click="activeTab = 'dignity'" class="px-6 py-2.5 rounded-lg font-bold text-sm transition-colors flex items-center gap-2" :class="activeTab === 'dignity' ? 'bg-slate-800 text-white shadow-md' : 'text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-700'"><Gem class="w-4 h-4"/>디그니티 시뮬레이터</button>
-        
         <!-- 기존 버튼들 -->
         <button @click="activeTab = 'engraving'" class="px-6 py-2.5 rounded-lg font-bold text-sm transition-colors flex items-center gap-2" :class="activeTab === 'engraving' ? 'bg-amber-500 text-white shadow-md' : 'text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-700'"><Gem class="w-4 h-4"/>각인 시뮬레이터</button>
         <button @click="activeTab = 'enhance'" class="px-6 py-2.5 rounded-lg font-bold text-sm transition-colors flex items-center gap-2" :class="activeTab === 'enhance' ? 'bg-blue-600 text-white shadow-md' : 'text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-700'"><Zap class="w-4 h-4"/>강화 시뮬레이터</button>
@@ -1288,9 +1251,8 @@ const dgnRunPlanner = () => {
         </section>
       </div>
     </div>
-  </div>
-
-<!-- 💎 [4] 디그니티 탭 (독립형) -->
+    
+    <!-- 💎 [4] 디그니티 탭 (독립형) -->
     <div v-show="activeTab==='dignity'" class="grid grid-cols-1 xl:grid-cols-12 gap-5 w-full animate-fade-in max-w-[1600px] mx-auto text-neutral-100">
       
       <!-- [좌측] 상점 & 설정 -->
@@ -1452,7 +1414,7 @@ const dgnRunPlanner = () => {
         </div>
       </section>
     </div>
-  
+  </div>
 </template>
 
 <style scoped>
