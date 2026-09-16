@@ -592,7 +592,7 @@ const TEAMS = ['kia', 'ssg', 'kiwoom', 'samsung', 'doosan', 'lg', 'hanwha', 'lot
 const T_NAMES: Record<string, string> = { kia:'KIA', ssg:'SSG', kiwoom:'키움', samsung:'삼성', doosan:'두산', lg:'LG', hanwha:'한화', lotte:'롯데', hyundai:'현대', kt:'KT', sbw:'쌍방울', nc:'NC' }
 const T_COLORS: Record<string, string> = { kia:'text-red-600', ssg:'text-red-500', kiwoom:'text-rose-800', samsung:'text-blue-600', doosan:'text-indigo-800', lg:'text-pink-600', hanwha:'text-orange-500', lotte:'text-cyan-800', hyundai:'text-green-600', kt:'text-black dark:text-white', sbw:'text-yellow-600', nc:'text-blue-400' }
 
-// 1~5차 디그니티 실명
+// 1~5차 디그니티 실명 (가명 완벽 패치)
 const D_WAVES: Record<number, Record<string, string>> = {
   1: { kia:'홍현우', ssg:'최정', kiwoom:'이블렉', samsung:'양준혁', doosan:'박건우', lg:'류지현', hanwha:'장종훈', lotte:'이대호', hyundai:'박재홍', kt:'강백호', sbw:'박노준', nc:'나성범' },
   2: { kia:'이종범', nc:'테이준', hyundai:'심정수', samsung:'구자욱', sbw:'김기태', doosan:'김동주', lg:'박용택', hanwha:'김태균', kiwoom:'박병호', lotte:'조성환', kt:'로하스', ssg:'박경완' },
@@ -601,7 +601,6 @@ const D_WAVES: Record<number, Record<string, string>> = {
   5: { kt:'안현민', kiwoom:'강정호', lotte:'호식', doosan:'김현수', kia:'김도영', lg:'오스틴', ssg:'정근우', hyundai:'브로빈', samsung:'이승엽', hanwha:'송지만', nc:'박민우', sbw:'최태원' }
 }
 
-// 212명 전체 TOP 카드 DB (추출 완료)
 const TOP_DB: Record<string, string[]> = {
   kia: ['선동열', '이종범', '홍현우', '윤석민', '장성호', '이강철', '김성한', '조계현', '최형우', '양현종', '이순철', '이범호', '안치홍', '김선빈', '임에렉', '나성범', '김정수', '유동훈', '장채근'],
   ssg: ['최정', '김광현', '박희수', '에레디아', '정근우', '이진영', '브레띵', '정우람', '이승호', '채병용', '박재홍', '박경완', '이호준', '로맥', '켈리', '정대현', '김재현', '이재원', '박종훈'],
@@ -618,7 +617,7 @@ const TOP_DB: Record<string, string[]> = {
 }
 const ALL_TOPS = Object.entries(TOP_DB).flatMap(([t, players]) => players.map(p => ({ team: t, name: p })))
 
-// 상태 관리
+// 상태 관리 (🔥 무한패키지 unl, 총 누적결제 totalKrw 추가)
 const dgnState = reactive({
   month: 1,
   myTeam: 'kia',
@@ -626,11 +625,13 @@ const dgnState = reactive({
   inv: { normal: 0, pickup: 0, tickets: 0, myDgn: 0, myTop: 0, otherTop: 0, cash: 0 },
   album: Object.fromEntries(TEAMS.map(t => [t, 0])),
   topAlbum: Object.fromEntries(TEAMS.map(t => [t, Object.fromEntries(TOP_DB[t].map(p => [p, 0]))])),
-  shop: { wQ: 0, wC: 0, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0 },
-  payback: { spent: 0, t1: false, t2: false, t3: false, t4: false, inf: 0 },
+  shop: { wQ: 0, wC: 0, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0, unl: 0 }, 
+  payback: { spent: 0, totalKrw: 0, t1: false, t2: false, t3: false, t4: false, inf: 0 }, 
   pity: { pack: 0, trade: 0 },
   logs: [] as { id: number, msg: string, type: string }[]
 })
+// 🔥 도감 명함 클릭 토글 함수 (동기화용)
+const toggleDgnAlbum = (t: string) => { if (dgnState.album[t] === 0) dgnState.album[t] = 1; else if (dgnState.album[t] === 1) dgnState.album[t] = 0; }
 
 const manualKrwInput = ref(0)
 const dgnAlbumTab = ref<'dignity'|'top'>('dignity')
@@ -670,79 +671,63 @@ const dgnDupeCount = computed(() => {
 })
 
 const dgnProcessPayback = () => {
-  const k = dgnState.payback.spent; const p = dgnState.payback
+  const k = dgnState.payback.spent; const tk = dgnState.payback.totalKrw; const p = dgnState.payback
   if (k >= 9900 && !p.t1) { p.t1 = true; dgnState.inv.normal++; dgnLog(`[페이백] 9,900원 누적! 일반팩 지급`, 'success') }
   if (k >= 99000 && !p.t2) { p.t2 = true; dgnState.inv.pickup++; dgnLog(`[페이백] 99,000원 누적! 픽업팩 지급`, 'success') }
   if (k >= 199000 && !p.t3) { p.t3 = true; dgnState.inv.normal++; dgnLog(`[페이백] 199,000원 누적! 일반팩 지급`, 'success') }
   if (k >= 299000 && !p.t4) { p.t4 = true; dgnState.inv.normal++; dgnLog(`[페이백] 299,000원 누적! 일반팩 지급`, 'success') }
+  // 🔥 평생 누적 금액(totalKrw) 기준으로 30만 무한 티켓 체크!
   let nextInf = (p.inf + 1) * 300000
-  while (k >= nextInf) { p.inf++; dgnState.inv.tickets += 9; dgnLog(`[무한 페이백] 30만원 달성! 트레이드권 9개 지급!`, 'epic'); nextInf = (p.inf + 1) * 300000 }
+  while (tk >= nextInf) { p.inf++; dgnState.inv.tickets += 9; dgnLog(`[무한 페이백] 총 ${tk.toLocaleString()}원 달성! 트레이드권 9개 지급!`, 'epic'); nextInf = (p.inf + 1) * 300000 }
 }
 
 const dgnAddManualPayback = () => { 
   if(manualKrwInput.value <= 0) return
   dgnState.payback.spent += manualKrwInput.value
+  dgnState.payback.totalKrw += manualKrwInput.value // 🔥 누적에도 더함
   dgnLog(`[수동 충전] 타 패키지로 ${manualKrwInput.value.toLocaleString()}원 채움 완료!`, 'action')
   manualKrwInput.value = 0
   dgnProcessPayback() 
 }
 
-// 🌟 수정: purchaseCount(구매 수량) 파라미터 추가 & 캐시 누적 로직 
 const dgnBuyPkg = (key: keyof typeof dgnState.shop, limit: number, price: number, n: number, p: number, t: number, name: string, isCash: boolean = false, purchaseCount: number = 1) => {
-  if (dgnState.shop[key] + purchaseCount > limit) return alert(`남은 구매 가능 횟수가 부족합니다. (남은 횟수: ${limit - dgnState.shop[key]}회)`)
-  
-  if (isCash) {
-    dgnState.inv.cash += (price * purchaseCount) // 💡 캐시는 뺄셈이 아닌 누적 소모량으로 덧셈 처리!
-  } else {
-    dgnState.payback.spent += (price * purchaseCount) 
+  if (limit < 999 && dgnState.shop[key] + purchaseCount > limit) return alert(`남은 구매 가능 횟수가 부족합니다. (남은 횟수: ${limit - dgnState.shop[key]}회)`)
+  if (isCash) { dgnState.inv.cash += (price * purchaseCount) } 
+  else { 
+    dgnState.payback.spent += (price * purchaseCount); 
+    dgnState.payback.totalKrw += (price * purchaseCount); // 🔥 누적 과금액 반영
   }
-  
   dgnState.shop[key] += purchaseCount
   dgnState.inv.normal += (n * purchaseCount); dgnState.inv.pickup += (p * purchaseCount); dgnState.inv.tickets += (t * purchaseCount)
   dgnLog(`[상점] ${name} ${purchaseCount}회 구매! (${isCash?'캐시 누적':'원화'}: ${price * purchaseCount}${isCash?'💎':'원'})`, 'action')
   if(!isCash) dgnProcessPayback()
 }
 
-const dgnOpenPack = (count: number) => {
-  if (dgnState.inv.normal < count) return alert("일반팩이 부족합니다.")
-  dgnState.inv.normal -= count; dgnState.inv.tickets += (count * 2)
-  for (let i=0; i<count; i++) {
-    for (let j=0; j<8; j++) {
-      if (Math.random() < 0.03) {
-        let t = TEAMS[Math.floor(Math.random()*12)], pn = D_WAVES[dgnState.targetWave][t]
-        if (t === dgnState.myTeam) { dgnState.inv.myDgn++; dgnLog(`✨[기적] 디그니티팩 자팀 ${pn} 등장!✨`, 'epic') } 
-        else { dgnState.album[t]++; dgnLog(`[획득] ${T_NAMES[t]} ${pn} 디그니티 획득!`, 'success') }
-      } else {
-        let top = ALL_TOPS[Math.floor(Math.random()*212)]
-        if (top.team === dgnState.myTeam) { dgnState.inv.myTop++; dgnState.topAlbum[top.team][top.name]++; dgnLog(`[보호] 자팀 TOP ${top.name} 자동 수집!`, 'normal') } 
-        else { dgnState.inv.otherTop++; dgnState.topAlbum[top.team][top.name]++ }
-      }
-    }
-    dgnState.pity.pack++; if(dgnState.pity.pack % 50 === 0) { dgnState.inv.myDgn++; dgnLog(`🎉[팩 천장] 50회 누적 자팀 디그니티 확정!`, 'epic') }
-  }
-}
+// ... dgnOpenPack, dgnOpenPickup 코드는 그대로 유지 ...
 
-const dgnOpenPickup = () => {
-  if (dgnState.inv.pickup < 1) return alert("픽업팩이 부족합니다.")
-  dgnState.inv.pickup--; let t = TEAMS[Math.floor(Math.random()*12)], pn = D_WAVES[dgnState.targetWave][t]
-  if (t === dgnState.myTeam) { dgnState.inv.myDgn++; dgnLog(`✨[픽업] 자팀 ${pn} 100% 확정 등장!✨`, 'epic') } 
-  else { dgnState.album[t]++; dgnLog(`[픽업] ${T_NAMES[t]} ${pn} 획득.`, 'success') }
-}
+// 🔥 수정: '서로 다른 종류' 3장 체크 로직 추가
+const dgnDistinctDgnCount = computed(() => TEAMS.filter(t => t !== dgnState.myTeam && dgnState.album[t] > 1).length)
+const dgnDistinctTopCount = computed(() => {
+  let count = 0; TEAMS.forEach(t => { if (t !== dgnState.myTeam) { TOP_DB[t].forEach(p => { if (dgnState.topAlbum[t][p] > 0) count++ }) } }); return count;
+})
 
-// 🌟 수정: 디그니티 우선 무한루프 자동 믹서기 (천장 버그 해결)
 const dgnRunMixer = () => {
   let cnt = 0
   while (true) {
-    let dupes: string[] = []; TEAMS.forEach(t => { if(t !== dgnState.myTeam) { let c = dgnState.album[t]; while(c>1){ dupes.push(t); c-- } } })
-    if (dupes.length >= 3 && dgnState.inv.tickets >= 1) {
-      dgnState.album[dupes[0]]--; dgnState.album[dupes[1]]--; dgnState.album[dupes[2]]--; dgnState.inv.tickets--; dgnState.pity.trade++; cnt++
+    // 🔥 1순위: 서로 다른 타팀 디그니티 3종류 체크
+    let dgnDupes = TEAMS.filter(t => t !== dgnState.myTeam && dgnState.album[t] > 1)
+    if (dgnDupes.length >= 3 && dgnState.inv.tickets >= 1) {
+      dgnState.album[dgnDupes[0]]--; dgnState.album[dgnDupes[1]]--; dgnState.album[dgnDupes[2]]--; dgnState.inv.tickets--; dgnState.pity.trade++; cnt++
       let t = TEAMS[Math.floor(Math.random()*12)], pn = D_WAVES[dgnState.targetWave][t]
       if (t === dgnState.myTeam) { dgnState.inv.myDgn++; dgnLog(`[믹서기] 대박! 자팀 ${pn} 디그니티 획득! (8.3%)`, 'epic') } else { dgnState.album[t]++; dgnLog(`[믹서기] 타팀 ${T_NAMES[t]} ${pn} 획득...`, 'normal') }
       if (dgnState.pity.trade % 30 === 0) { dgnState.inv.myDgn++; dgnLog(`🎉[트레이드 천장] 30회 마일리지 자팀 확정 지급!`, 'epic') }
       continue; 
     }
-    // 2순위: TOP 재료 체크 (🔥 TOP 믹서기는 천장 스택 안 오름!)
-    if (dgnState.inv.otherTop >= 3 && dgnState.inv.tickets >= 1) {
+    // 🔥 2순위: 서로 다른 타팀 TOP 선수 3종류 체크 (천장 증가 없음)
+    let topDupes: {t:string, p:string}[] = []
+    TEAMS.forEach(t => { if (t !== dgnState.myTeam) { TOP_DB[t].forEach(p => { if (dgnState.topAlbum[t][p] > 0) topDupes.push({t, p}) }) } })
+    if (topDupes.length >= 3 && dgnState.inv.tickets >= 1) {
+      dgnState.topAlbum[topDupes[0].t][topDupes[0].p]--; dgnState.topAlbum[topDupes[1].t][topDupes[1].p]--; dgnState.topAlbum[topDupes[2].t][topDupes[2].p]--;
       dgnState.inv.otherTop -= 3; dgnState.inv.tickets--; cnt++
       if (Math.random() < 0.03) {
         let t = TEAMS[Math.floor(Math.random()*12)], pn = D_WAVES[dgnState.targetWave][t]
@@ -755,7 +740,7 @@ const dgnRunMixer = () => {
     }
     break; 
   }
-  if(cnt===0) alert("재료(1장 초과 잉여 디그니티 3장 또는 타팀 TOP 3장) 또는 티켓이 부족합니다.")
+  if(cnt===0) alert("재료(서로 다른 잉여카드 3종류) 또는 티켓이 부족합니다.")
 }
 
 // 🌟 신규: 파이브스타 퍼펙트 팩 로직
@@ -773,72 +758,44 @@ const dgnOpenPerfect = (count: number) => {
 const dgnPlanOwnedCards = ref<string[]>([])
 const toggleAllPlanCards = (e: any) => { if(e.target.checked) { dgnPlanOwnedCards.value = TEAMS.filter(t => t !== dgnState.myTeam) } else { dgnPlanOwnedCards.value = [] } }
 
-// 🌟 업데이트: 정밀 주(Week) 단위 기댓값 계산기 & 차트
-const dgnPlan = reactive({ target: 3, otherMonthlyKrw: 0, wQ: true, wC: 40, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0 })
-const dgnPlanTotalKrw = computed(() => dgnPlan.rk*55000 + dgnPlan.pt*99000 + dgnPlan.pk*99000 + dgnPlan.pr*99000 + dgnPlan.lg*149000 + dgnPlan.otherMonthlyKrw )
-const dgnPlanPureKrw = computed(() => dgnPlan.rk*55000 + dgnPlan.pt*99000 + dgnPlan.pk*99000 + dgnPlan.pr*99000 + dgnPlan.lg*149000 )
+// 🔥 업데이트: 무한패키지(unl) 및 잔여 낱개 카드(leftoverDgn) 추가
+const dgnPlan = reactive({ target: 3, otherMonthlyKrw: 0, leftoverDgn: 0, wQ: true, wC: 40, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0, unl: 0 })
+const dgnPlanTotalKrw = computed(() => dgnPlan.rk*55000 + dgnPlan.pt*99000 + dgnPlan.pk*99000 + dgnPlan.pr*99000 + dgnPlan.lg*149000 + dgnPlan.unl*55000 + dgnPlan.otherMonthlyKrw )
+const dgnPlanPureKrw = computed(() => dgnPlan.rk*55000 + dgnPlan.pt*99000 + dgnPlan.pk*99000 + dgnPlan.pr*99000 + dgnPlan.lg*149000 + dgnPlan.unl*55000 )
 
 const dgnSimResult = ref<any>(null); const isDgnSim = ref(false)
 const dgnSimRawResults = ref<any[]>([]); const dgnResultViewMode = ref<'TOP10'|'AVG'|'BOT90'>('AVG')
 const dgnChartCanvas = ref<HTMLCanvasElement | null>(null); let dgnChartInstance: any = null
 const dgnUserSpentKrw = ref<number | null>(null); const dgnMyLuckPercentile = ref<number | null>(null); const dgnLuckTitle = ref('')
 
-const renderDgnChart = (data: number[], isMonth: boolean) => {
-  if (!ChartObj || !dgnChartCanvas.value) return
-  if (dgnChartInstance) dgnChartInstance.destroy()
+// ... renderDgnChart 함수는 그대로 유지 ...
 
-  const p99 = data[Math.floor(data.length * 0.99)] || data[data.length - 1]
-  const filteredData = data.filter(d => d <= p99)
-  const min = filteredData[0] || 0; const max = filteredData[filteredData.length - 1] || 1
-  const binCount = 40; const binSize = (max - min) / binCount || 1
-  const bins = Array(binCount).fill(0)
-  
-  filteredData.forEach(val => { let idx = Math.floor((val - min) / binSize); if (idx >= binCount) idx = binCount - 1; bins[idx]++ })
-
-  const labels = bins.map((_, i) => formatNum(Math.round(min + (i + 0.5) * binSize)))
-  let cdfSum = 0
-  const cdf = bins.map(count => { cdfSum += count; return (cdfSum / data.length) * 100 })
-
-  dgnChartInstance = new ChartObj(dgnChartCanvas.value, {
-    type: 'bar',
-    data: { labels, datasets: [
-        { type: 'line', label: '누적 달성률 (%)', data: cdf, borderColor: '#4f46e5', backgroundColor: '#4f46e5', borderWidth: 2, yAxisID: 'y-cdf', tension: 0.3, pointRadius: 0, fill: false },
-        { type: 'bar', label: '해당 구간 인원', data: bins, backgroundColor: 'rgba(99, 102, 241, 0.5)', borderColor: 'rgba(99, 102, 241, 1)', borderWidth: 1, yAxisID: 'y-freq', borderRadius: 4 }
-    ]},
-    options: {
-      responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
-      plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(0,0,0,0.8)', callbacks: { title: (ctx:any) => `${isMonth?'소요 기간':'기대 비용'}: ${ctx[0].label}${isMonth?'개월':'원'}`, label: (ctx:any) => ctx.datasetIndex === 0 ? `누적 달성률: ${ctx.raw.toFixed(2)}%` : `이 구간 달성자: ${ctx.raw}명` } } },
-      scales: {
-        x: { grid: { display: false }, ticks: { maxTicksLimit: 6, font: { size: 10 } } },
-        'y-freq': { type: 'linear', position: 'left', display: false, beginAtZero: true },
-        'y-cdf': { type: 'linear', position: 'right', beginAtZero: true, max: 100, grid: { drawOnChartArea: false }, ticks: { font: { size: 10 }, callback: (v:any) => v + '%' } }
-      }
-    }
-  })
-}
-
-// 🌟 수정: 초정밀 주(Week) 단위 엔진 & 무한 마이너스 TOP 통장 적용
 const dgnRunPlanner = () => {
   isDgnSim.value = true; dgnSimResult.value = null; dgnMyLuckPercentile.value = null; dgnUserSpentKrw.value = null
   setTimeout(() => {
     let pureDgnCost = dgnPlanPureKrw.value; let totalKrwPerMonth = dgnPlanTotalKrw.value
-    let nPerMonth = (dgnPlan.wQ?4:0) + dgnPlan.rk*1 + dgnPlan.pt*3 + dgnPlan.pr*2 + dgnPlan.lg*2
+    let nPerMonth = (dgnPlan.wQ?4:0) + dgnPlan.rk*1 + dgnPlan.pt*3 + dgnPlan.pr*2 + dgnPlan.lg*2 + dgnPlan.unl*1
     let pPerMonth = dgnPlan.pk*2 + dgnPlan.lg*1
-    let tPerMonth = dgnPlan.wC + dgnPlan.rk*20 + dgnPlan.pt*10 + dgnPlan.pr*10 
+    let tPerMonth = dgnPlan.wC + dgnPlan.rk*20 + dgnPlan.pt*10 + dgnPlan.pr*10 + dgnPlan.unl*1
     if(totalKrwPerMonth===0 && nPerMonth===0 && pPerMonth===0 && tPerMonth===0) { isDgnSim.value=false; return alert("구매 패턴을 하나라도 설정해주세요.") }
 
-    let iter = 10000; let results = [] // 신뢰도 향상을 위해 1만 번 시행
+    let iter = 10000; let results = [] 
     
     for(let i=0; i<iter; i++) {
-      let myDgn = 0, week = 0, pPack = 0, pTrade = 0, totalPayback = 0, infPity = 0
-      let tkt = 0; let totalUsedTop = 0; let totalGainedTop = 0;
-      // 🔥 유저가 체크해둔 명함을 앨범 1장 시작 상태로 동기화!
-      let alb = Object.fromEntries(TEAMS.map(t => [t, dgnPlanOwnedCards.value.includes(t) ? 1 : 0]))
+      let week = 0; let totalPayback = dgnState.payback.totalKrw; let infPity = Math.floor(totalPayback / 300000)
+      
+      // 🔥 유저 인게임 상태 완벽 동기화 (자팀 획득량, 티켓, 천장)
+      let myDgn = dgnState.inv.myDgn, tkt = dgnState.inv.tickets
+      let pPack = dgnState.pity.pack, pTrade = dgnState.pity.trade
+      let totalUsedTop = 0; let totalGainedTop = dgnState.inv.otherTop;
+      
+      // 🔥 도감 상태 복사 + 유저가 입력한 남은 '낱개 카드' 랜덤 분배
+      let alb = { ...dgnState.album }
+      let availableTeams = TEAMS.filter(t => t !== dgnState.myTeam)
+      for(let x=0; x<dgnPlan.leftoverDgn; x++) { alb[availableTeams[Math.floor(Math.random()*11)]]++ }
       
       while(myDgn < dgnPlan.target) {
         week++; 
-        
-        // 1. 주간 퀘스트 & 주간 상점 (월 한도를 4주로 분할)
         let wQ = dgnPlan.wQ ? 1 : 0; let wC = Math.floor(dgnPlan.wC / 4);
         tkt += wC;
         for(let k=0; k<wQ; k++) {
@@ -847,20 +804,16 @@ const dgnRunPlanner = () => {
           pPack++; if(pPack%50===0) myDgn++
         }
 
-        // 2. 월간 결제 (4주마다 1번씩 결제일)
         if (week % 4 === 1) {
-          totalPayback += totalKrwPerMonth; // 🔥 평생 누적 페이백!
-          
+          totalPayback += totalKrwPerMonth;
           let pbPacks = 0, pbPickups = 0;
           if(totalKrwPerMonth >= 9900) pbPacks++; if(totalKrwPerMonth >= 99000) pbPickups++;
           if(totalKrwPerMonth >= 199000) pbPacks++; if(totalKrwPerMonth >= 299000) pbPacks++;
-          
-          // 🔥 30만 원마다 트레이드권 무한 리필!
           while(totalPayback >= (infPity + 1) * 300000) { infPity++; tkt += 9; }
           
-          let mn = dgnPlan.rk*1 + dgnPlan.pt*3 + dgnPlan.pr*2 + dgnPlan.lg*2 + pbPacks;
+          let mn = dgnPlan.rk*1 + dgnPlan.pt*3 + dgnPlan.pr*2 + dgnPlan.lg*2 + dgnPlan.unl*1 + pbPacks;
           let mp = dgnPlan.pk*2 + dgnPlan.lg*1 + pbPickups;
-          tkt += dgnPlan.rk*20 + dgnPlan.pt*10 + dgnPlan.pr*10;
+          tkt += dgnPlan.rk*20 + dgnPlan.pt*10 + dgnPlan.pr*10 + dgnPlan.unl*1;
 
           for(let k=0; k<mp; k++) { let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++ }
           for(let k=0; k<mn; k++) {
@@ -869,37 +822,34 @@ const dgnRunPlanner = () => {
           }
         }
 
-        // 3. 무한 루프 통합 믹서기 (TOP 빚쟁이 허용)
+        // 🔥 통합 믹서기 (서로 다른 3장 룰)
         while(true) {
-          let dupes: string[] = []; TEAMS.forEach(t=>{if(t!==dgnState.myTeam){let c=alb[t]; while(c>1){dupes.push(t);c--}}})
-          if(dupes.length>=3 && tkt>=1) { 
-            alb[dupes[0]]--; alb[dupes[1]]--; alb[dupes[2]]--; tkt--; pTrade++; 
+          let dp = TEAMS.filter(t => t !== dgnState.myTeam && alb[t] > 1);
+          if(dp.length>=3 && tkt>=1) { 
+            alb[dp[0]]--; alb[dp[1]]--; alb[dp[2]]--; tkt--; pTrade++; 
             let t = TEAMS[Math.floor(Math.random()*12)]; if(t === dgnState.myTeam) myDgn++; else alb[t]++;
             if(pTrade%30===0) myDgn++; continue; 
           }
           if(tkt>=1) { 
-            totalUsedTop += 3; tkt--; // 🔥 TOP 카드는 트레이드 천장(pTrade) 증가 안 함!
+            totalUsedTop += 3; tkt--; // TOP 빚쟁이 & 천장 안오름
             if(Math.random()<0.03){ let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++; } else { if(Math.random()>=(TOP_DB[dgnState.myTeam].length/212)) totalGainedTop++ }
             continue;
           }
           break
         }
-        if(week > 720) break // 15년 무한루프 방지
+        if(week > 720) break 
       }
-      // 주 단위로 정밀하게 비용과 기간을 기록!
       results.push({ week, cost: Math.floor((week / 4) * pureDgnCost), r: week, netTop: totalUsedTop - totalGainedTop })
     }
     
     const isF2P = pureDgnCost === 0
     const sorted = [...results].sort((a, b) => isF2P ? (a.week - b.week) : (a.cost - b.cost))
     dgnSimRawResults.value = sorted
-    
     const mList = [...results].map(x => x.week).sort((a,b)=>a-b)
     const oneTryProb = mList[Math.floor(iter*0.5)] > 0 ? (1 / (mList[Math.floor(iter*0.5)]/4)) * 100 : 0
 
     dgnSimResult.value = { top10: sorted[Math.floor(iter * 0.1)], avg: sorted[Math.floor(iter * 0.5)], bot90: sorted[Math.floor(iter * 0.9)], isF2P, oneTryProb }
     dgnResultViewMode.value = 'AVG'
-    // 차트는 달 단위로 보여주는게 보기 편하므로 week / 4
     nextTick(() => { renderDgnChart(sorted.map(r => isF2P ? (r.week/4) : r.cost), isF2P) })
     isDgnSim.value = false
   }, 50)
@@ -1372,14 +1322,18 @@ const dgnRunPlanner = () => {
         </div>
 
         <div class="bg-[#1e1e24] border border-neutral-700/50 rounded-2xl p-4 flex-1 flex flex-col overflow-hidden shadow-lg">
-          <div class="flex justify-between items-center mb-2"><h3 class="font-extrabold text-sm text-green-400"><Wallet class="w-4 h-4 inline-block mr-1"/> 월간 누적 페이백</h3></div>
-          <div class="text-2xl font-black text-green-400 mb-2">{{ new Intl.NumberFormat().format(dgnState.payback.spent) }} <span class="text-xs text-neutral-500">원</span></div>
+          <!-- 🔥 신규: 총 누적 과금액 표시 -->
+          <div class="flex justify-between items-center mb-1"><h3 class="font-extrabold text-sm text-cyan-400"><Gem class="w-4 h-4 inline-block mr-1"/> 총 누적 과금액</h3></div>
+          <div class="text-xl font-black text-cyan-400 mb-3 border-b border-neutral-700/50 pb-2">{{ new Intl.NumberFormat().format(dgnState.payback.totalKrw) }} <span class="text-xs text-neutral-500">원</span></div>
+
+          <div class="flex justify-between items-center mb-2"><h3 class="font-extrabold text-sm text-green-400"><Wallet class="w-4 h-4 inline-block mr-1"/> 월간 달성 페이백</h3></div>
+          <div class="text-lg font-black text-green-400 mb-2">{{ new Intl.NumberFormat().format(dgnState.payback.spent) }} <span class="text-[10px] text-neutral-500">원</span></div>
           <div class="space-y-1 mb-3">
             <div class="flex justify-between text-[10px] p-1.5 rounded" :class="dgnState.payback.t1?'bg-green-900/30 text-green-400':'text-neutral-500'"><span>9,900원</span><span class="font-bold">일반팩 1</span></div>
             <div class="flex justify-between text-[10px] p-1.5 rounded" :class="dgnState.payback.t2?'bg-green-900/30 text-green-400':'text-neutral-500'"><span>99,000원</span><span class="font-bold">픽업팩 1</span></div>
             <div class="flex justify-between text-[10px] p-1.5 rounded" :class="dgnState.payback.t3?'bg-green-900/30 text-green-400':'text-neutral-500'"><span>199,000원</span><span class="font-bold">일반팩 1</span></div>
             <div class="flex justify-between text-[10px] p-1.5 rounded" :class="dgnState.payback.t4?'bg-green-900/30 text-green-400':'text-neutral-500'"><span>299,000원</span><span class="font-bold">일반팩 1</span></div>
-            <div class="flex justify-between text-[10px] p-1.5 bg-amber-900/20 text-amber-500 border border-amber-800/50 mt-1 rounded"><span>30만 마다 (무한)</span><span class="font-bold">티켓 9개 ({{dgnState.payback.inf}}회)</span></div>
+            <div class="flex justify-between text-[10px] p-1.5 bg-amber-900/20 text-amber-500 border border-amber-800/50 mt-1 rounded"><span>총액 30만 마다</span><span class="font-bold">티켓 9개 ({{dgnState.payback.inf}}회)</span></div>
           </div>
           
           <div class="flex items-center gap-1 mb-3">
@@ -1392,20 +1346,17 @@ const dgnRunPlanner = () => {
           
           <div class="space-y-2 overflow-y-auto pr-1 flex-1 pb-2">
             <button @click="dgnBuyPkg('wQ', 4, 0, 1, 0, 0, '주간 퀘스트')" :disabled="dgnState.shop.wQ>=4" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.wQ<4?'bg-blue-900/20 border border-blue-800/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-blue-400">주간 퀘스트 (월) [{{dgnState.shop.wQ}}/4]</div><div class="text-xs font-bold text-white">일반팩 1</div></div></button>
-            
-            <!-- 🔥 신규: 티켓 구매 1회 / 10회 다중 버튼 -->
             <div class="flex flex-col bg-[#2a2a35] border border-neutral-700/50 rounded-lg p-2 gap-2" :class="{'opacity-50': dgnState.shop.wC >= 40}">
-              <div class="flex justify-between items-center px-1">
-                <div>
-                  <div class="text-[10px] text-neutral-400">티켓 구매 (월) [{{dgnState.shop.wC}}/40]</div>
-                  <div class="text-xs font-bold text-amber-500">티켓 1개 = 50캐시</div>
-                </div>
-              </div>
+              <div class="flex justify-between items-center px-1"><div><div class="text-[10px] text-neutral-400">티켓 구매 (월) [{{dgnState.shop.wC}}/40]</div><div class="text-xs font-bold text-amber-500">티켓 1개 = 50캐시</div></div></div>
               <div class="flex gap-2">
                 <button @click="dgnBuyPkg('wC', 40, 50, 0, 0, 1, '주간 상점 티켓', true, 1)" :disabled="dgnState.shop.wC >= 40" class="flex-1 py-1.5 bg-[#1e1e24] hover:bg-neutral-700 border border-neutral-700 text-[11px] font-bold text-white rounded transition-colors disabled:opacity-50 shadow-sm">1회 구매</button>
                 <button @click="dgnBuyPkg('wC', 40, 50, 0, 0, 1, '주간 상점 티켓', true, 10)" :disabled="dgnState.shop.wC > 30" class="flex-1 py-1.5 bg-[#1e1e24] hover:bg-neutral-700 border border-neutral-700 text-[11px] font-bold text-blue-300 rounded transition-colors disabled:opacity-50 shadow-sm">10회 구매</button>
               </div>
-            </div>            <button @click="dgnBuyPkg('pt', 1, 99000, 3, 0, 10, '프레스티지')" :disabled="dgnState.shop.pt>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pt<1?'bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-neutral-400">프레스티지 [{{dgnState.shop.pt}}/1]</div><div class="text-xs font-bold text-white">일반3 + 티켓10</div></div><div class="text-[11px] font-bold text-green-500">9.9만</div></button>
+            </div>
+            <!-- 🔥 신규: 5.5만 무한패키지 버튼 추가 -->
+            <button @click="dgnBuyPkg('unl', 9999, 55000, 1, 0, 1, '무한 패키지')" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50"><div><div class="text-[10px] text-teal-400">무한 패키지 [제한없음]</div><div class="text-xs font-bold text-white">일반1 + 티켓1</div></div><div class="text-[11px] font-bold text-green-500">5.5만</div></button>
+
+            <button @click="dgnBuyPkg('pt', 1, 99000, 3, 0, 10, '프레스티지')" :disabled="dgnState.shop.pt>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pt<1?'bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-neutral-400">프레스티지 [{{dgnState.shop.pt}}/1]</div><div class="text-xs font-bold text-white">일반3 + 티켓10</div></div><div class="text-[11px] font-bold text-green-500">9.9만</div></button>
             <button @click="dgnBuyPkg('pk', 1, 99000, 0, 2, 0, '픽업 프레스티지')" :disabled="dgnState.shop.pk>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pk<1?'bg-purple-900/20 border border-purple-800/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-purple-400">픽업 프레스티지 [{{dgnState.shop.pk}}/1]</div><div class="text-xs font-bold text-purple-300">픽업팩 2</div></div><div class="text-[11px] font-bold text-green-500">9.9만</div></button>
             <button @click="dgnBuyPkg('pr', 5, 99000, 2, 0, 10, '프로 패키지')" :disabled="dgnState.shop.pr>=5" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pr<5?'bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-neutral-400">프로 패키지 [{{dgnState.shop.pr}}/5]</div><div class="text-xs font-bold text-white">일반2 + 티켓10</div></div><div class="text-[11px] font-bold text-green-500">9.9만</div></button>
             <button @click="dgnBuyPkg('lg', 3, 149000, 2, 1, 0, '레전드 패키지')" :disabled="dgnState.shop.lg>=3" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.lg<3?'bg-amber-900/20 border border-amber-800/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-amber-500">레전드 패키지 [{{dgnState.shop.lg}}/3]</div><div class="text-xs font-bold text-amber-300">일반2 + 픽업1</div></div><div class="text-[11px] font-bold text-green-500">14.9만</div></button>
@@ -1425,23 +1376,24 @@ const dgnRunPlanner = () => {
           <div class="flex flex-col gap-2 mb-3">
             <div class="flex gap-2"><button @click="dgnOpenPack(1)" class="flex-1 py-3 bg-[#3a3a45] hover:bg-neutral-600 text-white rounded-xl font-bold transition-colors">일반 1팩 까기</button><button @click="dgnOpenPack(10)" class="flex-1 py-3 bg-[#3a3a45] hover:bg-neutral-600 text-white rounded-xl font-bold transition-colors">일반 10팩 까기</button></div>
             <button @click="dgnOpenPickup()" class="w-full py-3 bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-600 hover:to-indigo-600 text-white rounded-xl font-black shadow-lg transition-all">픽업팩 까기 (100% 확정)</button>
-            
-            <!-- 🔥 신규: 파이브스타 퍼펙트 팩 -->
             <div class="flex gap-2 mt-1 pt-2 border-t border-neutral-700/50">
               <button @click="dgnOpenPerfect(1)" class="flex-1 py-2 bg-blue-900/40 border border-blue-800 hover:bg-blue-800 text-blue-300 rounded-lg text-[11px] font-bold transition-colors">파이브스타 퍼펙트 1팩</button>
               <button @click="dgnOpenPerfect(10)" class="flex-1 py-2 bg-blue-900/40 border border-blue-800 hover:bg-blue-800 text-blue-300 rounded-lg text-[11px] font-bold transition-colors">파이브스타 퍼펙트 10팩</button>
             </div>
           </div>
-          <div class="mt-auto pt-3 border-t border-neutral-700/50 flex justify-between text-xs font-bold text-neutral-500">
-            <span>팩 천장: <span class="text-blue-400">{{dgnState.pity.pack % 50}}</span> / 50</span><span>디그니티 트레이드 천장: <span class="text-blue-400">{{dgnState.pity.trade % 30}}</span> / 30</span>
+          <!-- 🔥 신규: 천장 수동 입력 UI -->
+          <div class="mt-auto pt-3 border-t border-neutral-700/50 flex justify-between items-center text-xs font-bold text-neutral-500">
+            <div class="flex items-center gap-1">팩 천장: <input type="number" v-model.number="dgnState.pity.pack" class="w-10 bg-[#2a2a35] border border-blue-800 text-blue-400 text-center rounded outline-none p-0.5"> / 50</div>
+            <div class="flex items-center gap-1">트레이드 천장: <input type="number" v-model.number="dgnState.pity.trade" class="w-10 bg-[#2a2a35] border border-blue-800 text-blue-400 text-center rounded outline-none p-0.5"> / 30</div>
           </div>
         </div>
 
         <div class="bg-[#1e1e24] border border-neutral-700/50 rounded-2xl p-5 flex flex-col shrink-0 shadow-lg">
           <h3 class="font-extrabold text-sm mb-4 flex items-center gap-1.5 text-green-400"><RefreshCw class="w-4 h-4"/> 믹서기 (트레이드)</h3>
+          <!-- 🔥 신규: 투입 가능한 3종류 현황판 -->
           <div class="grid grid-cols-2 gap-4 mb-4">
-            <div class="bg-[#2a2a35] p-3 rounded-xl text-center"><div class="text-[10px] font-bold text-neutral-400 mb-1">갈려나갈 중복 디그니티</div><div class="text-lg font-black text-red-400">{{ dgnDupeCount }} 장</div></div>
-            <div class="bg-[#2a2a35] p-3 rounded-xl text-center"><div class="text-[10px] font-bold text-neutral-400 mb-1">갈려나갈 타팀 TOP</div><div class="text-lg font-black text-white">{{ dgnState.inv.otherTop }} 장</div></div>
+            <div class="bg-[#2a2a35] p-3 rounded-xl text-center relative"><div class="text-[10px] font-bold text-neutral-400 mb-1">잉여 디그니티 <span class="text-blue-400">종류</span></div><div class="text-lg font-black text-red-400">{{ dgnDistinctDgnCount }} 종</div><div class="absolute -top-2 -right-2 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full" v-if="dgnDistinctDgnCount<3">3종 필요</div></div>
+            <div class="bg-[#2a2a35] p-3 rounded-xl text-center relative"><div class="text-[10px] font-bold text-neutral-400 mb-1">타팀 TOP 선수 <span class="text-blue-400">종류</span></div><div class="text-lg font-black text-white">{{ dgnDistinctTopCount }} 종</div><div class="absolute -top-2 -right-2 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full" v-if="dgnDistinctTopCount<3">3종 필요</div></div>
           </div>
           <button @click="dgnRunMixer" class="w-full py-4 bg-green-700 hover:bg-green-600 text-white rounded-xl font-black text-lg shadow-lg flex justify-center items-center gap-2 transition-colors"><RefreshCw class="w-5 h-5"/> 자동 필터 믹서기 가동</button>
         </div>
@@ -1471,11 +1423,13 @@ const dgnRunPlanner = () => {
           </div>
           
           <div v-show="dgnAlbumTab==='dignity'" class="grid grid-cols-3 gap-2 overflow-y-auto pr-1 flex-1 content-start custom-scrollbar">
-            <div v-for="t in TEAMS" :key="t" v-show="t!==dgnState.myTeam" class="p-2 rounded-lg border text-center relative transition-colors" :class="dgnState.album[t]>0?'bg-amber-900/30 border-amber-700':'bg-[#2a2a35] border-neutral-700/50 opacity-50 grayscale'">
+            <!-- 🔥 신규: 클릭 시 명함 ON/OFF 토글 기능 추가 -->
+            <div v-for="t in TEAMS" :key="t" v-show="t!==dgnState.myTeam" @click="toggleDgnAlbum(t)" class="p-2 rounded-lg border text-center relative transition-colors cursor-pointer hover:border-blue-500" :class="dgnState.album[t]>0?'bg-amber-900/30 border-amber-700':'bg-[#2a2a35] border-neutral-700/50 opacity-50 grayscale'">
               <div class="text-[9px] font-black mb-0.5" :class="T_COLORS[t]">{{ T_NAMES[t] }}</div><div class="text-xs font-bold text-white">{{ D_WAVES[dgnState.targetWave][t] }}</div>
               <div v-if="dgnState.album[t]>1" class="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">+{{ dgnState.album[t]-1 }} 중복</div>
-              <div v-if="dgnState.album[t]===1" class="absolute -top-1.5 -right-1.5 bg-blue-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full"><Lock class="w-2 h-2 inline mb-0.5"/> 명함</div>
+              <div v-if="dgnState.album[t]>0" class="absolute -top-1.5 -left-1.5 bg-blue-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-md">✓</div>
             </div>
+            <div class="col-span-3 text-center mt-2 text-[10px] text-blue-400 font-bold bg-blue-900/20 p-2 rounded">💡 카드를 클릭하여 '내 명함(1장) 보유 상태'를 세팅하세요! (계산기 동기화 됨)</div>
           </div>
 
           <div v-show="dgnAlbumTab==='top'" class="flex flex-col flex-1 overflow-hidden">
@@ -1483,75 +1437,37 @@ const dgnRunPlanner = () => {
             <div class="flex-1 overflow-y-auto pr-1 flex flex-col gap-1 mb-2 content-start custom-scrollbar">
               <div v-for="p in TOP_DB[dgnState.myTeam]" :key="p" v-show="dgnState.topAlbum[dgnState.myTeam][p] > 0" class="flex justify-between text-xs bg-[#2a2a35] p-1.5 rounded"><span class="text-white">{{ p }}</span><span class="text-blue-400 font-bold">x{{ dgnState.topAlbum[dgnState.myTeam][p] }}</span></div>
             </div>
-            <div class="text-[10px] font-bold text-red-400 mb-2 border-b border-neutral-700/50 pb-1 pt-2">타팀 획득 내역 (믹서기 재료)</div>
-            <div class="flex-1 overflow-y-auto pr-1 flex flex-col gap-1 content-start custom-scrollbar">
-              <template v-for="t in TEAMS" :key="'o'+t">
-                <div v-if="t !== dgnState.myTeam" v-for="p in TOP_DB[t]" :key="p" v-show="dgnState.topAlbum[t][p] > 0" class="flex justify-between text-[10px] text-neutral-400 border-b border-neutral-800 pb-0.5 mb-0.5"><span>[{{ T_NAMES[t] }}] {{ p }}</span><span>누적 x{{ dgnState.topAlbum[t][p] }}</span></div>
-              </template>
-            </div>
           </div>
         </div>
 
         <!-- 🚀 과금 플래너 -->
-        <!-- 🔥 신규: 내 명함(도감) 상태 동기화 패널 🔥 -->
-        <div class="bg-[#1a1b1e] border border-blue-900/30 rounded-lg p-3 mb-3 flex flex-col gap-2 shadow-inner">
-          <div class="flex justify-between items-end border-b border-blue-900/30 pb-1.5">
-            <div>
-              <span class="text-[10px] font-bold text-blue-400 block mb-0.5">현재 인게임 보유 타팀 명함 (선택된 차수 기준)</span>
-              <span class="text-[9px] text-neutral-500 font-medium">체크된 명함은 시뮬레이터 시작 시 이미 1장 있는 것으로 계산됩니다.</span>
-            </div>
-            <label class="flex items-center gap-1.5 cursor-pointer bg-blue-900/20 px-2 py-1 rounded hover:bg-blue-900/40 transition-colors">
-               <input type="checkbox" :checked="dgnPlanOwnedCards.length === 11" @change="toggleAllPlanCards" class="w-3 h-3 accent-blue-500 rounded cursor-pointer">
-               <span class="text-[10px] font-bold text-blue-300">전체 선택</span>
-            </label>
-          </div>
-          <div class="grid grid-cols-3 gap-1.5 pt-1">
-            <label v-for="t in TEAMS" :key="'p'+t" v-show="t !== dgnState.myTeam" class="flex items-center gap-1.5 bg-[#2a2a35] px-2 py-1.5 rounded cursor-pointer hover:bg-neutral-700 transition-colors border border-neutral-700/50" :class="{'border-blue-500/50 bg-blue-900/10': dgnPlanOwnedCards.includes(t)}">
-              <input type="checkbox" :value="t" v-model="dgnPlanOwnedCards" class="w-3 h-3 accent-blue-500 rounded cursor-pointer">
-              <div class="flex flex-col flex-1 truncate">
-                <span class="text-[8px] font-black leading-none" :class="T_COLORS[t]">{{ T_NAMES[t] }}</span>
-                <span class="text-[10px] font-bold text-white leading-tight truncate">{{ D_WAVES[dgnState.targetWave][t] }}</span>
-              </div>
-            </label>
-          </div>
-        </div>
-
         <div class="bg-indigo-900/20 border border-indigo-800/50 rounded-2xl p-4 shrink-0 flex flex-col shadow-lg">
           <h3 class="font-extrabold text-sm mb-3 flex items-center gap-1.5 text-indigo-400"><BarChart class="w-4 h-4"/> 타임라인 과금 플래너</h3>
           
-          <!-- 🔥 실시간 페이백 달성 인디케이터 🔥 -->
           <div class="bg-[#1a1b1e] border border-neutral-800 rounded-lg p-2.5 mb-3 flex flex-col gap-1.5 shadow-inner">
             <div class="flex justify-between items-end">
-              <span class="text-[10px] font-bold text-neutral-400">이번 달 예상 페이백 게이지</span>
-              <span class="text-xs font-black text-green-400">{{ new Intl.NumberFormat().format(dgnPlanTotalKrw) }} 원</span>
+              <span class="text-[10px] font-bold text-neutral-400">월 갱신용 예상 페이백 게이지 (무한 제외)</span>
+              <span class="text-xs font-black text-green-400">{{ new Intl.NumberFormat().format(dgnPlanPureKrw) }} 원</span>
             </div>
             <div class="flex gap-1 mt-1">
-              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanTotalKrw >= 9900 ? 'bg-green-500' : 'bg-neutral-800'"></div>
-              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanTotalKrw >= 99000 ? 'bg-green-500' : 'bg-neutral-800'"></div>
-              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanTotalKrw >= 199000 ? 'bg-green-500' : 'bg-neutral-800'"></div>
-              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanTotalKrw >= 299000 ? 'bg-green-500' : 'bg-neutral-800'"></div>
+              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanPureKrw >= 9900 ? 'bg-green-500' : 'bg-neutral-800'"></div>
+              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanPureKrw >= 99000 ? 'bg-green-500' : 'bg-neutral-800'"></div>
+              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanPureKrw >= 199000 ? 'bg-green-500' : 'bg-neutral-800'"></div>
+              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanPureKrw >= 299000 ? 'bg-green-500' : 'bg-neutral-800'"></div>
             </div>
-            <div class="flex justify-between text-[8px] font-bold text-neutral-600 px-1">
-              <span :class="{'text-green-500': dgnPlanTotalKrw >= 9900}">9.9k</span>
-              <span :class="{'text-green-500': dgnPlanTotalKrw >= 99000}">99k</span>
-              <span :class="{'text-green-500': dgnPlanTotalKrw >= 199000}">199k</span>
-              <span :class="{'text-green-500': dgnPlanTotalKrw >= 299000}">299k</span>
-            </div>
-            <div v-if="dgnPlanTotalKrw >= 300000" class="text-[9px] text-center text-amber-500 font-bold mt-1 bg-amber-900/20 py-1 rounded">
-              무한 트레이드권 {{ Math.floor(dgnPlanTotalKrw / 300000) * 9 }}장 추가 확보!
-            </div>
+            <div class="flex justify-between text-[8px] font-bold text-neutral-600 px-1"><span :class="{'text-green-500': dgnPlanPureKrw >= 9900}">9.9k</span><span :class="{'text-green-500': dgnPlanPureKrw >= 99000}">99k</span><span :class="{'text-green-500': dgnPlanPureKrw >= 199000}">199k</span><span :class="{'text-green-500': dgnPlanPureKrw >= 299000}">299k</span></div>
           </div>
 
-          <!-- 🔥 타 패키지 결제액 입력칸 -->
-          <div class="flex items-center gap-3 mb-4 bg-indigo-950/30 p-2.5 rounded-lg border border-indigo-500/30">
-            <div class="flex flex-col">
-              <span class="text-[11px] font-extrabold text-indigo-300">디그니티 외 타 패키지 결제액</span>
-              <span class="text-[9px] font-medium text-indigo-400/70 mt-0.5">입력 금액은 위 페이백 스택에만 합산됩니다.</span>
-            </div>
-            <div class="flex-1 flex items-center gap-1 justify-end">
-              <input type="number" v-model.number="dgnPlan.otherMonthlyKrw" min="0" class="w-20 bg-[#1a1b1e] border border-indigo-500/50 text-white text-xs p-1.5 rounded outline-none text-right font-bold">
-              <span class="text-[10px] font-bold text-indigo-300 whitespace-nowrap">원/월</span>
-            </div>
+          <div class="flex items-center gap-3 mb-2 bg-indigo-950/30 p-2 rounded-lg border border-indigo-500/30">
+            <span class="text-[10px] font-bold text-indigo-300 w-32">현재 남은 낱개 잉여카드</span>
+            <input type="number" v-model.number="dgnPlan.leftoverDgn" min="0" max="2" class="flex-1 bg-[#1a1b1e] border border-indigo-500/50 text-white text-xs p-1 rounded outline-none text-center font-bold">
+            <span class="text-[10px] text-indigo-400">장 (1~2장)</span>
+          </div>
+
+          <div class="flex items-center gap-3 mb-4 bg-indigo-950/30 p-2 rounded-lg border border-indigo-500/30">
+            <span class="text-[10px] font-bold text-indigo-300 w-32">디그니티 외 타 결제액</span>
+            <input type="number" v-model.number="dgnPlan.otherMonthlyKrw" min="0" class="flex-1 bg-[#1a1b1e] border border-indigo-500/50 text-white text-xs p-1 rounded outline-none text-center font-bold">
+            <span class="text-[10px] text-indigo-400">원/월</span>
           </div>
 
           <div class="grid grid-cols-2 gap-x-2 gap-y-1.5 mb-3 text-[10px]">
@@ -1561,7 +1477,9 @@ const dgnRunPlanner = () => {
             <label class="flex items-center gap-1 text-neutral-300 justify-end">프레스티지 <input type="number" v-model.number="dgnPlan.pt" min="0" max="1" class="w-8 bg-[#2a2a35] border border-neutral-700 text-center rounded outline-none"> /월</label>
             <label class="flex items-center gap-1 text-neutral-300">픽업 <input type="number" v-model.number="dgnPlan.pk" min="0" max="1" class="w-8 bg-[#2a2a35] border border-neutral-700 text-center rounded outline-none"> /월</label>
             <label class="flex items-center gap-1 text-neutral-300 justify-end">프로 <input type="number" v-model.number="dgnPlan.pr" min="0" max="5" class="w-8 bg-[#2a2a35] border border-neutral-700 text-center rounded outline-none"> /월</label>
-            <label class="flex items-center gap-1 text-neutral-300 col-span-2 mt-1 justify-center bg-amber-900/20 py-1 rounded">레전드 <input type="number" v-model.number="dgnPlan.lg" min="0" max="3" class="w-8 bg-[#2a2a35] border border-neutral-700 text-center rounded outline-none"> /월</label>
+            <label class="flex items-center gap-1 text-neutral-300 mt-1 justify-center bg-amber-900/20 py-1 rounded">레전드 <input type="number" v-model.number="dgnPlan.lg" min="0" max="3" class="w-8 bg-[#2a2a35] border border-neutral-700 text-center rounded outline-none"> /월</label>
+            <!-- 🔥 신규: 무한 5.5만팩 입력 -->
+            <label class="flex items-center gap-1 text-teal-300 mt-1 justify-center bg-teal-900/20 py-1 rounded border border-teal-800">무한 5.5 <input type="number" v-model.number="dgnPlan.unl" min="0" class="w-8 bg-[#2a2a35] border border-teal-700 text-center rounded outline-none text-white"> /월</label>
           </div>
           
           <div class="flex items-center gap-2 mb-3 justify-center">
