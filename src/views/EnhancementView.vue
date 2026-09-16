@@ -643,7 +643,7 @@ const dgnLog = (msg: string, type: 'normal'|'success'|'fail'|'action'|'epic' = '
 
 const dgnResetAll = () => {
   if(!confirm("모든 시뮬레이션 데이터를 초기화하시겠습니까?")) return
-  dgnState.month = 1; dgnState.inv = { normal: 0, pickup: 0, tickets: 0, myDgn: 0, myTop: 0, otherTop: 0, cash: 1000 }
+  dgnState.month = 1; dgnState.inv = { normal: 0, pickup: 0, tickets: 0, myDgn: 0, myTop: 0, otherTop: 0, cash: 0 }
   TEAMS.forEach(t => dgnState.album[t] = 0)
   TEAMS.forEach(t => TOP_DB[t].forEach(p => dgnState.topAlbum[t][p] = 0))
   dgnState.shop = { wQ: 0, wC: 0, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0 }
@@ -687,17 +687,19 @@ const dgnAddManualPayback = () => {
   dgnProcessPayback() 
 }
 
-const dgnBuyPkg = (key: keyof typeof dgnState.shop, limit: number, price: number, n: number, p: number, t: number, name: string, isCash: boolean = false) => {
-  if (dgnState.shop[key] >= limit) return alert("구매 횟수를 모두 소진했습니다.")
+// 🌟 수정: purchaseCount(구매 수량) 파라미터 추가 & 캐시 누적 로직 
+const dgnBuyPkg = (key: keyof typeof dgnState.shop, limit: number, price: number, n: number, p: number, t: number, name: string, isCash: boolean = false, purchaseCount: number = 1) => {
+  if (dgnState.shop[key] + purchaseCount > limit) return alert(`남은 구매 가능 횟수가 부족합니다. (남은 횟수: ${limit - dgnState.shop[key]}회)`)
+  
   if (isCash) {
-    dgnState.inv.cash += price // 캐시 소모량 누적
+    dgnState.inv.cash += (price * purchaseCount) // 💡 캐시는 뺄셈이 아닌 누적 소모량으로 덧셈 처리!
   } else {
-    dgnState.payback.spent += price // 원화(KRW)일 때만 페이백 증가
+    dgnState.payback.spent += (price * purchaseCount) 
   }
   
-  dgnState.shop[key]++
-  dgnState.inv.normal += n; dgnState.inv.pickup += p; dgnState.inv.tickets += t
-  dgnLog(`[상점] ${name} 구매! (-${price}${isCash?'캐시':'원'})`, 'action')
+  dgnState.shop[key] += purchaseCount
+  dgnState.inv.normal += (n * purchaseCount); dgnState.inv.pickup += (p * purchaseCount); dgnState.inv.tickets += (t * purchaseCount)
+  dgnLog(`[상점] ${name} ${purchaseCount}회 구매! (${isCash?'캐시 누적':'원화'}: ${price * purchaseCount}${isCash?'💎':'원'})`, 'action')
   if(!isCash) dgnProcessPayback()
 }
 
@@ -1379,12 +1381,24 @@ const dgnRunPlanner = () => {
           </div>
 
           <h3 class="font-extrabold text-sm mb-2 text-neutral-300 pt-3 border-t border-neutral-700/50"><ShoppingCart class="w-4 h-4 inline-block mr-1"/> 인게임 상점</h3>
-          <div class="flex justify-between text-[10px] text-neutral-400 mb-2 px-1"><span>이번 달 소모 캐시:</span> <span class="text-purple-400 font-bold">{{ dgnState.inv.cash }} 💎</span></div>
+          <div class="flex justify-between text-[10px] text-neutral-400 mb-2 px-1"><span>총 누적 소모 캐시:</span> <span class="text-purple-400 font-bold">{{ new Intl.NumberFormat().format(dgnState.inv.cash) }} 💎</span></div>
           
-          <div class="space-y-2 overflow-y-auto pr-1 flex-1">
+          <div class="space-y-2 overflow-y-auto pr-1 flex-1 pb-2">
             <button @click="dgnBuyPkg('wQ', 4, 0, 1, 0, 0, '주간 퀘스트')" :disabled="dgnState.shop.wQ>=4" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.wQ<4?'bg-blue-900/20 border border-blue-800/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-blue-400">주간 퀘스트 (월) [{{dgnState.shop.wQ}}/4]</div><div class="text-xs font-bold text-white">일반팩 1</div></div></button>
-            <button @click="dgnBuyPkg('wC', 40, 50, 0, 0, 1, '주간 상점 티켓', true)" :disabled="dgnState.shop.wC>=40" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.wC<40?'bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-neutral-400">티켓 구매 (월) [{{dgnState.shop.wC}}/40]</div><div class="text-xs font-bold text-amber-500">티켓 1</div></div><div class="text-[11px] font-bold text-blue-300">50캐시</div></button>            <button @click="dgnBuyPkg('rk', 1, 55000, 1, 0, 20, '루키 패키지')" :disabled="dgnState.shop.rk>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.rk<1?'bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-neutral-400">루키 패키지 [{{dgnState.shop.rk}}/1]</div><div class="text-xs font-bold text-white">일반1 + 티켓20</div></div><div class="text-[11px] font-bold text-green-500">5.5만</div></button>
-            <button @click="dgnBuyPkg('pt', 1, 99000, 3, 0, 10, '프레스티지')" :disabled="dgnState.shop.pt>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pt<1?'bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-neutral-400">프레스티지 [{{dgnState.shop.pt}}/1]</div><div class="text-xs font-bold text-white">일반3 + 티켓10</div></div><div class="text-[11px] font-bold text-green-500">9.9만</div></button>
+            
+            <!-- 🔥 신규: 티켓 구매 1회 / 10회 다중 버튼 -->
+            <div class="flex flex-col bg-[#2a2a35] border border-neutral-700/50 rounded-lg p-2 gap-2" :class="{'opacity-50': dgnState.shop.wC >= 40}">
+              <div class="flex justify-between items-center px-1">
+                <div>
+                  <div class="text-[10px] text-neutral-400">티켓 구매 (월) [{{dgnState.shop.wC}}/40]</div>
+                  <div class="text-xs font-bold text-amber-500">티켓 1개 = 50캐시</div>
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <button @click="dgnBuyPkg('wC', 40, 50, 0, 0, 1, '주간 상점 티켓', true, 1)" :disabled="dgnState.shop.wC >= 40" class="flex-1 py-1.5 bg-[#1e1e24] hover:bg-neutral-700 border border-neutral-700 text-[11px] font-bold text-white rounded transition-colors disabled:opacity-50 shadow-sm">1회 구매</button>
+                <button @click="dgnBuyPkg('wC', 40, 50, 0, 0, 1, '주간 상점 티켓', true, 10)" :disabled="dgnState.shop.wC > 30" class="flex-1 py-1.5 bg-[#1e1e24] hover:bg-neutral-700 border border-neutral-700 text-[11px] font-bold text-blue-300 rounded transition-colors disabled:opacity-50 shadow-sm">10회 구매</button>
+              </div>
+            </div>            <button @click="dgnBuyPkg('pt', 1, 99000, 3, 0, 10, '프레스티지')" :disabled="dgnState.shop.pt>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pt<1?'bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-neutral-400">프레스티지 [{{dgnState.shop.pt}}/1]</div><div class="text-xs font-bold text-white">일반3 + 티켓10</div></div><div class="text-[11px] font-bold text-green-500">9.9만</div></button>
             <button @click="dgnBuyPkg('pk', 1, 99000, 0, 2, 0, '픽업 프레스티지')" :disabled="dgnState.shop.pk>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pk<1?'bg-purple-900/20 border border-purple-800/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-purple-400">픽업 프레스티지 [{{dgnState.shop.pk}}/1]</div><div class="text-xs font-bold text-purple-300">픽업팩 2</div></div><div class="text-[11px] font-bold text-green-500">9.9만</div></button>
             <button @click="dgnBuyPkg('pr', 5, 99000, 2, 0, 10, '프로 패키지')" :disabled="dgnState.shop.pr>=5" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pr<5?'bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-neutral-400">프로 패키지 [{{dgnState.shop.pr}}/5]</div><div class="text-xs font-bold text-white">일반2 + 티켓10</div></div><div class="text-[11px] font-bold text-green-500">9.9만</div></button>
             <button @click="dgnBuyPkg('lg', 3, 149000, 2, 1, 0, '레전드 패키지')" :disabled="dgnState.shop.lg>=3" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.lg<3?'bg-amber-900/20 border border-amber-800/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-amber-500">레전드 패키지 [{{dgnState.shop.lg}}/3]</div><div class="text-xs font-bold text-amber-300">일반2 + 픽업1</div></div><div class="text-[11px] font-bold text-green-500">14.9만</div></button>
@@ -1473,11 +1487,42 @@ const dgnRunPlanner = () => {
 
         <!-- 🚀 과금 플래너 -->
         <div class="bg-indigo-900/20 border border-indigo-800/50 rounded-2xl p-4 shrink-0 flex flex-col shadow-lg">
-          <h3 class="font-extrabold text-sm mb-2 flex items-center gap-1.5 text-indigo-400"><BarChart class="w-4 h-4"/> 타임라인 과금 플래너</h3>
-          <div class="text-[10px] text-indigo-200/50 mb-3 leading-tight">순수 디그니티 비용(기대값) 산출을 위해 매월 유지할 타 패키지(월정액 등) 금액을 입력하세요. 이 금액은 페이백 스택에만 합산됩니다.</div>
+          <h3 class="font-extrabold text-sm mb-3 flex items-center gap-1.5 text-indigo-400"><BarChart class="w-4 h-4"/> 타임라인 과금 플래너</h3>
           
-          <!-- 🔥 신규: 실시간 페이백 달성 인디케이터 🔥 -->
-          <div class="bg-[#1a1b1e] border border-neutral-800 rounded-lg p-2.5 mb-3 flex flex-col gap-1.5">
+          <!-- 🔥 실시간 페이백 달성 인디케이터 🔥 -->
+          <div class="bg-[#1a1b1e] border border-neutral-800 rounded-lg p-2.5 mb-3 flex flex-col gap-1.5 shadow-inner">
+            <div class="flex justify-between items-end">
+              <span class="text-[10px] font-bold text-neutral-400">이번 달 예상 페이백 게이지</span>
+              <span class="text-xs font-black text-green-400">{{ new Intl.NumberFormat().format(dgnPlanTotalKrw) }} 원</span>
+            </div>
+            <div class="flex gap-1 mt-1">
+              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanTotalKrw >= 9900 ? 'bg-green-500' : 'bg-neutral-800'"></div>
+              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanTotalKrw >= 99000 ? 'bg-green-500' : 'bg-neutral-800'"></div>
+              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanTotalKrw >= 199000 ? 'bg-green-500' : 'bg-neutral-800'"></div>
+              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanTotalKrw >= 299000 ? 'bg-green-500' : 'bg-neutral-800'"></div>
+            </div>
+            <div class="flex justify-between text-[8px] font-bold text-neutral-600 px-1">
+              <span :class="{'text-green-500': dgnPlanTotalKrw >= 9900}">9.9k</span>
+              <span :class="{'text-green-500': dgnPlanTotalKrw >= 99000}">99k</span>
+              <span :class="{'text-green-500': dgnPlanTotalKrw >= 199000}">199k</span>
+              <span :class="{'text-green-500': dgnPlanTotalKrw >= 299000}">299k</span>
+            </div>
+            <div v-if="dgnPlanTotalKrw >= 300000" class="text-[9px] text-center text-amber-500 font-bold mt-1 bg-amber-900/20 py-1 rounded">
+              무한 트레이드권 {{ Math.floor(dgnPlanTotalKrw / 300000) * 9 }}장 추가 확보!
+            </div>
+          </div>
+
+          <!-- 🔥 신규: 타 패키지 결제액 입력칸 (게이지 밑으로 이동) -->
+          <div class="flex items-center gap-3 mb-4 bg-indigo-950/30 p-2.5 rounded-lg border border-indigo-500/30">
+            <div class="flex flex-col">
+              <span class="text-[11px] font-extrabold text-indigo-300">디그니티 외 타 패키지 결제액</span>
+              <span class="text-[9px] font-medium text-indigo-400/70 mt-0.5">입력 금액은 위 페이백 스택에만 합산됩니다.</span>
+            </div>
+            <div class="flex-1 flex items-center gap-1 justify-end">
+              <input type="number" v-model.number="dgnPlan.otherMonthlyKrw" min="0" class="w-20 bg-[#1a1b1e] border border-indigo-500/50 text-white text-xs p-1.5 rounded outline-none text-right font-bold">
+              <span class="text-[10px] font-bold text-indigo-300 whitespace-nowrap">원/월</span>
+            </div>
+          </div>
             <div class="flex justify-between items-end">
               <span class="text-[10px] font-bold text-neutral-400">이번 달 예상 페이백 게이지</span>
               <span class="text-xs font-black text-green-400">{{ new Intl.NumberFormat().format(dgnPlanTotalKrw) }} 원</span>
