@@ -754,41 +754,105 @@ const dgnRunMixer = () => {
   if(cnt===0) alert("재료(중복 디그니티 3장 또는 타팀 TOP 3장) 또는 티켓이 부족합니다.")
 }
 
-// 기댓값 계산기 (과금 플래너)
+// 🌟 신규: 파이브스타 퍼펙트 팩 로직
+const dgnOpenPerfect = (count: number) => {
+  for (let i = 0; i < count; i++) {
+    for (let j = 0; j < 8; j++) {
+      let top = ALL_TOPS[Math.floor(Math.random() * 212)]
+      if (top.team === dgnState.myTeam) {
+        dgnState.inv.myTop++; dgnState.topAlbum[top.team][top.name]++
+      } else {
+        dgnState.inv.otherTop++; dgnState.topAlbum[top.team][top.name]++
+      }
+    }
+  }
+  dgnLog(`[파이브스타 퍼펙트 팩] ${count}팩 개봉 (TOP ${count * 8}장 획득!)`, 'action')
+}
+
+// 🌟 업데이트: 정밀 기댓값 계산기 & 차트 (과금 플래너)
 const dgnPlan = reactive({ target: 3, otherMonthlyKrw: 0, wQ: true, wC: 10, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0 })
+const dgnPlanTotalKrw = computed(() => dgnPlan.rk*55000 + dgnPlan.pt*99000 + dgnPlan.pk*99000 + dgnPlan.pr*99000 + dgnPlan.lg*149000 + dgnPlan.otherMonthlyKrw )
+const dgnPlanPureKrw = computed(() => dgnPlan.rk*55000 + dgnPlan.pt*99000 + dgnPlan.pk*99000 + dgnPlan.pr*99000 + dgnPlan.lg*149000 )
+
 const dgnSimResult = ref<any>(null); const isDgnSim = ref(false)
+const dgnSimRawResults = ref<any[]>([]); const dgnResultViewMode = ref<'TOP10'|'AVG'|'BOT90'>('AVG')
+const dgnChartCanvas = ref<HTMLCanvasElement | null>(null); let dgnChartInstance: any = null
+const dgnUserSpentKrw = ref<number | null>(null); const dgnMyLuckPercentile = ref<number | null>(null); const dgnLuckTitle = ref('')
+
+const renderDgnChart = (data: number[], isMonth: boolean) => {
+  if (!ChartObj || !dgnChartCanvas.value) return
+  if (dgnChartInstance) dgnChartInstance.destroy()
+
+  const p99 = data[Math.floor(data.length * 0.99)] || data[data.length - 1]
+  const filteredData = data.filter(d => d <= p99)
+  const min = filteredData[0] || 0; const max = filteredData[filteredData.length - 1] || 1
+  const binCount = 40; const binSize = (max - min) / binCount || 1
+  const bins = Array(binCount).fill(0)
+  
+  filteredData.forEach(val => { let idx = Math.floor((val - min) / binSize); if (idx >= binCount) idx = binCount - 1; bins[idx]++ })
+
+  const labels = bins.map((_, i) => formatNum(Math.round(min + (i + 0.5) * binSize)))
+  let cdfSum = 0
+  const cdf = bins.map(count => { cdfSum += count; return (cdfSum / data.length) * 100 })
+
+  dgnChartInstance = new ChartObj(dgnChartCanvas.value, {
+    type: 'bar',
+    data: { labels, datasets: [
+        { type: 'line', label: '누적 달성률 (%)', data: cdf, borderColor: '#4f46e5', backgroundColor: '#4f46e5', borderWidth: 2, yAxisID: 'y-cdf', tension: 0.3, pointRadius: 0, fill: false },
+        { type: 'bar', label: '해당 구간 인원', data: bins, backgroundColor: 'rgba(99, 102, 241, 0.5)', borderColor: 'rgba(99, 102, 241, 1)', borderWidth: 1, yAxisID: 'y-freq', borderRadius: 4 }
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(0,0,0,0.8)', callbacks: { title: (ctx:any) => `${isMonth?'소요 기간':'기대 비용'}: ${ctx[0].label}${isMonth?'개월':'원'}`, label: (ctx:any) => ctx.datasetIndex === 0 ? `누적 달성률: ${ctx.raw.toFixed(2)}%` : `이 구간 달성자: ${ctx.raw}명` } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { maxTicksLimit: 6, font: { size: 10 } } },
+        'y-freq': { type: 'linear', position: 'left', display: false, beginAtZero: true },
+        'y-cdf': { type: 'linear', position: 'right', beginAtZero: true, max: 100, grid: { drawOnChartArea: false }, ticks: { font: { size: 10 }, callback: (v:any) => v + '%' } }
+      }
+    }
+  })
+}
+
+const dgnCheckMyLuck = () => {
+  if (dgnUserSpentKrw.value === null || dgnSimRawResults.value.length === 0) return alert("시뮬레이션을 먼저 가동한 후 값을 입력해주세요.")
+  const isF2P = dgnPlanPureKrw.value === 0
+  const val = dgnUserSpentKrw.value
+  let rankIndex = dgnSimRawResults.value.findIndex(r => (isF2P ? r.month : r.cost) >= val)
+  if (rankIndex === -1) rankIndex = dgnSimRawResults.value.length
+  
+  const pct = (rankIndex / dgnSimRawResults.value.length) * 100
+  dgnMyLuckPercentile.value = parseFloat(pct.toFixed(2))
+  
+  if (pct <= 5) dgnLuckTitle.value = "기만 멈춰! 초특급 비틱 💎"
+  else if (pct <= 20) dgnLuckTitle.value = "될놈될! 꽤 운이 좋네요 🍀"
+  else if (pct <= 50) dgnLuckTitle.value = "평타 쳤습니다! 무난하네요 👍"
+  else if (pct <= 85) dgnLuckTitle.value = "조금 억까 당하셨군요... 🥲"
+  else dgnLuckTitle.value = "흑우 등장... 에프가 사랑합니다 😭"
+}
 
 const dgnRunPlanner = () => {
-  isDgnSim.value = true; setTimeout(() => {
-    // 디그니티 전용 패키지 비용 (순수 비용)
-    let pureDgnCost = dgnPlan.rk*55000 + dgnPlan.pt*99000 + dgnPlan.pk*99000 + dgnPlan.pr*99000 + dgnPlan.lg*149000
-    // 페이백 게이지용 전체 비용 (순수 비용 + 타 패키지 비용)
-    let totalKrwPerMonth = pureDgnCost + dgnPlan.otherMonthlyKrw
-    
+  isDgnSim.value = true; dgnSimResult.value = null; dgnMyLuckPercentile.value = null; dgnUserSpentKrw.value = null
+  setTimeout(() => {
+    let pureDgnCost = dgnPlanPureKrw.value; let totalKrwPerMonth = dgnPlanTotalKrw.value
     let nPerMonth = (dgnPlan.wQ?4:0) + dgnPlan.rk*1 + dgnPlan.pt*3 + dgnPlan.pr*2 + dgnPlan.lg*2
     let pPerMonth = dgnPlan.pk*2 + dgnPlan.lg*1
     let tPerMonth = (dgnPlan.wC*4) + dgnPlan.rk*20 + dgnPlan.pt*10 + dgnPlan.pr*10
     if(totalKrwPerMonth===0 && nPerMonth===0 && pPerMonth===0 && tPerMonth===0) { isDgnSim.value=false; return alert("구매 패턴을 하나라도 설정해주세요.") }
 
-    let totalMonthsRequired = 0, iter = 2000
+    let iter = 5000; let results = []
+    
     for(let i=0; i<iter; i++) {
       let myDgn = 0, mTop = 0, oTop = 0, pPack = 0, pTrade = 0, month = 0, krw = 0, inf = 0
-      let tkt = 0; // 티켓은 이월됨
-      let alb = Object.fromEntries(TEAMS.map(t=>[t,0]))
+      let tkt = 0; let alb = Object.fromEntries(TEAMS.map(t=>[t,0]))
       while(myDgn < dgnPlan.target) {
-        month++; krw += totalKrwPerMonth; // 💡수정: 매달 페이백 게이지는 초기화되므로 누적하지 않음. 매월 고정 KRW 기준 페이백 계산
-        let curMonthKrw = totalKrwPerMonth 
-        let mn = nPerMonth, mp = pPerMonth
+        month++; let curMonthKrw = totalKrwPerMonth; let mn = nPerMonth, mp = pPerMonth
         
-        // 💡수정: 페이백은 '해당 월 결제 금액' 기준으로 매달 확정 지급됨
         if(curMonthKrw >= 9900) mn++; if(curMonthKrw >= 99000) mp++; if(curMonthKrw >= 199000) mn++; if(curMonthKrw >= 299000) mn++
-        let monthInf = Math.floor(curMonthKrw / 300000); tkt += (monthInf * 9)
-        tkt += tPerMonth
+        let monthInf = Math.floor(curMonthKrw / 300000); tkt += (monthInf * 9); tkt += tPerMonth
 
         for(let k=0; k<mp; k++) { let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++ }
         for(let k=0; k<mn; k++) {
-          tkt+=2
-          for(let j=0; j<8; j++) { if(Math.random()<0.03){let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++} else { if(Math.random()<(TOP_DB[dgnState.myTeam].length/212)) mTop++; else oTop++ } }
+          tkt+=2; for(let j=0; j<8; j++) { if(Math.random()<0.03){let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++} else { if(Math.random()<(TOP_DB[dgnState.myTeam].length/212)) mTop++; else oTop++ } }
           pPack++; if(pPack%50===0) myDgn++
         }
         while(true) {
@@ -797,13 +861,27 @@ const dgnRunPlanner = () => {
           else if(oTop>=3 && tkt>=1) { oTop-=3; tkt--; if(Math.random()<0.03){let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++} else { if(Math.random()<(TOP_DB[dgnState.myTeam].length/212)) mTop++; else oTop++ } }
           else break
         }
-        if(month > 120) break
+        if(month > 180) break // 무한루프 방지
       }
-      totalMonthsRequired += month
+      results.push({ month, cost: month * pureDgnCost, r: month })
     }
-    let avgM = totalMonthsRequired / iter; let w = Math.round((avgM % 1) * 4)
-    // 💡수정: 결과창에 보여주는 돈은 타 패키지 비용을 뺀 '순수 디그니티 비용(pureDgnCost)'만 곱함
-    dgnSimResult.value = { month: Math.floor(avgM), week: w, cost: new Intl.NumberFormat().format(Math.floor(avgM * pureDgnCost)) }
+    
+    const isF2P = pureDgnCost === 0
+    const sorted = [...results].sort((a, b) => isF2P ? (a.month - b.month) : (a.cost - b.cost))
+    dgnSimRawResults.value = sorted
+    
+    // 1회 성공(월) 평균
+    const mList = [...results].map(x => x.month).sort((a,b)=>a-b)
+    const oneTryProb = mList[Math.floor(iter*0.5)] > 0 ? (1 / mList[Math.floor(iter*0.5)]) * 100 : 0
+
+    dgnSimResult.value = { 
+      top10: sorted[Math.floor(iter * 0.1)], 
+      avg: sorted[Math.floor(iter * 0.5)], 
+      bot90: sorted[Math.floor(iter * 0.9)], 
+      isF2P, oneTryProb 
+    }
+    dgnResultViewMode.value = 'AVG'
+    nextTick(() => { renderDgnChart(sorted.map(r => isF2P ? r.month : r.cost), isF2P) })
     isDgnSim.value = false
   }, 50)
 }
@@ -1317,6 +1395,12 @@ const dgnRunPlanner = () => {
           <div class="flex flex-col gap-2 mb-3">
             <div class="flex gap-2"><button @click="dgnOpenPack(1)" class="flex-1 py-3 bg-[#3a3a45] hover:bg-neutral-600 text-white rounded-xl font-bold transition-colors">일반 1팩 까기</button><button @click="dgnOpenPack(10)" class="flex-1 py-3 bg-[#3a3a45] hover:bg-neutral-600 text-white rounded-xl font-bold transition-colors">일반 10팩 까기</button></div>
             <button @click="dgnOpenPickup()" class="w-full py-3 bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-600 hover:to-indigo-600 text-white rounded-xl font-black shadow-lg transition-all">픽업팩 까기 (100% 확정)</button>
+            
+            <!-- 🔥 신규: 파이브스타 퍼펙트 팩 -->
+            <div class="flex gap-2 mt-1 pt-2 border-t border-neutral-700/50">
+              <button @click="dgnOpenPerfect(1)" class="flex-1 py-2 bg-blue-900/40 border border-blue-800 hover:bg-blue-800 text-blue-300 rounded-lg text-[11px] font-bold transition-colors">파이브스타 퍼펙트 1팩</button>
+              <button @click="dgnOpenPerfect(10)" class="flex-1 py-2 bg-blue-900/40 border border-blue-800 hover:bg-blue-800 text-blue-300 rounded-lg text-[11px] font-bold transition-colors">파이브스타 퍼펙트 10팩</button>
+            </div>
           </div>
           <div class="mt-auto pt-3 border-t border-neutral-700/50 flex justify-between text-xs font-bold text-neutral-500">
             <span>팩 천장: <span class="text-blue-400">{{dgnState.pity.pack % 50}}</span> / 50</span><span>트레이드 천장: <span class="text-blue-400">{{dgnState.pity.trade % 30}}</span> / 30</span>
@@ -1383,10 +1467,27 @@ const dgnRunPlanner = () => {
           <h3 class="font-extrabold text-sm mb-2 flex items-center gap-1.5 text-indigo-400"><BarChart class="w-4 h-4"/> 타임라인 과금 플래너</h3>
           <div class="text-[10px] text-indigo-200/50 mb-3 leading-tight">순수 디그니티 비용(기대값) 산출을 위해 매월 유지할 타 패키지(월정액 등) 금액을 입력하세요. 이 금액은 페이백 스택에만 합산됩니다.</div>
           
-          <div class="flex items-center gap-2 mb-3 bg-[#1e1e24] p-2 rounded-lg border border-indigo-900/50">
-            <span class="text-[10px] font-bold text-indigo-300">매월 타 패키지:</span>
-            <input type="number" v-model.number="dgnPlan.otherMonthlyKrw" class="flex-1 bg-[#2a2a35] border border-neutral-700 text-white text-xs p-1.5 rounded outline-none">
-            <span class="text-[10px] font-bold text-indigo-300">원</span>
+          <!-- 🔥 신규: 실시간 페이백 달성 인디케이터 🔥 -->
+          <div class="bg-[#1a1b1e] border border-neutral-800 rounded-lg p-2.5 mb-3 flex flex-col gap-1.5">
+            <div class="flex justify-between items-end">
+              <span class="text-[10px] font-bold text-neutral-400">이번 달 예상 페이백 게이지</span>
+              <span class="text-xs font-black text-green-400">{{ new Intl.NumberFormat().format(dgnPlanTotalKrw) }} 원</span>
+            </div>
+            <div class="flex gap-1">
+              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanTotalKrw >= 9900 ? 'bg-green-500' : 'bg-neutral-800'"></div>
+              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanTotalKrw >= 99000 ? 'bg-green-500' : 'bg-neutral-800'"></div>
+              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanTotalKrw >= 199000 ? 'bg-green-500' : 'bg-neutral-800'"></div>
+              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanTotalKrw >= 299000 ? 'bg-green-500' : 'bg-neutral-800'"></div>
+            </div>
+            <div class="flex justify-between text-[8px] font-bold text-neutral-600 px-1">
+              <span :class="{'text-green-500': dgnPlanTotalKrw >= 9900}">9.9k</span>
+              <span :class="{'text-green-500': dgnPlanTotalKrw >= 99000}">99k</span>
+              <span :class="{'text-green-500': dgnPlanTotalKrw >= 199000}">199k</span>
+              <span :class="{'text-green-500': dgnPlanTotalKrw >= 299000}">299k</span>
+            </div>
+            <div v-if="dgnPlanTotalKrw >= 300000" class="text-[9px] text-center text-amber-500 font-bold mt-1 bg-amber-900/20 py-1 rounded">
+              무한 트레이드권 {{ Math.floor(dgnPlanTotalKrw / 300000) * 9 }}장 추가 확보!
+            </div>
           </div>
 
           <div class="grid grid-cols-2 gap-x-2 gap-y-1.5 mb-3 text-[10px]">
@@ -1407,9 +1508,53 @@ const dgnRunPlanner = () => {
           
           <button @click="dgnRunPlanner" :disabled="isDgnSim" class="w-full py-2.5 bg-indigo-700 hover:bg-indigo-600 text-white font-bold rounded-lg text-xs transition-colors">{{ isDgnSim ? '만 번의 미래 연산 중...' : '시뮬레이션 가동' }}</button>
           
-          <div v-if="dgnSimResult" class="mt-3 p-3 bg-[#1e1e24] rounded-xl border border-indigo-800/50 flex justify-between items-center text-center shadow-inner">
-            <div><div class="text-[9px] text-neutral-400 mb-0.5">평균 소요 기간</div><div class="text-sm font-black text-indigo-400">{{ dgnSimResult.month }}개월 {{ dgnSimResult.week }}주</div></div>
-            <div><div class="text-[9px] text-neutral-400 mb-0.5">순수 디그니티 비용(기댓값)</div><div class="text-sm font-black text-green-400">{{ dgnSimResult.cost }}원</div></div>
+          <!-- 🔥 신규: 커리어급 초정밀 차트 결과창 🔥 -->
+          <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4 shadow-sm flex-1 flex flex-col relative overflow-hidden mt-3" v-if="dgnSimResult || isDgnSim">
+            
+            <div class="mb-4 bg-neutral-50 dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-3 shadow-inner">
+              <div class="flex justify-between gap-1 mb-3">
+                <button @click="dgnResultViewMode = 'TOP10'" class="flex-1 py-1.5 text-[10px] font-bold rounded border transition-colors" :class="dgnResultViewMode === 'TOP10' ? 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/50 dark:text-blue-300' : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 text-neutral-500'">상위 10% (비틱)</button>
+                <button @click="dgnResultViewMode = 'AVG'" class="flex-1 py-1.5 text-[10px] font-bold rounded border transition-colors" :class="dgnResultViewMode === 'AVG' ? 'bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-900/50 dark:text-indigo-300' : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 text-neutral-500'">평균 (상위 50%)</button>
+                <button @click="dgnResultViewMode = 'BOT90'" class="flex-1 py-1.5 text-[10px] font-bold rounded border transition-colors" :class="dgnResultViewMode === 'BOT90' ? 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/50 dark:text-red-300' : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 text-neutral-500'">하위 90% (천장)</button>
+              </div>
+              
+              <div v-if="dgnSimResult" class="space-y-1">
+                <div class="flex justify-between items-center px-1 py-1">
+                  <span class="text-[11px] font-extrabold" :class="{'text-blue-600': dgnResultViewMode==='TOP10', 'text-indigo-600': dgnResultViewMode==='AVG', 'text-red-600': dgnResultViewMode==='BOT90'}">소요 기간</span>
+                  <span class="text-sm font-black" :class="{'text-blue-600': dgnResultViewMode==='TOP10', 'text-indigo-600': dgnResultViewMode==='AVG', 'text-red-600': dgnResultViewMode==='BOT90'}">
+                    {{ dgnResultViewMode === 'TOP10' ? dgnSimResult.top10.month : dgnResultViewMode === 'AVG' ? dgnSimResult.avg.month : dgnSimResult.bot90.month }} <span class="text-[9px] font-normal text-neutral-500">개월</span>
+                  </span>
+                </div>
+                
+                <div v-if="!dgnSimResult.isF2P" class="flex justify-between items-center px-1 py-1 bg-green-50 dark:bg-green-900/20 rounded">
+                  <span class="text-[10px] font-bold text-green-600 dark:text-green-400">순수 디그니티 비용 (KRW)</span>
+                  <span class="text-xs font-black text-green-600 dark:text-green-400">
+                    {{ new Intl.NumberFormat().format(dgnResultViewMode === 'TOP10' ? dgnSimResult.top10.cost : dgnResultViewMode === 'AVG' ? dgnSimResult.avg.cost : dgnSimResult.bot90.cost) }} <span class="text-[8px] font-normal">원</span>
+                  </span>
+                </div>
+              </div>
+              <div v-else class="text-center text-neutral-400 text-xs py-4 font-bold">통계 계산 중...</div>
+
+              <div class="mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-700">
+                <div class="text-[10px] font-extrabold text-neutral-600 dark:text-neutral-400 mb-1.5 flex items-center gap-1"><Search class="w-3 h-3"/> 내 운세 (백분위) 판독기</div>
+                <div class="flex gap-2">
+                  <input type="number" v-model.number="dgnUserSpentKrw" :placeholder="dgnSimResult?.isF2P ? '실제 걸린 개월 수 입력' : '실제 소모한 금액(원) 입력'" class="flex-1 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-600 rounded-lg p-1.5 text-[10px] font-bold outline-none focus:border-indigo-500">
+                  <button @click="dgnCheckMyLuck" class="px-3 bg-neutral-800 dark:bg-neutral-700 text-white rounded-lg text-[10px] font-bold hover:bg-black transition-colors shrink-0">결과 확인</button>
+                </div>
+                <div v-if="dgnMyLuckPercentile !== null" class="mt-2 text-center text-[11px] font-extrabold bg-white dark:bg-neutral-900 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700">
+                  상위 <span :class="dgnMyLuckPercentile <= 10 ? 'text-blue-500' : dgnMyLuckPercentile >= 90 ? 'text-red-500' : 'text-indigo-500'">{{ dgnMyLuckPercentile }}%</span> 입니다! <span class="ml-1 font-medium text-neutral-500 truncate">{{ dgnLuckTitle }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex-1 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-2 min-h-[200px] relative flex flex-col shadow-inner">
+              <div class="text-[9px] font-bold text-neutral-400 mb-1 text-center">
+                {{ dgnSimResult?.isF2P ? '소요 개월 수' : '비용(KRW)' }} 누적 확률 분포도 (1회 성공 확률: {{ calcResult?.oneTryProb?.toFixed(4) || 0 }}%)
+              </div>
+              <div class="relative flex-1 w-full h-full">
+                <canvas ref="dgnChartCanvas"></canvas>
+              </div>
+            </div>
           </div>
         </div>
       </section>
