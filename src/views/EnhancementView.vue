@@ -1398,6 +1398,11 @@ const dgnRunPlanner = () => {
                 <button @click="dgnBuyPkg('wC', 40, 50, 0, 0, 1, '주간 상점 티켓', true, 1)" :disabled="dgnState.shop.wC >= 40" class="flex-1 py-1.5 bg-[#1e1e24] hover:bg-neutral-700 border border-neutral-700 text-[11px] font-bold text-white rounded transition-colors disabled:opacity-50 shadow-sm">1회 구매</button>
                 <button @click="dgnBuyPkg('wC', 40, 50, 0, 0, 1, '주간 상점 티켓', true, 10)" :disabled="dgnState.shop.wC > 30" class="flex-1 py-1.5 bg-[#1e1e24] hover:bg-neutral-700 border border-neutral-700 text-[11px] font-bold text-blue-300 rounded transition-colors disabled:opacity-50 shadow-sm">10회 구매</button>
               </div>
+            </div>
+              <div class="flex gap-2">
+                <button @click="dgnBuyPkg('wC', 40, 50, 0, 0, 1, '주간 상점 티켓', true, 1)" :disabled="dgnState.shop.wC >= 40" class="flex-1 py-1.5 bg-[#1e1e24] hover:bg-neutral-700 border border-neutral-700 text-[11px] font-bold text-white rounded transition-colors disabled:opacity-50 shadow-sm">1회 구매</button>
+                <button @click="dgnBuyPkg('wC', 40, 50, 0, 0, 1, '주간 상점 티켓', true, 10)" :disabled="dgnState.shop.wC > 30" class="flex-1 py-1.5 bg-[#1e1e24] hover:bg-neutral-700 border border-neutral-700 text-[11px] font-bold text-blue-300 rounded transition-colors disabled:opacity-50 shadow-sm">10회 구매</button>
+              </div>
             </div>            <button @click="dgnBuyPkg('pt', 1, 99000, 3, 0, 10, '프레스티지')" :disabled="dgnState.shop.pt>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pt<1?'bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-neutral-400">프레스티지 [{{dgnState.shop.pt}}/1]</div><div class="text-xs font-bold text-white">일반3 + 티켓10</div></div><div class="text-[11px] font-bold text-green-500">9.9만</div></button>
             <button @click="dgnBuyPkg('pk', 1, 99000, 0, 2, 0, '픽업 프레스티지')" :disabled="dgnState.shop.pk>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pk<1?'bg-purple-900/20 border border-purple-800/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-purple-400">픽업 프레스티지 [{{dgnState.shop.pk}}/1]</div><div class="text-xs font-bold text-purple-300">픽업팩 2</div></div><div class="text-[11px] font-bold text-green-500">9.9만</div></button>
             <button @click="dgnBuyPkg('pr', 5, 99000, 2, 0, 10, '프로 패키지')" :disabled="dgnState.shop.pr>=5" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pr<5?'bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-neutral-400">프로 패키지 [{{dgnState.shop.pr}}/5]</div><div class="text-xs font-bold text-white">일반2 + 티켓10</div></div><div class="text-[11px] font-bold text-green-500">9.9만</div></button>
@@ -1541,6 +1546,18 @@ const dgnRunPlanner = () => {
             </div>
             <div v-if="dgnPlanTotalKrw >= 300000" class="text-[9px] text-center text-amber-500 font-bold mt-1 bg-amber-900/20 py-1 rounded">
               무한 트레이드권 {{ Math.floor(dgnPlanTotalKrw / 300000) * 9 }}장 추가 확보!
+            </div>
+          </div>
+
+          <!-- 🔥 신규: 타 패키지 결제액 입력칸 (게이지 밑으로 이동) -->
+          <div class="flex items-center gap-3 mb-4 bg-indigo-950/30 p-2.5 rounded-lg border border-indigo-500/30">
+            <div class="flex flex-col">
+              <span class="text-[11px] font-extrabold text-indigo-300">디그니티 외 타 패키지 결제액</span>
+              <span class="text-[9px] font-medium text-indigo-400/70 mt-0.5">입력 금액은 위 페이백 스택에만 합산됩니다.</span>
+            </div>
+            <div class="flex-1 flex items-center gap-1 justify-end">
+              <input type="number" v-model.number="dgnPlan.otherMonthlyKrw" min="0" class="w-20 bg-[#1a1b1e] border border-indigo-500/50 text-white text-xs p-1.5 rounded outline-none text-right font-bold">
+              <span class="text-[10px] font-bold text-indigo-300 whitespace-nowrap">원/월</span>
             </div>
           </div>
 
