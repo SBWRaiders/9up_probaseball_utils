@@ -1340,7 +1340,7 @@ const checkMyLuck = () => { /* 구현 생략 - 기존 유지 */ }
       </div>
     </div>
     
-    <!-- 💎 [4] 디그니티 탭 (독립형) -->
+<!-- 💎 [4] 디그니티 탭 (독립형) -->
     <div v-show="activeTab==='dignity'" class="grid grid-cols-1 xl:grid-cols-12 gap-5 w-full animate-fade-in max-w-[1600px] mx-auto text-neutral-100">
       
       <!-- [좌측] 상점 & 설정 -->
@@ -1616,6 +1616,7 @@ const checkMyLuck = () => { /* 구현 생략 - 기존 유지 */ }
         </div>
       </section>
     </div>
+  </div>
 </template>
 
 <style scoped>
