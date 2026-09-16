@@ -1512,39 +1512,7 @@ const dgnRunPlanner = () => {
             </div>
           </div>
 
-          <!-- 🔥 신규: 타 패키지 결제액 입력칸 (게이지 밑으로 이동) -->
-          <div class="flex items-center gap-3 mb-4 bg-indigo-950/30 p-2.5 rounded-lg border border-indigo-500/30">
-            <div class="flex flex-col">
-              <span class="text-[11px] font-extrabold text-indigo-300">디그니티 외 타 패키지 결제액</span>
-              <span class="text-[9px] font-medium text-indigo-400/70 mt-0.5">입력 금액은 위 페이백 스택에만 합산됩니다.</span>
-            </div>
-            <div class="flex-1 flex items-center gap-1 justify-end">
-              <input type="number" v-model.number="dgnPlan.otherMonthlyKrw" min="0" class="w-20 bg-[#1a1b1e] border border-indigo-500/50 text-white text-xs p-1.5 rounded outline-none text-right font-bold">
-              <span class="text-[10px] font-bold text-indigo-300 whitespace-nowrap">원/월</span>
-            </div>
-          </div>
-            <div class="flex justify-between items-end">
-              <span class="text-[10px] font-bold text-neutral-400">이번 달 예상 페이백 게이지</span>
-              <span class="text-xs font-black text-green-400">{{ new Intl.NumberFormat().format(dgnPlanTotalKrw) }} 원</span>
-            </div>
-            <div class="flex gap-1">
-              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanTotalKrw >= 9900 ? 'bg-green-500' : 'bg-neutral-800'"></div>
-              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanTotalKrw >= 99000 ? 'bg-green-500' : 'bg-neutral-800'"></div>
-              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanTotalKrw >= 199000 ? 'bg-green-500' : 'bg-neutral-800'"></div>
-              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanTotalKrw >= 299000 ? 'bg-green-500' : 'bg-neutral-800'"></div>
-            </div>
-            <div class="flex justify-between text-[8px] font-bold text-neutral-600 px-1">
-              <span :class="{'text-green-500': dgnPlanTotalKrw >= 9900}">9.9k</span>
-              <span :class="{'text-green-500': dgnPlanTotalKrw >= 99000}">99k</span>
-              <span :class="{'text-green-500': dgnPlanTotalKrw >= 199000}">199k</span>
-              <span :class="{'text-green-500': dgnPlanTotalKrw >= 299000}">299k</span>
-            </div>
-            <div v-if="dgnPlanTotalKrw >= 300000" class="text-[9px] text-center text-amber-500 font-bold mt-1 bg-amber-900/20 py-1 rounded">
-              무한 트레이드권 {{ Math.floor(dgnPlanTotalKrw / 300000) * 9 }}장 추가 확보!
-            </div>
-          </div>
-
-          <!-- 🔥 신규: 타 패키지 결제액 입력칸 (게이지 밑으로 이동) -->
+          <!-- 🔥 타 패키지 결제액 입력칸 -->
           <div class="flex items-center gap-3 mb-4 bg-indigo-950/30 p-2.5 rounded-lg border border-indigo-500/30">
             <div class="flex flex-col">
               <span class="text-[11px] font-extrabold text-indigo-300">디그니티 외 타 패키지 결제액</span>
@@ -1574,9 +1542,8 @@ const dgnRunPlanner = () => {
           
           <button @click="dgnRunPlanner" :disabled="isDgnSim" class="w-full py-2.5 bg-indigo-700 hover:bg-indigo-600 text-white font-bold rounded-lg text-xs transition-colors">{{ isDgnSim ? '만 번의 미래 연산 중...' : '시뮬레이션 가동' }}</button>
           
-          <!-- 🔥 신규: 커리어급 초정밀 차트 결과창 🔥 -->
+          <!-- 🔥 초정밀 차트 결과창 🔥 -->
           <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4 shadow-sm flex-1 flex flex-col relative overflow-hidden mt-3" v-if="dgnSimResult || isDgnSim">
-            
             <div class="mb-4 bg-neutral-50 dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-3 shadow-inner">
               <div class="flex justify-between gap-1 mb-3">
                 <button @click="dgnResultViewMode = 'TOP10'" class="flex-1 py-1.5 text-[10px] font-bold rounded border transition-colors" :class="dgnResultViewMode === 'TOP10' ? 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/50 dark:text-blue-300' : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 text-neutral-500'">상위 10% (비틱)</button>
