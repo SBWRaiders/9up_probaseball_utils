@@ -1490,7 +1490,7 @@ const dgnRunPlanner = () => {
           </div>
         </div>
 
-        <!-- 🚀 과금 플래너 -->
+<!-- 🚀 과금 플래너 -->
         <div class="bg-indigo-900/20 border border-indigo-800/50 rounded-2xl p-4 shrink-0 flex flex-col shadow-lg">
           <h3 class="font-extrabold text-sm mb-3 flex items-center gap-1.5 text-indigo-400"><BarChart class="w-4 h-4"/> 타임라인 과금 플래너</h3>
           
@@ -1501,38 +1501,6 @@ const dgnRunPlanner = () => {
               <span class="text-xs font-black text-green-400">{{ new Intl.NumberFormat().format(dgnPlanTotalKrw) }} 원</span>
             </div>
             <div class="flex gap-1 mt-1">
-              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanTotalKrw >= 9900 ? 'bg-green-500' : 'bg-neutral-800'"></div>
-              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanTotalKrw >= 99000 ? 'bg-green-500' : 'bg-neutral-800'"></div>
-              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanTotalKrw >= 199000 ? 'bg-green-500' : 'bg-neutral-800'"></div>
-              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanTotalKrw >= 299000 ? 'bg-green-500' : 'bg-neutral-800'"></div>
-            </div>
-            <div class="flex justify-between text-[8px] font-bold text-neutral-600 px-1">
-              <span :class="{'text-green-500': dgnPlanTotalKrw >= 9900}">9.9k</span>
-              <span :class="{'text-green-500': dgnPlanTotalKrw >= 99000}">99k</span>
-              <span :class="{'text-green-500': dgnPlanTotalKrw >= 199000}">199k</span>
-              <span :class="{'text-green-500': dgnPlanTotalKrw >= 299000}">299k</span>
-            </div>
-            <div v-if="dgnPlanTotalKrw >= 300000" class="text-[9px] text-center text-amber-500 font-bold mt-1 bg-amber-900/20 py-1 rounded">
-              무한 트레이드권 {{ Math.floor(dgnPlanTotalKrw / 300000) * 9 }}장 추가 확보!
-            </div>
-          </div>
-
-          <!-- 🔥 신규: 타 패키지 결제액 입력칸 (게이지 밑으로 이동) -->
-          <div class="flex items-center gap-3 mb-4 bg-indigo-950/30 p-2.5 rounded-lg border border-indigo-500/30">
-            <div class="flex flex-col">
-              <span class="text-[11px] font-extrabold text-indigo-300">디그니티 외 타 패키지 결제액</span>
-              <span class="text-[9px] font-medium text-indigo-400/70 mt-0.5">입력 금액은 위 페이백 스택에만 합산됩니다.</span>
-            </div>
-            <div class="flex-1 flex items-center gap-1 justify-end">
-              <input type="number" v-model.number="dgnPlan.otherMonthlyKrw" min="0" class="w-20 bg-[#1a1b1e] border border-indigo-500/50 text-white text-xs p-1.5 rounded outline-none text-right font-bold">
-              <span class="text-[10px] font-bold text-indigo-300 whitespace-nowrap">원/월</span>
-            </div>
-          </div>
-            <div class="flex justify-between items-end">
-              <span class="text-[10px] font-bold text-neutral-400">이번 달 예상 페이백 게이지</span>
-              <span class="text-xs font-black text-green-400">{{ new Intl.NumberFormat().format(dgnPlanTotalKrw) }} 원</span>
-            </div>
-            <div class="flex gap-1">
               <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanTotalKrw >= 9900 ? 'bg-green-500' : 'bg-neutral-800'"></div>
               <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanTotalKrw >= 99000 ? 'bg-green-500' : 'bg-neutral-800'"></div>
               <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanTotalKrw >= 199000 ? 'bg-green-500' : 'bg-neutral-800'"></div>
