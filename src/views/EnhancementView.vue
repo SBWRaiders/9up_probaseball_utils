@@ -583,6 +583,234 @@ const useRefiningStone = () => { if (!engCard.value) return; if (engCard.value.l
 const useConversionStone = (index: number) => { if (!engCard.value) return; engState.conversion++; engCard.value.subStats[index] = generateSubStat(engCard.value.grade, engCard.value.subStats[index].enhanceCount); engAddLog(`[변환석 사용] ${index + 1}번 부가 옵션이 변경되었습니다.`, 'action') }
 const updateSubStatRanges = (sub: SubStat) => { const found = ENG_DB.value.subStats.find(s => s.name === sub.name); if (found && engCard.value) { const stats = engCard.value.grade === 'ultimate' ? found.ult : found.leg; sub.eMin = stats.eMin; sub.eMax = stats.eMax } }
 const formatNum = (num: number) => new Intl.NumberFormat().format(num)
+
+// ==============================================
+// 💎 [4] 디그니티 시뮬레이터 전용 로직
+// ==============================================
+import { Calendar, Wallet, ShoppingCart, Package, RefreshCw, Gem, Lock, Target, BarChart, RotateCcw } from 'lucide-vue-next'
+
+const TEAMS = ['kia', 'ssg', 'kiwoom', 'samsung', 'doosan', 'lg', 'hanwha', 'lotte', 'hyundai', 'kt', 'sbw', 'nc']
+const T_NAMES: Record<string, string> = { kia:'KIA', ssg:'SSG', kiwoom:'키움', samsung:'삼성', doosan:'두산', lg:'LG', hanwha:'한화', lotte:'롯데', hyundai:'현대', kt:'KT', sbw:'쌍방울', nc:'NC' }
+const T_COLORS: Record<string, string> = { kia:'text-red-600', ssg:'text-red-500', kiwoom:'text-rose-800', samsung:'text-blue-600', doosan:'text-indigo-800', lg:'text-pink-600', hanwha:'text-orange-500', lotte:'text-cyan-800', hyundai:'text-green-600', kt:'text-black dark:text-white', sbw:'text-yellow-600', nc:'text-blue-400' }
+
+// 1~5차 디그니티 실명
+const D_WAVES: Record<number, Record<string, string>> = {
+  1: { kia:'홍현우', ssg:'최정', kiwoom:'이택근', samsung:'양준혁', doosan:'박건우', lg:'류지현', hanwha:'장종훈', lotte:'이대호', hyundai:'박재홍', kt:'강백호', sbw:'박노준', nc:'나성범' },
+  2: { kia:'이종범', nc:'테임즈', hyundai:'심정수', samsung:'구자욱', sbw:'김기태', doosan:'김동주', lg:'박용택', hanwha:'김태균', kiwoom:'박병호', lotte:'조성환', kt:'로하스', ssg:'박경완' },
+  3: { hanwha:'폰세', ssg:'앤더슨', nc:'페디', kia:'네일', samsung:'밴덴헐크', lotte:'스트레일리', doosan:'린드블럼', hyundai:'임선동', lg:'소사', sbw:'김원형', kt:'데스파이네', kiwoom:'나이트' },
+  4: { samsung:'오승환', sbw:'조규제', ssg:'박희수', doosan:'정재훈', kia:'임에렉', kt:'김재윤', hyundai:'정명원', kiwoom:'손승락', hanwha:'박정진', nc:'임창민', lotte:'손승락', lg:'김용수' },
+  5: { kt:'안현민', kiwoom:'강정호', lotte:'호식', doosan:'김현수', kia:'김도영', lg:'오스틴', ssg:'정근우', hyundai:'브로빈', samsung:'이승엽', hanwha:'송지만', nc:'박민우', sbw:'최태원' }
+}
+
+// 212명 전체 TOP 카드 DB (추출 완료)
+const TOP_DB: Record<string, string[]> = {
+  kia: ['선동열', '이종범', '홍현우', '윤석민', '장성호', '이강철', '김성한', '조계현', '최형우', '양현종', '이순철', '이범호', '안치홍', '김선빈', '임에렉', '나성범', '김정수', '유동훈', '장채근'],
+  ssg: ['최정', '김광현', '박희수', '에레디아', '정근우', '이진영', '브레띵', '정우람', '이승호', '채병용', '박재홍', '박경완', '이호준', '로맥', '켈리', '정대현', '김재현', '이재원', '박종훈'],
+  kiwoom: ['이블렉', '안우진', '강정호', '박병호', '송성문', '서건창', '요키시', '김혜성', '김블렉', '이택근', '유한준', '브리검', '밴헤켄', '최원태', '조상우', '손승락', '한현희', '박동원'],
+  samsung: ['오승환', '장효조', '양준혁', '이만수', '최형우', '이승엽', '구자욱', '김시진', '박석민', '김성래', '김일융', '박한이', '배영수', '강민호', '김상엽', '원태인', '김현욱', '권혁', '류중일'],
+  doosan: ['양의지', '김현수', '김동주', '김상진', '박철순', '박명환', '니퍼트', '정재훈', '심정수', '김재환', '김경원', '박종훈', '박건우', '우준', '안경현', '홍성흔', '장원준', '김재호', '진필중'],
+  lg: ['이병규', '이상훈', '오스틴', '김현수', '류지현', '켈리', '김동수', '김재현', '김태원', '박용택', '정성훈', '고우석', '임찬규', '윌슨', '이진영', '오지환', '김상훈', '김용수', '봉중근'],
+  hanwha: ['이정훈', '정민철', '류현진', '장종훈', '김태균', '한용덕', '구대성', '데임병수', '이범호', '송진우', '이영우', '한희민', '송지만', '정근우', '정우람', '이강돈', '박정진', '강석천', '유승안'],
+  lotte: ['최동원', '이대호', '호식', '주형광', '박정태', '손아섭', '마해영', '윤학길', '손민한', '전준우', '전준호', '황재균', '김용희', '강민호', '홍성흔', '박세웅', '강상수', '박석진', '임경완'],
+  hyundai: ['심정수', '박재홍', '최창호', '김수경', '브로빈', '정민태', '박종호', '박정현', '전준호', '이숭용', '정성훈', '박경완', '박진만', '김동기', '정명원', '조웅천', '장명부', '조용준', '김경기'],
+  kt: ['로하스', '쿠에바스', '소형준', '강백호', '김재윤', '엄상백', '고영표', '유한준', '황재균', '박영현', '피어밴드', '장성우', '박경수', '주권', '배정대'],
+  sbw: ['김기태', '조규제', '조원우', '최태원', '김광림', '성영재', '김현욱', '김원형', '박경완', '심성보', '박성기', '김기덕'],
+  nc: ['테이준', '양의지', '박건우', '박민우', '해커', '루친스키', '구창모', '나성범', '이재학', '원종현', '김진성', '임창민', '박석민', '김주원', '노진혁']
+}
+const ALL_TOPS = Object.entries(TOP_DB).flatMap(([t, players]) => players.map(p => ({ team: t, name: p })))
+
+// 상태 관리
+import { reactive, ref, computed, watch } from 'vue' // 이미 상단에 import 되어 있다면 지우셔도 됩니다.
+
+const dgnState = reactive({
+  month: 1,
+  myTeam: 'kia',
+  targetWave: 5,
+  inv: { normal: 0, pickup: 0, tickets: 0, myDgn: 0, myTop: 0, otherTop: 0, cash: 1000 },
+  album: Object.fromEntries(TEAMS.map(t => [t, 0])),
+  topAlbum: Object.fromEntries(TEAMS.map(t => [t, Object.fromEntries(TOP_DB[t].map(p => [p, 0]))])),
+  shop: { wQ: 0, wC: 0, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0 },
+  payback: { spent: 0, t1: false, t2: false, t3: false, t4: false, inf: 0 },
+  pity: { pack: 0, trade: 0 },
+  logs: [] as { id: number, msg: string, type: string }[]
+})
+
+const manualKrwInput = ref(0)
+const dgnAlbumTab = ref<'dignity'|'top'>('dignity')
+
+let dgnLId = 0
+const dgnLog = (msg: string, type: 'normal'|'success'|'fail'|'action'|'epic' = 'normal') => { 
+  dgnState.logs.unshift({ id: dgnLId++, msg, type })
+  if(dgnState.logs.length > 50) dgnState.logs.pop() 
+}
+
+const dgnResetAll = () => {
+  if(!confirm("모든 시뮬레이션 데이터를 초기화하시겠습니까?")) return
+  dgnState.month = 1; dgnState.inv = { normal: 0, pickup: 0, tickets: 0, myDgn: 0, myTop: 0, otherTop: 0, cash: 1000 }
+  TEAMS.forEach(t => dgnState.album[t] = 0)
+  TEAMS.forEach(t => TOP_DB[t].forEach(p => dgnState.topAlbum[t][p] = 0))
+  dgnState.shop = { wQ: 0, wC: 0, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0 }
+  dgnState.payback = { spent: 0, t1: false, t2: false, t3: false, t4: false, inf: 0 }
+  dgnState.pity = { pack: 0, trade: 0 }; dgnState.logs = []
+  dgnLog(`[시스템] 데이터가 리셋되었습니다.`, 'action')
+}
+
+const dgnNextMonth = () => {
+  dgnState.month++
+  dgnState.shop = { wQ: 0, wC: 0, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0 }
+  dgnState.payback = { spent: 0, t1: false, t2: false, t3: false, t4: false, inf: 0 } // 월간 페이백 리셋
+  dgnLog(`🗓️ ${dgnState.month}개월 차 시작! 상점 및 페이백 게이지가 초기화되었습니다.`, 'action')
+}
+
+watch(() => dgnState.targetWave, () => { 
+  TEAMS.forEach(t => dgnState.album[t] = 0)
+  dgnLog(`[시스템] ${dgnState.targetWave}차 도감으로 전환되었습니다.`, 'action') 
+})
+
+const dgnDupeCount = computed(() => { 
+  let c=0; TEAMS.forEach(t=>{ if(t!==dgnState.myTeam && dgnState.album[t]>1) c+=dgnState.album[t]-1 })
+  return c 
+})
+
+const dgnProcessPayback = () => {
+  const k = dgnState.payback.spent; const p = dgnState.payback
+  if (k >= 9900 && !p.t1) { p.t1 = true; dgnState.inv.normal++; dgnLog(`[페이백] 9,900원 누적! 일반팩 지급`, 'success') }
+  if (k >= 99000 && !p.t2) { p.t2 = true; dgnState.inv.pickup++; dgnLog(`[페이백] 99,000원 누적! 픽업팩 지급`, 'success') }
+  if (k >= 199000 && !p.t3) { p.t3 = true; dgnState.inv.normal++; dgnLog(`[페이백] 199,000원 누적! 일반팩 지급`, 'success') }
+  if (k >= 299000 && !p.t4) { p.t4 = true; dgnState.inv.normal++; dgnLog(`[페이백] 299,000원 누적! 일반팩 지급`, 'success') }
+  let nextInf = (p.inf + 1) * 300000
+  while (k >= nextInf) { p.inf++; dgnState.inv.tickets += 9; dgnLog(`[무한 페이백] 30만원 달성! 트레이드권 9개 지급!`, 'epic'); nextInf = (p.inf + 1) * 300000 }
+}
+
+const dgnAddManualPayback = () => { 
+  if(manualKrwInput.value <= 0) return
+  dgnState.payback.spent += manualKrwInput.value
+  dgnLog(`[수동 충전] 타 패키지로 ${manualKrwInput.value.toLocaleString()}원 채움 완료!`, 'action')
+  manualKrwInput.value = 0
+  dgnProcessPayback() 
+}
+
+const dgnBuyPkg = (key: keyof typeof dgnState.shop, limit: number, price: number, n: number, p: number, t: number, name: string, isCash: boolean = false) => {
+  if (dgnState.shop[key] >= limit) return alert("구매 횟수를 모두 소진했습니다.")
+  if (isCash) {
+    if (dgnState.inv.cash < price) { dgnState.inv.cash += 5000; dgnLog('[시스템] 테스트용 캐시 5000 충전', 'action') } // 임시 캐시 충전
+    dgnState.inv.cash -= price
+  } else {
+    dgnState.payback.spent += price // 원화(KRW)일 때만 페이백 증가
+  }
+  
+  dgnState.shop[key]++
+  dgnState.inv.normal += n; dgnState.inv.pickup += p; dgnState.inv.tickets += t
+  dgnLog(`[상점] ${name} 구매! (-${price}${isCash?'캐시':'원'})`, 'action')
+  if(!isCash) dgnProcessPayback()
+}
+
+const dgnOpenPack = (count: number) => {
+  if (dgnState.inv.normal < count) return alert("일반팩이 부족합니다.")
+  dgnState.inv.normal -= count; dgnState.inv.tickets += (count * 2)
+  for (let i=0; i<count; i++) {
+    for (let j=0; j<8; j++) {
+      if (Math.random() < 0.03) {
+        let t = TEAMS[Math.floor(Math.random()*12)], pn = D_WAVES[dgnState.targetWave][t]
+        if (t === dgnState.myTeam) { dgnState.inv.myDgn++; dgnLog(`✨[기적] 디그니티팩 자팀 ${pn} 등장!✨`, 'epic') } 
+        else { dgnState.album[t]++; dgnLog(`[획득] ${T_NAMES[t]} ${pn} 디그니티 획득!`, 'success') }
+      } else {
+        let top = ALL_TOPS[Math.floor(Math.random()*212)]
+        if (top.team === dgnState.myTeam) { dgnState.inv.myTop++; dgnState.topAlbum[top.team][top.name]++; dgnLog(`[보호] 자팀 TOP ${top.name} 자동 수집!`, 'normal') } 
+        else { dgnState.inv.otherTop++; dgnState.topAlbum[top.team][top.name]++ }
+      }
+    }
+    dgnState.pity.pack++; if(dgnState.pity.pack % 50 === 0) { dgnState.inv.myDgn++; dgnLog(`🎉[팩 천장] 50회 누적 자팀 디그니티 확정!`, 'epic') }
+  }
+}
+
+const dgnOpenPickup = () => {
+  if (dgnState.inv.pickup < 1) return alert("픽업팩이 부족합니다.")
+  dgnState.inv.pickup--; let t = TEAMS[Math.floor(Math.random()*12)], pn = D_WAVES[dgnState.targetWave][t]
+  if (t === dgnState.myTeam) { dgnState.inv.myDgn++; dgnLog(`✨[픽업] 자팀 ${pn} 100% 확정 등장!✨`, 'epic') } 
+  else { dgnState.album[t]++; dgnLog(`[픽업] ${T_NAMES[t]} ${pn} 획득.`, 'success') }
+}
+
+const dgnRunMixer = () => {
+  let cnt=0
+  while (true) {
+    let dupes = []; TEAMS.forEach(t => { if(t !== dgnState.myTeam) { let c = dgnState.album[t]; while(c>1){ dupes.push(t); c-- } } })
+    if (dupes.length >= 3 && dgnState.inv.tickets >= 1) {
+      dgnState.album[dupes[0]]--; dgnState.album[dupes[1]]--; dgnState.album[dupes[2]]--; dgnState.inv.tickets--; dgnState.inv.myDgn++; dgnState.pity.trade++; cnt++
+      dgnLog(`[믹서기] 디그니티 트레이드 ➔ 자팀 디그니티 확정!`, 'epic')
+      if (dgnState.pity.trade % 30 === 0) { dgnState.inv.myDgn++; dgnLog(`🎉[트레이드 천장] 30회 마일리지 자팀 확정!`, 'epic') }
+    } else break;
+  }
+  while (true) {
+    if (dgnState.inv.otherTop >= 3 && dgnState.inv.tickets >= 1) {
+      dgnState.inv.otherTop -= 3; dgnState.inv.tickets--; cnt++
+      if (Math.random() < 0.03) {
+        let t = TEAMS[Math.floor(Math.random()*12)], pn = D_WAVES[dgnState.targetWave][t]
+        if (t === dgnState.myTeam) { dgnState.inv.myDgn++; dgnLog(`🔥[TOP 3% 기적] 자팀 ${pn} 디그니티 획득!`, 'epic') } 
+        else { dgnState.album[t]++; dgnLog(`🔥[TOP 3% 기적] ${T_NAMES[t]} ${pn} 획득!`, 'success') }
+      } else {
+        let top = ALL_TOPS[Math.floor(Math.random()*212)]
+        if (top.team === dgnState.myTeam) { dgnState.inv.myTop++; dgnState.topAlbum[top.team][top.name]++ } else { dgnState.inv.otherTop++; dgnState.topAlbum[top.team][top.name]++ }
+      }
+    } else break;
+  }
+  if(cnt===0) alert("재료(중복 디그니티 3장 또는 타팀 TOP 3장) 또는 티켓이 부족합니다.")
+}
+
+// 기댓값 계산기 (과금 플래너)
+const dgnPlan = reactive({ target: 3, otherMonthlyKrw: 0, wQ: true, wC: 10, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0 })
+const dgnSimResult = ref<any>(null); const isDgnSim = ref(false)
+
+const dgnRunPlanner = () => {
+  isDgnSim.value = true; setTimeout(() => {
+    // 디그니티 전용 패키지 비용 (순수 비용)
+    let pureDgnCost = dgnPlan.rk*55000 + dgnPlan.pt*99000 + dgnPlan.pk*99000 + dgnPlan.pr*99000 + dgnPlan.lg*149000
+    // 페이백 게이지용 전체 비용 (순수 비용 + 타 패키지 비용)
+    let totalKrwPerMonth = pureDgnCost + dgnPlan.otherMonthlyKrw
+    
+    let nPerMonth = (dgnPlan.wQ?4:0) + dgnPlan.rk*1 + dgnPlan.pt*3 + dgnPlan.pr*2 + dgnPlan.lg*2
+    let pPerMonth = dgnPlan.pk*2 + dgnPlan.lg*1
+    let tPerMonth = (dgnPlan.wC*4) + dgnPlan.rk*20 + dgnPlan.pt*10 + dgnPlan.pr*10
+    if(totalKrwPerMonth===0 && nPerMonth===0 && pPerMonth===0 && tPerMonth===0) { isDgnSim.value=false; return alert("구매 패턴을 하나라도 설정해주세요.") }
+
+    let totalMonthsRequired = 0, iter = 2000
+    for(let i=0; i<iter; i++) {
+      let myDgn = 0, mTop = 0, oTop = 0, pPack = 0, pTrade = 0, month = 0, krw = 0, inf = 0
+      let tkt = 0; // 티켓은 이월됨
+      let alb = Object.fromEntries(TEAMS.map(t=>[t,0]))
+      while(myDgn < dgnPlan.target) {
+        month++; krw += totalKrwPerMonth; // 💡수정: 매달 페이백 게이지는 초기화되므로 누적하지 않음. 매월 고정 KRW 기준 페이백 계산
+        let curMonthKrw = totalKrwPerMonth 
+        let mn = nPerMonth, mp = pPerMonth
+        
+        // 💡수정: 페이백은 '해당 월 결제 금액' 기준으로 매달 확정 지급됨
+        if(curMonthKrw >= 9900) mn++; if(curMonthKrw >= 99000) mp++; if(curMonthKrw >= 199000) mn++; if(curMonthKrw >= 299000) mn++
+        let monthInf = Math.floor(curMonthKrw / 300000); tkt += (monthInf * 9)
+        tkt += tPerMonth
+
+        for(let k=0; k<mp; k++) { let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++ }
+        for(let k=0; k<mn; k++) {
+          tkt+=2
+          for(let j=0; j<8; j++) { if(Math.random()<0.03){let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++} else { if(Math.random()<(TOP_DB[dgnState.myTeam].length/212)) mTop++; else oTop++ } }
+          pPack++; if(pPack%50===0) myDgn++
+        }
+        while(true) {
+          let dp = []; TEAMS.forEach(t=>{if(t!==dgnState.myTeam){let c=alb[t]; while(c>1){dp.push(t);c--}}})
+          if(dp.length>=3 && tkt>=1) { alb[dp[0]]--; alb[dp[1]]--; alb[dp[2]]--; tkt--; myDgn++; pTrade++; if(pTrade%30===0) myDgn++ }
+          else if(oTop>=3 && tkt>=1) { oTop-=3; tkt--; if(Math.random()<0.03){let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++} else { if(Math.random()<(TOP_DB[dgnState.myTeam].length/212)) mTop++; else oTop++ } }
+          else break
+        }
+        if(month > 120) break
+      }
+      totalMonthsRequired += month
+    }
+    let avgM = totalMonthsRequired / iter; let w = Math.round((avgM % 1) * 4)
+    // 💡수정: 결과창에 보여주는 돈은 타 패키지 비용을 뺀 '순수 디그니티 비용(pureDgnCost)'만 곱함
+    dgnSimResult.value = { month: Math.floor(avgM), week: w, cost: new Intl.NumberFormat().format(Math.floor(avgM * pureDgnCost)) }
+    isDgnSim.value = false
+  }, 50)
+}
+
 </script>
 
 <template>
@@ -1056,6 +1284,170 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
       </div>
     </div>
   </div>
+
+<!-- 💎 [4] 디그니티 탭 (독립형) -->
+    <div v-show="activeTab==='dignity'" class="grid grid-cols-1 xl:grid-cols-12 gap-5 w-full animate-fade-in max-w-[1600px] mx-auto text-neutral-100">
+      
+      <!-- [좌측] 상점 & 설정 -->
+      <section class="xl:col-span-3 flex flex-col gap-4 h-full">
+        <div class="bg-[#1e1e24] border border-neutral-700/50 rounded-2xl p-4 flex justify-between items-center shrink-0 shadow-lg">
+          <div class="font-black text-lg flex items-center gap-2"><Calendar class="w-5 h-5 text-amber-500"/> {{ dgnState.month }}개월 차</div>
+          <div class="flex gap-2">
+            <button @click="dgnResetAll" class="p-2 bg-red-900/50 hover:bg-red-800 rounded-lg text-red-300 transition-colors" title="데이터 싹 밀기"><RotateCcw class="w-4 h-4"/></button>
+            <button @click="dgnNextMonth" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 rounded-lg font-bold text-xs transition-colors">다음 달 가기 (초기화)</button>
+          </div>
+        </div>
+
+        <div class="bg-[#1e1e24] border border-neutral-700/50 rounded-2xl p-4 shrink-0 shadow-lg">
+          <h3 class="font-extrabold text-sm mb-3 flex items-center gap-1.5 text-blue-400"><Target class="w-4 h-4"/> 타겟팅 설정</h3>
+          <div class="space-y-3">
+            <div><label class="text-[10px] font-bold text-neutral-500 block mb-1">내 구단 선택</label><select v-model="dgnState.myTeam" class="w-full bg-[#2a2a35] border-none rounded p-2 text-sm font-bold outline-none text-white"><option v-for="t in TEAMS" :key="t" :value="t">{{ T_NAMES[t] }}</option></select></div>
+            <div><label class="text-[10px] font-bold text-neutral-500 block mb-1">목표 디그니티 차수 (Wave)</label><select v-model.number="dgnState.targetWave" class="w-full bg-[#2a2a35] border-none rounded p-2 text-sm font-bold text-amber-500 outline-none"><option v-for="n in 5" :key="n" :value="n">{{ n }}st ({{ D_WAVES[n][dgnState.myTeam] }})</option></select></div>
+            <div class="text-[10px] text-neutral-400 bg-[#2a2a35] p-2 rounded">해당 구단 TOP 카드 생태계: <span class="text-blue-400 font-bold">{{ TOP_DB[dgnState.myTeam].length }} / 212 장</span></div>
+          </div>
+        </div>
+
+        <div class="bg-[#1e1e24] border border-neutral-700/50 rounded-2xl p-4 flex-1 flex flex-col overflow-hidden shadow-lg">
+          <div class="flex justify-between items-center mb-2"><h3 class="font-extrabold text-sm text-green-400"><Wallet class="w-4 h-4 inline-block mr-1"/> 월간 누적 페이백</h3></div>
+          <div class="text-2xl font-black text-green-400 mb-2">{{ new Intl.NumberFormat().format(dgnState.payback.spent) }} <span class="text-xs text-neutral-500">원</span></div>
+          <div class="space-y-1 mb-3">
+            <div class="flex justify-between text-[10px] p-1.5 rounded" :class="dgnState.payback.t1?'bg-green-900/30 text-green-400':'text-neutral-500'"><span>9,900원</span><span class="font-bold">일반팩 1</span></div>
+            <div class="flex justify-between text-[10px] p-1.5 rounded" :class="dgnState.payback.t2?'bg-green-900/30 text-green-400':'text-neutral-500'"><span>99,000원</span><span class="font-bold">픽업팩 1</span></div>
+            <div class="flex justify-between text-[10px] p-1.5 rounded" :class="dgnState.payback.t3?'bg-green-900/30 text-green-400':'text-neutral-500'"><span>199,000원</span><span class="font-bold">일반팩 1</span></div>
+            <div class="flex justify-between text-[10px] p-1.5 rounded" :class="dgnState.payback.t4?'bg-green-900/30 text-green-400':'text-neutral-500'"><span>299,000원</span><span class="font-bold">일반팩 1</span></div>
+            <div class="flex justify-between text-[10px] p-1.5 bg-amber-900/20 text-amber-500 border border-amber-800/50 mt-1 rounded"><span>30만 마다 (무한)</span><span class="font-bold">티켓 9개 ({{dgnState.payback.inf}}회)</span></div>
+          </div>
+          
+          <div class="flex items-center gap-1 mb-3">
+            <input type="number" v-model.number="manualKrwInput" placeholder="타 패키지 금액" class="flex-1 bg-[#2a2a35] border border-neutral-700 text-white text-xs p-2 rounded outline-none">
+            <button @click="dgnAddManualPayback" class="px-3 py-2 bg-green-700 hover:bg-green-600 text-white text-xs font-bold rounded transition-colors">추가</button>
+          </div>
+
+          <h3 class="font-extrabold text-sm mb-2 text-neutral-300 pt-3 border-t border-neutral-700/50"><ShoppingCart class="w-4 h-4 inline-block mr-1"/> 인게임 상점</h3>
+          <div class="flex justify-between text-[10px] text-neutral-400 mb-2 px-1"><span>보유 캐시:</span> <span class="text-blue-300 font-bold">{{ dgnState.inv.cash }} 캐시</span></div>
+          
+          <div class="space-y-2 overflow-y-auto pr-1 flex-1">
+            <button @click="dgnBuyPkg('wQ', 1, 0, 1, 0, 0, '주간 퀘스트')" :disabled="dgnState.shop.wQ>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.wQ<1?'bg-blue-900/20 border border-blue-800/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-blue-400">주간 퀘스트 [{{dgnState.shop.wQ}}/1]</div><div class="text-xs font-bold text-white">일반팩 1</div></div></button>
+            <button @click="dgnBuyPkg('wC', 10, 50, 0, 0, 1, '주간 상점 티켓', true)" :disabled="dgnState.shop.wC>=10" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.wC<10?'bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-neutral-400">티켓 구매 [{{dgnState.shop.wC}}/10]</div><div class="text-xs font-bold text-amber-500">티켓 1</div></div><div class="text-[11px] font-bold text-blue-300">50캐시</div></button>
+            <button @click="dgnBuyPkg('rk', 1, 55000, 1, 0, 20, '루키 패키지')" :disabled="dgnState.shop.rk>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.rk<1?'bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-neutral-400">루키 패키지 [{{dgnState.shop.rk}}/1]</div><div class="text-xs font-bold text-white">일반1 + 티켓20</div></div><div class="text-[11px] font-bold text-green-500">5.5만</div></button>
+            <button @click="dgnBuyPkg('pt', 1, 99000, 3, 0, 10, '프레스티지')" :disabled="dgnState.shop.pt>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pt<1?'bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-neutral-400">프레스티지 [{{dgnState.shop.pt}}/1]</div><div class="text-xs font-bold text-white">일반3 + 티켓10</div></div><div class="text-[11px] font-bold text-green-500">9.9만</div></button>
+            <button @click="dgnBuyPkg('pk', 1, 99000, 0, 2, 0, '픽업 프레스티지')" :disabled="dgnState.shop.pk>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pk<1?'bg-purple-900/20 border border-purple-800/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-purple-400">픽업 프레스티지 [{{dgnState.shop.pk}}/1]</div><div class="text-xs font-bold text-purple-300">픽업팩 2</div></div><div class="text-[11px] font-bold text-green-500">9.9만</div></button>
+            <button @click="dgnBuyPkg('pr', 5, 99000, 2, 0, 10, '프로 패키지')" :disabled="dgnState.shop.pr>=5" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pr<5?'bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-neutral-400">프로 패키지 [{{dgnState.shop.pr}}/5]</div><div class="text-xs font-bold text-white">일반2 + 티켓10</div></div><div class="text-[11px] font-bold text-green-500">9.9만</div></button>
+            <button @click="dgnBuyPkg('lg', 3, 149000, 2, 1, 0, '레전드 패키지')" :disabled="dgnState.shop.lg>=3" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.lg<3?'bg-amber-900/20 border border-amber-800/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-amber-500">레전드 패키지 [{{dgnState.shop.lg}}/3]</div><div class="text-xs font-bold text-amber-300">일반2 + 픽업1</div></div><div class="text-[11px] font-bold text-green-500">14.9만</div></button>
+          </div>
+        </div>
+      </section>
+
+      <!-- [중앙] 가챠 및 믹서기 -->
+      <section class="xl:col-span-5 flex flex-col gap-4 h-full">
+        <div class="bg-[#1e1e24] border border-neutral-700/50 rounded-2xl p-5 flex flex-col shadow-lg">
+          <h2 class="text-lg font-black mb-4 flex items-center gap-2 text-indigo-400"><Package class="w-5 h-5"/> 인벤토리 & 뽑기</h2>
+          <div class="grid grid-cols-3 gap-3 mb-5">
+            <div class="bg-[#2a2a35] p-3 rounded-xl text-center"><div class="text-[10px] font-bold text-neutral-400 mb-1">일반 디그팩</div><div class="text-xl font-black text-white">{{ dgnState.inv.normal }}</div></div>
+            <div class="bg-purple-900/20 border border-purple-800/30 p-3 rounded-xl text-center"><div class="text-[10px] font-bold text-purple-400 mb-1">픽업 디그팩</div><div class="text-xl font-black text-purple-300">{{ dgnState.inv.pickup }}</div></div>
+            <div class="bg-amber-900/20 border border-amber-800/30 p-3 rounded-xl text-center"><div class="text-[10px] font-bold text-amber-500 mb-1">트레이드권</div><div class="text-xl font-black text-amber-400">{{ dgnState.inv.tickets }}</div></div>
+          </div>
+          <div class="flex flex-col gap-2 mb-3">
+            <div class="flex gap-2"><button @click="dgnOpenPack(1)" class="flex-1 py-3 bg-[#3a3a45] hover:bg-neutral-600 text-white rounded-xl font-bold transition-colors">일반 1팩 까기</button><button @click="dgnOpenPack(10)" class="flex-1 py-3 bg-[#3a3a45] hover:bg-neutral-600 text-white rounded-xl font-bold transition-colors">일반 10팩 까기</button></div>
+            <button @click="dgnOpenPickup()" class="w-full py-3 bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-600 hover:to-indigo-600 text-white rounded-xl font-black shadow-lg transition-all">픽업팩 까기 (100% 확정)</button>
+          </div>
+          <div class="mt-auto pt-3 border-t border-neutral-700/50 flex justify-between text-xs font-bold text-neutral-500">
+            <span>팩 천장: <span class="text-blue-400">{{dgnState.pity.pack % 50}}</span> / 50</span><span>트레이드 천장: <span class="text-blue-400">{{dgnState.pity.trade % 30}}</span> / 30</span>
+          </div>
+        </div>
+
+        <div class="bg-[#1e1e24] border border-neutral-700/50 rounded-2xl p-5 flex flex-col shrink-0 shadow-lg">
+          <h3 class="font-extrabold text-sm mb-4 flex items-center gap-1.5 text-green-400"><RefreshCw class="w-4 h-4"/> 믹서기 (트레이드)</h3>
+          <div class="grid grid-cols-2 gap-4 mb-4">
+            <div class="bg-[#2a2a35] p-3 rounded-xl text-center"><div class="text-[10px] font-bold text-neutral-400 mb-1">갈려나갈 중복 디그니티</div><div class="text-lg font-black text-red-400">{{ dgnDupeCount }} 장</div></div>
+            <div class="bg-[#2a2a35] p-3 rounded-xl text-center"><div class="text-[10px] font-bold text-neutral-400 mb-1">갈려나갈 타팀 TOP</div><div class="text-lg font-black text-white">{{ dgnState.inv.otherTop }} 장</div></div>
+          </div>
+          <button @click="dgnRunMixer" class="w-full py-4 bg-green-700 hover:bg-green-600 text-white rounded-xl font-black text-lg shadow-lg flex justify-center items-center gap-2 transition-colors"><RefreshCw class="w-5 h-5"/> 자동 필터 믹서기 가동</button>
+        </div>
+
+        <div class="bg-[#0f0f13] border border-neutral-800 rounded-2xl p-4 flex-1 overflow-hidden flex flex-col min-h-[200px] shadow-inner">
+          <div class="flex-1 overflow-y-auto space-y-1 font-mono text-[10px]">
+            <div v-for="l in dgnState.logs" :key="l.id" :class="{'text-neutral-400':l.type==='normal', 'text-green-400 font-bold':l.type==='success', 'text-blue-300':l.type==='action', 'text-amber-400 font-black text-[11px]':l.type==='epic'}"><span class="opacity-50 mr-1">></span>{{ l.msg }}</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- [우측] 도감 & 플래너 -->
+      <section class="xl:col-span-4 flex flex-col gap-4 h-full">
+        <!-- 메인 디그니티 획득창 -->
+        <div class="bg-gradient-to-b from-blue-900 to-[#1e1e24] border border-blue-800/50 rounded-2xl p-5 shadow-xl shrink-0 text-center relative overflow-hidden">
+          <Gem class="absolute -right-4 -bottom-4 w-32 h-32 text-blue-500 opacity-10"/>
+          <div class="text-[11px] font-extrabold text-blue-400 mb-1 relative z-10">최종 획득 결과물</div>
+          <div class="text-2xl font-black text-white relative z-10">{{ T_NAMES[dgnState.myTeam] }} {{ D_WAVES[dgnState.targetWave][dgnState.myTeam] }}</div>
+          <div class="text-5xl font-black text-yellow-400 mt-2 relative z-10">{{ dgnState.inv.myDgn }} <span class="text-xl text-yellow-600">장</span></div>
+        </div>
+
+        <!-- 멀티 도감 (디그니티 / TOP) -->
+        <div class="bg-[#1e1e24] border border-neutral-700/50 rounded-2xl p-4 flex-1 flex flex-col overflow-hidden shadow-lg">
+          <div class="flex gap-2 mb-3">
+            <button @click="dgnAlbumTab='dignity'" class="flex-1 py-1.5 rounded text-[11px] font-bold transition-colors" :class="dgnAlbumTab==='dignity'?'bg-amber-600 text-white':'bg-[#2a2a35] text-neutral-400'">디그니티 명함</button>
+            <button @click="dgnAlbumTab='top'" class="flex-1 py-1.5 rounded text-[11px] font-bold transition-colors" :class="dgnAlbumTab==='top'?'bg-blue-600 text-white':'bg-[#2a2a35] text-neutral-400'">TOP카드 수집함</button>
+          </div>
+          
+          <div v-show="dgnAlbumTab==='dignity'" class="grid grid-cols-3 gap-2 overflow-y-auto pr-1 flex-1 content-start custom-scrollbar">
+            <div v-for="t in TEAMS" :key="t" v-show="t!==dgnState.myTeam" class="p-2 rounded-lg border text-center relative transition-colors" :class="dgnState.album[t]>0?'bg-amber-900/30 border-amber-700':'bg-[#2a2a35] border-neutral-700/50 opacity-50 grayscale'">
+              <div class="text-[9px] font-black mb-0.5" :class="T_COLORS[t]">{{ T_NAMES[t] }}</div><div class="text-xs font-bold text-white">{{ D_WAVES[dgnState.targetWave][t] }}</div>
+              <div v-if="dgnState.album[t]>1" class="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">+{{ dgnState.album[t]-1 }} 중복</div>
+              <div v-if="dgnState.album[t]===1" class="absolute -top-1.5 -right-1.5 bg-blue-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full"><Lock class="w-2 h-2 inline mb-0.5"/> 명함</div>
+            </div>
+          </div>
+
+          <div v-show="dgnAlbumTab==='top'" class="flex flex-col flex-1 overflow-hidden">
+            <div class="text-[10px] font-bold text-blue-400 mb-2 border-b border-neutral-700/50 pb-1">자팀 수집함 (자동 보호) - 총 {{ dgnState.inv.myTop }}장</div>
+            <div class="flex-1 overflow-y-auto pr-1 flex flex-col gap-1 mb-2 content-start custom-scrollbar">
+              <div v-for="p in TOP_DB[dgnState.myTeam]" :key="p" v-show="dgnState.topAlbum[dgnState.myTeam][p] > 0" class="flex justify-between text-xs bg-[#2a2a35] p-1.5 rounded"><span class="text-white">{{ p }}</span><span class="text-blue-400 font-bold">x{{ dgnState.topAlbum[dgnState.myTeam][p] }}</span></div>
+            </div>
+            <div class="text-[10px] font-bold text-red-400 mb-2 border-b border-neutral-700/50 pb-1 pt-2">타팀 획득 내역 (믹서기 재료)</div>
+            <div class="flex-1 overflow-y-auto pr-1 flex flex-col gap-1 content-start custom-scrollbar">
+              <template v-for="t in TEAMS" :key="'o'+t">
+                <div v-if="t !== dgnState.myTeam" v-for="p in TOP_DB[t]" :key="p" v-show="dgnState.topAlbum[t][p] > 0" class="flex justify-between text-[10px] text-neutral-400 border-b border-neutral-800 pb-0.5 mb-0.5"><span>[{{ T_NAMES[t] }}] {{ p }}</span><span>누적 x{{ dgnState.topAlbum[t][p] }}</span></div>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <!-- 🚀 과금 플래너 -->
+        <div class="bg-indigo-900/20 border border-indigo-800/50 rounded-2xl p-4 shrink-0 flex flex-col shadow-lg">
+          <h3 class="font-extrabold text-sm mb-2 flex items-center gap-1.5 text-indigo-400"><BarChart class="w-4 h-4"/> 타임라인 과금 플래너</h3>
+          <div class="text-[10px] text-indigo-200/50 mb-3 leading-tight">순수 디그니티 비용(기대값) 산출을 위해 매월 유지할 타 패키지(월정액 등) 금액을 입력하세요. 이 금액은 페이백 스택에만 합산됩니다.</div>
+          
+          <div class="flex items-center gap-2 mb-3 bg-[#1e1e24] p-2 rounded-lg border border-indigo-900/50">
+            <span class="text-[10px] font-bold text-indigo-300">매월 타 패키지:</span>
+            <input type="number" v-model.number="dgnPlan.otherMonthlyKrw" class="flex-1 bg-[#2a2a35] border border-neutral-700 text-white text-xs p-1.5 rounded outline-none">
+            <span class="text-[10px] font-bold text-indigo-300">원</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-x-2 gap-y-1.5 mb-3 text-[10px]">
+            <label class="flex items-center gap-1 text-neutral-300"><input type="checkbox" v-model="dgnPlan.wQ" class="accent-indigo-500"> 주간퀘 완수</label>
+            <label class="flex items-center gap-1 text-neutral-300 justify-end">티켓상점 <input type="number" v-model.number="dgnPlan.wC" min="0" max="10" class="w-8 bg-[#2a2a35] border border-neutral-700 text-center rounded outline-none"> /주</label>
+            <label class="flex items-center gap-1 text-neutral-300">루키 <input type="number" v-model.number="dgnPlan.rk" min="0" max="1" class="w-8 bg-[#2a2a35] border border-neutral-700 text-center rounded outline-none"> /월</label>
+            <label class="flex items-center gap-1 text-neutral-300 justify-end">프레스티지 <input type="number" v-model.number="dgnPlan.pt" min="0" max="1" class="w-8 bg-[#2a2a35] border border-neutral-700 text-center rounded outline-none"> /월</label>
+            <label class="flex items-center gap-1 text-neutral-300">픽업 <input type="number" v-model.number="dgnPlan.pk" min="0" max="1" class="w-8 bg-[#2a2a35] border border-neutral-700 text-center rounded outline-none"> /월</label>
+            <label class="flex items-center gap-1 text-neutral-300 justify-end">프로 <input type="number" v-model.number="dgnPlan.pr" min="0" max="5" class="w-8 bg-[#2a2a35] border border-neutral-700 text-center rounded outline-none"> /월</label>
+            <label class="flex items-center gap-1 text-neutral-300 col-span-2 mt-1 justify-center bg-amber-900/20 py-1 rounded">레전드 <input type="number" v-model.number="dgnPlan.lg" min="0" max="3" class="w-8 bg-[#2a2a35] border border-neutral-700 text-center rounded outline-none"> /월</label>
+          </div>
+          
+          <div class="flex items-center gap-2 mb-3 justify-center">
+            <span class="text-xs font-bold text-indigo-300">목표 자팀 획득:</span>
+            <input type="number" v-model.number="dgnPlan.target" class="w-12 bg-[#2a2a35] border border-indigo-700 rounded p-1 text-xs text-center font-bold outline-none text-white">
+            <span class="text-xs font-bold text-indigo-300">장</span>
+          </div>
+          
+          <button @click="dgnRunPlanner" :disabled="isDgnSim" class="w-full py-2.5 bg-indigo-700 hover:bg-indigo-600 text-white font-bold rounded-lg text-xs transition-colors">{{ isDgnSim ? '만 번의 미래 연산 중...' : '시뮬레이션 가동' }}</button>
+          
+          <div v-if="dgnSimResult" class="mt-3 p-3 bg-[#1e1e24] rounded-xl border border-indigo-800/50 flex justify-between items-center text-center shadow-inner">
+            <div><div class="text-[9px] text-neutral-400 mb-0.5">평균 소요 기간</div><div class="text-sm font-black text-indigo-400">{{ dgnSimResult.month }}개월 {{ dgnSimResult.week }}주</div></div>
+            <div><div class="text-[9px] text-neutral-400 mb-0.5">순수 디그니티 비용(기댓값)</div><div class="text-sm font-black text-green-400">{{ dgnSimResult.cost }}원</div></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  
 </template>
 
 <style scoped>
