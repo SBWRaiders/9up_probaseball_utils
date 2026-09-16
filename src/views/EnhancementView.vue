@@ -617,21 +617,27 @@ const TOP_DB: Record<string, string[]> = {
 }
 const ALL_TOPS = Object.entries(TOP_DB).flatMap(([t, players]) => players.map(p => ({ team: t, name: p })))
 
-// 상태 관리 (🔥 무한패키지 unl, 총 누적결제 totalKrw 추가)
 const dgnState = reactive({
-  month: 1,
-  myTeam: 'kia',
-  targetWave: 5,
+  month: 1, myTeam: 'kia', targetWave: 5,
   inv: { normal: 0, pickup: 0, tickets: 0, myDgn: 0, myTop: 0, otherTop: 0, cash: 0 },
   album: Object.fromEntries(TEAMS.map(t => [t, 0])),
   topAlbum: Object.fromEntries(TEAMS.map(t => [t, Object.fromEntries(TOP_DB[t].map(p => [p, 0]))])),
   shop: { wQ: 0, wC: 0, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0, unl: 0 }, 
   payback: { spent: 0, totalKrw: 0, t1: false, t2: false, t3: false, t4: false, inf: 0 }, 
-  pity: { pack: 0, trade: 0 },
+  pity: { pack: 50, trade: 30 }, // 🔥 카운트다운 시작 숫자로 변경!
   logs: [] as { id: number, msg: string, type: string }[]
 })
-// 🔥 도감 명함 클릭 토글 함수 (동기화용)
-const toggleDgnAlbum = (t: string) => { if (dgnState.album[t] === 0) dgnState.album[t] = 1; else if (dgnState.album[t] === 1) dgnState.album[t] = 0; }
+
+// 🔥 도감 명함 클릭 토글: 0장 ➔ 1장(명함) ➔ 2장(1중복) ➔ 3장(2중복) 순환!
+const toggleDgnAlbum = (t: string) => { dgnState.album[t] = (dgnState.album[t] + 1) % 4 }
+
+// 🔥 믹서기 대기열 전광판용 변수
+const dgnWaitlist = computed(() => {
+  let list: string[] = []; TEAMS.forEach(t => { if(t !== dgnState.myTeam && dgnState.album[t] > 1) list.push(`${T_NAMES[t]} ${D_WAVES[dgnState.targetWave][t]} (${dgnState.album[t]-1}장)`) }); return list;
+})
+const topWaitlist = computed(() => {
+  let list: string[] = []; TEAMS.forEach(t => { if(t !== dgnState.myTeam) { TOP_DB[t].forEach(p => { if(dgnState.topAlbum[t][p] > 0) list.push(`[${T_NAMES[t]}] ${p} (${dgnState.topAlbum[t][p]}장)`) }) } }); return list;
+})
 
 const manualKrwInput = ref(0)
 const dgnAlbumTab = ref<'dignity'|'top'>('dignity')
@@ -705,30 +711,59 @@ const dgnBuyPkg = (key: keyof typeof dgnState.shop, limit: number, price: number
 
 // ... dgnOpenPack, dgnOpenPickup 코드는 그대로 유지 ...
 
-// 🔥 수정: '서로 다른 종류' 3장 체크 로직 추가
+// 🔥 날아갔던 일반/픽업팩 함수 완벽 복구 & 천장 분리 & 카운트다운
+const dgnOpenPack = (count: number) => {
+  if (dgnState.inv.normal < count) return alert("일반팩이 부족합니다.")
+  dgnState.inv.normal -= count; dgnState.inv.tickets += (count * 2)
+  for (let i=0; i<count; i++) {
+    for (let j=0; j<8; j++) {
+      if (Math.random() < 0.03) {
+        let t = TEAMS[Math.floor(Math.random()*12)], pn = D_WAVES[dgnState.targetWave][t]
+        if (t === dgnState.myTeam) { dgnState.inv.myDgn++; dgnLog(`✨[기적] 디그니티팩 자팀 ${pn} 등장!✨`, 'epic') }
+        else { dgnState.album[t]++; dgnLog(`[획득] 타팀 ${T_NAMES[t]} ${pn} 획득!`, 'success') }
+      } else {
+        let top = ALL_TOPS[Math.floor(Math.random()*212)]
+        if (top.team === dgnState.myTeam) { dgnState.inv.myTop++; dgnState.topAlbum[top.team][top.name]++ }
+        else { dgnState.inv.otherTop++; dgnState.topAlbum[top.team][top.name]++ }
+      }
+    }
+    dgnState.pity.pack--; // 🔥 일반팩만 천장 횟수 감소!
+    if(dgnState.pity.pack <= 0) {
+      dgnState.inv.myDgn++; dgnLog(`🎉[팩 천장] 선택권으로 자팀 디그니티 확정 획득!`, 'epic')
+      dgnState.pity.pack = 50 // 천장 도달 시 다시 50회로 리셋
+    }
+  }
+}
+
+const dgnOpenPickup = () => {
+  if (dgnState.inv.pickup < 1) return alert("픽업팩이 부족합니다.")
+  dgnState.inv.pickup--; // 🔥 픽업팩은 천장 변동 안 함!
+  let t = TEAMS[Math.floor(Math.random()*12)], pn = D_WAVES[dgnState.targetWave][t]
+  if (t === dgnState.myTeam) { dgnState.inv.myDgn++; dgnLog(`✨[픽업] 자팀 ${pn} 100% 확정 등장!✨`, 'epic') }
+  else { dgnState.album[t]++; dgnLog(`[픽업] 타팀 ${T_NAMES[t]} ${pn} 획득.`, 'success') }
+}
+
+// 믹서기 로직
 const dgnDistinctDgnCount = computed(() => TEAMS.filter(t => t !== dgnState.myTeam && dgnState.album[t] > 1).length)
-const dgnDistinctTopCount = computed(() => {
-  let count = 0; TEAMS.forEach(t => { if (t !== dgnState.myTeam) { TOP_DB[t].forEach(p => { if (dgnState.topAlbum[t][p] > 0) count++ }) } }); return count;
-})
+const dgnDistinctTopCount = computed(() => { let count = 0; TEAMS.forEach(t => { if (t !== dgnState.myTeam) { TOP_DB[t].forEach(p => { if (dgnState.topAlbum[t][p] > 0) count++ }) } }); return count; })
 
 const dgnRunMixer = () => {
   let cnt = 0
   while (true) {
-    // 🔥 1순위: 서로 다른 타팀 디그니티 3종류 체크
     let dgnDupes = TEAMS.filter(t => t !== dgnState.myTeam && dgnState.album[t] > 1)
     if (dgnDupes.length >= 3 && dgnState.inv.tickets >= 1) {
-      dgnState.album[dgnDupes[0]]--; dgnState.album[dgnDupes[1]]--; dgnState.album[dgnDupes[2]]--; dgnState.inv.tickets--; dgnState.pity.trade++; cnt++
+      dgnState.album[dgnDupes[0]]--; dgnState.album[dgnDupes[1]]--; dgnState.album[dgnDupes[2]]--;
+      dgnState.inv.tickets--; dgnState.pity.trade--; cnt++ // 🔥 트레이드 횟수 감소
       let t = TEAMS[Math.floor(Math.random()*12)], pn = D_WAVES[dgnState.targetWave][t]
       if (t === dgnState.myTeam) { dgnState.inv.myDgn++; dgnLog(`[믹서기] 대박! 자팀 ${pn} 디그니티 획득! (8.3%)`, 'epic') } else { dgnState.album[t]++; dgnLog(`[믹서기] 타팀 ${T_NAMES[t]} ${pn} 획득...`, 'normal') }
-      if (dgnState.pity.trade % 30 === 0) { dgnState.inv.myDgn++; dgnLog(`🎉[트레이드 천장] 30회 마일리지 자팀 확정 지급!`, 'epic') }
+      if (dgnState.pity.trade <= 0) { dgnState.inv.myDgn++; dgnLog(`🎉[트레이드 천장] 선택권으로 자팀 확정 획득!`, 'epic'); dgnState.pity.trade = 30 } // 🔥 천장 리셋 & 확정 획득
       continue; 
     }
-    // 🔥 2순위: 서로 다른 타팀 TOP 선수 3종류 체크 (천장 증가 없음)
     let topDupes: {t:string, p:string}[] = []
     TEAMS.forEach(t => { if (t !== dgnState.myTeam) { TOP_DB[t].forEach(p => { if (dgnState.topAlbum[t][p] > 0) topDupes.push({t, p}) }) } })
     if (topDupes.length >= 3 && dgnState.inv.tickets >= 1) {
       dgnState.topAlbum[topDupes[0].t][topDupes[0].p]--; dgnState.topAlbum[topDupes[1].t][topDupes[1].p]--; dgnState.topAlbum[topDupes[2].t][topDupes[2].p]--;
-      dgnState.inv.otherTop -= 3; dgnState.inv.tickets--; cnt++
+      dgnState.inv.otherTop -= 3; dgnState.inv.tickets--; cnt++ // TOP은 천장 감소 안함
       if (Math.random() < 0.03) {
         let t = TEAMS[Math.floor(Math.random()*12)], pn = D_WAVES[dgnState.targetWave][t]
         if (t === dgnState.myTeam) { dgnState.inv.myDgn++; dgnLog(`🔥[TOP 3% 기적] 자팀 ${pn} 디그니티 획득!`, 'epic') } else { dgnState.album[t]++; dgnLog(`🔥[TOP 3% 기적] 타팀 ${T_NAMES[t]} ${pn} 획득!`, 'success') }
@@ -754,12 +789,8 @@ const dgnOpenPerfect = (count: number) => {
   dgnLog(`[파이브스타 퍼펙트 팩] ${count}팩 개봉 (TOP ${count * 8}장 획득!)`, 'action')
 }
 
-// 🌟 신규: 플래너용 명함 체크 배열 및 전체선택 함수
-const dgnPlanOwnedCards = ref<string[]>([])
-const toggleAllPlanCards = (e: any) => { if(e.target.checked) { dgnPlanOwnedCards.value = TEAMS.filter(t => t !== dgnState.myTeam) } else { dgnPlanOwnedCards.value = [] } }
-
-// 🔥 업데이트: 무한패키지(unl) 및 잔여 낱개 카드(leftoverDgn) 추가
-const dgnPlan = reactive({ target: 3, otherMonthlyKrw: 0, leftoverDgn: 0, wQ: true, wC: 40, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0, unl: 0 })
+// 🔥 업데이트: leftoverDgn 삭제 (명함 도감에서 직접 0~3장 세팅하므로 불필요)
+const dgnPlan = reactive({ target: 3, otherMonthlyKrw: 0, wQ: true, wC: 40, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0, unl: 0 })
 const dgnPlanTotalKrw = computed(() => dgnPlan.rk*55000 + dgnPlan.pt*99000 + dgnPlan.pk*99000 + dgnPlan.pr*99000 + dgnPlan.lg*149000 + dgnPlan.unl*55000 + dgnPlan.otherMonthlyKrw )
 const dgnPlanPureKrw = computed(() => dgnPlan.rk*55000 + dgnPlan.pt*99000 + dgnPlan.pk*99000 + dgnPlan.pr*99000 + dgnPlan.lg*149000 + dgnPlan.unl*55000 )
 
@@ -768,7 +799,22 @@ const dgnSimRawResults = ref<any[]>([]); const dgnResultViewMode = ref<'TOP10'|'
 const dgnChartCanvas = ref<HTMLCanvasElement | null>(null); let dgnChartInstance: any = null
 const dgnUserSpentKrw = ref<number | null>(null); const dgnMyLuckPercentile = ref<number | null>(null); const dgnLuckTitle = ref('')
 
-// ... renderDgnChart 함수는 그대로 유지 ...
+const renderDgnChart = (data: number[], isMonth: boolean) => {
+  if (!ChartObj || !dgnChartCanvas.value) return
+  if (dgnChartInstance) dgnChartInstance.destroy()
+  const p99 = data[Math.floor(data.length * 0.99)] || data[data.length - 1]
+  const filteredData = data.filter(d => d <= p99)
+  const min = filteredData[0] || 0; const max = filteredData[filteredData.length - 1] || 1
+  const binCount = 40; const binSize = (max - min) / binCount || 1
+  const bins = Array(binCount).fill(0)
+  filteredData.forEach(val => { let idx = Math.floor((val - min) / binSize); if (idx >= binCount) idx = binCount - 1; bins[idx]++ })
+  const labels = bins.map((_, i) => formatNum(Math.round(min + (i + 0.5) * binSize)))
+  let cdfSum = 0; const cdf = bins.map(count => { cdfSum += count; return (cdfSum / data.length) * 100 })
+  dgnChartInstance = new ChartObj(dgnChartCanvas.value, {
+    type: 'bar', data: { labels, datasets: [ { type: 'line', label: '누적 달성률 (%)', data: cdf, borderColor: '#4f46e5', backgroundColor: '#4f46e5', borderWidth: 2, yAxisID: 'y-cdf', tension: 0.3, pointRadius: 0, fill: false }, { type: 'bar', label: '해당 구간 인원', data: bins, backgroundColor: 'rgba(99, 102, 241, 0.5)', borderColor: 'rgba(99, 102, 241, 1)', borderWidth: 1, yAxisID: 'y-freq', borderRadius: 4 } ]},
+    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(0,0,0,0.8)', callbacks: { title: (ctx:any) => `${isMonth?'소요 기간':'기대 비용'}: ${ctx[0].label}${isMonth?'개월':'원'}`, label: (ctx:any) => ctx.datasetIndex === 0 ? `누적 달성률: ${ctx.raw.toFixed(2)}%` : `이 구간 달성자: ${ctx.raw}명` } } }, scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 6, font: { size: 10 } } }, 'y-freq': { type: 'linear', position: 'left', display: false, beginAtZero: true }, 'y-cdf': { type: 'linear', position: 'right', beginAtZero: true, max: 100, grid: { drawOnChartArea: false }, ticks: { font: { size: 10 }, callback: (v:any) => v + '%' } } } }
+  })
+}
 
 const dgnRunPlanner = () => {
   isDgnSim.value = true; dgnSimResult.value = null; dgnMyLuckPercentile.value = null; dgnUserSpentKrw.value = null
@@ -780,19 +826,13 @@ const dgnRunPlanner = () => {
     if(totalKrwPerMonth===0 && nPerMonth===0 && pPerMonth===0 && tPerMonth===0) { isDgnSim.value=false; return alert("구매 패턴을 하나라도 설정해주세요.") }
 
     let iter = 10000; let results = [] 
-    
     for(let i=0; i<iter; i++) {
       let week = 0; let totalPayback = dgnState.payback.totalKrw; let infPity = Math.floor(totalPayback / 300000)
       
-      // 🔥 유저 인게임 상태 완벽 동기화 (자팀 획득량, 티켓, 천장)
       let myDgn = dgnState.inv.myDgn, tkt = dgnState.inv.tickets
-      let pPack = dgnState.pity.pack, pTrade = dgnState.pity.trade
+      let pPack = dgnState.pity.pack, pTrade = dgnState.pity.trade // 🔥 유저의 카운트다운 스택 복사
       let totalUsedTop = 0; let totalGainedTop = dgnState.inv.otherTop;
-      
-      // 🔥 도감 상태 복사 + 유저가 입력한 남은 '낱개 카드' 랜덤 분배
-      let alb = { ...dgnState.album }
-      let availableTeams = TEAMS.filter(t => t !== dgnState.myTeam)
-      for(let x=0; x<dgnPlan.leftoverDgn; x++) { alb[availableTeams[Math.floor(Math.random()*11)]]++ }
+      let alb = { ...dgnState.album } // 🔥 유저가 클릭해둔 명함(0~3) 상태 그대로 복사!
       
       while(myDgn < dgnPlan.target) {
         week++; 
@@ -801,7 +841,7 @@ const dgnRunPlanner = () => {
         for(let k=0; k<wQ; k++) {
           tkt += 2; 
           for(let j=0; j<8; j++) { if(Math.random()<0.03){let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++} else { if(Math.random()>=(TOP_DB[dgnState.myTeam].length/212)) totalGainedTop++ } }
-          pPack++; if(pPack%50===0) myDgn++
+          pPack--; if(pPack<=0) { myDgn++; pPack=50; } // 🔥 카운트다운
         }
 
         if (week % 4 === 1) {
@@ -818,20 +858,20 @@ const dgnRunPlanner = () => {
           for(let k=0; k<mp; k++) { let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++ }
           for(let k=0; k<mn; k++) {
             tkt+=2; for(let j=0; j<8; j++) { if(Math.random()<0.03){let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++} else { if(Math.random()>=(TOP_DB[dgnState.myTeam].length/212)) totalGainedTop++ } }
-            pPack++; if(pPack%50===0) myDgn++
+            pPack--; if(pPack<=0) { myDgn++; pPack=50; } // 🔥 카운트다운
           }
         }
 
-        // 🔥 통합 믹서기 (서로 다른 3장 룰)
         while(true) {
           let dp = TEAMS.filter(t => t !== dgnState.myTeam && alb[t] > 1);
           if(dp.length>=3 && tkt>=1) { 
-            alb[dp[0]]--; alb[dp[1]]--; alb[dp[2]]--; tkt--; pTrade++; 
+            alb[dp[0]]--; alb[dp[1]]--; alb[dp[2]]--; tkt--; pTrade--; // 🔥 트레이드 횟수 감소
             let t = TEAMS[Math.floor(Math.random()*12)]; if(t === dgnState.myTeam) myDgn++; else alb[t]++;
-            if(pTrade%30===0) myDgn++; continue; 
+            if(pTrade<=0) { myDgn++; pTrade=30; } // 🔥 천장 확정 선택권 획득!
+            continue; 
           }
           if(tkt>=1) { 
-            totalUsedTop += 3; tkt--; // TOP 빚쟁이 & 천장 안오름
+            totalUsedTop += 3; tkt--; 
             if(Math.random()<0.03){ let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++; } else { if(Math.random()>=(TOP_DB[dgnState.myTeam].length/212)) totalGainedTop++ }
             continue;
           }
@@ -1381,19 +1421,31 @@ const dgnRunPlanner = () => {
               <button @click="dgnOpenPerfect(10)" class="flex-1 py-2 bg-blue-900/40 border border-blue-800 hover:bg-blue-800 text-blue-300 rounded-lg text-[11px] font-bold transition-colors">파이브스타 퍼펙트 10팩</button>
             </div>
           </div>
-          <!-- 🔥 신규: 천장 수동 입력 UI -->
-          <div class="mt-auto pt-3 border-t border-neutral-700/50 flex justify-between items-center text-xs font-bold text-neutral-500">
-            <div class="flex items-center gap-1">팩 천장: <input type="number" v-model.number="dgnState.pity.pack" class="w-10 bg-[#2a2a35] border border-blue-800 text-blue-400 text-center rounded outline-none p-0.5"> / 50</div>
-            <div class="flex items-center gap-1">트레이드 천장: <input type="number" v-model.number="dgnState.pity.trade" class="w-10 bg-[#2a2a35] border border-blue-800 text-blue-400 text-center rounded outline-none p-0.5"> / 30</div>
+          <!-- 🔥 변경: 천장 카운트다운 수동 입력 UI -->
+          <div class="mt-auto pt-3 border-t border-neutral-700/50 flex justify-between items-center text-[11px] font-bold text-neutral-500">
+            <div class="flex items-center gap-1">남은 팩 개봉: <input type="number" v-model.number="dgnState.pity.pack" class="w-10 bg-[#2a2a35] border border-blue-800 text-blue-400 text-center rounded outline-none p-0.5"> 번 (확정)</div>
+            <div class="flex items-center gap-1">남은 트레이드: <input type="number" v-model.number="dgnState.pity.trade" class="w-10 bg-[#2a2a35] border border-blue-800 text-blue-400 text-center rounded outline-none p-0.5"> 번 (확정)</div>
           </div>
         </div>
 
         <div class="bg-[#1e1e24] border border-neutral-700/50 rounded-2xl p-5 flex flex-col shrink-0 shadow-lg">
-          <h3 class="font-extrabold text-sm mb-4 flex items-center gap-1.5 text-green-400"><RefreshCw class="w-4 h-4"/> 믹서기 (트레이드)</h3>
-          <!-- 🔥 신규: 투입 가능한 3종류 현황판 -->
-          <div class="grid grid-cols-2 gap-4 mb-4">
+          <h3 class="font-extrabold text-sm mb-3 flex items-center gap-1.5 text-green-400"><RefreshCw class="w-4 h-4"/> 믹서기 (트레이드)</h3>
+          <!-- 🔥 신규: 투입 가능한 3종류 현황판 및 대기열 전광판 -->
+          <div class="grid grid-cols-2 gap-3 mb-2">
             <div class="bg-[#2a2a35] p-3 rounded-xl text-center relative"><div class="text-[10px] font-bold text-neutral-400 mb-1">잉여 디그니티 <span class="text-blue-400">종류</span></div><div class="text-lg font-black text-red-400">{{ dgnDistinctDgnCount }} 종</div><div class="absolute -top-2 -right-2 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full" v-if="dgnDistinctDgnCount<3">3종 필요</div></div>
             <div class="bg-[#2a2a35] p-3 rounded-xl text-center relative"><div class="text-[10px] font-bold text-neutral-400 mb-1">타팀 TOP 선수 <span class="text-blue-400">종류</span></div><div class="text-lg font-black text-white">{{ dgnDistinctTopCount }} 종</div><div class="absolute -top-2 -right-2 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full" v-if="dgnDistinctTopCount<3">3종 필요</div></div>
+          </div>
+          <!-- 🔥 믹서기 대기열 전광판 (어떤 카드가 막혀있는지 보여줌) -->
+          <div class="bg-[#1a1b1e] border border-neutral-700/50 rounded-lg p-2 mb-4">
+            <div class="text-[9px] font-bold text-amber-500 border-b border-neutral-700/50 pb-1 mb-1">🔥 믹서기 투입 대기 중인 잉여 카드 목록</div>
+            <div class="flex flex-wrap gap-1">
+              <span v-for="item in dgnWaitlist" :key="item" class="bg-red-900/40 border border-red-800 text-red-200 text-[9px] px-1.5 py-0.5 rounded">{{ item }}</span>
+              <span v-if="dgnWaitlist.length === 0" class="text-[9px] text-neutral-500">대기 중인 잉여 디그니티 카드가 없습니다.</span>
+            </div>
+            <div class="flex flex-wrap gap-1 mt-1">
+              <span v-for="item in topWaitlist.slice(0, 8)" :key="item" class="bg-blue-900/40 border border-blue-800 text-blue-200 text-[9px] px-1.5 py-0.5 rounded">{{ item }}</span>
+              <span v-if="topWaitlist.length > 8" class="text-[9px] text-neutral-500">+ 외 {{ topWaitlist.length - 8 }}종 대기 중</span>
+            </div>
           </div>
           <button @click="dgnRunMixer" class="w-full py-4 bg-green-700 hover:bg-green-600 text-white rounded-xl font-black text-lg shadow-lg flex justify-center items-center gap-2 transition-colors"><RefreshCw class="w-5 h-5"/> 자동 필터 믹서기 가동</button>
         </div>
@@ -1423,13 +1475,13 @@ const dgnRunPlanner = () => {
           </div>
           
           <div v-show="dgnAlbumTab==='dignity'" class="grid grid-cols-3 gap-2 overflow-y-auto pr-1 flex-1 content-start custom-scrollbar">
-            <!-- 🔥 신규: 클릭 시 명함 ON/OFF 토글 기능 추가 -->
-            <div v-for="t in TEAMS" :key="t" v-show="t!==dgnState.myTeam" @click="toggleDgnAlbum(t)" class="p-2 rounded-lg border text-center relative transition-colors cursor-pointer hover:border-blue-500" :class="dgnState.album[t]>0?'bg-amber-900/30 border-amber-700':'bg-[#2a2a35] border-neutral-700/50 opacity-50 grayscale'">
+            <!-- 🔥 신규: 클릭 시 0~3장까지 세팅 가능 (0:없음, 1:명함, 2:+1중복, 3:+2중복) -->
+            <div v-for="t in TEAMS" :key="t" v-show="t!==dgnState.myTeam" @click="toggleDgnAlbum(t)" class="p-2 rounded-lg border text-center relative transition-colors cursor-pointer hover:border-blue-500 select-none" :class="dgnState.album[t]>0?'bg-amber-900/30 border-amber-700':'bg-[#2a2a35] border-neutral-700/50 opacity-50 grayscale'">
               <div class="text-[9px] font-black mb-0.5" :class="T_COLORS[t]">{{ T_NAMES[t] }}</div><div class="text-xs font-bold text-white">{{ D_WAVES[dgnState.targetWave][t] }}</div>
               <div v-if="dgnState.album[t]>1" class="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">+{{ dgnState.album[t]-1 }} 중복</div>
               <div v-if="dgnState.album[t]>0" class="absolute -top-1.5 -left-1.5 bg-blue-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-md">✓</div>
             </div>
-            <div class="col-span-3 text-center mt-2 text-[10px] text-blue-400 font-bold bg-blue-900/20 p-2 rounded">💡 카드를 클릭하여 '내 명함(1장) 보유 상태'를 세팅하세요! (계산기 동기화 됨)</div>
+            <div class="col-span-3 text-center mt-2 text-[10px] text-blue-400 font-bold bg-blue-900/20 p-2 rounded leading-tight">💡 카드를 클릭하여 현재 보유 장수를 세팅하세요!<br>(0장 ➔ 명함 ➔ +1중복 ➔ +2중복 ➔ 0장 순환)</div>
           </div>
 
           <div v-show="dgnAlbumTab==='top'" class="flex flex-col flex-1 overflow-hidden">
@@ -1458,11 +1510,7 @@ const dgnRunPlanner = () => {
             <div class="flex justify-between text-[8px] font-bold text-neutral-600 px-1"><span :class="{'text-green-500': dgnPlanPureKrw >= 9900}">9.9k</span><span :class="{'text-green-500': dgnPlanPureKrw >= 99000}">99k</span><span :class="{'text-green-500': dgnPlanPureKrw >= 199000}">199k</span><span :class="{'text-green-500': dgnPlanPureKrw >= 299000}">299k</span></div>
           </div>
 
-          <div class="flex items-center gap-3 mb-2 bg-indigo-950/30 p-2 rounded-lg border border-indigo-500/30">
-            <span class="text-[10px] font-bold text-indigo-300 w-32">현재 남은 낱개 잉여카드</span>
-            <input type="number" v-model.number="dgnPlan.leftoverDgn" min="0" max="2" class="flex-1 bg-[#1a1b1e] border border-indigo-500/50 text-white text-xs p-1 rounded outline-none text-center font-bold">
-            <span class="text-[10px] text-indigo-400">장 (1~2장)</span>
-          </div>
+          <!-- 🔥 쓸데없는 남은 낱개 잉여카드 숫자 입력창 통째로 삭제 완료! -->
 
           <div class="flex items-center gap-3 mb-4 bg-indigo-950/30 p-2 rounded-lg border border-indigo-500/30">
             <span class="text-[10px] font-bold text-indigo-300 w-32">디그니티 외 타 결제액</span>
