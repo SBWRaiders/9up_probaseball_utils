@@ -741,16 +741,16 @@ const dgnRunMixer = () => {
       if (dgnState.pity.trade % 30 === 0) { dgnState.inv.myDgn++; dgnLog(`🎉[트레이드 천장] 30회 마일리지 자팀 확정 지급!`, 'epic') }
       continue; 
     }
+    // 2순위: TOP 재료 체크 (🔥 TOP 믹서기는 천장 스택 안 오름!)
     if (dgnState.inv.otherTop >= 3 && dgnState.inv.tickets >= 1) {
-      dgnState.inv.otherTop -= 3; dgnState.inv.tickets--; dgnState.pity.trade++; cnt++ // 🔥 천장 카운트 누락 버그 해결
+      dgnState.inv.otherTop -= 3; dgnState.inv.tickets--; cnt++
       if (Math.random() < 0.03) {
         let t = TEAMS[Math.floor(Math.random()*12)], pn = D_WAVES[dgnState.targetWave][t]
         if (t === dgnState.myTeam) { dgnState.inv.myDgn++; dgnLog(`🔥[TOP 3% 기적] 자팀 ${pn} 디그니티 획득!`, 'epic') } else { dgnState.album[t]++; dgnLog(`🔥[TOP 3% 기적] 타팀 ${T_NAMES[t]} ${pn} 획득!`, 'success') }
       } else {
         let top = ALL_TOPS[Math.floor(Math.random()*212)]; if (top.team === dgnState.myTeam) { dgnState.inv.myTop++; dgnState.topAlbum[top.team][top.name]++ } else { dgnState.inv.otherTop++; dgnState.topAlbum[top.team][top.name]++ }
-        dgnLog(`[믹서기] TOP 재료 소모... (꽝)`, 'normal') // 🔥 꽝 로그 추가
+        dgnLog(`[믹서기] TOP 재료 소모... (꽝)`, 'normal')
       }
-      if (dgnState.pity.trade % 30 === 0) { dgnState.inv.myDgn++; dgnLog(`🎉[트레이드 천장] 30회 마일리지 자팀 확정 지급!`, 'epic') }
       continue; 
     }
     break; 
@@ -878,9 +878,9 @@ const dgnRunPlanner = () => {
             if(pTrade%30===0) myDgn++; continue; 
           }
           if(tkt>=1) { 
-            totalUsedTop += 3; tkt--; pTrade++; // TOP 카드 마이너스 통장
+            totalUsedTop += 3; tkt--; // 🔥 TOP 카드는 트레이드 천장(pTrade) 증가 안 함!
             if(Math.random()<0.03){ let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++; } else { if(Math.random()>=(TOP_DB[dgnState.myTeam].length/212)) totalGainedTop++ }
-            if(pTrade%30===0) myDgn++; continue;
+            continue;
           }
           break
         }
@@ -1433,7 +1433,7 @@ const dgnRunPlanner = () => {
             </div>
           </div>
           <div class="mt-auto pt-3 border-t border-neutral-700/50 flex justify-between text-xs font-bold text-neutral-500">
-            <span>팩 천장: <span class="text-blue-400">{{dgnState.pity.pack % 50}}</span> / 50</span><span>트레이드 천장: <span class="text-blue-400">{{dgnState.pity.trade % 30}}</span> / 30</span>
+            <span>팩 천장: <span class="text-blue-400">{{dgnState.pity.pack % 50}}</span> / 50</span><span>디그니티 트레이드 천장: <span class="text-blue-400">{{dgnState.pity.trade % 30}}</span> / 30</span>
           </div>
         </div>
 
