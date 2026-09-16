@@ -1616,7 +1616,6 @@ const checkMyLuck = () => { /* 구현 생략 - 기존 유지 */ }
         </div>
       </section>
     </div>
-  </div>
 </template>
 
 <style scoped>
