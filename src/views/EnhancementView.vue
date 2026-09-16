@@ -734,24 +734,6 @@ const dgnOpenPack = (count: number) => {
     }
   }
 }
-    for (let j=0; j<8; j++) {
-      if (Math.random() < 0.03) {
-        let t = TEAMS[Math.floor(Math.random()*12)], pn = D_WAVES[dgnState.targetWave][t]
-        if (t === dgnState.myTeam) { dgnState.inv.myDgn++; dgnLog(`✨[기적] 일반팩에서 자팀 ${pn} 등장!✨`, 'epic') }
-        else { dgnState.album[t]++; dgnLog(`[획득] 타팀 ${T_NAMES[t]} ${pn} 획득!`, 'success') }
-      } else {
-        let top = ALL_TOPS[Math.floor(Math.random()*212)]
-        if (top.team === dgnState.myTeam) { dgnState.inv.myTop++; dgnState.topAlbum[top.team][top.name]++ }
-        else { dgnState.inv.otherTop++; dgnState.topAlbum[top.team][top.name]++ }
-      }
-    }
-    dgnState.pity.pack--; // 🔥 카운트다운
-    if(dgnState.pity.pack <= 0) {
-      dgnState.inv.myDgn++; dgnLog(`🎉[팩 천장] 선택권으로 자팀 디그니티 확정 획득!`, 'epic')
-      dgnState.pity.pack = 50 // 리셋
-    }
-  }
-}
 
 // 🔥 픽업팩 (천장 카운트다운 X)
 const dgnOpenPickup = () => {
