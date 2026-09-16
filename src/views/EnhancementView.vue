@@ -623,7 +623,7 @@ const dgnState = reactive({
   month: 1,
   myTeam: 'kia',
   targetWave: 5,
-  inv: { normal: 0, pickup: 0, tickets: 0, myDgn: 0, myTop: 0, otherTop: 0, cash: 1000 },
+  inv: { normal: 0, pickup: 0, tickets: 0, myDgn: 0, myTop: 0, otherTop: 0, cash: 0 },
   album: Object.fromEntries(TEAMS.map(t => [t, 0])),
   topAlbum: Object.fromEntries(TEAMS.map(t => [t, Object.fromEntries(TOP_DB[t].map(p => [p, 0]))])),
   shop: { wQ: 0, wC: 0, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0 },
@@ -690,8 +690,7 @@ const dgnAddManualPayback = () => {
 const dgnBuyPkg = (key: keyof typeof dgnState.shop, limit: number, price: number, n: number, p: number, t: number, name: string, isCash: boolean = false) => {
   if (dgnState.shop[key] >= limit) return alert("구매 횟수를 모두 소진했습니다.")
   if (isCash) {
-    if (dgnState.inv.cash < price) { dgnState.inv.cash += 5000; dgnLog('[시스템] 테스트용 캐시 5000 충전', 'action') } // 임시 캐시 충전
-    dgnState.inv.cash -= price
+    dgnState.inv.cash += price // 캐시 소모량 누적
   } else {
     dgnState.payback.spent += price // 원화(KRW)일 때만 페이백 증가
   }
@@ -733,9 +732,15 @@ const dgnRunMixer = () => {
   while (true) {
     let dupes = []; TEAMS.forEach(t => { if(t !== dgnState.myTeam) { let c = dgnState.album[t]; while(c>1){ dupes.push(t); c-- } } })
     if (dupes.length >= 3 && dgnState.inv.tickets >= 1) {
-      dgnState.album[dupes[0]]--; dgnState.album[dupes[1]]--; dgnState.album[dupes[2]]--; dgnState.inv.tickets--; dgnState.inv.myDgn++; dgnState.pity.trade++; cnt++
-      dgnLog(`[믹서기] 디그니티 트레이드 ➔ 자팀 디그니티 확정!`, 'epic')
-      if (dgnState.pity.trade % 30 === 0) { dgnState.inv.myDgn++; dgnLog(`🎉[트레이드 천장] 30회 마일리지 자팀 확정!`, 'epic') }
+      dgnState.album[dupes[0]]--; dgnState.album[dupes[1]]--; dgnState.album[dupes[2]]--; dgnState.inv.tickets--; dgnState.pity.trade++; cnt++
+      
+      let t = TEAMS[Math.floor(Math.random()*12)], pn = D_WAVES[dgnState.targetWave][t]
+      if (t === dgnState.myTeam) {
+        dgnState.inv.myDgn++; dgnLog(`[믹서기] 대박! 자팀 ${pn} 디그니티 획득! (8.3%)`, 'epic')
+      } else {
+        dgnState.album[t]++; dgnLog(`[믹서기] 타팀 ${T_NAMES[t]} ${pn} 획득...`, 'normal')
+      }
+      if (dgnState.pity.trade % 30 === 0) { dgnState.inv.myDgn++; dgnLog(`🎉[트레이드 천장] 30회 마일리지 자팀 확정 지급!`, 'epic') }
     } else break;
   }
   while (true) {
@@ -770,7 +775,7 @@ const dgnOpenPerfect = (count: number) => {
 }
 
 // 🌟 업데이트: 정밀 기댓값 계산기 & 차트 (과금 플래너)
-const dgnPlan = reactive({ target: 3, otherMonthlyKrw: 0, wQ: true, wC: 10, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0 })
+const dgnPlan = reactive({ target: 3, otherMonthlyKrw: 0, wQ: true, wC: 40, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0 }) // wC 기본값 40으로 변경
 const dgnPlanTotalKrw = computed(() => dgnPlan.rk*55000 + dgnPlan.pt*99000 + dgnPlan.pk*99000 + dgnPlan.pr*99000 + dgnPlan.lg*149000 + dgnPlan.otherMonthlyKrw )
 const dgnPlanPureKrw = computed(() => dgnPlan.rk*55000 + dgnPlan.pt*99000 + dgnPlan.pk*99000 + dgnPlan.pr*99000 + dgnPlan.lg*149000 )
 
@@ -836,7 +841,7 @@ const dgnRunPlanner = () => {
     let pureDgnCost = dgnPlanPureKrw.value; let totalKrwPerMonth = dgnPlanTotalKrw.value
     let nPerMonth = (dgnPlan.wQ?4:0) + dgnPlan.rk*1 + dgnPlan.pt*3 + dgnPlan.pr*2 + dgnPlan.lg*2
     let pPerMonth = dgnPlan.pk*2 + dgnPlan.lg*1
-    let tPerMonth = (dgnPlan.wC*4) + dgnPlan.rk*20 + dgnPlan.pt*10 + dgnPlan.pr*10
+    let tPerMonth = dgnPlan.wC + dgnPlan.rk*20 + dgnPlan.pt*10 + dgnPlan.pr*10 // wC*4 삭제 (이제 월간 입력이니까)
     if(totalKrwPerMonth===0 && nPerMonth===0 && pPerMonth===0 && tPerMonth===0) { isDgnSim.value=false; return alert("구매 패턴을 하나라도 설정해주세요.") }
 
     let iter = 5000; let results = []
@@ -857,7 +862,12 @@ const dgnRunPlanner = () => {
         }
         while(true) {
           let dp = []; TEAMS.forEach(t=>{if(t!==dgnState.myTeam){let c=alb[t]; while(c>1){dp.push(t);c--}}})
-          if(dp.length>=3 && tkt>=1) { alb[dp[0]]--; alb[dp[1]]--; alb[dp[2]]--; tkt--; myDgn++; pTrade++; if(pTrade%30===0) myDgn++ }
+          if(dp.length>=3 && tkt>=1) { 
+  alb[dp[0]]--; alb[dp[1]]--; alb[dp[2]]--; tkt--; pTrade++; 
+  let t = TEAMS[Math.floor(Math.random()*12)]; 
+  if(t === dgnState.myTeam) myDgn++; else alb[t]++;
+  if(pTrade%30===0) myDgn++; 
+}
           else if(oTop>=3 && tkt>=1) { oTop-=3; tkt--; if(Math.random()<0.03){let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++} else { if(Math.random()<(TOP_DB[dgnState.myTeam].length/212)) mTop++; else oTop++ } }
           else break
         }
@@ -1369,12 +1379,11 @@ const dgnRunPlanner = () => {
           </div>
 
           <h3 class="font-extrabold text-sm mb-2 text-neutral-300 pt-3 border-t border-neutral-700/50"><ShoppingCart class="w-4 h-4 inline-block mr-1"/> 인게임 상점</h3>
-          <div class="flex justify-between text-[10px] text-neutral-400 mb-2 px-1"><span>보유 캐시:</span> <span class="text-blue-300 font-bold">{{ dgnState.inv.cash }} 캐시</span></div>
+          <div class="flex justify-between text-[10px] text-neutral-400 mb-2 px-1"><span>이번 달 소모 캐시:</span> <span class="text-purple-400 font-bold">{{ dgnState.inv.cash }} 💎</span></div>
           
           <div class="space-y-2 overflow-y-auto pr-1 flex-1">
-            <button @click="dgnBuyPkg('wQ', 1, 0, 1, 0, 0, '주간 퀘스트')" :disabled="dgnState.shop.wQ>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.wQ<1?'bg-blue-900/20 border border-blue-800/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-blue-400">주간 퀘스트 [{{dgnState.shop.wQ}}/1]</div><div class="text-xs font-bold text-white">일반팩 1</div></div></button>
-            <button @click="dgnBuyPkg('wC', 10, 50, 0, 0, 1, '주간 상점 티켓', true)" :disabled="dgnState.shop.wC>=10" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.wC<10?'bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-neutral-400">티켓 구매 [{{dgnState.shop.wC}}/10]</div><div class="text-xs font-bold text-amber-500">티켓 1</div></div><div class="text-[11px] font-bold text-blue-300">50캐시</div></button>
-            <button @click="dgnBuyPkg('rk', 1, 55000, 1, 0, 20, '루키 패키지')" :disabled="dgnState.shop.rk>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.rk<1?'bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-neutral-400">루키 패키지 [{{dgnState.shop.rk}}/1]</div><div class="text-xs font-bold text-white">일반1 + 티켓20</div></div><div class="text-[11px] font-bold text-green-500">5.5만</div></button>
+            <button @click="dgnBuyPkg('wQ', 4, 0, 1, 0, 0, '주간 퀘스트')" :disabled="dgnState.shop.wQ>=4" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.wQ<4?'bg-blue-900/20 border border-blue-800/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-blue-400">주간 퀘스트 (월) [{{dgnState.shop.wQ}}/4]</div><div class="text-xs font-bold text-white">일반팩 1</div></div></button>
+            <button @click="dgnBuyPkg('wC', 40, 50, 0, 0, 1, '주간 상점 티켓', true)" :disabled="dgnState.shop.wC>=40" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.wC<40?'bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-neutral-400">티켓 구매 (월) [{{dgnState.shop.wC}}/40]</div><div class="text-xs font-bold text-amber-500">티켓 1</div></div><div class="text-[11px] font-bold text-blue-300">50캐시</div></button>            <button @click="dgnBuyPkg('rk', 1, 55000, 1, 0, 20, '루키 패키지')" :disabled="dgnState.shop.rk>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.rk<1?'bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-neutral-400">루키 패키지 [{{dgnState.shop.rk}}/1]</div><div class="text-xs font-bold text-white">일반1 + 티켓20</div></div><div class="text-[11px] font-bold text-green-500">5.5만</div></button>
             <button @click="dgnBuyPkg('pt', 1, 99000, 3, 0, 10, '프레스티지')" :disabled="dgnState.shop.pt>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pt<1?'bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-neutral-400">프레스티지 [{{dgnState.shop.pt}}/1]</div><div class="text-xs font-bold text-white">일반3 + 티켓10</div></div><div class="text-[11px] font-bold text-green-500">9.9만</div></button>
             <button @click="dgnBuyPkg('pk', 1, 99000, 0, 2, 0, '픽업 프레스티지')" :disabled="dgnState.shop.pk>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pk<1?'bg-purple-900/20 border border-purple-800/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-purple-400">픽업 프레스티지 [{{dgnState.shop.pk}}/1]</div><div class="text-xs font-bold text-purple-300">픽업팩 2</div></div><div class="text-[11px] font-bold text-green-500">9.9만</div></button>
             <button @click="dgnBuyPkg('pr', 5, 99000, 2, 0, 10, '프로 패키지')" :disabled="dgnState.shop.pr>=5" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pr<5?'bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-neutral-400">프로 패키지 [{{dgnState.shop.pr}}/5]</div><div class="text-xs font-bold text-white">일반2 + 티켓10</div></div><div class="text-[11px] font-bold text-green-500">9.9만</div></button>
@@ -1492,7 +1501,7 @@ const dgnRunPlanner = () => {
 
           <div class="grid grid-cols-2 gap-x-2 gap-y-1.5 mb-3 text-[10px]">
             <label class="flex items-center gap-1 text-neutral-300"><input type="checkbox" v-model="dgnPlan.wQ" class="accent-indigo-500"> 주간퀘 완수</label>
-            <label class="flex items-center gap-1 text-neutral-300 justify-end">티켓상점 <input type="number" v-model.number="dgnPlan.wC" min="0" max="10" class="w-8 bg-[#2a2a35] border border-neutral-700 text-center rounded outline-none"> /주</label>
+            <label class="flex items-center gap-1 text-neutral-300 justify-end">티켓상점 <input type="number" v-model.number="dgnPlan.wC" min="0" max="40" class="w-8 bg-[#2a2a35] border border-neutral-700 text-center rounded outline-none"> /월</label>
             <label class="flex items-center gap-1 text-neutral-300">루키 <input type="number" v-model.number="dgnPlan.rk" min="0" max="1" class="w-8 bg-[#2a2a35] border border-neutral-700 text-center rounded outline-none"> /월</label>
             <label class="flex items-center gap-1 text-neutral-300 justify-end">프레스티지 <input type="number" v-model.number="dgnPlan.pt" min="0" max="1" class="w-8 bg-[#2a2a35] border border-neutral-700 text-center rounded outline-none"> /월</label>
             <label class="flex items-center gap-1 text-neutral-300">픽업 <input type="number" v-model.number="dgnPlan.pk" min="0" max="1" class="w-8 bg-[#2a2a35] border border-neutral-700 text-center rounded outline-none"> /월</label>
