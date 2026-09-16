@@ -1363,7 +1363,6 @@ const checkMyLuck = () => { /* 구현 생략 - 기존 유지 */ }
         </div>
 
         <div class="bg-[#1e1e24] border border-neutral-700/50 rounded-2xl p-4 flex-1 flex flex-col overflow-hidden shadow-lg">
-          <!-- 🔥 신규: 총 누적 과금액 표시 -->
           <div class="flex justify-between items-center mb-1"><h3 class="font-extrabold text-sm text-cyan-400"><Gem class="w-4 h-4 inline-block mr-1"/> 총 누적 과금액</h3></div>
           <div class="text-xl font-black text-cyan-400 mb-3 border-b border-neutral-700/50 pb-2">{{ new Intl.NumberFormat().format(dgnState.payback.totalKrw) }} <span class="text-xs text-neutral-500">원</span></div>
 
@@ -1382,11 +1381,13 @@ const checkMyLuck = () => { /* 구현 생략 - 기존 유지 */ }
             <button @click="dgnAddManualPayback" class="px-3 py-2 bg-green-700 hover:bg-green-600 text-white text-xs font-bold rounded transition-colors">추가</button>
           </div>
 
-          <h3 class="font-extrabold text-sm mb-2 text-neutral-300 pt-3 border-t border-neutral-700/50"><ShoppingCart class="w-4 h-4 inline-block mr-1"/> 인게임 상점</h3>
+          <h3 class="font-extrabold text-sm mb-2 text-neutral-300 pt-3 border-t border-neutral-700/50"><ShoppingCart class="w-4 h-4 inline-block mr-1"/> 인게임 상점 <span class="text-[9px] font-normal text-neutral-500 ml-1">(가격순 정렬)</span></h3>
           <div class="flex justify-between text-[10px] text-neutral-400 mb-2 px-1"><span>총 누적 소모 캐시:</span> <span class="text-purple-400 font-bold">{{ new Intl.NumberFormat().format(dgnState.inv.cash) }} 💎</span></div>
           
           <div class="space-y-2 overflow-y-auto pr-1 flex-1 pb-2">
+            <!-- 0원 -->
             <button @click="dgnBuyPkg('wQ', 4, 0, 1, 0, 0, '주간 퀘스트')" :disabled="dgnState.shop.wQ>=4" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.wQ<4?'bg-blue-900/20 border border-blue-800/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-blue-400">주간 퀘스트 (월) [{{dgnState.shop.wQ}}/4]</div><div class="text-xs font-bold text-white">일반팩 1</div></div></button>
+            <!-- 캐시 -->
             <div class="flex flex-col bg-[#2a2a35] border border-neutral-700/50 rounded-lg p-2 gap-2" :class="{'opacity-50': dgnState.shop.wC >= 40}">
               <div class="flex justify-between items-center px-1"><div><div class="text-[10px] text-neutral-400">티켓 구매 (월) [{{dgnState.shop.wC}}/40]</div><div class="text-xs font-bold text-amber-500">티켓 1개 = 50캐시</div></div></div>
               <div class="flex gap-2">
@@ -1394,13 +1395,34 @@ const checkMyLuck = () => { /* 구현 생략 - 기존 유지 */ }
                 <button @click="dgnBuyPkg('wC', 40, 50, 0, 0, 1, '주간 상점 티켓', true, 10)" :disabled="dgnState.shop.wC > 30" class="flex-1 py-1.5 bg-[#1e1e24] hover:bg-neutral-700 border border-neutral-700 text-[11px] font-bold text-blue-300 rounded transition-colors disabled:opacity-50 shadow-sm">10회 구매</button>
               </div>
             </div>
-            <!-- 🔥 신규: 5.5만 무한패키지 버튼 추가 -->
-            <button @click="dgnBuyPkg('unl', 9999, 55000, 1, 0, 1, '무한 패키지')" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50"><div><div class="text-[10px] text-teal-400">무한 패키지 [제한없음]</div><div class="text-xs font-bold text-white">일반1 + 티켓1</div></div><div class="text-[11px] font-bold text-green-500">5.5만</div></button>
-
-            <button @click="dgnBuyPkg('pt', 1, 99000, 3, 0, 10, '프레스티지')" :disabled="dgnState.shop.pt>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pt<1?'bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-neutral-400">프레스티지 [{{dgnState.shop.pt}}/1]</div><div class="text-xs font-bold text-white">일반3 + 티켓10</div></div><div class="text-[11px] font-bold text-green-500">9.9만</div></button>
-            <button @click="dgnBuyPkg('pk', 1, 99000, 0, 2, 0, '픽업 프레스티지')" :disabled="dgnState.shop.pk>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pk<1?'bg-purple-900/20 border border-purple-800/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-purple-400">픽업 프레스티지 [{{dgnState.shop.pk}}/1]</div><div class="text-xs font-bold text-purple-300">픽업팩 2</div></div><div class="text-[11px] font-bold text-green-500">9.9만</div></button>
-            <button @click="dgnBuyPkg('pr', 5, 99000, 2, 0, 10, '프로 패키지')" :disabled="dgnState.shop.pr>=5" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pr<5?'bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-neutral-400">프로 패키지 [{{dgnState.shop.pr}}/5]</div><div class="text-xs font-bold text-white">일반2 + 티켓10</div></div><div class="text-[11px] font-bold text-green-500">9.9만</div></button>
-            <button @click="dgnBuyPkg('lg', 3, 149000, 2, 1, 0, '레전드 패키지')" :disabled="dgnState.shop.lg>=3" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.lg<3?'bg-amber-900/20 border border-amber-800/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-amber-500">레전드 패키지 [{{dgnState.shop.lg}}/3]</div><div class="text-xs font-bold text-amber-300">일반2 + 픽업1</div></div><div class="text-[11px] font-bold text-green-500">14.9만</div></button>
+            <!-- 🔥 부활 & 가성비 추가: 5.5만 루키 -->
+            <button @click="dgnBuyPkg('rk', 1, 55000, 1, 0, 20, '루키 패키지')" :disabled="dgnState.shop.rk>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.rk<1?'bg-orange-900/20 border border-orange-800/50':'bg-[#2a2a35] opacity-50'">
+              <div><div class="text-[10px] text-orange-400">루키 패키지 [{{dgnState.shop.rk}}/1]</div><div class="text-xs font-bold text-white">일반1 + 티켓20</div></div>
+              <div class="text-right"><div class="text-[11px] font-bold text-green-500">5.5만</div><div class="text-[9px] text-orange-300 font-bold mt-0.5 whitespace-nowrap">S급 (약 9만/1장)</div></div>
+            </button>
+            <!-- 🔥 5.5만 무한 -->
+            <button @click="dgnBuyPkg('unl', 9999, 55000, 1, 0, 1, '무한 패키지')" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50">
+              <div><div class="text-[10px] text-teal-400">무한 패키지 [제한없음]</div><div class="text-xs font-bold text-white">일반1 + 티켓1</div></div>
+              <div class="text-right"><div class="text-[11px] font-bold text-green-500">5.5만</div><div class="text-[9px] text-neutral-500 font-bold mt-0.5 whitespace-nowrap">D급 (약 82만/1장)</div></div>
+            </button>
+            <!-- 9.9만 3형제 -->
+            <button @click="dgnBuyPkg('pt', 1, 99000, 3, 0, 10, '프레스티지')" :disabled="dgnState.shop.pt>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pt<1?'bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50':'bg-[#2a2a35] opacity-50'">
+              <div><div class="text-[10px] text-neutral-400">프레스티지 [{{dgnState.shop.pt}}/1]</div><div class="text-xs font-bold text-white">일반3 + 티켓10</div></div>
+              <div class="text-right"><div class="text-[11px] font-bold text-green-500">9.9만</div><div class="text-[9px] text-yellow-500 font-bold mt-0.5 whitespace-nowrap">A급 (약 25만/1장)</div></div>
+            </button>
+            <button @click="dgnBuyPkg('pr', 5, 99000, 2, 0, 10, '프로 패키지')" :disabled="dgnState.shop.pr>=5" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pr<5?'bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50':'bg-[#2a2a35] opacity-50'">
+              <div><div class="text-[10px] text-neutral-400">프로 패키지 [{{dgnState.shop.pr}}/5]</div><div class="text-xs font-bold text-white">일반2 + 티켓10</div></div>
+              <div class="text-right"><div class="text-[11px] font-bold text-green-500">9.9만</div><div class="text-[9px] text-yellow-600 font-bold mt-0.5 whitespace-nowrap">B급 (약 28만/1장)</div></div>
+            </button>
+            <button @click="dgnBuyPkg('pk', 1, 99000, 0, 2, 0, '픽업 프레스티지')" :disabled="dgnState.shop.pk>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pk<1?'bg-purple-900/20 border border-purple-800/50':'bg-[#2a2a35] opacity-50'">
+              <div><div class="text-[10px] text-purple-400">픽업 프레스티지 [{{dgnState.shop.pk}}/1]</div><div class="text-xs font-bold text-purple-300">픽업팩 2</div></div>
+              <div class="text-right"><div class="text-[11px] font-bold text-green-500">9.9만</div><div class="text-[9px] text-neutral-400 font-bold mt-0.5 whitespace-nowrap">C급 (약 60만/1장)</div></div>
+            </button>
+            <!-- 14.9만 -->
+            <button @click="dgnBuyPkg('lg', 3, 149000, 2, 1, 0, '레전드 패키지')" :disabled="dgnState.shop.lg>=3" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.lg<3?'bg-amber-900/20 border border-amber-800/50':'bg-[#2a2a35] opacity-50'">
+              <div><div class="text-[10px] text-amber-500">레전드 패키지 [{{dgnState.shop.lg}}/3]</div><div class="text-xs font-bold text-amber-300">일반2 + 픽업1</div></div>
+              <div class="text-right"><div class="text-[11px] font-bold text-green-500">14.9만</div><div class="text-[9px] text-neutral-600 font-bold mt-0.5 whitespace-nowrap">F급 (약 91만/1장)</div></div>
+            </button>
           </div>
         </div>
       </section>
@@ -1511,8 +1533,6 @@ const checkMyLuck = () => { /* 구현 생략 - 기존 유지 */ }
             <div class="flex justify-between text-[8px] font-bold text-neutral-600 px-1"><span :class="{'text-green-500': dgnPlanPureKrw >= 9900}">9.9k</span><span :class="{'text-green-500': dgnPlanPureKrw >= 99000}">99k</span><span :class="{'text-green-500': dgnPlanPureKrw >= 199000}">199k</span><span :class="{'text-green-500': dgnPlanPureKrw >= 299000}">299k</span></div>
           </div>
 
-          <!-- 🔥 쓸데없는 남은 낱개 잉여카드 숫자 입력창 통째로 삭제 완료! -->
-
           <div class="flex items-center gap-3 mb-4 bg-indigo-950/30 p-2 rounded-lg border border-indigo-500/30">
             <span class="text-[10px] font-bold text-indigo-300 w-32">디그니티 외 타 결제액</span>
             <input type="number" v-model.number="dgnPlan.otherMonthlyKrw" min="0" class="flex-1 bg-[#1a1b1e] border border-indigo-500/50 text-white text-xs p-1 rounded outline-none text-center font-bold">
@@ -1522,13 +1542,13 @@ const checkMyLuck = () => { /* 구현 생략 - 기존 유지 */ }
           <div class="grid grid-cols-2 gap-x-2 gap-y-1.5 mb-3 text-[10px]">
             <label class="flex items-center gap-1 text-neutral-300"><input type="checkbox" v-model="dgnPlan.wQ" class="accent-indigo-500"> 주간퀘 완수</label>
             <label class="flex items-center gap-1 text-neutral-300 justify-end">티켓상점 <input type="number" v-model.number="dgnPlan.wC" min="0" max="40" class="w-8 bg-[#2a2a35] border border-neutral-700 text-center rounded outline-none"> /월</label>
-            <label class="flex items-center gap-1 text-neutral-300">루키 <input type="number" v-model.number="dgnPlan.rk" min="0" max="1" class="w-8 bg-[#2a2a35] border border-neutral-700 text-center rounded outline-none"> /월</label>
-            <label class="flex items-center gap-1 text-neutral-300 justify-end">프레스티지 <input type="number" v-model.number="dgnPlan.pt" min="0" max="1" class="w-8 bg-[#2a2a35] border border-neutral-700 text-center rounded outline-none"> /월</label>
-            <label class="flex items-center gap-1 text-neutral-300">픽업 <input type="number" v-model.number="dgnPlan.pk" min="0" max="1" class="w-8 bg-[#2a2a35] border border-neutral-700 text-center rounded outline-none"> /월</label>
-            <label class="flex items-center gap-1 text-neutral-300 justify-end">프로 <input type="number" v-model.number="dgnPlan.pr" min="0" max="5" class="w-8 bg-[#2a2a35] border border-neutral-700 text-center rounded outline-none"> /월</label>
+            <!-- 🔥 루키 및 가성비 정렬 완료! -->
+            <label class="flex items-center gap-1 text-orange-300 mt-1 justify-center bg-orange-900/20 py-1 rounded border border-orange-800">루키(5.5) <input type="number" v-model.number="dgnPlan.rk" min="0" max="1" class="w-8 bg-[#2a2a35] border border-orange-700 text-center rounded outline-none text-white"> /월</label>
+            <label class="flex items-center gap-1 text-teal-300 mt-1 justify-center bg-teal-900/20 py-1 rounded border border-teal-800">무한(5.5) <input type="number" v-model.number="dgnPlan.unl" min="0" class="w-8 bg-[#2a2a35] border border-teal-700 text-center rounded outline-none text-white"> /월</label>
+            <label class="flex items-center gap-1 text-neutral-300 mt-1 justify-center">프레스티지 <input type="number" v-model.number="dgnPlan.pt" min="0" max="1" class="w-8 bg-[#2a2a35] border border-neutral-700 text-center rounded outline-none"> /월</label>
+            <label class="flex items-center gap-1 text-neutral-300 mt-1 justify-center">픽업프레스티지 <input type="number" v-model.number="dgnPlan.pk" min="0" max="1" class="w-8 bg-[#2a2a35] border border-neutral-700 text-center rounded outline-none"> /월</label>
+            <label class="flex items-center gap-1 text-neutral-300 mt-1 justify-center">프로 <input type="number" v-model.number="dgnPlan.pr" min="0" max="5" class="w-8 bg-[#2a2a35] border border-neutral-700 text-center rounded outline-none"> /월</label>
             <label class="flex items-center gap-1 text-neutral-300 mt-1 justify-center bg-amber-900/20 py-1 rounded">레전드 <input type="number" v-model.number="dgnPlan.lg" min="0" max="3" class="w-8 bg-[#2a2a35] border border-neutral-700 text-center rounded outline-none"> /월</label>
-            <!-- 🔥 신규: 무한 5.5만팩 입력 -->
-            <label class="flex items-center gap-1 text-teal-300 mt-1 justify-center bg-teal-900/20 py-1 rounded border border-teal-800">무한 5.5 <input type="number" v-model.number="dgnPlan.unl" min="0" class="w-8 bg-[#2a2a35] border border-teal-700 text-center rounded outline-none text-white"> /월</label>
           </div>
           
           <div class="flex items-center gap-2 mb-3 justify-center">
