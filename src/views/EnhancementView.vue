@@ -710,15 +710,15 @@ const dgnBuyPkg = (key: keyof typeof dgnState.shop, limit: number, price: number
   if(!isCash) dgnProcessPayback()
 }
 
-// 🔥 일반팩 (천장 카운트다운 O)
+// 🔥 일반팩 (천장 카운트다운 O & 마법의 티켓 복사 버그 삭제!)
 const dgnOpenPack = (count: number) => {
   if (dgnState.inv.normal < count) return alert("일반팩이 부족합니다.")
-  dgnState.inv.normal -= count; dgnState.inv.tickets += (count * 2)
+  dgnState.inv.normal -= count; 
   for (let i=0; i<count; i++) {
     for (let j=0; j<8; j++) {
       if (Math.random() < 0.03) {
         let t = TEAMS[Math.floor(Math.random()*12)], pn = D_WAVES[dgnState.targetWave][t]
-        if (t === dgnState.myTeam) { dgnState.inv.myDgn++; dgnLog(`✨[기적] 디그니팩 자팀 ${pn} 등장!✨`, 'epic') }
+        if (t === dgnState.myTeam) { dgnState.inv.myDgn++; dgnLog(`✨[기적] 일반팩에서 자팀 ${pn} 등장!✨`, 'epic') }
         else { dgnState.album[t]++; dgnLog(`[획득] 타팀 ${T_NAMES[t]} ${pn} 획득!`, 'success') }
       } else {
         let top = ALL_TOPS[Math.floor(Math.random()*212)]
@@ -787,9 +787,7 @@ const dgnOpenPerfect = (count: number) => {
   dgnLog(`[파이브스타 퍼펙트 팩] ${count}팩 개봉 (TOP ${count * 8}장 획득!)`, 'action')
 }
 
-const dgnPlanOwnedCards = ref<string[]>([])
-const toggleAllPlanCards = (e: any) => { if(e.target.checked) { dgnPlanOwnedCards.value = TEAMS.filter(t => t !== dgnState.myTeam) } else { dgnPlanOwnedCards.value = [] } }
-
+// 🔥 플래너 변수 및 기댓값 계산식
 const dgnPlan = reactive({ target: 3, otherMonthlyKrw: 0, wQ: true, wC: 40, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0, unl: 0 })
 const dgnPlanTotalKrw = computed(() => dgnPlan.rk*55000 + dgnPlan.pt*99000 + dgnPlan.pk*99000 + dgnPlan.pr*99000 + dgnPlan.lg*149000 + dgnPlan.unl*55000 + dgnPlan.otherMonthlyKrw )
 const dgnPlanPureKrw = computed(() => dgnPlan.rk*55000 + dgnPlan.pt*99000 + dgnPlan.pk*99000 + dgnPlan.pr*99000 + dgnPlan.lg*149000 + dgnPlan.unl*55000 )
@@ -839,9 +837,8 @@ const dgnRunPlanner = () => {
         let wQ = dgnPlan.wQ ? 1 : 0; let wC = Math.floor(dgnPlan.wC / 4);
         tkt += wC;
         for(let k=0; k<wQ; k++) {
-          tkt += 2; 
           for(let j=0; j<8; j++) { if(Math.random()<0.03){let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++} else { if(Math.random()>=(TOP_DB[dgnState.myTeam].length/212)) totalGainedTop++ } }
-          pPack--; if(pPack<=0) { myDgn++; pPack=50; } // 🔥 카운트다운 및 확정 획득
+          pPack--; if(pPack<=0) { myDgn++; pPack=50; } // 🔥 일반팩 까고 카운트다운
         }
 
         if (week % 4 === 1) {
@@ -857,8 +854,8 @@ const dgnRunPlanner = () => {
 
           for(let k=0; k<mp; k++) { let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++ }
           for(let k=0; k<mn; k++) {
-            tkt+=2; for(let j=0; j<8; j++) { if(Math.random()<0.03){let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++} else { if(Math.random()>=(TOP_DB[dgnState.myTeam].length/212)) totalGainedTop++ } }
-            pPack--; if(pPack<=0) { myDgn++; pPack=50; } // 🔥 카운트다운 및 확정 획득
+            for(let j=0; j<8; j++) { if(Math.random()<0.03){let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++} else { if(Math.random()>=(TOP_DB[dgnState.myTeam].length/212)) totalGainedTop++ } }
+            pPack--; if(pPack<=0) { myDgn++; pPack=50; } // 🔥 일반팩 까고 카운트다운
           }
         }
 
@@ -894,7 +891,24 @@ const dgnRunPlanner = () => {
     isDgnSim.value = false
   }, 50)
 }
-const checkMyLuck = () => { /* 구현 생략 - 기존 유지 */ }
+
+// 🔥 누락되었던 운세 판독기 함수 완벽 복구
+const dgnCheckMyLuck = () => {
+  if (!dgnUserSpentKrw.value || dgnSimRawResults.value.length === 0) return alert("시뮬레이션을 먼저 가동한 후 결과값을 입력해주세요.")
+  const val = dgnUserSpentKrw.value
+  const isF2P = dgnSimResult.value?.isF2P
+  const targetVal = isF2P ? val : val
+  let rankIndex = dgnSimRawResults.value.findIndex(r => (isF2P ? (r.week/4) : r.cost) >= targetVal)
+  if (rankIndex === -1) rankIndex = dgnSimRawResults.value.length
+  const pct = (rankIndex / dgnSimRawResults.value.length) * 100
+  dgnMyLuckPercentile.value = parseFloat(pct.toFixed(2))
+  
+  if (pct <= 5) dgnLuckTitle.value = "기만 멈춰! 초특급 비틱 💎"
+  else if (pct <= 20) dgnLuckTitle.value = "될놈될! 꽤 운이 좋네요 🍀"
+  else if (pct <= 50) dgnLuckTitle.value = "평타 쳤습니다! 무난하네요 👍"
+  else if (pct <= 85) dgnLuckTitle.value = "조금 억까 당하셨군요... 🥲"
+  else dgnLuckTitle.value = "흑우 등장... 에프가 사랑합니다 😭"
+}
 </script>
 
 <template>
@@ -1340,7 +1354,7 @@ const checkMyLuck = () => { /* 구현 생략 - 기존 유지 */ }
       </div>
     </div>
     
-<!-- 💎 [4] 디그니티 탭 (독립형) -->
+<<!-- 💎 [4] 디그니티 탭 (독립형) -->
     <div v-show="activeTab==='dignity'" class="grid grid-cols-1 xl:grid-cols-12 gap-5 w-full animate-fade-in max-w-[1600px] mx-auto text-neutral-100">
       
       <!-- [좌측] 상점 & 설정 -->
@@ -1606,8 +1620,9 @@ const checkMyLuck = () => { /* 구현 생략 - 기존 유지 */ }
               </div>
             </div>
 
+            <!-- 🔥 차트 텍스트 픽스 완벽 적용 -->
             <div class="flex-1 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-2 min-h-[200px] relative flex flex-col shadow-inner">
-              <div class="text-[9px] font-bold text-neutral-400 mb-1 text-center">AP 소모량 누적 확률 분포도 (1회 성공 확률: {{ calcResult?.oneTryProb?.toFixed(4) || 0 }}%)</div>
+              <div class="text-[9px] font-bold text-neutral-400 mb-1 text-center">{{ dgnSimResult?.isF2P ? '소요 기간(개월)' : '소모 금액(원)' }} 누적 확률 분포도 (1회 성공 확률: {{ dgnSimResult?.oneTryProb?.toFixed(4) || 0 }}%)</div>
               <div class="relative flex-1 w-full h-full">
                 <canvas ref="dgnChartCanvas"></canvas>
               </div>
