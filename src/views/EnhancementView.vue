@@ -710,11 +710,30 @@ const dgnBuyPkg = (key: keyof typeof dgnState.shop, limit: number, price: number
   if(!isCash) dgnProcessPayback()
 }
 
-// 🔥 일반팩 (천장 카운트다운 O & 마법의 티켓 복사 버그 삭제!)
+// 🔥 일반팩 (천장 카운트다운 O & 1팩당 티켓 2장 페이백 복구!)
 const dgnOpenPack = (count: number) => {
   if (dgnState.inv.normal < count) return alert("일반팩이 부족합니다.")
-  dgnState.inv.normal -= count; 
+  dgnState.inv.normal -= count;
+  dgnState.inv.tickets += (count * 2); // 🔥 1팩당 티켓 2개 정상 페이백!
   for (let i=0; i<count; i++) {
+    for (let j=0; j<8; j++) {
+      if (Math.random() < 0.03) {
+        let t = TEAMS[Math.floor(Math.random()*12)], pn = D_WAVES[dgnState.targetWave][t]
+        if (t === dgnState.myTeam) { dgnState.inv.myDgn++; dgnLog(`✨[기적] 일반팩에서 자팀 ${pn} 등장!✨`, 'epic') }
+        else { dgnState.album[t]++; dgnLog(`[획득] 타팀 ${T_NAMES[t]} ${pn} 획득!`, 'success') }
+      } else {
+        let top = ALL_TOPS[Math.floor(Math.random()*212)]
+        if (top.team === dgnState.myTeam) { dgnState.inv.myTop++; dgnState.topAlbum[top.team][top.name]++ }
+        else { dgnState.inv.otherTop++; dgnState.topAlbum[top.team][top.name]++ }
+      }
+    }
+    dgnState.pity.pack--; // 🔥 카운트다운
+    if(dgnState.pity.pack <= 0) {
+      dgnState.inv.myDgn++; dgnLog(`🎉[팩 천장] 선택권으로 자팀 디그니티 확정 획득!`, 'epic')
+      dgnState.pity.pack = 50 // 리셋
+    }
+  }
+}
     for (let j=0; j<8; j++) {
       if (Math.random() < 0.03) {
         let t = TEAMS[Math.floor(Math.random()*12)], pn = D_WAVES[dgnState.targetWave][t]
