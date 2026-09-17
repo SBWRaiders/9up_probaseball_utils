@@ -823,7 +823,7 @@ const dgnOpenPickup = () => {
 const dgnDistinctDgnCount = computed(() => TEAMS.filter(t => t !== dgnState.myTeam && dgnState.album[t] > 1).length)
 const dgnDistinctTopCount = computed(() => { let count = 0; TEAMS.forEach(t => { if (t !== dgnState.myTeam) { TOP_DB[t].forEach(p => { if (dgnState.topAlbum[t][p] > 0) count++ }) } }); return count; })
 
-const dgnRunMixer = () => {
+const dgnRunTrade = (isAuto: boolean) => {
   let cnt = 0
   while (true) {
     let dgnDupes = TEAMS.filter(t => t !== dgnState.myTeam && dgnState.album[t] > 1)
@@ -831,9 +831,9 @@ const dgnRunMixer = () => {
       dgnState.album[dgnDupes[0]]--; dgnState.album[dgnDupes[1]]--; dgnState.album[dgnDupes[2]]--;
       dgnState.inv.tickets--; dgnState.pity.trade--; cnt++ 
       let t = TEAMS[Math.floor(Math.random()*12)], pn = D_WAVES[dgnState.targetWave][t]
-      if (t === dgnState.myTeam) { dgnState.inv.myDgn++; dgnLog(`[믹서기] 대박! 자팀 ${pn} 디그니티 획득! (8.3%)`, 'epic') } else { dgnState.album[t]++; dgnLog(`[믹서기] 타팀 ${T_NAMES[t]} ${pn} 획득...`, 'normal') }
+      if (t === dgnState.myTeam) { dgnState.inv.myDgn++; dgnLog(`[트레이드] 대박! 자팀 ${pn} 디그니티 획득! (8.3%)`, 'epic') } else { dgnState.album[t]++; dgnLog(`[트레이드] 타팀 ${T_NAMES[t]} ${pn} 획득...`, 'normal') }
       if (dgnState.pity.trade <= 0) { dgnState.inv.myDgn++; dgnLog(`🎉[트레이드 천장] 선택권으로 자팀 확정 획득!`, 'epic'); dgnState.pity.trade = 30 } 
-      continue; 
+      if (!isAuto) break; else continue; 
     }
     let topDupes: {t:string, p:string}[] = []
     TEAMS.forEach(t => { if (t !== dgnState.myTeam) { TOP_DB[t].forEach(p => { if (dgnState.topAlbum[t][p] > 0) topDupes.push({t, p}) }) } })
@@ -845,14 +845,14 @@ const dgnRunMixer = () => {
         if (t === dgnState.myTeam) { dgnState.inv.myDgn++; dgnLog(`🔥[TOP 3% 기적] 자팀 ${pn} 디그니티 획득!`, 'epic') } else { dgnState.album[t]++; dgnLog(`🔥[TOP 3% 기적] 타팀 ${T_NAMES[t]} ${pn} 획득!`, 'success') }
       } else {
         let top = ALL_TOPS[Math.floor(Math.random()*212)]; if (top.team === dgnState.myTeam) { dgnState.inv.myTop++; dgnState.topAlbum[top.team][top.name]++ } else { dgnState.inv.otherTop++; dgnState.topAlbum[top.team][top.name]++ }
-        dgnLog(`[믹서기] TOP 재료 소모... (꽝)`, 'normal')
+        dgnLog(`[트레이드] TOP 재료 소모... (꽝)`, 'normal')
       }
-      continue; 
+      if (!isAuto) break; else continue; 
     }
     break; 
   }
   if(cnt===0) alert("재료(서로 다른 잉여카드 3종류) 또는 티켓이 부족합니다.")
-  else dgnState.undoStack = []; // 🔥 믹서기를 돌렸으므로 환불 불가
+  else dgnState.undoStack = []; // 🔥 트레이드를 돌렸으므로 환불 불가
 }
 
 const dgnOpenPerfect = (count: number) => {
@@ -1640,7 +1640,7 @@ const dgnCheckMyLuck = () => {
             </button>
             
             <div class="mt-3 p-2.5 bg-slate-100 border border-slate-200 dark:bg-[#1a1b1e] dark:border-neutral-800 rounded-lg text-[9px] font-bold text-slate-500 dark:text-neutral-500 leading-relaxed text-center break-keep transition-colors">
-              ※ 가성비 기댓값은 참고용입니다. 트레이드권의 가치는 변수가 큰 '디그니티 믹서기' 효율을 배제하고, 가장 보편적인 'TOP 재료 믹서기(3%)'만을 기준으로 보수적으로 산정되었습니다.<br>
+              ※ 가성비 기댓값은 참고용입니다. 트레이드권의 가치는 변수가 큰 '디그니티 트레이드' 효율을 배제하고, 가장 보편적인 'TOP 재료 트레이드(3%)'만을 기준으로 보수적으로 산정되었습니다.<br>
               <span class="text-indigo-600 dark:text-indigo-400 mt-1 inline-block">💡 실제 스노우볼이 적용된 정확한 기댓값 및 과금 효율은 우측의 '타임라인 과금 플래너' 시뮬레이션을 통해 확인하시는 것을 권장합니다.</span>
             </div>
           </div>
@@ -1671,13 +1671,13 @@ const dgnCheckMyLuck = () => {
         </div>
 
         <div class="bg-white dark:bg-[#1e1e24] border border-slate-200 dark:border-neutral-700/50 rounded-2xl p-5 flex flex-col shrink-0 shadow-sm dark:shadow-lg transition-colors">
-          <h3 class="font-extrabold text-sm mb-3 flex items-center gap-1.5 text-green-600 dark:text-green-400"><RefreshCw class="w-4 h-4"/> 믹서기 (트레이드)</h3>
+          <h3 class="font-extrabold text-sm mb-3 flex items-center gap-1.5 text-green-600 dark:text-green-400"><RefreshCw class="w-4 h-4"/> 트레이드소</h3>
           <div class="grid grid-cols-2 gap-3 mb-2">
             <div class="bg-slate-50 dark:bg-[#2a2a35] border border-slate-200 dark:border-transparent p-3 rounded-xl text-center relative transition-colors"><div class="text-[10px] font-bold text-slate-500 dark:text-neutral-400 mb-1">잉여 디그니티 <span class="text-blue-600 dark:text-blue-400">종류</span></div><div class="text-lg font-black text-red-600 dark:text-red-400">{{ dgnDistinctDgnCount }} 종</div><div class="absolute -top-2 -right-2 bg-red-500 dark:bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-sm" v-if="dgnDistinctDgnCount<3">3종 필요</div></div>
             <div class="bg-slate-50 dark:bg-[#2a2a35] border border-slate-200 dark:border-transparent p-3 rounded-xl text-center relative transition-colors"><div class="text-[10px] font-bold text-slate-500 dark:text-neutral-400 mb-1">타팀 TOP 선수 <span class="text-blue-600 dark:text-blue-400">종류</span></div><div class="text-lg font-black text-slate-900 dark:text-white">{{ dgnDistinctTopCount }} 종</div><div class="absolute -top-2 -right-2 bg-red-500 dark:bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-sm" v-if="dgnDistinctTopCount<3">3종 필요</div></div>
           </div>
           <div class="bg-slate-100 dark:bg-[#1a1b1e] border border-slate-200 dark:border-neutral-700/50 rounded-lg p-2 mb-4 transition-colors">
-            <div class="text-[9px] font-bold text-amber-600 dark:text-amber-500 border-b border-slate-200 dark:border-neutral-700/50 pb-1 mb-1">🔥 믹서기 투입 대기 중인 잉여 카드 목록</div>
+            <div class="text-[9px] font-bold text-amber-600 dark:text-amber-500 border-b border-slate-200 dark:border-neutral-700/50 pb-1 mb-1">🔥 트레이드 투입 대기 중인 잉여 카드 목록</div>
             <div class="flex flex-wrap gap-1">
               <span v-for="item in dgnWaitlist" :key="item" class="bg-red-50 border border-red-200 text-red-600 dark:bg-red-900/40 dark:border-red-800 dark:text-red-200 text-[9px] px-1.5 py-0.5 rounded transition-colors">{{ item }}</span>
               <span v-if="dgnWaitlist.length === 0" class="text-[9px] text-slate-400 dark:text-neutral-500">대기 중인 잉여 디그니티 카드가 없습니다.</span>
@@ -1687,7 +1687,11 @@ const dgnCheckMyLuck = () => {
               <span v-if="topWaitlist.length > 8" class="text-[9px] text-slate-400 dark:text-neutral-500">+ 외 {{ topWaitlist.length - 8 }}종 대기 중</span>
             </div>
           </div>
-          <button @click="dgnRunMixer" class="w-full py-4 bg-green-600 hover:bg-green-500 dark:bg-green-700 dark:hover:bg-green-600 text-white rounded-xl font-black text-lg shadow-md flex justify-center items-center gap-2 transition-colors"><RefreshCw class="w-5 h-5"/> 자동 필터 믹서기 가동</button>
+          
+          <div class="flex gap-2">
+            <button @click="dgnRunTrade(false)" class="flex-1 py-4 bg-teal-600 hover:bg-teal-500 dark:bg-teal-700 dark:hover:bg-teal-600 text-white rounded-xl font-bold shadow-md flex justify-center items-center gap-1.5 transition-colors"><RefreshCw class="w-4 h-4"/> 수동 1회</button>
+            <button @click="dgnRunTrade(true)" class="flex-[1.5] py-4 bg-green-600 hover:bg-green-500 dark:bg-green-700 dark:hover:bg-green-600 text-white rounded-xl font-black shadow-md flex justify-center items-center gap-1.5 transition-colors"><RefreshCw class="w-5 h-5"/> 일괄 자동 트레이드</button>
+          </div>
         </div>
 
         <div class="bg-slate-50 dark:bg-[#0f0f13] border border-slate-200 dark:border-neutral-800 rounded-2xl p-4 flex-1 overflow-hidden flex flex-col min-h-[200px] shadow-inner transition-colors">
