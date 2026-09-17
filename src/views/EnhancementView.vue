@@ -621,7 +621,7 @@ const dgnState = reactive({
   inv: { normal: 0, pickup: 0, tickets: 0, myDgn: 0, myTop: 0, otherTop: 0, cash: 0 },
   album: Object.fromEntries(TEAMS.map(t => [t, 0])),
   topAlbum: Object.fromEntries(TEAMS.map(t => [t, Object.fromEntries(TOP_DB[t].map(p => [p, 0]))])),
-  shop: { wQ: 0, wC: 0, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0, unl: 0 }, 
+  shop: { wQ: 0, wC: 0, sp: 0, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0, unl: 0 }, 
   payback: { spent: 0, totalKrw: 0, t1: false, t2: false, t3: false, t4: false, inf: 0 }, 
   pity: { pack: 50, trade: 30 },
   logs: [] as { id: number, msg: string, type: string }[]
@@ -664,7 +664,7 @@ const dgnResetAll = () => {
   dgnState.month = 1; dgnState.inv = { normal: 0, pickup: 0, tickets: 0, myDgn: 0, myTop: 0, otherTop: 0, cash: 0 }
   TEAMS.forEach(t => dgnState.album[t] = 0)
   TEAMS.forEach(t => TOP_DB[t].forEach(p => dgnState.topAlbum[t][p] = 0))
-  dgnState.shop = { wQ: 0, wC: 0, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0, unl: 0 }
+  dgnState.shop = { wQ: 0, wC: 0, sp: 0, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0, unl: 0 }
   dgnState.payback = { spent: 0, totalKrw: 0, t1: false, t2: false, t3: false, t4: false, inf: 0 }
   dgnState.pity = { pack: 50, trade: 30 }; dgnState.logs = []
   dgnLog(`[시스템] 데이터가 완벽히 리셋되었습니다.`, 'action')
@@ -672,7 +672,7 @@ const dgnResetAll = () => {
 
 const dgnNextMonth = () => {
   dgnState.month++
-  dgnState.shop = { wQ: 0, wC: 0, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0, unl: 0 }
+  dgnState.shop = { wQ: 0, wC: 0, sp: 0, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0, unl: 0 }
   dgnState.payback = { spent: 0, totalKrw: dgnState.payback.totalKrw, t1: false, t2: false, t3: false, t4: false, inf: dgnState.payback.inf } 
   dgnLog(`🗓️ ${dgnState.month}개월 차 시작! 월간 상점 및 페이백이 갱신되었습니다.`, 'action')
 }
@@ -795,10 +795,10 @@ const dgnOpenPerfect = (count: number) => {
   dgnLog(`[파이브스타 퍼펙트 팩] ${count}팩 개봉 (TOP ${count * 8}장 획득!)`, 'action')
 }
 
-// 플래너 변수 및 기댓값 계산식
-const dgnPlan = reactive({ target: 3, otherMonthlyKrw: 0, wQ: true, wC: 40, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0, unl: 0 })
-const dgnPlanTotalKrw = computed(() => dgnPlan.rk*55000 + dgnPlan.pt*99000 + dgnPlan.pk*99000 + dgnPlan.pr*99000 + dgnPlan.lg*149000 + dgnPlan.unl*55000 + (dgnPlan.otherMonthlyKrw || 0) )
-const dgnPlanPureKrw = computed(() => dgnPlan.rk*55000 + dgnPlan.pt*99000 + dgnPlan.pk*99000 + dgnPlan.pr*99000 + dgnPlan.lg*149000 + dgnPlan.unl*55000 )
+// 플래너 변수 및 기댓값 계산식 (시즌패스 sp 추가)
+const dgnPlan = reactive({ target: 11, otherMonthlyKrw: 0, wQ: true, wC: 40, sp: 0, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0, unl: 0 })
+const dgnPlanTotalKrw = computed(() => dgnPlan.sp*55000 + dgnPlan.rk*55000 + dgnPlan.pt*99000 + dgnPlan.pk*99000 + dgnPlan.pr*99000 + dgnPlan.lg*149000 + dgnPlan.unl*55000 + (dgnPlan.otherMonthlyKrw || 0) )
+const dgnPlanPureKrw = computed(() => dgnPlan.sp*55000 + dgnPlan.rk*55000 + dgnPlan.pt*99000 + dgnPlan.pk*99000 + dgnPlan.pr*99000 + dgnPlan.lg*149000 + dgnPlan.unl*55000 )
 
 const dgnSimResult = ref<any>(null); const isDgnSim = ref(false)
 const dgnSimRawResults = ref<any[]>([]); const dgnResultViewMode = ref<'TOP10'|'AVG'|'BOT90'>('AVG')
@@ -826,14 +826,14 @@ const dgnRunPlanner = () => {
   isDgnSim.value = true; dgnSimResult.value = null; dgnMyLuckPercentile.value = null; dgnUserSpentKrw.value = null
   setTimeout(() => {
     let totalKrwPerMonth = dgnPlanTotalKrw.value
-    let nPerMonth = (dgnPlan.wQ?4:0) + dgnPlan.rk*1 + dgnPlan.pt*3 + dgnPlan.pr*2 + dgnPlan.lg*2 + dgnPlan.unl*1
+    let nPerMonth = (dgnPlan.wQ?4:0) + dgnPlan.sp*1 + dgnPlan.rk*1 + dgnPlan.pt*3 + dgnPlan.pr*2 + dgnPlan.lg*2 + dgnPlan.unl*1
     let pPerMonth = dgnPlan.pk*2 + dgnPlan.lg*1
     let tPerMonth = dgnPlan.wC + dgnPlan.rk*20 + dgnPlan.pt*10 + dgnPlan.pr*10 + dgnPlan.unl*1
     if(totalKrwPerMonth===0 && nPerMonth===0 && pPerMonth===0 && tPerMonth===0) { isDgnSim.value=false; return alert("구매 패턴을 하나라도 설정해주세요.") }
 
     let iter = 10000; let results = [] 
     for(let i=0; i<iter; i++) {
-      let week = 0; let totalCostRun = 0; // 🔥 통계적 비례 배분 삭제! 100% 리얼 쓴 돈만 누적
+      let week = 0; let totalCostRun = 0; 
       
       let infTotal = dgnState.payback.totalKrw;
       let monthSpent = dgnState.payback.spent;
@@ -845,7 +845,7 @@ const dgnRunPlanner = () => {
       let totalUsedTop = 0; let totalGainedTop = dgnState.inv.otherTop;
       let alb = { ...dgnState.album };
       
-      // 팩 개봉 헬퍼 함수
+      // 팩 개봉 헬퍼
       const simOpenNormal = (count) => {
         for(let c=0; c<count; c++) {
           tkt += 2;
@@ -861,7 +861,7 @@ const dgnRunPlanner = () => {
           let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++;
         }
       }
-      // 믹서기 연쇄 가동 헬퍼
+      // 믹서기 가동 헬퍼
       const simMixer = () => {
         while(true) {
           let dp = TEAMS.filter(t => t !== dgnState.myTeam && alb[t] > 1);
@@ -881,7 +881,7 @@ const dgnRunPlanner = () => {
         }
       }
       
-      // 🔥 결제 및 [페이백 즉시 개봉] 함수
+      // 🔥 결제 및 [페이백 즉시 개봉] 함수 (달성 즉시 팩 까봄)
       const simPaybackCheck = (money) => {
          totalCostRun += money; monthSpent += money; infTotal += money;
          let pbN = 0, pbP = 0;
@@ -895,14 +895,15 @@ const dgnRunPlanner = () => {
          if(pbP > 0) simOpenPickup(pbP);
       }
 
-      // 🔥 산해님 기획 가성비 순서 (1순위 픽업프레스티지 -> ... -> 6순위 무한)
+      // 🔥 산해님 기획 0순위 및 가성비 순서 완벽 적용 배열
       let packages = [
-        { cost: 99000, n:0, p:2, t:0, max: dgnPlan.pk },
-        { cost: 55000, n:1, p:0, t:20, max: dgnPlan.rk },
-        { cost: 99000, n:3, p:0, t:10, max: dgnPlan.pt },
-        { cost: 149000, n:2, p:1, t:0, max: dgnPlan.lg },
-        { cost: 99000, n:2, p:0, t:10, max: dgnPlan.pr },
-        { cost: 55000, n:1, p:0, t:1, max: dgnPlan.unl }
+        { cost: 55000, n:1, p:0, t:0, max: dgnPlan.sp }, // 0순위: 시즌패스 (혜자 기본 베이스)
+        { cost: 99000, n:0, p:2, t:0, max: dgnPlan.pk }, // 1순위: 픽업프레스티지
+        { cost: 55000, n:1, p:0, t:20, max: dgnPlan.rk }, // 2순위: 루키
+        { cost: 99000, n:3, p:0, t:10, max: dgnPlan.pt }, // 3순위: 프레스티지
+        { cost: 149000, n:2, p:1, t:0, max: dgnPlan.lg }, // 4순위: 레전드
+        { cost: 99000, n:2, p:0, t:10, max: dgnPlan.pr }, // 5순위: 프로
+        { cost: 55000, n:1, p:0, t:1, max: dgnPlan.unl }  // 6순위: 무한 (남은 예산 무제한 꼴박)
       ];
 
       // 🔥 리얼리티 시간 흐름 시뮬레이션 시작
@@ -911,37 +912,37 @@ const dgnRunPlanner = () => {
         // 매달 첫 주에 일반 페이백 게이지 초기화
         if (week > 1 && week % 4 === 1) { monthSpent = 0; p1 = false; p2 = false; p3 = false; p4 = false; }
 
-        // [1] 주간 기본 보상 수급 및 가동 (가장 먼저!)
+        // [1] 주간 기본 보상 수급 및 가동 (결제 전 최우선!)
         let wQ = dgnPlan.wQ ? 1 : 0; 
         let wC = Math.floor(dgnPlan.wC / 4); 
         tkt += wC;
         if(wQ > 0) simOpenNormal(wQ);
         simMixer();
-        if(myDgn >= dgnPlan.target) break; // 여기서 뜨면 돈 굳고 즉시 종료!
+        if(myDgn >= dgnPlan.target) break; // 운 좋게 여기서 뜨면 패키지 돈 굳고 즉시 종료!
 
-        // [2] 매달 1주 차에만 숍 패키지 결제 진입 (가성비 순차 구매)
+        // [2] 매달 1주 차에만 숍 패키지 결제 진입
         if (week % 4 === 1) {
            if(dgnPlan.otherMonthlyKrw > 0) {
               simPaybackCheck(dgnPlan.otherMonthlyKrw); simMixer();
               if(myDgn >= dgnPlan.target) break;
            }
-           // 산해님 로직: 1개씩 사고, 까보고, 목표 달성하면 멈춘다!
+           // 0순위 시즌패스부터 가성비 1개씩 사고, 까보고, 목표 달성 시 STOP!
            for(let pkg of packages) {
               for(let c=0; c<pkg.max; c++) {
-                 simPaybackCheck(pkg.cost); // 1개 결제 & 페이백 팩 즉시 개봉
+                 simPaybackCheck(pkg.cost); // 1개 결제 & 혹시 페이백 터졌으면 즉시 까봄
                  if(pkg.n > 0) simOpenNormal(pkg.n);
                  if(pkg.p > 0) simOpenPickup(pkg.p);
                  tkt += pkg.t;
-                 simMixer(); // 재료 모였으니 믹서기 가동
-                 if(myDgn >= dgnPlan.target) break; // 🔥 목표 채웠다! 다음 결제 취소!
+                 simMixer(); // 믹서기 가동
+                 if(myDgn >= dgnPlan.target) break; // 🔥 목표 채웠다! 다음 패키지 취소!
               }
-              if(myDgn >= dgnPlan.target) break; // 패키지 종류 루프 완전 탈출!
+              if(myDgn >= dgnPlan.target) break; // 패키지 루프 완전 탈출!
            }
         }
         if (week > 720) break; // 억까 무한루프 방지(15년)
       }
       
-      // 진짜 리얼로 쓴 돈만 저장
+      // 진짜 리얼로 쓴 돈(totalCostRun)만 저장
       results.push({ week, cost: totalCostRun, r: week, netTop: totalUsedTop - totalGainedTop })
     }
     
@@ -1482,7 +1483,12 @@ const dgnCheckMyLuck = () => {
                 <button @click="dgnBuyPkg('wC', 40, 50, 0, 0, 1, '주간 상점 티켓', true, 10)" :disabled="dgnState.shop.wC > 30" class="flex-1 py-1.5 bg-white hover:bg-slate-100 dark:bg-[#1e1e24] dark:hover:bg-neutral-700 border border-slate-300 dark:border-neutral-700 text-[11px] font-bold text-blue-600 dark:text-blue-300 rounded transition-colors disabled:opacity-50 shadow-sm">10회 구매</button>
               </div>
             </div>
-            <!-- 패키지 -->
+            <!-- 🔥 추가된 시즌패스 패키지 -->
+            <button @click="dgnBuyPkg('sp', 1, 55000, 1, 0, 0, '시즌패스')" :disabled="dgnState.shop.sp>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.sp<1?'bg-slate-100 border border-slate-300 dark:bg-[#2a2a35] dark:border-neutral-600':'bg-slate-50 dark:bg-[#2a2a35] border border-slate-200 dark:border-neutral-700/50 opacity-50'">
+              <div><div class="text-[10px] text-slate-600 dark:text-slate-400">시즌패스 [{{dgnState.shop.sp}}/1]</div><div class="text-xs font-bold text-slate-900 dark:text-white">일반팩 1</div></div>
+              <div class="text-right"><div class="text-[11px] font-bold text-green-600 dark:text-green-500">5.5만</div><div class="text-[9px] text-slate-500 dark:text-neutral-400 font-bold mt-0.5 whitespace-nowrap">자팀 기댓값: 약 183만/1장</div></div>
+            </button>
+            <!-- 기존 패키지들 -->
             <button @click="dgnBuyPkg('rk', 1, 55000, 1, 0, 20, '루키 패키지')" :disabled="dgnState.shop.rk>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.rk<1?'bg-orange-50 border border-orange-200 dark:bg-orange-900/20 dark:border-orange-800/50':'bg-slate-50 dark:bg-[#2a2a35] border border-slate-200 dark:border-neutral-700/50 opacity-50'">
               <div><div class="text-[10px] text-orange-600 dark:text-orange-400">루키 패키지 [{{dgnState.shop.rk}}/1]</div><div class="text-xs font-bold text-slate-900 dark:text-white">일반1 + 티켓20</div></div>
               <div class="text-right"><div class="text-[11px] font-bold text-green-600 dark:text-green-500">5.5만</div><div class="text-[9px] text-orange-500 dark:text-orange-300 font-bold mt-0.5 whitespace-nowrap">자팀 기댓값: 약 46만/1장</div></div>
@@ -1618,10 +1624,9 @@ const dgnCheckMyLuck = () => {
         <div class="bg-indigo-50 border border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800/50 rounded-2xl p-4 shrink-0 flex flex-col shadow-sm dark:shadow-lg transition-colors">
           <h3 class="font-extrabold text-sm mb-2 flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400"><BarChart class="w-4 h-4"/> 타임라인 과금 플래너</h3>
           
-          <!-- 🔥 여기에 새로 추가된 안내 문구 블록입니다! 🔥 -->
           <div class="mb-3 px-2 py-1.5 bg-indigo-100 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-700/50 rounded-md text-[10px] font-extrabold text-indigo-700 dark:text-indigo-300 flex items-start gap-1">
             <span class="mt-0.5 text-xs">💡</span>
-            <span class="leading-relaxed">현재 위측에 세팅된 보유 현황(명함 및 중복 카드)을 <br class="hidden xl:block">시뮬레이션 시작점으로 완벽히 반영하여 계산합니다.</span>
+            <span class="leading-relaxed">현재 좌측 도감에 세팅된 보유 현황(명함 및 중복 카드)을 <br class="hidden xl:block">시뮬레이션 시작점으로 완벽히 반영하여 계산합니다.</span>
           </div>
           
           <div class="bg-white border border-slate-200 dark:bg-[#1a1b1e] dark:border-neutral-800 rounded-lg p-2.5 mb-3 flex flex-col gap-1.5 shadow-inner transition-colors">
@@ -1652,12 +1657,18 @@ const dgnCheckMyLuck = () => {
           <div class="grid grid-cols-2 gap-x-2 gap-y-1.5 mb-3 text-[10px]">
             <label class="flex items-center gap-1 text-slate-700 dark:text-neutral-300"><input type="checkbox" v-model="dgnPlan.wQ" class="accent-indigo-600 dark:accent-indigo-500"> 주간퀘 완수</label>
             <label class="flex items-center gap-1 text-slate-700 dark:text-neutral-300 justify-end">티켓상점 <input type="number" v-model.number="dgnPlan.wC" min="0" max="40" class="w-8 bg-white dark:bg-[#2a2a35] border border-slate-300 dark:border-neutral-700 text-center rounded outline-none transition-colors"> /월</label>
-            <label class="flex items-center gap-1 text-orange-700 dark:text-orange-300 mt-1 justify-center bg-orange-100/50 dark:bg-orange-900/20 py-1 rounded border border-orange-200 dark:border-orange-800 transition-colors">루키(5.5) <input type="number" v-model.number="dgnPlan.rk" min="0" max="1" class="w-8 bg-white dark:bg-[#2a2a35] border border-orange-300 dark:border-orange-700 text-center rounded outline-none text-slate-900 dark:text-white transition-colors"> /월</label>
+            
+            <!-- 🔥 추가된 시즌패스 (좌상단 배치) -->
+            <label class="flex items-center gap-1 text-indigo-700 dark:text-indigo-300 mt-1 justify-center bg-indigo-100/50 dark:bg-indigo-900/20 py-1 rounded border border-indigo-200 dark:border-indigo-800 transition-colors">시즌패스(5.5) <input type="number" v-model.number="dgnPlan.sp" min="0" max="1" class="w-8 bg-white dark:bg-[#2a2a35] border border-indigo-300 dark:border-indigo-700 text-center rounded outline-none text-slate-900 dark:text-white transition-colors"> /월</label>
             <label class="flex items-center gap-1 text-teal-700 dark:text-teal-300 mt-1 justify-center bg-teal-100/50 dark:bg-teal-900/20 py-1 rounded border border-teal-200 dark:border-teal-800 transition-colors">무한(5.5) <input type="number" v-model.number="dgnPlan.unl" min="0" class="w-8 bg-white dark:bg-[#2a2a35] border border-teal-300 dark:border-teal-700 text-center rounded outline-none text-slate-900 dark:text-white transition-colors"> /월</label>
-            <label class="flex items-center gap-1 text-slate-700 dark:text-neutral-300 mt-1 justify-center">프레스티지 <input type="number" v-model.number="dgnPlan.pt" min="0" max="1" class="w-8 bg-white dark:bg-[#2a2a35] border border-slate-300 dark:border-neutral-700 text-center rounded outline-none transition-colors"> /월</label>
+            
+            <label class="flex items-center gap-1 text-orange-700 dark:text-orange-300 mt-1 justify-center bg-orange-100/50 dark:bg-orange-900/20 py-1 rounded border border-orange-200 dark:border-orange-800 transition-colors">루키(5.5) <input type="number" v-model.number="dgnPlan.rk" min="0" max="1" class="w-8 bg-white dark:bg-[#2a2a35] border border-orange-300 dark:border-orange-700 text-center rounded outline-none text-slate-900 dark:text-white transition-colors"> /월</label>
             <label class="flex items-center gap-1 text-slate-700 dark:text-neutral-300 mt-1 justify-center">픽업프레스티지 <input type="number" v-model.number="dgnPlan.pk" min="0" max="1" class="w-8 bg-white dark:bg-[#2a2a35] border border-slate-300 dark:border-neutral-700 text-center rounded outline-none transition-colors"> /월</label>
+            
+            <label class="flex items-center gap-1 text-slate-700 dark:text-neutral-300 mt-1 justify-center">프레스티지 <input type="number" v-model.number="dgnPlan.pt" min="0" max="1" class="w-8 bg-white dark:bg-[#2a2a35] border border-slate-300 dark:border-neutral-700 text-center rounded outline-none transition-colors"> /월</label>
             <label class="flex items-center gap-1 text-slate-700 dark:text-neutral-300 mt-1 justify-center">프로 <input type="number" v-model.number="dgnPlan.pr" min="0" max="5" class="w-8 bg-white dark:bg-[#2a2a35] border border-slate-300 dark:border-neutral-700 text-center rounded outline-none transition-colors"> /월</label>
-            <label class="flex items-center gap-1 text-slate-700 dark:text-neutral-300 mt-1 justify-center bg-amber-100/50 dark:bg-amber-900/20 py-1 rounded transition-colors">레전드 <input type="number" v-model.number="dgnPlan.lg" min="0" max="3" class="w-8 bg-white dark:bg-[#2a2a35] border border-slate-300 dark:border-neutral-700 text-center rounded outline-none transition-colors"> /월</label>
+            
+            <label class="flex items-center gap-1 text-slate-700 dark:text-neutral-300 mt-1 justify-center bg-amber-100/50 dark:bg-amber-900/20 py-1 rounded transition-colors col-span-2 mx-auto px-4">레전드 <input type="number" v-model.number="dgnPlan.lg" min="0" max="3" class="w-8 bg-white dark:bg-[#2a2a35] border border-slate-300 dark:border-neutral-700 text-center rounded outline-none transition-colors"> /월</label>
           </div>
           
           <div class="flex items-center gap-2 mb-3 justify-center">
