@@ -1404,7 +1404,6 @@ const dgnCheckMyLuck = () => {
               <input type="number" v-model.number="manualKrwInput" placeholder="타 패키지 금액" class="flex-1 bg-slate-50 dark:bg-[#2a2a35] border border-slate-300 dark:border-neutral-700 text-slate-800 dark:text-white text-xs p-2 rounded outline-none transition-colors">
               <button @click="dgnAddManualPayback" class="px-3 py-2 bg-green-600 hover:bg-green-500 dark:bg-green-700 dark:hover:bg-green-600 text-white text-xs font-bold rounded transition-colors">추가</button>
             </div>
-            <!-- 실시간 미리보기 연산 텍스트 -->
             <div v-if="manualKrwInput > 0" class="text-[10px] font-bold text-amber-600 dark:text-yellow-400 animate-fade-in pl-1 pt-1">
               💡 적용 시 예상: 총 누적 {{ new Intl.NumberFormat().format(previewTotalKrw) }}원 (월간 {{ new Intl.NumberFormat().format(previewSpentKrw) }}원)
             </div>
@@ -1453,7 +1452,6 @@ const dgnCheckMyLuck = () => {
               <div class="text-right"><div class="text-[11px] font-bold text-green-600 dark:text-green-500">14.9만</div><div class="text-[9px] text-slate-500 dark:text-neutral-400 font-bold mt-0.5 whitespace-nowrap">자팀 기댓값: 약 69만/1장</div></div>
             </button>
             
-            <!-- 🔥 꼬리말 안내문구 완벽 적용 -->
             <div class="mt-3 p-2.5 bg-slate-100 border border-slate-200 dark:bg-[#1a1b1e] dark:border-neutral-800 rounded-lg text-[9px] font-bold text-slate-500 dark:text-neutral-500 leading-relaxed text-center break-keep transition-colors">
               ※ 가성비 기댓값은 참고용입니다. 트레이드권의 가치는 변수가 큰 '디그니티 믹서기' 효율을 배제하고, 가장 보편적인 'TOP 재료 믹서기(3%)'만을 기준으로 보수적으로 산정되었습니다.<br>
               <span class="text-indigo-600 dark:text-indigo-400 mt-1 inline-block">💡 실제 스노우볼이 적용된 정확한 기댓값 및 과금 효율은 우측의 '타임라인 과금 플래너' 시뮬레이션을 통해 확인하시는 것을 권장합니다.</span>
@@ -1528,7 +1526,6 @@ const dgnCheckMyLuck = () => {
           </div>
           
           <div v-show="dgnAlbumTab==='dignity'" class="flex flex-col flex-1 overflow-hidden">
-            <!-- 🔥 마스터 스위치 -->
             <div class="flex justify-between items-center mb-2 px-1 border-b border-slate-100 dark:border-neutral-700/50 pb-2">
               <span class="text-[10px] text-blue-600 dark:text-blue-400 font-bold">💡 카드를 클릭하여 명함(ON/OFF) 전환!</span>
               <div class="flex gap-1">
@@ -1538,14 +1535,12 @@ const dgnCheckMyLuck = () => {
             </div>
             
             <div class="grid grid-cols-3 gap-2 overflow-y-auto pr-1 flex-1 content-start custom-scrollbar pt-1">
-              <!-- 🔥 도감 카드 (라이트 모드/다크 모드 완벽 호환 + 수량 조절 버튼) -->
               <div v-for="t in TEAMS" :key="t" v-show="t!==dgnState.myTeam" @click="toggleDgnAlbum(t)" class="p-2 rounded-lg border text-center relative transition-colors cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 select-none flex flex-col items-center justify-center min-h-[70px]" :class="dgnState.album[t]>0?'bg-amber-50 border-amber-300 dark:bg-amber-900/30 dark:border-amber-700 shadow-sm':'bg-slate-50 border-slate-200 dark:bg-[#2a2a35] dark:border-neutral-700/50 opacity-60 grayscale'">
                 <div class="text-[9px] font-black mb-0.5" :class="T_COLORS[t]">{{ T_NAMES[t] }}</div>
                 <div class="text-xs font-bold text-slate-800 dark:text-white" :class="{'mb-1': dgnState.album[t]>0}">{{ D_WAVES[dgnState.targetWave][t] }}</div>
                 
                 <div v-if="dgnState.album[t]>0" class="absolute -top-1.5 -left-1.5 bg-blue-500 dark:bg-blue-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-md">✓</div>
                 
-                <!-- 🔥 수량 조절 버튼부 -->
                 <div v-if="dgnState.album[t]>0" class="flex items-center justify-between w-full mt-auto bg-slate-200/80 dark:bg-black/40 rounded px-1 transition-colors" @click.stop>
                   <button @click="decDgnAlbum(t)" class="text-slate-600 hover:text-slate-900 dark:text-neutral-400 dark:hover:text-white px-2 py-0.5 font-bold text-xs transition-colors">-</button>
                   <span class="text-[10px] text-slate-800 dark:text-white font-black">{{ dgnState.album[t] }}장</span>
@@ -1563,9 +1558,15 @@ const dgnCheckMyLuck = () => {
           </div>
         </div>
 
-        <!-- 🚀 과금 플래너 (밝은 톤일 땐 화사한 인디고 톤으로!) -->
+        <!-- 🚀 과금 플래너 -->
         <div class="bg-indigo-50 border border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800/50 rounded-2xl p-4 shrink-0 flex flex-col shadow-sm dark:shadow-lg transition-colors">
-          <h3 class="font-extrabold text-sm mb-3 flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400"><BarChart class="w-4 h-4"/> 타임라인 과금 플래너</h3>
+          <h3 class="font-extrabold text-sm mb-2 flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400"><BarChart class="w-4 h-4"/> 타임라인 과금 플래너</h3>
+          
+          <!-- 🔥 여기에 새로 추가된 안내 문구 블록입니다! 🔥 -->
+          <div class="mb-3 px-2 py-1.5 bg-indigo-100 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-700/50 rounded-md text-[10px] font-extrabold text-indigo-700 dark:text-indigo-300 flex items-start gap-1">
+            <span class="mt-0.5 text-xs">💡</span>
+            <span class="leading-relaxed">현재 위측에 세팅된 보유 현황(명함 및 중복 카드)을 <br class="hidden xl:block">시뮬레이션 시작점으로 완벽히 반영하여 계산합니다.</span>
+          </div>
           
           <div class="bg-white border border-slate-200 dark:bg-[#1a1b1e] dark:border-neutral-800 rounded-lg p-2.5 mb-3 flex flex-col gap-1.5 shadow-inner transition-colors">
             <div class="flex justify-between items-end">
@@ -1587,7 +1588,6 @@ const dgnCheckMyLuck = () => {
               <input type="number" v-model.number="dgnPlan.otherMonthlyKrw" min="0" class="flex-1 bg-white dark:bg-[#1a1b1e] border border-indigo-300 dark:border-indigo-500/50 text-slate-900 dark:text-white text-xs p-1 rounded outline-none text-center font-bold transition-colors">
               <span class="text-[10px] text-indigo-600 dark:text-indigo-400">원/월</span>
             </div>
-            <!-- 실시간 플래너 연산 -->
             <div v-if="dgnPlan.otherMonthlyKrw > 0" class="text-[9px] font-bold text-amber-600 dark:text-yellow-400 text-right pr-8 animate-fade-in mt-0.5">
               💡 실시간 반영: 플래너 총 누적액 {{ new Intl.NumberFormat().format(dgnPlanTotalKrw) }}원 도달 예상
             </div>
