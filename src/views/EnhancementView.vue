@@ -592,7 +592,7 @@ const TEAMS = ['kia', 'ssg', 'kiwoom', 'samsung', 'doosan', 'lg', 'hanwha', 'lot
 const T_NAMES: Record<string, string> = { kia:'KIA', ssg:'SSG', kiwoom:'키움', samsung:'삼성', doosan:'두산', lg:'LG', hanwha:'한화', lotte:'롯데', hyundai:'현대', kt:'KT', sbw:'쌍방울', nc:'NC' }
 const T_COLORS: Record<string, string> = { kia:'text-red-600', ssg:'text-red-500', kiwoom:'text-rose-800', samsung:'text-blue-600', doosan:'text-indigo-800', lg:'text-pink-600', hanwha:'text-orange-500', lotte:'text-cyan-800', hyundai:'text-green-600', kt:'text-black dark:text-white', sbw:'text-yellow-600', nc:'text-blue-400' }
 
-// 1~5차 디그니티 실명 (가명 완벽 패치)
+// 1~5차 디그니티 실명
 const D_WAVES: Record<number, Record<string, string>> = {
   1: { kia:'홍현우', ssg:'최정', kiwoom:'이블렉', samsung:'양준혁', doosan:'박건우', lg:'류지현', hanwha:'장종훈', lotte:'이대호', hyundai:'박재홍', kt:'강백호', sbw:'박노준', nc:'나성범' },
   2: { kia:'이종범', nc:'테이준', hyundai:'심정수', samsung:'구자욱', sbw:'김기태', doosan:'김동주', lg:'박용택', hanwha:'김태균', kiwoom:'박병호', lotte:'조성환', kt:'로하스', ssg:'박경완' },
@@ -617,7 +617,6 @@ const TOP_DB: Record<string, string[]> = {
 }
 const ALL_TOPS = Object.entries(TOP_DB).flatMap(([t, players]) => players.map(p => ({ team: t, name: p })))
 
-// 상태 관리
 const dgnState = reactive({
   month: 1, myTeam: 'kia', targetWave: 5,
   inv: { normal: 0, pickup: 0, tickets: 0, myDgn: 0, myTop: 0, otherTop: 0, cash: 0 },
@@ -629,7 +628,18 @@ const dgnState = reactive({
   logs: [] as { id: number, msg: string, type: string }[]
 })
 
-const toggleDgnAlbum = (t: string) => { dgnState.album[t] = (dgnState.album[t] + 1) % 4 }
+// 🔥 도감 ON/OFF 및 수량 조절 완벽 패치
+const toggleDgnAlbum = (t: string) => { 
+  if (dgnState.album[t] === 0) dgnState.album[t] = 1; 
+  else dgnState.album[t] = 0; // 2장이든 3장이든 클릭 한 번에 OFF!
+}
+const incDgnAlbum = (t: string) => { dgnState.album[t]++ }
+const decDgnAlbum = (t: string) => { 
+  if(dgnState.album[t] > 1) dgnState.album[t]--; 
+  else if(dgnState.album[t] === 1) dgnState.album[t] = 0; 
+}
+const turnOnAllAlbum = () => { TEAMS.forEach(t => { if(t !== dgnState.myTeam) dgnState.album[t] = Math.max(1, dgnState.album[t]); }) }
+const turnOffAllAlbum = () => { TEAMS.forEach(t => { if(t !== dgnState.myTeam) dgnState.album[t] = 0; }) }
 
 const dgnWaitlist = computed(() => {
   let list: string[] = []; TEAMS.forEach(t => { if(t !== dgnState.myTeam && dgnState.album[t] > 1) list.push(`${T_NAMES[t]} ${D_WAVES[dgnState.targetWave][t]} (${dgnState.album[t]-1}장)`) }); return list;
@@ -639,7 +649,6 @@ const topWaitlist = computed(() => {
 })
 
 const manualKrwInput = ref(0)
-// 🔥 신규: 수동 결제액 실시간 미리보기 연산
 const previewTotalKrw = computed(() => dgnState.payback.totalKrw + (manualKrwInput.value || 0))
 const previewSpentKrw = computed(() => dgnState.payback.spent + (manualKrwInput.value || 0))
 
@@ -787,7 +796,7 @@ const dgnOpenPerfect = (count: number) => {
   dgnLog(`[파이브스타 퍼펙트 팩] ${count}팩 개봉 (TOP ${count * 8}장 획득!)`, 'action')
 }
 
-// 🔥 플래너 변수 및 기댓값 계산식
+// 플래너 변수 및 기댓값 계산식
 const dgnPlan = reactive({ target: 3, otherMonthlyKrw: 0, wQ: true, wC: 40, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0, unl: 0 })
 const dgnPlanTotalKrw = computed(() => dgnPlan.rk*55000 + dgnPlan.pt*99000 + dgnPlan.pk*99000 + dgnPlan.pr*99000 + dgnPlan.lg*149000 + dgnPlan.unl*55000 + (dgnPlan.otherMonthlyKrw || 0) )
 const dgnPlanPureKrw = computed(() => dgnPlan.rk*55000 + dgnPlan.pt*99000 + dgnPlan.pk*99000 + dgnPlan.pr*99000 + dgnPlan.lg*149000 + dgnPlan.unl*55000 )
@@ -837,7 +846,7 @@ const dgnRunPlanner = () => {
         let wQ = dgnPlan.wQ ? 1 : 0; let wC = Math.floor(dgnPlan.wC / 4);
         tkt += wC;
         for(let k=0; k<wQ; k++) {
-          tkt += 2; // 페이백
+          tkt += 2;
           for(let j=0; j<8; j++) { if(Math.random()<0.03){let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++} else { if(Math.random()>=(TOP_DB[dgnState.myTeam].length/212)) totalGainedTop++ } }
           pPack--; if(pPack<=0) { myDgn++; pPack=50; } 
         }
@@ -855,7 +864,7 @@ const dgnRunPlanner = () => {
 
           for(let k=0; k<mp; k++) { let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++ }
           for(let k=0; k<mn; k++) {
-            tkt+=2; // 페이백
+            tkt+=2;
             for(let j=0; j<8; j++) { if(Math.random()<0.03){let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++} else { if(Math.random()>=(TOP_DB[dgnState.myTeam].length/212)) totalGainedTop++ } }
             pPack--; if(pPack<=0) { myDgn++; pPack=50; } 
           }
@@ -1396,7 +1405,7 @@ const dgnCheckMyLuck = () => {
               <input type="number" v-model.number="manualKrwInput" placeholder="타 패키지 금액" class="flex-1 bg-[#2a2a35] border border-neutral-700 text-white text-xs p-2 rounded outline-none">
               <button @click="dgnAddManualPayback" class="px-3 py-2 bg-green-700 hover:bg-green-600 text-white text-xs font-bold rounded transition-colors">추가</button>
             </div>
-            <!-- 🔥 실시간 미리보기 연산 텍스트 (입력값이 있을 때만 노출) -->
+            <!-- 🔥 실시간 미리보기 텍스트 -->
             <div v-if="manualKrwInput > 0" class="text-[10px] font-bold text-yellow-400 animate-fade-in pl-1 pt-1">
               💡 적용 시 예상: 총 누적 {{ new Intl.NumberFormat().format(previewTotalKrw) }}원 (월간 {{ new Intl.NumberFormat().format(previewSpentKrw) }}원)
             </div>
@@ -1410,7 +1419,7 @@ const dgnCheckMyLuck = () => {
             <button @click="dgnBuyPkg('wQ', 4, 0, 1, 0, 0, '주간 퀘스트')" :disabled="dgnState.shop.wQ>=4" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.wQ<4?'bg-blue-900/20 border border-blue-800/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-blue-400">주간 퀘스트 (월) [{{dgnState.shop.wQ}}/4]</div><div class="text-xs font-bold text-white">일반팩 1</div></div></button>
             <!-- 캐시 -->
             <div class="flex flex-col bg-[#2a2a35] border border-neutral-700/50 rounded-lg p-2 gap-2" :class="{'opacity-50': dgnState.shop.wC >= 40}">
-              <!-- 🔥 티켓 상점 라벨 변경: 금액 대신 갯수로 표현 -->
+              <!-- 🔥 티켓 상점 라벨: 갯수로 기댓값 표현 -->
               <div class="flex justify-between items-start px-1">
                 <div><div class="text-[10px] text-neutral-400">티켓 구매 (월) [{{dgnState.shop.wC}}/40]</div><div class="text-xs font-bold text-amber-500">티켓 1개 = 50캐시</div></div>
                 <div class="text-right text-[9px] text-amber-400 font-bold mt-0.5">자팀 기댓값: 약 400개/1장</div>
@@ -1420,17 +1429,15 @@ const dgnCheckMyLuck = () => {
                 <button @click="dgnBuyPkg('wC', 40, 50, 0, 0, 1, '주간 상점 티켓', true, 10)" :disabled="dgnState.shop.wC > 30" class="flex-1 py-1.5 bg-[#1e1e24] hover:bg-neutral-700 border border-neutral-700 text-[11px] font-bold text-blue-300 rounded transition-colors disabled:opacity-50 shadow-sm">10회 구매</button>
               </div>
             </div>
-            <!-- 🔥 5.5만 루키 -->
+            <!-- 패키지들 -->
             <button @click="dgnBuyPkg('rk', 1, 55000, 1, 0, 20, '루키 패키지')" :disabled="dgnState.shop.rk>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.rk<1?'bg-orange-900/20 border border-orange-800/50':'bg-[#2a2a35] opacity-50'">
               <div><div class="text-[10px] text-orange-400">루키 패키지 [{{dgnState.shop.rk}}/1]</div><div class="text-xs font-bold text-white">일반1 + 티켓20</div></div>
               <div class="text-right"><div class="text-[11px] font-bold text-green-500">5.5만</div><div class="text-[9px] text-orange-300 font-bold mt-0.5 whitespace-nowrap" title="TOP카드 가치 0원 기준, 자팀 1장 획득 기대값">자팀 기댓값: 약 46만/1장</div></div>
             </button>
-            <!-- 🔥 5.5만 무한 -->
             <button @click="dgnBuyPkg('unl', 9999, 55000, 1, 0, 1, '무한 패키지')" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50">
               <div><div class="text-[10px] text-teal-400">무한 패키지 [제한없음]</div><div class="text-xs font-bold text-white">일반1 + 티켓1</div></div>
               <div class="text-right"><div class="text-[11px] font-bold text-green-500">5.5만</div><div class="text-[9px] text-neutral-500 font-bold mt-0.5 whitespace-nowrap" title="TOP카드 가치 0원 기준, 자팀 1장 획득 기대값">자팀 기댓값: 약 106만/1장</div></div>
             </button>
-            <!-- 9.9만 3형제 -->
             <button @click="dgnBuyPkg('pt', 1, 99000, 3, 0, 10, '프레스티지')" :disabled="dgnState.shop.pt>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pt<1?'bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50':'bg-[#2a2a35] opacity-50'">
               <div><div class="text-[10px] text-neutral-400">프레스티지 [{{dgnState.shop.pt}}/1]</div><div class="text-xs font-bold text-white">일반3 + 티켓10</div></div>
               <div class="text-right"><div class="text-[11px] font-bold text-green-500">9.9만</div><div class="text-[9px] text-yellow-500 font-bold mt-0.5 whitespace-nowrap" title="TOP카드 가치 0원 기준, 자팀 1장 획득 기대값">자팀 기댓값: 약 55만/1장</div></div>
@@ -1443,15 +1450,15 @@ const dgnCheckMyLuck = () => {
               <div><div class="text-[10px] text-purple-400">픽업 프레스티지 [{{dgnState.shop.pk}}/1]</div><div class="text-xs font-bold text-purple-300">픽업팩 2</div></div>
               <div class="text-right"><div class="text-[11px] font-bold text-green-500">9.9만</div><div class="text-[9px] text-purple-400 font-bold mt-0.5 whitespace-nowrap" title="TOP카드 가치 0원 기준, 자팀 1장 획득 기대값">자팀 기댓값: 약 41만/1장</div></div>
             </button>
-            <!-- 14.9만 -->
             <button @click="dgnBuyPkg('lg', 3, 149000, 2, 1, 0, '레전드 패키지')" :disabled="dgnState.shop.lg>=3" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.lg<3?'bg-amber-900/20 border border-amber-800/50':'bg-[#2a2a35] opacity-50'">
               <div><div class="text-[10px] text-amber-500">레전드 패키지 [{{dgnState.shop.lg}}/3]</div><div class="text-xs font-bold text-amber-300">일반2 + 픽업1</div></div>
               <div class="text-right"><div class="text-[11px] font-bold text-green-500">14.9만</div><div class="text-[9px] text-neutral-400 font-bold mt-0.5 whitespace-nowrap" title="TOP카드 가치 0원 기준, 자팀 1장 획득 기대값">자팀 기댓값: 약 69만/1장</div></div>
             </button>
             
-            <!-- 🔥 안내 문구 꼬리말 추가 -->
+            <!-- 🔥 시뮬레이터 유도 안내 문구 추가 -->
             <div class="mt-3 p-2.5 bg-[#1a1b1e] border border-neutral-800 rounded-lg text-[9px] font-bold text-neutral-500 leading-relaxed text-center break-keep">
-              ※ 가성비 기댓값은 참고용입니다. 트레이드권의 가치는 변수가 큰 '디그니티 믹서기' 효율을 배제하고, 가장 보편적인 'TOP 재료 믹서기(3%)'만을 기준으로 보수적으로 산정되었습니다.
+              ※ 가성비 기댓값은 참고용입니다. 트레이드권의 가치는 변수가 큰 '디그니티 믹서기' 효율을 배제하고, 가장 보편적인 'TOP 재료 믹서기(3%)'만을 기준으로 보수적으로 산정되었습니다.<br>
+              <span class="text-indigo-400 mt-1 inline-block">💡 실제 스노우볼이 적용된 정확한 기댓값 및 과금 효율은 우측의 '타임라인 과금 플래너' 시뮬레이션을 통해 확인하시는 것을 권장합니다.</span>
             </div>
           </div>
         </div>
@@ -1522,13 +1529,32 @@ const dgnCheckMyLuck = () => {
             <button @click="dgnAlbumTab='top'" class="flex-1 py-1.5 rounded text-[11px] font-bold transition-colors" :class="dgnAlbumTab==='top'?'bg-blue-600 text-white':'bg-[#2a2a35] text-neutral-400'">TOP카드 수집함</button>
           </div>
           
-          <div v-show="dgnAlbumTab==='dignity'" class="grid grid-cols-3 gap-2 overflow-y-auto pr-1 flex-1 content-start custom-scrollbar">
-            <div v-for="t in TEAMS" :key="t" v-show="t!==dgnState.myTeam" @click="toggleDgnAlbum(t)" class="p-2 rounded-lg border text-center relative transition-colors cursor-pointer hover:border-blue-500 select-none" :class="dgnState.album[t]>0?'bg-amber-900/30 border-amber-700':'bg-[#2a2a35] border-neutral-700/50 opacity-50 grayscale'">
-              <div class="text-[9px] font-black mb-0.5" :class="T_COLORS[t]">{{ T_NAMES[t] }}</div><div class="text-xs font-bold text-white">{{ D_WAVES[dgnState.targetWave][t] }}</div>
-              <div v-if="dgnState.album[t]>1" class="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">+{{ dgnState.album[t]-1 }} 중복</div>
-              <div v-if="dgnState.album[t]>0" class="absolute -top-1.5 -left-1.5 bg-blue-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-md">✓</div>
+          <div v-show="dgnAlbumTab==='dignity'" class="flex flex-col flex-1 overflow-hidden">
+            <!-- 🔥 마스터 스위치 (전체 켜기 / 전체 끄기) -->
+            <div class="flex justify-between items-center mb-2 px-1">
+              <span class="text-[10px] text-blue-400 font-bold">💡 카드를 클릭하여 명함(ON/OFF) 전환!</span>
+              <div class="flex gap-1">
+                <button @click="turnOnAllAlbum" class="px-2 py-1 bg-blue-700 hover:bg-blue-600 text-white text-[9px] font-bold rounded transition-colors">전체 명함 켜기</button>
+                <button @click="turnOffAllAlbum" class="px-2 py-1 bg-red-800 hover:bg-red-700 text-white text-[9px] font-bold rounded transition-colors">전체 끄기</button>
+              </div>
             </div>
-            <div class="col-span-3 text-center mt-2 text-[10px] text-blue-400 font-bold bg-blue-900/20 p-2 rounded leading-tight">💡 카드를 클릭하여 현재 보유 장수를 세팅하세요!<br>(0장 ➔ 명함 ➔ +1중복 ➔ +2중복 ➔ 0장 순환)</div>
+            
+            <div class="grid grid-cols-3 gap-2 overflow-y-auto pr-1 flex-1 content-start custom-scrollbar">
+              <!-- 🔥 도감 카드 (ON/OFF 및 +/- 수량 조절 버튼 적용) -->
+              <div v-for="t in TEAMS" :key="t" v-show="t!==dgnState.myTeam" @click="toggleDgnAlbum(t)" class="p-2 rounded-lg border text-center relative transition-colors cursor-pointer hover:border-blue-500 select-none flex flex-col items-center justify-center min-h-[70px]" :class="dgnState.album[t]>0?'bg-amber-900/30 border-amber-700':'bg-[#2a2a35] border-neutral-700/50 opacity-50 grayscale'">
+                <div class="text-[9px] font-black mb-0.5" :class="T_COLORS[t]">{{ T_NAMES[t] }}</div>
+                <div class="text-xs font-bold text-white" :class="{'mb-1': dgnState.album[t]>0}">{{ D_WAVES[dgnState.targetWave][t] }}</div>
+                
+                <div v-if="dgnState.album[t]>0" class="absolute -top-1.5 -left-1.5 bg-blue-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-md">✓</div>
+                
+                <!-- 🔥 수량 조절 조작부 -->
+                <div v-if="dgnState.album[t]>0" class="flex items-center justify-between w-full mt-auto bg-black/40 rounded px-1" @click.stop>
+                  <button @click="decDgnAlbum(t)" class="text-neutral-400 hover:text-white px-2 py-0.5 font-bold text-xs">-</button>
+                  <span class="text-[10px] text-white font-black">{{ dgnState.album[t] }}장</span>
+                  <button @click="incDgnAlbum(t)" class="text-neutral-400 hover:text-white px-2 py-0.5 font-bold text-xs">+</button>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div v-show="dgnAlbumTab==='top'" class="flex flex-col flex-1 overflow-hidden">
@@ -1563,7 +1589,7 @@ const dgnCheckMyLuck = () => {
               <input type="number" v-model.number="dgnPlan.otherMonthlyKrw" min="0" class="flex-1 bg-[#1a1b1e] border border-indigo-500/50 text-white text-xs p-1 rounded outline-none text-center font-bold">
               <span class="text-[10px] text-indigo-400">원/월</span>
             </div>
-            <!-- 🔥 실시간 미리보기 연산 텍스트 (입력값이 있을 때만 노출) -->
+            <!-- 🔥 실시간 플래너 미리보기 연산 -->
             <div v-if="dgnPlan.otherMonthlyKrw > 0" class="text-[9px] font-bold text-yellow-400 text-right pr-8 animate-fade-in mt-0.5">
               💡 실시간 반영: 플래너 총 누적액 {{ new Intl.NumberFormat().format(dgnPlanTotalKrw) }}원 도달 예상
             </div>
