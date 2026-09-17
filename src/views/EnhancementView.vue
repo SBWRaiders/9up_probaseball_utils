@@ -833,7 +833,7 @@ const dgnRunPlanner = () => {
 
     let iter = 10000; let results = [] 
     for(let i=0; i<iter; i++) {
-      let week = 0; let totalCostRun = 0; // 🔥 실제 쓴 돈만 누적!
+      let week = 0; let totalCostRun = 0; // 🔥 통계적 비례 배분 삭제! 100% 리얼 쓴 돈만 누적
       
       let infTotal = dgnState.payback.totalKrw;
       let monthSpent = dgnState.payback.spent;
@@ -861,7 +861,7 @@ const dgnRunPlanner = () => {
           let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++;
         }
       }
-      // 믹서기 헬퍼 함수 (재료가 바닥날 때까지 연쇄 가동)
+      // 믹서기 연쇄 가동 헬퍼
       const simMixer = () => {
         while(true) {
           let dp = TEAMS.filter(t => t !== dgnState.myTeam && alb[t] > 1);
@@ -880,7 +880,8 @@ const dgnRunPlanner = () => {
           break;
         }
       }
-      // 결제 및 페이백 확인 함수
+      
+      // 🔥 결제 및 [페이백 즉시 개봉] 함수
       const simPaybackCheck = (money) => {
          totalCostRun += money; monthSpent += money; infTotal += money;
          let pbN = 0, pbP = 0;
@@ -889,11 +890,12 @@ const dgnRunPlanner = () => {
          if (monthSpent >= 199000 && !p3) { p3=true; pbN++; }
          if (monthSpent >= 299000 && !p4) { p4=true; pbN++; }
          while(infTotal >= (infPity + 1) * 300000) { infPity++; tkt += 9; }
+         // 공짜 팩 들어왔으면 즉시 개봉!
          if(pbN > 0) simOpenNormal(pbN);
          if(pbP > 0) simOpenPickup(pbP);
       }
 
-      // 🔥 산해님이 정해주신 가성비 순서대로 배열! (1순위 픽업프레스티지 -> ... -> 6순위 무한)
+      // 🔥 산해님 기획 가성비 순서 (1순위 픽업프레스티지 -> ... -> 6순위 무한)
       let packages = [
         { cost: 99000, n:0, p:2, t:0, max: dgnPlan.pk },
         { cost: 55000, n:1, p:0, t:20, max: dgnPlan.rk },
@@ -903,43 +905,43 @@ const dgnRunPlanner = () => {
         { cost: 55000, n:1, p:0, t:1, max: dgnPlan.unl }
       ];
 
-      // 🔥 실제 시간 흐름(주차별) 시뮬레이션 시작!
+      // 🔥 리얼리티 시간 흐름 시뮬레이션 시작
       while(myDgn < dgnPlan.target) {
         week++;
-        // 매달(4주 마다) 일반 페이백 게이지 초기화
+        // 매달 첫 주에 일반 페이백 게이지 초기화
         if (week > 1 && week % 4 === 1) { monthSpent = 0; p1 = false; p2 = false; p3 = false; p4 = false; }
 
-        // [1] 주간 기본 보상 수급 및 가동
+        // [1] 주간 기본 보상 수급 및 가동 (가장 먼저!)
         let wQ = dgnPlan.wQ ? 1 : 0; 
         let wC = Math.floor(dgnPlan.wC / 4); 
         tkt += wC;
         if(wQ > 0) simOpenNormal(wQ);
         simMixer();
-        if(myDgn >= dgnPlan.target) break; // 🔥 운 좋게 주간 보상으로 졸업하면 즉시 STOP!
+        if(myDgn >= dgnPlan.target) break; // 여기서 뜨면 돈 굳고 즉시 종료!
 
-        // [2] 매달 1주 차에만 숍 패키지 결제 진입
+        // [2] 매달 1주 차에만 숍 패키지 결제 진입 (가성비 순차 구매)
         if (week % 4 === 1) {
            if(dgnPlan.otherMonthlyKrw > 0) {
               simPaybackCheck(dgnPlan.otherMonthlyKrw); simMixer();
               if(myDgn >= dgnPlan.target) break;
            }
-           // 가성비 패키지 순서대로 1개씩 결제하면서 까기
+           // 산해님 로직: 1개씩 사고, 까보고, 목표 달성하면 멈춘다!
            for(let pkg of packages) {
               for(let c=0; c<pkg.max; c++) {
-                 simPaybackCheck(pkg.cost); // 돈 내고
-                 if(pkg.n > 0) simOpenNormal(pkg.n); // 일반팩 까고
-                 if(pkg.p > 0) simOpenPickup(pkg.p); // 픽업팩 까고
+                 simPaybackCheck(pkg.cost); // 1개 결제 & 페이백 팩 즉시 개봉
+                 if(pkg.n > 0) simOpenNormal(pkg.n);
+                 if(pkg.p > 0) simOpenPickup(pkg.p);
                  tkt += pkg.t;
-                 simMixer(); // 재료 모였으니 믹서기 싹 다 돌림
-                 if(myDgn >= dgnPlan.target) break; // 🔥 목표 채우면 다음 패키지 안 사고 즉시 STOP!!!
+                 simMixer(); // 재료 모였으니 믹서기 가동
+                 if(myDgn >= dgnPlan.target) break; // 🔥 목표 채웠다! 다음 결제 취소!
               }
-              if(myDgn >= dgnPlan.target) break; // 패키지 종류 루프 탈출
+              if(myDgn >= dgnPlan.target) break; // 패키지 종류 루프 완전 탈출!
            }
         }
         if (week > 720) break; // 억까 무한루프 방지(15년)
       }
       
-      // 진짜로 쓴 돈(totalCostRun)을 결과에 저장
+      // 진짜 리얼로 쓴 돈만 저장
       results.push({ week, cost: totalCostRun, r: week, netTop: totalUsedTop - totalGainedTop })
     }
     
