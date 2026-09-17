@@ -1167,7 +1167,7 @@ const dgnCheckMyLuck = () => {
       </div>
     </div>
 
-    <!-- ⚡ [탭 2] 강화 시뮬레이터 -->
+    <!-- ⚡ [탭 2] 강화 시뮬레이터 (표 추가 & 꼬임 해결) -->
     <div v-show="activeTab==='enhance'" class="grid grid-cols-1 xl:grid-cols-12 gap-5 w-full animate-fade-in max-w-[1600px] mx-auto text-slate-800 dark:text-neutral-100">
       
       <!-- [좌측] 세팅 및 리얼리티 컨트롤러 -->
@@ -1229,6 +1229,50 @@ const dgnCheckMyLuck = () => {
         </div>
 
       </section>
+
+      <!-- [우측] 기록 및 운빨 기댓값 판독기 -->
+      <section class="xl:col-span-8 flex flex-col gap-4 h-full">
+        <!-- 🔥 운빨 판독기 -->
+        <div class="bg-indigo-50 border border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800/50 rounded-2xl p-5 shadow-sm dark:shadow-lg flex flex-col justify-center transition-colors">
+          <h3 class="font-extrabold text-sm mb-3 flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400"><BarChart class="w-4 h-4"/> 실시간 기댓값(운빨) 팩트 체크</h3>
+          <div class="grid grid-cols-3 gap-4 mb-3">
+            <div class="bg-white dark:bg-[#1a1b1e] border border-slate-200 dark:border-neutral-800 rounded-xl p-3 text-center shadow-inner">
+              <div class="text-[10px] font-bold text-slate-500 mb-1">통계적 기댓값</div>
+              <div class="text-lg font-black text-slate-900 dark:text-white">{{ enhCalcDiff.expected.toFixed(1) }} <span class="text-xs font-normal text-slate-500">장</span></div>
+            </div>
+            <div class="bg-white dark:bg-[#1a1b1e] border border-slate-200 dark:border-neutral-800 rounded-xl p-3 text-center shadow-inner">
+              <div class="text-[10px] font-bold text-slate-500 mb-1">나의 실제 사용량</div>
+              <div class="text-lg font-black text-slate-900 dark:text-white">{{ enhState.usedCount }} <span class="text-xs font-normal text-slate-500">장</span></div>
+            </div>
+            <div class="bg-white dark:bg-[#1a1b1e] border border-slate-200 dark:border-neutral-800 rounded-xl p-3 text-center shadow-inner">
+              <div class="text-[10px] font-bold text-slate-500 mb-1">구간 달성 팩트</div>
+              <div class="text-sm font-black mt-1" :class="enhCalcDiff.color">{{ enhState.startLv === enhState.curLv ? '-' : '+'+enhState.startLv+' ➔ +'+enhState.curLv }}</div>
+            </div>
+          </div>
+          <div class="text-center bg-white dark:bg-[#1a1b1e] border border-slate-200 dark:border-neutral-800 py-2 rounded-lg shadow-sm">
+            <span class="text-sm" :class="enhCalcDiff.color">{{ enhCalcDiff.text }}</span>
+          </div>
+        </div>
+
+        <!-- 강화 기록 로그 -->
+        <div class="bg-white dark:bg-[#1e1e24] border border-slate-200 dark:border-neutral-700/50 rounded-2xl flex-1 flex flex-col shadow-sm dark:shadow-lg overflow-hidden transition-colors">
+          <div class="px-5 py-3 border-b border-slate-200 dark:border-neutral-700/50 font-extrabold text-sm text-slate-800 dark:text-white flex items-center gap-1.5"><History class="w-4 h-4"/> 강화 기록</div>
+          <div class="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar min-h-[300px]">
+            <div v-if="enhState.logs.length === 0" class="text-center text-sm font-bold text-slate-400 dark:text-neutral-500 py-20">기록이 없습니다.</div>
+            
+            <div v-for="log in enhState.logs" :key="log.id" class="flex justify-between items-center p-3 border-b border-slate-100 dark:border-neutral-800/50 last:border-0 hover:bg-slate-50 dark:hover:bg-neutral-800/30 transition-colors">
+              <div class="font-bold text-sm tracking-widest" :class="log.type === 'success' ? 'text-blue-600 dark:text-blue-500' : 'text-red-500 dark:text-red-500'">
+                +{{ log.from }} ➔ +{{ log.to }}
+              </div>
+              <div class="text-xs font-medium text-slate-500 dark:text-neutral-400">
+                {{ log.prob }}% <span class="mx-1 text-slate-300 dark:text-neutral-600">|</span> {{ log.used }}장
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      
+    </div>
 
     <!-- [탭 3] 커리어 탭 -->
     <div v-show="activeTab === 'career'" class="flex flex-col w-full animate-fade-in">
@@ -1475,8 +1519,8 @@ const dgnCheckMyLuck = () => {
         </section>
       </div>
     </div>
-    
-<!-- 💎 [4] 디그니티 탭 (독립형) -->
+
+    <!-- 💎 [탭 4] 디그니티 탭 (독립형) -->
     <div v-show="activeTab==='dignity'" class="grid grid-cols-1 xl:grid-cols-12 gap-5 w-full animate-fade-in max-w-[1600px] mx-auto text-slate-800 dark:text-neutral-100">
       
       <!-- [좌측] 상점 & 설정 -->
@@ -1714,7 +1758,6 @@ const dgnCheckMyLuck = () => {
             <label class="flex items-center gap-1 text-slate-700 dark:text-neutral-300"><input type="checkbox" v-model="dgnPlan.wQ" class="accent-indigo-600 dark:accent-indigo-500"> 주간퀘 완수</label>
             <label class="flex items-center gap-1 text-slate-700 dark:text-neutral-300 justify-end">티켓상점 <input type="number" v-model.number="dgnPlan.wC" min="0" max="40" class="w-8 bg-white dark:bg-[#2a2a35] border border-slate-300 dark:border-neutral-700 text-center rounded outline-none transition-colors"> /월</label>
             
-            <!-- 🔥 추가된 시즌패스 (좌상단 배치) -->
             <label class="flex items-center gap-1 text-indigo-700 dark:text-indigo-300 mt-1 justify-center bg-indigo-100/50 dark:bg-indigo-900/20 py-1 rounded border border-indigo-200 dark:border-indigo-800 transition-colors">시즌패스(5.5) <input type="number" v-model.number="dgnPlan.sp" min="0" max="1" class="w-8 bg-white dark:bg-[#2a2a35] border border-indigo-300 dark:border-indigo-700 text-center rounded outline-none text-slate-900 dark:text-white transition-colors"> /월</label>
             <label class="flex items-center gap-1 text-teal-700 dark:text-teal-300 mt-1 justify-center bg-teal-100/50 dark:bg-teal-900/20 py-1 rounded border border-teal-200 dark:border-teal-800 transition-colors">무한(5.5) <input type="number" v-model.number="dgnPlan.unl" min="0" class="w-8 bg-white dark:bg-[#2a2a35] border border-teal-300 dark:border-teal-700 text-center rounded outline-none text-slate-900 dark:text-white transition-colors"> /월</label>
             
