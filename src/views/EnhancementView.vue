@@ -825,7 +825,7 @@ const renderDgnChart = (data: number[], isMonth: boolean) => {
 const dgnRunPlanner = () => {
   isDgnSim.value = true; dgnSimResult.value = null; dgnMyLuckPercentile.value = null; dgnUserSpentKrw.value = null
   setTimeout(() => {
-    let pureDgnCost = dgnPlanPureKrw.value; let totalKrwPerMonth = dgnPlanTotalKrw.value
+    let totalKrwPerMonth = dgnPlanTotalKrw.value
     let nPerMonth = (dgnPlan.wQ?4:0) + dgnPlan.rk*1 + dgnPlan.pt*3 + dgnPlan.pr*2 + dgnPlan.lg*2 + dgnPlan.unl*1
     let pPerMonth = dgnPlan.pk*2 + dgnPlan.lg*1
     let tPerMonth = dgnPlan.wC + dgnPlan.rk*20 + dgnPlan.pt*10 + dgnPlan.pr*10 + dgnPlan.unl*1
@@ -833,42 +833,36 @@ const dgnRunPlanner = () => {
 
     let iter = 10000; let results = [] 
     for(let i=0; i<iter; i++) {
-      let week = 0; let totalPayback = dgnState.payback.totalKrw; let infPity = Math.floor(totalPayback / 300000)
+      let week = 0; let totalCostRun = 0; // 🔥 실제 쓴 돈만 누적!
       
-      let myDgn = dgnState.inv.myDgn, tkt = dgnState.inv.tickets
-      let pPack = dgnState.pity.pack, pTrade = dgnState.pity.trade
+      let infTotal = dgnState.payback.totalKrw;
+      let monthSpent = dgnState.payback.spent;
+      let p1 = dgnState.payback.t1, p2 = dgnState.payback.t2, p3 = dgnState.payback.t3, p4 = dgnState.payback.t4;
+      let infPity = dgnState.payback.inf;
+      
+      let myDgn = dgnState.inv.myDgn, tkt = dgnState.inv.tickets;
+      let pPack = dgnState.pity.pack, pTrade = dgnState.pity.trade;
       let totalUsedTop = 0; let totalGainedTop = dgnState.inv.otherTop;
-      let alb = { ...dgnState.album } 
+      let alb = { ...dgnState.album };
       
-      while(myDgn < dgnPlan.target) {
-        week++; 
-        let wQ = dgnPlan.wQ ? 1 : 0; let wC = Math.floor(dgnPlan.wC / 4);
-        tkt += wC;
-        for(let k=0; k<wQ; k++) {
+      // 팩 개봉 헬퍼 함수
+      const simOpenNormal = (count) => {
+        for(let c=0; c<count; c++) {
           tkt += 2;
-          for(let j=0; j<8; j++) { if(Math.random()<0.03){let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++} else { if(Math.random()>=(TOP_DB[dgnState.myTeam].length/212)) totalGainedTop++ } }
+          for(let j=0; j<8; j++) { 
+            if(Math.random()<0.03){ let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++; } 
+            else { if(Math.random()>=(TOP_DB[dgnState.myTeam].length/212)) totalGainedTop++; } 
+          }
           pPack--; if(pPack<=0) { myDgn++; pPack=50; } 
         }
-
-        if (week % 4 === 1) {
-          totalPayback += totalKrwPerMonth;
-          let pbPacks = 0, pbPickups = 0;
-          if(totalKrwPerMonth >= 9900) pbPacks++; if(totalKrwPerMonth >= 99000) pbPickups++;
-          if(totalKrwPerMonth >= 199000) pbPacks++; if(totalKrwPerMonth >= 299000) pbPacks++;
-          while(totalPayback >= (infPity + 1) * 300000) { infPity++; tkt += 9; }
-          
-          let mn = dgnPlan.rk*1 + dgnPlan.pt*3 + dgnPlan.pr*2 + dgnPlan.lg*2 + dgnPlan.unl*1 + pbPacks;
-          let mp = dgnPlan.pk*2 + dgnPlan.lg*1 + pbPickups;
-          tkt += dgnPlan.rk*20 + dgnPlan.pt*10 + dgnPlan.pr*10 + dgnPlan.unl*1;
-
-          for(let k=0; k<mp; k++) { let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++ }
-          for(let k=0; k<mn; k++) {
-            tkt+=2;
-            for(let j=0; j<8; j++) { if(Math.random()<0.03){let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++} else { if(Math.random()>=(TOP_DB[dgnState.myTeam].length/212)) totalGainedTop++ } }
-            pPack--; if(pPack<=0) { myDgn++; pPack=50; } 
-          }
+      }
+      const simOpenPickup = (count) => {
+        for(let c=0; c<count; c++) {
+          let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++;
         }
-
+      }
+      // 믹서기 헬퍼 함수 (재료가 바닥날 때까지 연쇄 가동)
+      const simMixer = () => {
         while(true) {
           let dp = TEAMS.filter(t => t !== dgnState.myTeam && alb[t] > 1);
           if(dp.length>=3 && tkt>=1) { 
@@ -879,17 +873,77 @@ const dgnRunPlanner = () => {
           }
           if(tkt>=1) { 
             totalUsedTop += 3; tkt--; 
-            if(Math.random()<0.03){ let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++; } else { if(Math.random()>=(TOP_DB[dgnState.myTeam].length/212)) totalGainedTop++ }
+            if(Math.random()<0.03){ let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++; } 
+            else { if(Math.random()>=(TOP_DB[dgnState.myTeam].length/212)) totalGainedTop++; }
             continue;
           }
-          break
+          break;
         }
-        if(week > 720) break 
       }
-      results.push({ week, cost: Math.floor((week / 4) * pureDgnCost), r: week, netTop: totalUsedTop - totalGainedTop })
+      // 결제 및 페이백 확인 함수
+      const simPaybackCheck = (money) => {
+         totalCostRun += money; monthSpent += money; infTotal += money;
+         let pbN = 0, pbP = 0;
+         if (monthSpent >= 9900 && !p1) { p1=true; pbN++; }
+         if (monthSpent >= 99000 && !p2) { p2=true; pbP++; }
+         if (monthSpent >= 199000 && !p3) { p3=true; pbN++; }
+         if (monthSpent >= 299000 && !p4) { p4=true; pbN++; }
+         while(infTotal >= (infPity + 1) * 300000) { infPity++; tkt += 9; }
+         if(pbN > 0) simOpenNormal(pbN);
+         if(pbP > 0) simOpenPickup(pbP);
+      }
+
+      // 🔥 산해님이 정해주신 가성비 순서대로 배열! (1순위 픽업프레스티지 -> ... -> 6순위 무한)
+      let packages = [
+        { cost: 99000, n:0, p:2, t:0, max: dgnPlan.pk },
+        { cost: 55000, n:1, p:0, t:20, max: dgnPlan.rk },
+        { cost: 99000, n:3, p:0, t:10, max: dgnPlan.pt },
+        { cost: 149000, n:2, p:1, t:0, max: dgnPlan.lg },
+        { cost: 99000, n:2, p:0, t:10, max: dgnPlan.pr },
+        { cost: 55000, n:1, p:0, t:1, max: dgnPlan.unl }
+      ];
+
+      // 🔥 실제 시간 흐름(주차별) 시뮬레이션 시작!
+      while(myDgn < dgnPlan.target) {
+        week++;
+        // 매달(4주 마다) 일반 페이백 게이지 초기화
+        if (week > 1 && week % 4 === 1) { monthSpent = 0; p1 = false; p2 = false; p3 = false; p4 = false; }
+
+        // [1] 주간 기본 보상 수급 및 가동
+        let wQ = dgnPlan.wQ ? 1 : 0; 
+        let wC = Math.floor(dgnPlan.wC / 4); 
+        tkt += wC;
+        if(wQ > 0) simOpenNormal(wQ);
+        simMixer();
+        if(myDgn >= dgnPlan.target) break; // 🔥 운 좋게 주간 보상으로 졸업하면 즉시 STOP!
+
+        // [2] 매달 1주 차에만 숍 패키지 결제 진입
+        if (week % 4 === 1) {
+           if(dgnPlan.otherMonthlyKrw > 0) {
+              simPaybackCheck(dgnPlan.otherMonthlyKrw); simMixer();
+              if(myDgn >= dgnPlan.target) break;
+           }
+           // 가성비 패키지 순서대로 1개씩 결제하면서 까기
+           for(let pkg of packages) {
+              for(let c=0; c<pkg.max; c++) {
+                 simPaybackCheck(pkg.cost); // 돈 내고
+                 if(pkg.n > 0) simOpenNormal(pkg.n); // 일반팩 까고
+                 if(pkg.p > 0) simOpenPickup(pkg.p); // 픽업팩 까고
+                 tkt += pkg.t;
+                 simMixer(); // 재료 모였으니 믹서기 싹 다 돌림
+                 if(myDgn >= dgnPlan.target) break; // 🔥 목표 채우면 다음 패키지 안 사고 즉시 STOP!!!
+              }
+              if(myDgn >= dgnPlan.target) break; // 패키지 종류 루프 탈출
+           }
+        }
+        if (week > 720) break; // 억까 무한루프 방지(15년)
+      }
+      
+      // 진짜로 쓴 돈(totalCostRun)을 결과에 저장
+      results.push({ week, cost: totalCostRun, r: week, netTop: totalUsedTop - totalGainedTop })
     }
     
-    const isF2P = pureDgnCost === 0
+    const isF2P = dgnPlanPureKrw.value === 0 && dgnPlan.otherMonthlyKrw === 0
     const sorted = [...results].sort((a, b) => isF2P ? (a.week - b.week) : (a.cost - b.cost))
     dgnSimRawResults.value = sorted
     const mList = [...results].map(x => x.week).sort((a,b)=>a-b)
