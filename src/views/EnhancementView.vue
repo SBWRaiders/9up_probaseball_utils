@@ -590,9 +590,8 @@ const formatNum = (num: number) => new Intl.NumberFormat().format(num)
 // ==============================================
 const TEAMS = ['kia', 'ssg', 'kiwoom', 'samsung', 'doosan', 'lg', 'hanwha', 'lotte', 'hyundai', 'kt', 'sbw', 'nc']
 const T_NAMES: Record<string, string> = { kia:'KIA', ssg:'SSG', kiwoom:'키움', samsung:'삼성', doosan:'두산', lg:'LG', hanwha:'한화', lotte:'롯데', hyundai:'현대', kt:'KT', sbw:'쌍방울', nc:'NC' }
-const T_COLORS: Record<string, string> = { kia:'text-red-600', ssg:'text-red-500', kiwoom:'text-rose-800', samsung:'text-blue-600', doosan:'text-indigo-800', lg:'text-pink-600', hanwha:'text-orange-500', lotte:'text-cyan-800', hyundai:'text-green-600', kt:'text-black dark:text-white', sbw:'text-yellow-600', nc:'text-blue-400' }
+const T_COLORS: Record<string, string> = { kia:'text-red-600 dark:text-red-500', ssg:'text-red-600 dark:text-red-500', kiwoom:'text-rose-800 dark:text-rose-700', samsung:'text-blue-700 dark:text-blue-500', doosan:'text-indigo-800 dark:text-indigo-400', lg:'text-pink-700 dark:text-pink-500', hanwha:'text-orange-600 dark:text-orange-500', lotte:'text-cyan-800 dark:text-cyan-600', hyundai:'text-green-700 dark:text-green-500', kt:'text-slate-800 dark:text-white', sbw:'text-yellow-700 dark:text-yellow-500', nc:'text-blue-500 dark:text-blue-400' }
 
-// 1~5차 디그니티 실명
 const D_WAVES: Record<number, Record<string, string>> = {
   1: { kia:'홍현우', ssg:'최정', kiwoom:'이블렉', samsung:'양준혁', doosan:'박건우', lg:'류지현', hanwha:'장종훈', lotte:'이대호', hyundai:'박재홍', kt:'강백호', sbw:'박노준', nc:'나성범' },
   2: { kia:'이종범', nc:'테이준', hyundai:'심정수', samsung:'구자욱', sbw:'김기태', doosan:'김동주', lg:'박용택', hanwha:'김태균', kiwoom:'박병호', lotte:'조성환', kt:'로하스', ssg:'박경완' },
@@ -628,10 +627,10 @@ const dgnState = reactive({
   logs: [] as { id: number, msg: string, type: string }[]
 })
 
-// 🔥 도감 ON/OFF 및 수량 조절 완벽 패치
+// 도감 ON/OFF 및 수량 조절
 const toggleDgnAlbum = (t: string) => { 
   if (dgnState.album[t] === 0) dgnState.album[t] = 1; 
-  else dgnState.album[t] = 0; // 2장이든 3장이든 클릭 한 번에 OFF!
+  else dgnState.album[t] = 0;
 }
 const incDgnAlbum = (t: string) => { dgnState.album[t]++ }
 const decDgnAlbum = (t: string) => { 
@@ -1365,100 +1364,99 @@ const dgnCheckMyLuck = () => {
     </div>
     
 <!-- 💎 [4] 디그니티 탭 (독립형) -->
-    <div v-show="activeTab==='dignity'" class="grid grid-cols-1 xl:grid-cols-12 gap-5 w-full animate-fade-in max-w-[1600px] mx-auto text-neutral-100">
+    <div v-show="activeTab==='dignity'" class="grid grid-cols-1 xl:grid-cols-12 gap-5 w-full animate-fade-in max-w-[1600px] mx-auto text-slate-800 dark:text-neutral-100">
       
       <!-- [좌측] 상점 & 설정 -->
       <section class="xl:col-span-3 flex flex-col gap-4 h-full">
-        <div class="bg-[#1e1e24] border border-neutral-700/50 rounded-2xl p-4 flex justify-between items-center shrink-0 shadow-lg">
+        <div class="bg-white dark:bg-[#1e1e24] border border-slate-200 dark:border-neutral-700/50 rounded-2xl p-4 flex justify-between items-center shrink-0 shadow-sm dark:shadow-lg transition-colors">
           <div class="font-black text-lg flex items-center gap-2"><Calendar class="w-5 h-5 text-amber-500"/> {{ dgnState.month }}개월 차</div>
           <div class="flex gap-2">
-            <button @click="dgnResetAll" class="p-2 bg-red-900/50 hover:bg-red-800 rounded-lg text-red-300 transition-colors" title="데이터 싹 밀기"><RotateCcw class="w-4 h-4"/></button>
-            <button @click="dgnNextMonth" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 rounded-lg font-bold text-xs transition-colors">다음 달 가기 (초기화)</button>
+            <button @click="dgnResetAll" class="p-2 bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900/50 dark:hover:bg-red-800 dark:text-red-300 rounded-lg transition-colors" title="데이터 싹 밀기"><RotateCcw class="w-4 h-4"/></button>
+            <button @click="dgnNextMonth" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-700 text-white rounded-lg font-bold text-xs transition-colors">다음 달 가기 (초기화)</button>
           </div>
         </div>
 
-        <div class="bg-[#1e1e24] border border-neutral-700/50 rounded-2xl p-4 shrink-0 shadow-lg">
-          <h3 class="font-extrabold text-sm mb-3 flex items-center gap-1.5 text-blue-400"><Target class="w-4 h-4"/> 타겟팅 설정</h3>
+        <div class="bg-white dark:bg-[#1e1e24] border border-slate-200 dark:border-neutral-700/50 rounded-2xl p-4 shrink-0 shadow-sm dark:shadow-lg transition-colors">
+          <h3 class="font-extrabold text-sm mb-3 flex items-center gap-1.5 text-blue-600 dark:text-blue-400"><Target class="w-4 h-4"/> 타겟팅 설정</h3>
           <div class="space-y-3">
-            <div><label class="text-[10px] font-bold text-neutral-500 block mb-1">내 구단 선택</label><select v-model="dgnState.myTeam" class="w-full bg-[#2a2a35] border-none rounded p-2 text-sm font-bold outline-none text-white"><option v-for="t in TEAMS" :key="t" :value="t">{{ T_NAMES[t] }}</option></select></div>
-            <div><label class="text-[10px] font-bold text-neutral-500 block mb-1">목표 디그니티 차수 (Wave)</label><select v-model.number="dgnState.targetWave" class="w-full bg-[#2a2a35] border-none rounded p-2 text-sm font-bold text-amber-500 outline-none"><option v-for="n in 5" :key="n" :value="n">{{ n }}st ({{ D_WAVES[n][dgnState.myTeam] }})</option></select></div>
-            <div class="text-[10px] text-neutral-400 bg-[#2a2a35] p-2 rounded">해당 구단 TOP 카드 생태계: <span class="text-blue-400 font-bold">{{ TOP_DB[dgnState.myTeam].length }} / 212 장</span></div>
+            <div><label class="text-[10px] font-bold text-slate-500 dark:text-neutral-500 block mb-1">내 구단 선택</label><select v-model="dgnState.myTeam" class="w-full bg-slate-50 dark:bg-[#2a2a35] border border-slate-300 dark:border-neutral-700 rounded p-2 text-sm font-bold outline-none text-slate-900 dark:text-white transition-colors"><option v-for="t in TEAMS" :key="t" :value="t">{{ T_NAMES[t] }}</option></select></div>
+            <div><label class="text-[10px] font-bold text-slate-500 dark:text-neutral-500 block mb-1">목표 디그니티 차수 (Wave)</label><select v-model.number="dgnState.targetWave" class="w-full bg-slate-50 dark:bg-[#2a2a35] border border-slate-300 dark:border-neutral-700 rounded p-2 text-sm font-bold text-amber-600 dark:text-amber-500 outline-none transition-colors"><option v-for="n in 5" :key="n" :value="n">{{ n }}st ({{ D_WAVES[n][dgnState.myTeam] }})</option></select></div>
+            <div class="text-[10px] text-slate-600 dark:text-neutral-400 bg-slate-50 dark:bg-[#2a2a35] p-2 rounded transition-colors border border-slate-200 dark:border-transparent">해당 구단 TOP 카드 생태계: <span class="text-blue-600 dark:text-blue-400 font-bold">{{ TOP_DB[dgnState.myTeam].length }} / 212 장</span></div>
           </div>
         </div>
 
-        <div class="bg-[#1e1e24] border border-neutral-700/50 rounded-2xl p-4 flex-1 flex flex-col overflow-hidden shadow-lg">
-          <div class="flex justify-between items-center mb-1"><h3 class="font-extrabold text-sm text-cyan-400"><Gem class="w-4 h-4 inline-block mr-1"/> 총 누적 과금액</h3></div>
-          <div class="text-xl font-black text-cyan-400 mb-3 border-b border-neutral-700/50 pb-2">{{ new Intl.NumberFormat().format(dgnState.payback.totalKrw) }} <span class="text-xs text-neutral-500">원</span></div>
+        <div class="bg-white dark:bg-[#1e1e24] border border-slate-200 dark:border-neutral-700/50 rounded-2xl p-4 flex-1 flex flex-col overflow-hidden shadow-sm dark:shadow-lg transition-colors">
+          <div class="flex justify-between items-center mb-1"><h3 class="font-extrabold text-sm text-cyan-600 dark:text-cyan-400"><Gem class="w-4 h-4 inline-block mr-1"/> 총 누적 과금액</h3></div>
+          <div class="text-xl font-black text-cyan-600 dark:text-cyan-400 mb-3 border-b border-slate-200 dark:border-neutral-700/50 pb-2">{{ new Intl.NumberFormat().format(dgnState.payback.totalKrw) }} <span class="text-xs text-slate-500 dark:text-neutral-500">원</span></div>
 
-          <div class="flex justify-between items-center mb-2"><h3 class="font-extrabold text-sm text-green-400"><Wallet class="w-4 h-4 inline-block mr-1"/> 월간 달성 페이백</h3></div>
-          <div class="text-lg font-black text-green-400 mb-2">{{ new Intl.NumberFormat().format(dgnState.payback.spent) }} <span class="text-[10px] text-neutral-500">원</span></div>
+          <div class="flex justify-between items-center mb-2"><h3 class="font-extrabold text-sm text-green-600 dark:text-green-400"><Wallet class="w-4 h-4 inline-block mr-1"/> 월간 달성 페이백</h3></div>
+          <div class="text-lg font-black text-green-600 dark:text-green-400 mb-2">{{ new Intl.NumberFormat().format(dgnState.payback.spent) }} <span class="text-[10px] text-slate-500 dark:text-neutral-500">원</span></div>
           <div class="space-y-1 mb-3">
-            <div class="flex justify-between text-[10px] p-1.5 rounded" :class="dgnState.payback.t1?'bg-green-900/30 text-green-400':'text-neutral-500'"><span>9,900원</span><span class="font-bold">일반팩 1</span></div>
-            <div class="flex justify-between text-[10px] p-1.5 rounded" :class="dgnState.payback.t2?'bg-green-900/30 text-green-400':'text-neutral-500'"><span>99,000원</span><span class="font-bold">픽업팩 1</span></div>
-            <div class="flex justify-between text-[10px] p-1.5 rounded" :class="dgnState.payback.t3?'bg-green-900/30 text-green-400':'text-neutral-500'"><span>199,000원</span><span class="font-bold">일반팩 1</span></div>
-            <div class="flex justify-between text-[10px] p-1.5 rounded" :class="dgnState.payback.t4?'bg-green-900/30 text-green-400':'text-neutral-500'"><span>299,000원</span><span class="font-bold">일반팩 1</span></div>
-            <div class="flex justify-between text-[10px] p-1.5 bg-amber-900/20 text-amber-500 border border-amber-800/50 mt-1 rounded"><span>총액 30만 마다</span><span class="font-bold">티켓 9개 ({{dgnState.payback.inf}}회)</span></div>
+            <div class="flex justify-between text-[10px] p-1.5 rounded transition-colors" :class="dgnState.payback.t1?'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400':'text-slate-400 dark:text-neutral-500'"><span>9,900원</span><span class="font-bold">일반팩 1</span></div>
+            <div class="flex justify-between text-[10px] p-1.5 rounded transition-colors" :class="dgnState.payback.t2?'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400':'text-slate-400 dark:text-neutral-500'"><span>99,000원</span><span class="font-bold">픽업팩 1</span></div>
+            <div class="flex justify-between text-[10px] p-1.5 rounded transition-colors" :class="dgnState.payback.t3?'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400':'text-slate-400 dark:text-neutral-500'"><span>199,000원</span><span class="font-bold">일반팩 1</span></div>
+            <div class="flex justify-between text-[10px] p-1.5 rounded transition-colors" :class="dgnState.payback.t4?'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400':'text-slate-400 dark:text-neutral-500'"><span>299,000원</span><span class="font-bold">일반팩 1</span></div>
+            <div class="flex justify-between text-[10px] p-1.5 bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-900/20 dark:text-amber-500 dark:border-amber-800/50 mt-1 rounded transition-colors"><span>총액 30만 마다</span><span class="font-bold">티켓 9개 ({{dgnState.payback.inf}}회)</span></div>
           </div>
           
           <div class="flex flex-col gap-1 mb-3">
             <div class="flex items-center gap-1">
-              <input type="number" v-model.number="manualKrwInput" placeholder="타 패키지 금액" class="flex-1 bg-[#2a2a35] border border-neutral-700 text-white text-xs p-2 rounded outline-none">
-              <button @click="dgnAddManualPayback" class="px-3 py-2 bg-green-700 hover:bg-green-600 text-white text-xs font-bold rounded transition-colors">추가</button>
+              <input type="number" v-model.number="manualKrwInput" placeholder="타 패키지 금액" class="flex-1 bg-slate-50 dark:bg-[#2a2a35] border border-slate-300 dark:border-neutral-700 text-slate-800 dark:text-white text-xs p-2 rounded outline-none transition-colors">
+              <button @click="dgnAddManualPayback" class="px-3 py-2 bg-green-600 hover:bg-green-500 dark:bg-green-700 dark:hover:bg-green-600 text-white text-xs font-bold rounded transition-colors">추가</button>
             </div>
-            <!-- 🔥 실시간 미리보기 텍스트 -->
-            <div v-if="manualKrwInput > 0" class="text-[10px] font-bold text-yellow-400 animate-fade-in pl-1 pt-1">
+            <!-- 실시간 미리보기 연산 텍스트 -->
+            <div v-if="manualKrwInput > 0" class="text-[10px] font-bold text-amber-600 dark:text-yellow-400 animate-fade-in pl-1 pt-1">
               💡 적용 시 예상: 총 누적 {{ new Intl.NumberFormat().format(previewTotalKrw) }}원 (월간 {{ new Intl.NumberFormat().format(previewSpentKrw) }}원)
             </div>
           </div>
 
-          <h3 class="font-extrabold text-sm mb-2 text-neutral-300 pt-3 border-t border-neutral-700/50"><ShoppingCart class="w-4 h-4 inline-block mr-1"/> 인게임 상점 <span class="text-[9px] font-normal text-neutral-500 ml-1">(가격순 정렬)</span></h3>
-          <div class="flex justify-between text-[10px] text-neutral-400 mb-2 px-1"><span>총 누적 소모 캐시:</span> <span class="text-purple-400 font-bold">{{ new Intl.NumberFormat().format(dgnState.inv.cash) }} 💎</span></div>
+          <h3 class="font-extrabold text-sm mb-2 text-slate-700 dark:text-neutral-300 pt-3 border-t border-slate-200 dark:border-neutral-700/50"><ShoppingCart class="w-4 h-4 inline-block mr-1"/> 인게임 상점 <span class="text-[9px] font-normal text-slate-400 dark:text-neutral-500 ml-1">(가격순 정렬)</span></h3>
+          <div class="flex justify-between text-[10px] text-slate-500 dark:text-neutral-400 mb-2 px-1"><span>총 누적 소모 캐시:</span> <span class="text-purple-600 dark:text-purple-400 font-bold">{{ new Intl.NumberFormat().format(dgnState.inv.cash) }} 💎</span></div>
           
           <div class="space-y-2 overflow-y-auto pr-1 flex-1 pb-2">
             <!-- 0원 -->
-            <button @click="dgnBuyPkg('wQ', 4, 0, 1, 0, 0, '주간 퀘스트')" :disabled="dgnState.shop.wQ>=4" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.wQ<4?'bg-blue-900/20 border border-blue-800/50':'bg-[#2a2a35] opacity-50'"><div><div class="text-[10px] text-blue-400">주간 퀘스트 (월) [{{dgnState.shop.wQ}}/4]</div><div class="text-xs font-bold text-white">일반팩 1</div></div></button>
+            <button @click="dgnBuyPkg('wQ', 4, 0, 1, 0, 0, '주간 퀘스트')" :disabled="dgnState.shop.wQ>=4" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.wQ<4?'bg-blue-50 border border-blue-200 dark:bg-blue-900/20 dark:border-blue-800/50':'bg-slate-50 dark:bg-[#2a2a35] border border-slate-200 dark:border-neutral-700/50 opacity-50'"><div><div class="text-[10px] text-blue-600 dark:text-blue-400">주간 퀘스트 (월) [{{dgnState.shop.wQ}}/4]</div><div class="text-xs font-bold text-slate-900 dark:text-white">일반팩 1</div></div></button>
             <!-- 캐시 -->
-            <div class="flex flex-col bg-[#2a2a35] border border-neutral-700/50 rounded-lg p-2 gap-2" :class="{'opacity-50': dgnState.shop.wC >= 40}">
-              <!-- 🔥 티켓 상점 라벨: 갯수로 기댓값 표현 -->
+            <div class="flex flex-col bg-slate-50 dark:bg-[#2a2a35] border border-slate-200 dark:border-neutral-700/50 rounded-lg p-2 gap-2 transition-colors" :class="{'opacity-50': dgnState.shop.wC >= 40}">
               <div class="flex justify-between items-start px-1">
-                <div><div class="text-[10px] text-neutral-400">티켓 구매 (월) [{{dgnState.shop.wC}}/40]</div><div class="text-xs font-bold text-amber-500">티켓 1개 = 50캐시</div></div>
-                <div class="text-right text-[9px] text-amber-400 font-bold mt-0.5">자팀 기댓값: 약 400개/1장</div>
+                <div><div class="text-[10px] text-slate-500 dark:text-neutral-400">티켓 구매 (월) [{{dgnState.shop.wC}}/40]</div><div class="text-xs font-bold text-amber-600 dark:text-amber-500">티켓 1개 = 50캐시</div></div>
+                <div class="text-right text-[9px] text-amber-600 dark:text-amber-400 font-bold mt-0.5">자팀 기댓값: 약 400개/1장</div>
               </div>
               <div class="flex gap-2">
-                <button @click="dgnBuyPkg('wC', 40, 50, 0, 0, 1, '주간 상점 티켓', true, 1)" :disabled="dgnState.shop.wC >= 40" class="flex-1 py-1.5 bg-[#1e1e24] hover:bg-neutral-700 border border-neutral-700 text-[11px] font-bold text-white rounded transition-colors disabled:opacity-50 shadow-sm">1회 구매</button>
-                <button @click="dgnBuyPkg('wC', 40, 50, 0, 0, 1, '주간 상점 티켓', true, 10)" :disabled="dgnState.shop.wC > 30" class="flex-1 py-1.5 bg-[#1e1e24] hover:bg-neutral-700 border border-neutral-700 text-[11px] font-bold text-blue-300 rounded transition-colors disabled:opacity-50 shadow-sm">10회 구매</button>
+                <button @click="dgnBuyPkg('wC', 40, 50, 0, 0, 1, '주간 상점 티켓', true, 1)" :disabled="dgnState.shop.wC >= 40" class="flex-1 py-1.5 bg-white hover:bg-slate-100 dark:bg-[#1e1e24] dark:hover:bg-neutral-700 border border-slate-300 dark:border-neutral-700 text-[11px] font-bold text-slate-800 dark:text-white rounded transition-colors disabled:opacity-50 shadow-sm">1회 구매</button>
+                <button @click="dgnBuyPkg('wC', 40, 50, 0, 0, 1, '주간 상점 티켓', true, 10)" :disabled="dgnState.shop.wC > 30" class="flex-1 py-1.5 bg-white hover:bg-slate-100 dark:bg-[#1e1e24] dark:hover:bg-neutral-700 border border-slate-300 dark:border-neutral-700 text-[11px] font-bold text-blue-600 dark:text-blue-300 rounded transition-colors disabled:opacity-50 shadow-sm">10회 구매</button>
               </div>
             </div>
-            <!-- 패키지들 -->
-            <button @click="dgnBuyPkg('rk', 1, 55000, 1, 0, 20, '루키 패키지')" :disabled="dgnState.shop.rk>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.rk<1?'bg-orange-900/20 border border-orange-800/50':'bg-[#2a2a35] opacity-50'">
-              <div><div class="text-[10px] text-orange-400">루키 패키지 [{{dgnState.shop.rk}}/1]</div><div class="text-xs font-bold text-white">일반1 + 티켓20</div></div>
-              <div class="text-right"><div class="text-[11px] font-bold text-green-500">5.5만</div><div class="text-[9px] text-orange-300 font-bold mt-0.5 whitespace-nowrap" title="TOP카드 가치 0원 기준, 자팀 1장 획득 기대값">자팀 기댓값: 약 46만/1장</div></div>
+            <!-- 패키지 -->
+            <button @click="dgnBuyPkg('rk', 1, 55000, 1, 0, 20, '루키 패키지')" :disabled="dgnState.shop.rk>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.rk<1?'bg-orange-50 border border-orange-200 dark:bg-orange-900/20 dark:border-orange-800/50':'bg-slate-50 dark:bg-[#2a2a35] border border-slate-200 dark:border-neutral-700/50 opacity-50'">
+              <div><div class="text-[10px] text-orange-600 dark:text-orange-400">루키 패키지 [{{dgnState.shop.rk}}/1]</div><div class="text-xs font-bold text-slate-900 dark:text-white">일반1 + 티켓20</div></div>
+              <div class="text-right"><div class="text-[11px] font-bold text-green-600 dark:text-green-500">5.5만</div><div class="text-[9px] text-orange-500 dark:text-orange-300 font-bold mt-0.5 whitespace-nowrap">자팀 기댓값: 약 46만/1장</div></div>
             </button>
-            <button @click="dgnBuyPkg('unl', 9999, 55000, 1, 0, 1, '무한 패키지')" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50">
-              <div><div class="text-[10px] text-teal-400">무한 패키지 [제한없음]</div><div class="text-xs font-bold text-white">일반1 + 티켓1</div></div>
-              <div class="text-right"><div class="text-[11px] font-bold text-green-500">5.5만</div><div class="text-[9px] text-neutral-500 font-bold mt-0.5 whitespace-nowrap" title="TOP카드 가치 0원 기준, 자팀 1장 획득 기대값">자팀 기댓값: 약 106만/1장</div></div>
+            <button @click="dgnBuyPkg('unl', 9999, 55000, 1, 0, 1, '무한 패키지')" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between bg-slate-50 hover:bg-slate-100 border border-slate-200 dark:bg-[#2a2a35] dark:hover:bg-neutral-700 dark:border-neutral-700/50">
+              <div><div class="text-[10px] text-teal-600 dark:text-teal-400">무한 패키지 [제한없음]</div><div class="text-xs font-bold text-slate-900 dark:text-white">일반1 + 티켓1</div></div>
+              <div class="text-right"><div class="text-[11px] font-bold text-green-600 dark:text-green-500">5.5만</div><div class="text-[9px] text-slate-500 dark:text-neutral-500 font-bold mt-0.5 whitespace-nowrap">자팀 기댓값: 약 106만/1장</div></div>
             </button>
-            <button @click="dgnBuyPkg('pt', 1, 99000, 3, 0, 10, '프레스티지')" :disabled="dgnState.shop.pt>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pt<1?'bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50':'bg-[#2a2a35] opacity-50'">
-              <div><div class="text-[10px] text-neutral-400">프레스티지 [{{dgnState.shop.pt}}/1]</div><div class="text-xs font-bold text-white">일반3 + 티켓10</div></div>
-              <div class="text-right"><div class="text-[11px] font-bold text-green-500">9.9만</div><div class="text-[9px] text-yellow-500 font-bold mt-0.5 whitespace-nowrap" title="TOP카드 가치 0원 기준, 자팀 1장 획득 기대값">자팀 기댓값: 약 55만/1장</div></div>
+            <button @click="dgnBuyPkg('pt', 1, 99000, 3, 0, 10, '프레스티지')" :disabled="dgnState.shop.pt>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pt<1?'bg-slate-50 hover:bg-slate-100 border border-slate-200 dark:bg-[#2a2a35] dark:hover:bg-neutral-700 dark:border-neutral-700/50':'bg-slate-50 border border-slate-200 dark:bg-[#2a2a35] dark:border-neutral-700/50 opacity-50'">
+              <div><div class="text-[10px] text-slate-500 dark:text-neutral-400">프레스티지 [{{dgnState.shop.pt}}/1]</div><div class="text-xs font-bold text-slate-900 dark:text-white">일반3 + 티켓10</div></div>
+              <div class="text-right"><div class="text-[11px] font-bold text-green-600 dark:text-green-500">9.9만</div><div class="text-[9px] text-amber-600 dark:text-yellow-500 font-bold mt-0.5 whitespace-nowrap">자팀 기댓값: 약 55만/1장</div></div>
             </button>
-            <button @click="dgnBuyPkg('pr', 5, 99000, 2, 0, 10, '프로 패키지')" :disabled="dgnState.shop.pr>=5" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pr<5?'bg-[#2a2a35] hover:bg-neutral-700 border border-neutral-700/50':'bg-[#2a2a35] opacity-50'">
-              <div><div class="text-[10px] text-neutral-400">프로 패키지 [{{dgnState.shop.pr}}/5]</div><div class="text-xs font-bold text-white">일반2 + 티켓10</div></div>
-              <div class="text-right"><div class="text-[11px] font-bold text-green-500">9.9만</div><div class="text-[9px] text-yellow-600 font-bold mt-0.5 whitespace-nowrap" title="TOP카드 가치 0원 기준, 자팀 1장 획득 기대값">자팀 기댓값: 약 75만/1장</div></div>
+            <button @click="dgnBuyPkg('pr', 5, 99000, 2, 0, 10, '프로 패키지')" :disabled="dgnState.shop.pr>=5" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pr<5?'bg-slate-50 hover:bg-slate-100 border border-slate-200 dark:bg-[#2a2a35] dark:hover:bg-neutral-700 dark:border-neutral-700/50':'bg-slate-50 border border-slate-200 dark:bg-[#2a2a35] dark:border-neutral-700/50 opacity-50'">
+              <div><div class="text-[10px] text-slate-500 dark:text-neutral-400">프로 패키지 [{{dgnState.shop.pr}}/5]</div><div class="text-xs font-bold text-slate-900 dark:text-white">일반2 + 티켓10</div></div>
+              <div class="text-right"><div class="text-[11px] font-bold text-green-600 dark:text-green-500">9.9만</div><div class="text-[9px] text-amber-700 dark:text-yellow-600 font-bold mt-0.5 whitespace-nowrap">자팀 기댓값: 약 75만/1장</div></div>
             </button>
-            <button @click="dgnBuyPkg('pk', 1, 99000, 0, 2, 0, '픽업 프레스티지')" :disabled="dgnState.shop.pk>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pk<1?'bg-purple-900/20 border border-purple-800/50':'bg-[#2a2a35] opacity-50'">
-              <div><div class="text-[10px] text-purple-400">픽업 프레스티지 [{{dgnState.shop.pk}}/1]</div><div class="text-xs font-bold text-purple-300">픽업팩 2</div></div>
-              <div class="text-right"><div class="text-[11px] font-bold text-green-500">9.9만</div><div class="text-[9px] text-purple-400 font-bold mt-0.5 whitespace-nowrap" title="TOP카드 가치 0원 기준, 자팀 1장 획득 기대값">자팀 기댓값: 약 41만/1장</div></div>
+            <button @click="dgnBuyPkg('pk', 1, 99000, 0, 2, 0, '픽업 프레스티지')" :disabled="dgnState.shop.pk>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pk<1?'bg-purple-50 border border-purple-200 dark:bg-purple-900/20 dark:border-purple-800/50':'bg-slate-50 border border-slate-200 dark:bg-[#2a2a35] dark:border-neutral-700/50 opacity-50'">
+              <div><div class="text-[10px] text-purple-600 dark:text-purple-400">픽업 프레스티지 [{{dgnState.shop.pk}}/1]</div><div class="text-xs font-bold text-purple-700 dark:text-purple-300">픽업팩 2</div></div>
+              <div class="text-right"><div class="text-[11px] font-bold text-green-600 dark:text-green-500">9.9만</div><div class="text-[9px] text-purple-600 dark:text-purple-400 font-bold mt-0.5 whitespace-nowrap">자팀 기댓값: 약 41만/1장</div></div>
             </button>
-            <button @click="dgnBuyPkg('lg', 3, 149000, 2, 1, 0, '레전드 패키지')" :disabled="dgnState.shop.lg>=3" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.lg<3?'bg-amber-900/20 border border-amber-800/50':'bg-[#2a2a35] opacity-50'">
-              <div><div class="text-[10px] text-amber-500">레전드 패키지 [{{dgnState.shop.lg}}/3]</div><div class="text-xs font-bold text-amber-300">일반2 + 픽업1</div></div>
-              <div class="text-right"><div class="text-[11px] font-bold text-green-500">14.9만</div><div class="text-[9px] text-neutral-400 font-bold mt-0.5 whitespace-nowrap" title="TOP카드 가치 0원 기준, 자팀 1장 획득 기대값">자팀 기댓값: 약 69만/1장</div></div>
+            <button @click="dgnBuyPkg('lg', 3, 149000, 2, 1, 0, '레전드 패키지')" :disabled="dgnState.shop.lg>=3" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.lg<3?'bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-800/50':'bg-slate-50 border border-slate-200 dark:bg-[#2a2a35] dark:border-neutral-700/50 opacity-50'">
+              <div><div class="text-[10px] text-amber-600 dark:text-amber-500">레전드 패키지 [{{dgnState.shop.lg}}/3]</div><div class="text-xs font-bold text-amber-700 dark:text-amber-300">일반2 + 픽업1</div></div>
+              <div class="text-right"><div class="text-[11px] font-bold text-green-600 dark:text-green-500">14.9만</div><div class="text-[9px] text-slate-500 dark:text-neutral-400 font-bold mt-0.5 whitespace-nowrap">자팀 기댓값: 약 69만/1장</div></div>
             </button>
             
-            <!-- 🔥 시뮬레이터 유도 안내 문구 추가 -->
-            <div class="mt-3 p-2.5 bg-[#1a1b1e] border border-neutral-800 rounded-lg text-[9px] font-bold text-neutral-500 leading-relaxed text-center break-keep">
+            <!-- 🔥 꼬리말 안내문구 완벽 적용 -->
+            <div class="mt-3 p-2.5 bg-slate-100 border border-slate-200 dark:bg-[#1a1b1e] dark:border-neutral-800 rounded-lg text-[9px] font-bold text-slate-500 dark:text-neutral-500 leading-relaxed text-center break-keep transition-colors">
               ※ 가성비 기댓값은 참고용입니다. 트레이드권의 가치는 변수가 큰 '디그니티 믹서기' 효율을 배제하고, 가장 보편적인 'TOP 재료 믹서기(3%)'만을 기준으로 보수적으로 산정되었습니다.<br>
-              <span class="text-indigo-400 mt-1 inline-block">💡 실제 스노우볼이 적용된 정확한 기댓값 및 과금 효율은 우측의 '타임라인 과금 플래너' 시뮬레이션을 통해 확인하시는 것을 권장합니다.</span>
+              <span class="text-indigo-600 dark:text-indigo-400 mt-1 inline-block">💡 실제 스노우볼이 적용된 정확한 기댓값 및 과금 효율은 우측의 '타임라인 과금 플래너' 시뮬레이션을 통해 확인하시는 것을 권장합니다.</span>
             </div>
           </div>
         </div>
@@ -1466,200 +1464,200 @@ const dgnCheckMyLuck = () => {
 
       <!-- [중앙] 가챠 및 믹서기 -->
       <section class="xl:col-span-5 flex flex-col gap-4 h-full">
-        <div class="bg-[#1e1e24] border border-neutral-700/50 rounded-2xl p-5 flex flex-col shadow-lg">
-          <h2 class="text-lg font-black mb-4 flex items-center gap-2 text-indigo-400"><Package class="w-5 h-5"/> 인벤토리 & 뽑기</h2>
+        <div class="bg-white dark:bg-[#1e1e24] border border-slate-200 dark:border-neutral-700/50 rounded-2xl p-5 flex flex-col shadow-sm dark:shadow-lg transition-colors">
+          <h2 class="text-lg font-black mb-4 flex items-center gap-2 text-indigo-600 dark:text-indigo-400"><Package class="w-5 h-5"/> 인벤토리 & 뽑기</h2>
           <div class="grid grid-cols-3 gap-3 mb-5">
-            <div class="bg-[#2a2a35] p-3 rounded-xl text-center"><div class="text-[10px] font-bold text-neutral-400 mb-1">일반 디그팩</div><div class="text-xl font-black text-white">{{ dgnState.inv.normal }}</div></div>
-            <div class="bg-purple-900/20 border border-purple-800/30 p-3 rounded-xl text-center"><div class="text-[10px] font-bold text-purple-400 mb-1">픽업 디그팩</div><div class="text-xl font-black text-purple-300">{{ dgnState.inv.pickup }}</div></div>
-            <div class="bg-amber-900/20 border border-amber-800/30 p-3 rounded-xl text-center"><div class="text-[10px] font-bold text-amber-500 mb-1">트레이드권</div><div class="text-xl font-black text-amber-400">{{ dgnState.inv.tickets }}</div></div>
+            <div class="bg-slate-50 dark:bg-[#2a2a35] border border-slate-200 dark:border-transparent p-3 rounded-xl text-center transition-colors"><div class="text-[10px] font-bold text-slate-500 dark:text-neutral-400 mb-1">일반 디그팩</div><div class="text-xl font-black text-slate-900 dark:text-white">{{ dgnState.inv.normal }}</div></div>
+            <div class="bg-purple-50 border border-purple-200 dark:bg-purple-900/20 dark:border-purple-800/30 p-3 rounded-xl text-center transition-colors"><div class="text-[10px] font-bold text-purple-600 dark:text-purple-400 mb-1">픽업 디그팩</div><div class="text-xl font-black text-purple-700 dark:text-purple-300">{{ dgnState.inv.pickup }}</div></div>
+            <div class="bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-800/30 p-3 rounded-xl text-center transition-colors"><div class="text-[10px] font-bold text-amber-600 dark:text-amber-500 mb-1">트레이드권</div><div class="text-xl font-black text-amber-700 dark:text-amber-400">{{ dgnState.inv.tickets }}</div></div>
           </div>
           <div class="flex flex-col gap-2 mb-3">
-            <div class="flex gap-2"><button @click="dgnOpenPack(1)" class="flex-1 py-3 bg-[#3a3a45] hover:bg-neutral-600 text-white rounded-xl font-bold transition-colors">일반 1팩 까기</button><button @click="dgnOpenPack(10)" class="flex-1 py-3 bg-[#3a3a45] hover:bg-neutral-600 text-white rounded-xl font-bold transition-colors">일반 10팩 까기</button></div>
-            <button @click="dgnOpenPickup()" class="w-full py-3 bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-600 hover:to-indigo-600 text-white rounded-xl font-black shadow-lg transition-all">픽업팩 까기 (100% 확정)</button>
-            <div class="flex gap-2 mt-1 pt-2 border-t border-neutral-700/50">
-              <button @click="dgnOpenPerfect(1)" class="flex-1 py-2 bg-blue-900/40 border border-blue-800 hover:bg-blue-800 text-blue-300 rounded-lg text-[11px] font-bold transition-colors">파이브스타 퍼펙트 1팩</button>
-              <button @click="dgnOpenPerfect(10)" class="flex-1 py-2 bg-blue-900/40 border border-blue-800 hover:bg-blue-800 text-blue-300 rounded-lg text-[11px] font-bold transition-colors">파이브스타 퍼펙트 10팩</button>
+            <div class="flex gap-2"><button @click="dgnOpenPack(1)" class="flex-1 py-3 bg-slate-700 hover:bg-slate-800 dark:bg-[#3a3a45] dark:hover:bg-neutral-600 text-white rounded-xl font-bold transition-colors shadow-sm">일반 1팩 까기</button><button @click="dgnOpenPack(10)" class="flex-1 py-3 bg-slate-700 hover:bg-slate-800 dark:bg-[#3a3a45] dark:hover:bg-neutral-600 text-white rounded-xl font-bold transition-colors shadow-sm">일반 10팩 까기</button></div>
+            <button @click="dgnOpenPickup()" class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 dark:from-purple-700 dark:to-indigo-700 dark:hover:from-purple-600 dark:hover:to-indigo-600 text-white rounded-xl font-black shadow-md transition-all">픽업팩 까기 (100% 확정)</button>
+            <div class="flex gap-2 mt-1 pt-2 border-t border-slate-200 dark:border-neutral-700/50">
+              <button @click="dgnOpenPerfect(1)" class="flex-1 py-2 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:border-blue-800 dark:hover:bg-blue-800 dark:text-blue-300 rounded-lg text-[11px] font-bold transition-colors">파이브스타 퍼펙트 1팩</button>
+              <button @click="dgnOpenPerfect(10)" class="flex-1 py-2 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:border-blue-800 dark:hover:bg-blue-800 dark:text-blue-300 rounded-lg text-[11px] font-bold transition-colors">파이브스타 퍼펙트 10팩</button>
             </div>
           </div>
-          <div class="mt-auto pt-3 border-t border-neutral-700/50 flex justify-between items-center text-[11px] font-bold text-neutral-500">
-            <div class="flex items-center gap-1">남은 팩 개봉: <input type="number" v-model.number="dgnState.pity.pack" class="w-10 bg-[#2a2a35] border border-blue-800 text-blue-400 text-center rounded outline-none p-0.5"> 번 (확정)</div>
-            <div class="flex items-center gap-1">남은 트레이드: <input type="number" v-model.number="dgnState.pity.trade" class="w-10 bg-[#2a2a35] border border-blue-800 text-blue-400 text-center rounded outline-none p-0.5"> 번 (확정)</div>
+          <div class="mt-auto pt-3 border-t border-slate-200 dark:border-neutral-700/50 flex justify-between items-center text-[11px] font-bold text-slate-500 dark:text-neutral-500">
+            <div class="flex items-center gap-1">남은 팩 개봉: <input type="number" v-model.number="dgnState.pity.pack" class="w-10 bg-slate-50 dark:bg-[#2a2a35] border border-blue-300 dark:border-blue-800 text-blue-600 dark:text-blue-400 text-center rounded outline-none p-0.5 transition-colors"> 번 (확정)</div>
+            <div class="flex items-center gap-1">남은 트레이드: <input type="number" v-model.number="dgnState.pity.trade" class="w-10 bg-slate-50 dark:bg-[#2a2a35] border border-blue-300 dark:border-blue-800 text-blue-600 dark:text-blue-400 text-center rounded outline-none p-0.5 transition-colors"> 번 (확정)</div>
           </div>
         </div>
 
-        <div class="bg-[#1e1e24] border border-neutral-700/50 rounded-2xl p-5 flex flex-col shrink-0 shadow-lg">
-          <h3 class="font-extrabold text-sm mb-3 flex items-center gap-1.5 text-green-400"><RefreshCw class="w-4 h-4"/> 믹서기 (트레이드)</h3>
+        <div class="bg-white dark:bg-[#1e1e24] border border-slate-200 dark:border-neutral-700/50 rounded-2xl p-5 flex flex-col shrink-0 shadow-sm dark:shadow-lg transition-colors">
+          <h3 class="font-extrabold text-sm mb-3 flex items-center gap-1.5 text-green-600 dark:text-green-400"><RefreshCw class="w-4 h-4"/> 믹서기 (트레이드)</h3>
           <div class="grid grid-cols-2 gap-3 mb-2">
-            <div class="bg-[#2a2a35] p-3 rounded-xl text-center relative"><div class="text-[10px] font-bold text-neutral-400 mb-1">잉여 디그니티 <span class="text-blue-400">종류</span></div><div class="text-lg font-black text-red-400">{{ dgnDistinctDgnCount }} 종</div><div class="absolute -top-2 -right-2 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full" v-if="dgnDistinctDgnCount<3">3종 필요</div></div>
-            <div class="bg-[#2a2a35] p-3 rounded-xl text-center relative"><div class="text-[10px] font-bold text-neutral-400 mb-1">타팀 TOP 선수 <span class="text-blue-400">종류</span></div><div class="text-lg font-black text-white">{{ dgnDistinctTopCount }} 종</div><div class="absolute -top-2 -right-2 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full" v-if="dgnDistinctTopCount<3">3종 필요</div></div>
+            <div class="bg-slate-50 dark:bg-[#2a2a35] border border-slate-200 dark:border-transparent p-3 rounded-xl text-center relative transition-colors"><div class="text-[10px] font-bold text-slate-500 dark:text-neutral-400 mb-1">잉여 디그니티 <span class="text-blue-600 dark:text-blue-400">종류</span></div><div class="text-lg font-black text-red-600 dark:text-red-400">{{ dgnDistinctDgnCount }} 종</div><div class="absolute -top-2 -right-2 bg-red-500 dark:bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-sm" v-if="dgnDistinctDgnCount<3">3종 필요</div></div>
+            <div class="bg-slate-50 dark:bg-[#2a2a35] border border-slate-200 dark:border-transparent p-3 rounded-xl text-center relative transition-colors"><div class="text-[10px] font-bold text-slate-500 dark:text-neutral-400 mb-1">타팀 TOP 선수 <span class="text-blue-600 dark:text-blue-400">종류</span></div><div class="text-lg font-black text-slate-900 dark:text-white">{{ dgnDistinctTopCount }} 종</div><div class="absolute -top-2 -right-2 bg-red-500 dark:bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-sm" v-if="dgnDistinctTopCount<3">3종 필요</div></div>
           </div>
-          <div class="bg-[#1a1b1e] border border-neutral-700/50 rounded-lg p-2 mb-4">
-            <div class="text-[9px] font-bold text-amber-500 border-b border-neutral-700/50 pb-1 mb-1">🔥 믹서기 투입 대기 중인 잉여 카드 목록</div>
+          <div class="bg-slate-100 dark:bg-[#1a1b1e] border border-slate-200 dark:border-neutral-700/50 rounded-lg p-2 mb-4 transition-colors">
+            <div class="text-[9px] font-bold text-amber-600 dark:text-amber-500 border-b border-slate-200 dark:border-neutral-700/50 pb-1 mb-1">🔥 믹서기 투입 대기 중인 잉여 카드 목록</div>
             <div class="flex flex-wrap gap-1">
-              <span v-for="item in dgnWaitlist" :key="item" class="bg-red-900/40 border border-red-800 text-red-200 text-[9px] px-1.5 py-0.5 rounded">{{ item }}</span>
-              <span v-if="dgnWaitlist.length === 0" class="text-[9px] text-neutral-500">대기 중인 잉여 디그니티 카드가 없습니다.</span>
+              <span v-for="item in dgnWaitlist" :key="item" class="bg-red-50 border border-red-200 text-red-600 dark:bg-red-900/40 dark:border-red-800 dark:text-red-200 text-[9px] px-1.5 py-0.5 rounded transition-colors">{{ item }}</span>
+              <span v-if="dgnWaitlist.length === 0" class="text-[9px] text-slate-400 dark:text-neutral-500">대기 중인 잉여 디그니티 카드가 없습니다.</span>
             </div>
             <div class="flex flex-wrap gap-1 mt-1">
-              <span v-for="item in topWaitlist.slice(0, 8)" :key="item" class="bg-blue-900/40 border border-blue-800 text-blue-200 text-[9px] px-1.5 py-0.5 rounded">{{ item }}</span>
-              <span v-if="topWaitlist.length > 8" class="text-[9px] text-neutral-500">+ 외 {{ topWaitlist.length - 8 }}종 대기 중</span>
+              <span v-for="item in topWaitlist.slice(0, 8)" :key="item" class="bg-blue-50 border border-blue-200 text-blue-600 dark:bg-blue-900/40 dark:border-blue-800 dark:text-blue-200 text-[9px] px-1.5 py-0.5 rounded transition-colors">{{ item }}</span>
+              <span v-if="topWaitlist.length > 8" class="text-[9px] text-slate-400 dark:text-neutral-500">+ 외 {{ topWaitlist.length - 8 }}종 대기 중</span>
             </div>
           </div>
-          <button @click="dgnRunMixer" class="w-full py-4 bg-green-700 hover:bg-green-600 text-white rounded-xl font-black text-lg shadow-lg flex justify-center items-center gap-2 transition-colors"><RefreshCw class="w-5 h-5"/> 자동 필터 믹서기 가동</button>
+          <button @click="dgnRunMixer" class="w-full py-4 bg-green-600 hover:bg-green-500 dark:bg-green-700 dark:hover:bg-green-600 text-white rounded-xl font-black text-lg shadow-md flex justify-center items-center gap-2 transition-colors"><RefreshCw class="w-5 h-5"/> 자동 필터 믹서기 가동</button>
         </div>
 
-        <div class="bg-[#0f0f13] border border-neutral-800 rounded-2xl p-4 flex-1 overflow-hidden flex flex-col min-h-[200px] shadow-inner">
+        <div class="bg-slate-50 dark:bg-[#0f0f13] border border-slate-200 dark:border-neutral-800 rounded-2xl p-4 flex-1 overflow-hidden flex flex-col min-h-[200px] shadow-inner transition-colors">
           <div class="flex-1 overflow-y-auto space-y-1 font-mono text-[10px]">
-            <div v-for="l in dgnState.logs" :key="l.id" :class="{'text-neutral-400':l.type==='normal', 'text-green-400 font-bold':l.type==='success', 'text-blue-300':l.type==='action', 'text-amber-400 font-black text-[11px]':l.type==='epic'}"><span class="opacity-50 mr-1">></span>{{ l.msg }}</div>
+            <div v-for="l in dgnState.logs" :key="l.id" :class="{'text-slate-500 dark:text-neutral-400':l.type==='normal', 'text-green-600 dark:text-green-400 font-bold':l.type==='success', 'text-blue-600 dark:text-blue-300':l.type==='action', 'text-amber-600 dark:text-amber-400 font-black text-[11px]':l.type==='epic'}"><span class="opacity-50 mr-1">></span>{{ l.msg }}</div>
           </div>
         </div>
       </section>
 
       <!-- [우측] 도감 & 플래너 -->
       <section class="xl:col-span-4 flex flex-col gap-4 h-full">
-        <div class="bg-gradient-to-b from-blue-900 to-[#1e1e24] border border-blue-800/50 rounded-2xl p-5 shadow-xl shrink-0 text-center relative overflow-hidden">
-          <Gem class="absolute -right-4 -bottom-4 w-32 h-32 text-blue-500 opacity-10"/>
-          <div class="text-[11px] font-extrabold text-blue-400 mb-1 relative z-10">최종 획득 결과물</div>
-          <div class="text-2xl font-black text-white relative z-10">{{ T_NAMES[dgnState.myTeam] }} {{ D_WAVES[dgnState.targetWave][dgnState.myTeam] }}</div>
-          <div class="text-5xl font-black text-yellow-400 mt-2 relative z-10">{{ dgnState.inv.myDgn }} <span class="text-xl text-yellow-600">장</span></div>
+        <div class="bg-gradient-to-b from-blue-100 to-white dark:from-blue-900 dark:to-[#1e1e24] border border-blue-200 dark:border-blue-800/50 rounded-2xl p-5 shadow-sm dark:shadow-xl shrink-0 text-center relative overflow-hidden transition-colors">
+          <Gem class="absolute -right-4 -bottom-4 w-32 h-32 text-blue-300 dark:text-blue-500 opacity-20 dark:opacity-10"/>
+          <div class="text-[11px] font-extrabold text-blue-600 dark:text-blue-400 mb-1 relative z-10">최종 획득 결과물</div>
+          <div class="text-2xl font-black text-slate-900 dark:text-white relative z-10">{{ T_NAMES[dgnState.myTeam] }} {{ D_WAVES[dgnState.targetWave][dgnState.myTeam] }}</div>
+          <div class="text-5xl font-black text-amber-500 dark:text-yellow-400 mt-2 relative z-10">{{ dgnState.inv.myDgn }} <span class="text-xl text-amber-600 dark:text-yellow-600">장</span></div>
         </div>
 
-        <div class="bg-[#1e1e24] border border-neutral-700/50 rounded-2xl p-4 flex-1 flex flex-col overflow-hidden shadow-lg">
+        <div class="bg-white dark:bg-[#1e1e24] border border-slate-200 dark:border-neutral-700/50 rounded-2xl p-4 flex-1 flex flex-col overflow-hidden shadow-sm dark:shadow-lg transition-colors">
           <div class="flex gap-2 mb-3">
-            <button @click="dgnAlbumTab='dignity'" class="flex-1 py-1.5 rounded text-[11px] font-bold transition-colors" :class="dgnAlbumTab==='dignity'?'bg-amber-600 text-white':'bg-[#2a2a35] text-neutral-400'">디그니티 명함</button>
-            <button @click="dgnAlbumTab='top'" class="flex-1 py-1.5 rounded text-[11px] font-bold transition-colors" :class="dgnAlbumTab==='top'?'bg-blue-600 text-white':'bg-[#2a2a35] text-neutral-400'">TOP카드 수집함</button>
+            <button @click="dgnAlbumTab='dignity'" class="flex-1 py-1.5 rounded text-[11px] font-bold transition-colors" :class="dgnAlbumTab==='dignity'?'bg-amber-500 text-white dark:bg-amber-600':'bg-slate-100 text-slate-500 dark:bg-[#2a2a35] dark:text-neutral-400'">디그니티 명함</button>
+            <button @click="dgnAlbumTab='top'" class="flex-1 py-1.5 rounded text-[11px] font-bold transition-colors" :class="dgnAlbumTab==='top'?'bg-blue-600 text-white':'bg-slate-100 text-slate-500 dark:bg-[#2a2a35] dark:text-neutral-400'">TOP카드 수집함</button>
           </div>
           
           <div v-show="dgnAlbumTab==='dignity'" class="flex flex-col flex-1 overflow-hidden">
-            <!-- 🔥 마스터 스위치 (전체 켜기 / 전체 끄기) -->
-            <div class="flex justify-between items-center mb-2 px-1">
-              <span class="text-[10px] text-blue-400 font-bold">💡 카드를 클릭하여 명함(ON/OFF) 전환!</span>
+            <!-- 🔥 마스터 스위치 -->
+            <div class="flex justify-between items-center mb-2 px-1 border-b border-slate-100 dark:border-neutral-700/50 pb-2">
+              <span class="text-[10px] text-blue-600 dark:text-blue-400 font-bold">💡 카드를 클릭하여 명함(ON/OFF) 전환!</span>
               <div class="flex gap-1">
-                <button @click="turnOnAllAlbum" class="px-2 py-1 bg-blue-700 hover:bg-blue-600 text-white text-[9px] font-bold rounded transition-colors">전체 명함 켜기</button>
-                <button @click="turnOffAllAlbum" class="px-2 py-1 bg-red-800 hover:bg-red-700 text-white text-[9px] font-bold rounded transition-colors">전체 끄기</button>
+                <button @click="turnOnAllAlbum" class="px-2 py-1 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white text-[9px] font-bold rounded shadow-sm transition-colors">전체 명함 켜기</button>
+                <button @click="turnOffAllAlbum" class="px-2 py-1 bg-red-600 hover:bg-red-700 dark:bg-red-800 dark:hover:bg-red-700 text-white text-[9px] font-bold rounded shadow-sm transition-colors">전체 끄기</button>
               </div>
             </div>
             
-            <div class="grid grid-cols-3 gap-2 overflow-y-auto pr-1 flex-1 content-start custom-scrollbar">
-              <!-- 🔥 도감 카드 (ON/OFF 및 +/- 수량 조절 버튼 적용) -->
-              <div v-for="t in TEAMS" :key="t" v-show="t!==dgnState.myTeam" @click="toggleDgnAlbum(t)" class="p-2 rounded-lg border text-center relative transition-colors cursor-pointer hover:border-blue-500 select-none flex flex-col items-center justify-center min-h-[70px]" :class="dgnState.album[t]>0?'bg-amber-900/30 border-amber-700':'bg-[#2a2a35] border-neutral-700/50 opacity-50 grayscale'">
+            <div class="grid grid-cols-3 gap-2 overflow-y-auto pr-1 flex-1 content-start custom-scrollbar pt-1">
+              <!-- 🔥 도감 카드 (라이트 모드/다크 모드 완벽 호환 + 수량 조절 버튼) -->
+              <div v-for="t in TEAMS" :key="t" v-show="t!==dgnState.myTeam" @click="toggleDgnAlbum(t)" class="p-2 rounded-lg border text-center relative transition-colors cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 select-none flex flex-col items-center justify-center min-h-[70px]" :class="dgnState.album[t]>0?'bg-amber-50 border-amber-300 dark:bg-amber-900/30 dark:border-amber-700 shadow-sm':'bg-slate-50 border-slate-200 dark:bg-[#2a2a35] dark:border-neutral-700/50 opacity-60 grayscale'">
                 <div class="text-[9px] font-black mb-0.5" :class="T_COLORS[t]">{{ T_NAMES[t] }}</div>
-                <div class="text-xs font-bold text-white" :class="{'mb-1': dgnState.album[t]>0}">{{ D_WAVES[dgnState.targetWave][t] }}</div>
+                <div class="text-xs font-bold text-slate-800 dark:text-white" :class="{'mb-1': dgnState.album[t]>0}">{{ D_WAVES[dgnState.targetWave][t] }}</div>
                 
-                <div v-if="dgnState.album[t]>0" class="absolute -top-1.5 -left-1.5 bg-blue-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-md">✓</div>
+                <div v-if="dgnState.album[t]>0" class="absolute -top-1.5 -left-1.5 bg-blue-500 dark:bg-blue-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-md">✓</div>
                 
-                <!-- 🔥 수량 조절 조작부 -->
-                <div v-if="dgnState.album[t]>0" class="flex items-center justify-between w-full mt-auto bg-black/40 rounded px-1" @click.stop>
-                  <button @click="decDgnAlbum(t)" class="text-neutral-400 hover:text-white px-2 py-0.5 font-bold text-xs">-</button>
-                  <span class="text-[10px] text-white font-black">{{ dgnState.album[t] }}장</span>
-                  <button @click="incDgnAlbum(t)" class="text-neutral-400 hover:text-white px-2 py-0.5 font-bold text-xs">+</button>
+                <!-- 🔥 수량 조절 버튼부 -->
+                <div v-if="dgnState.album[t]>0" class="flex items-center justify-between w-full mt-auto bg-slate-200/80 dark:bg-black/40 rounded px-1 transition-colors" @click.stop>
+                  <button @click="decDgnAlbum(t)" class="text-slate-600 hover:text-slate-900 dark:text-neutral-400 dark:hover:text-white px-2 py-0.5 font-bold text-xs transition-colors">-</button>
+                  <span class="text-[10px] text-slate-800 dark:text-white font-black">{{ dgnState.album[t] }}장</span>
+                  <button @click="incDgnAlbum(t)" class="text-slate-600 hover:text-slate-900 dark:text-neutral-400 dark:hover:text-white px-2 py-0.5 font-bold text-xs transition-colors">+</button>
                 </div>
               </div>
             </div>
           </div>
 
           <div v-show="dgnAlbumTab==='top'" class="flex flex-col flex-1 overflow-hidden">
-            <div class="text-[10px] font-bold text-blue-400 mb-2 border-b border-neutral-700/50 pb-1">자팀 수집함 (자동 보호) - 총 {{ dgnState.inv.myTop }}장</div>
+            <div class="text-[10px] font-bold text-blue-600 dark:text-blue-400 mb-2 border-b border-slate-200 dark:border-neutral-700/50 pb-1">자팀 수집함 (자동 보호) - 총 {{ dgnState.inv.myTop }}장</div>
             <div class="flex-1 overflow-y-auto pr-1 flex flex-col gap-1 mb-2 content-start custom-scrollbar">
-              <div v-for="p in TOP_DB[dgnState.myTeam]" :key="p" v-show="dgnState.topAlbum[dgnState.myTeam][p] > 0" class="flex justify-between text-xs bg-[#2a2a35] p-1.5 rounded"><span class="text-white">{{ p }}</span><span class="text-blue-400 font-bold">x{{ dgnState.topAlbum[dgnState.myTeam][p] }}</span></div>
+              <div v-for="p in TOP_DB[dgnState.myTeam]" :key="p" v-show="dgnState.topAlbum[dgnState.myTeam][p] > 0" class="flex justify-between text-xs bg-slate-50 border border-slate-200 dark:bg-[#2a2a35] dark:border-transparent p-1.5 rounded transition-colors"><span class="text-slate-800 dark:text-white font-medium">{{ p }}</span><span class="text-blue-600 dark:text-blue-400 font-bold">x{{ dgnState.topAlbum[dgnState.myTeam][p] }}</span></div>
             </div>
           </div>
         </div>
 
-        <!-- 🚀 과금 플래너 -->
-        <div class="bg-indigo-900/20 border border-indigo-800/50 rounded-2xl p-4 shrink-0 flex flex-col shadow-lg">
-          <h3 class="font-extrabold text-sm mb-3 flex items-center gap-1.5 text-indigo-400"><BarChart class="w-4 h-4"/> 타임라인 과금 플래너</h3>
+        <!-- 🚀 과금 플래너 (밝은 톤일 땐 화사한 인디고 톤으로!) -->
+        <div class="bg-indigo-50 border border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800/50 rounded-2xl p-4 shrink-0 flex flex-col shadow-sm dark:shadow-lg transition-colors">
+          <h3 class="font-extrabold text-sm mb-3 flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400"><BarChart class="w-4 h-4"/> 타임라인 과금 플래너</h3>
           
-          <div class="bg-[#1a1b1e] border border-neutral-800 rounded-lg p-2.5 mb-3 flex flex-col gap-1.5 shadow-inner">
+          <div class="bg-white border border-slate-200 dark:bg-[#1a1b1e] dark:border-neutral-800 rounded-lg p-2.5 mb-3 flex flex-col gap-1.5 shadow-inner transition-colors">
             <div class="flex justify-between items-end">
-              <span class="text-[10px] font-bold text-neutral-400">월 갱신용 예상 페이백 게이지 (무한 제외)</span>
-              <span class="text-xs font-black text-green-400">{{ new Intl.NumberFormat().format(dgnPlanPureKrw) }} 원</span>
+              <span class="text-[10px] font-bold text-slate-500 dark:text-neutral-400">월 갱신용 예상 페이백 게이지 (무한 제외)</span>
+              <span class="text-xs font-black text-green-600 dark:text-green-400">{{ new Intl.NumberFormat().format(dgnPlanPureKrw) }} 원</span>
             </div>
             <div class="flex gap-1 mt-1">
-              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanPureKrw >= 9900 ? 'bg-green-500' : 'bg-neutral-800'"></div>
-              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanPureKrw >= 99000 ? 'bg-green-500' : 'bg-neutral-800'"></div>
-              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanPureKrw >= 199000 ? 'bg-green-500' : 'bg-neutral-800'"></div>
-              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanPureKrw >= 299000 ? 'bg-green-500' : 'bg-neutral-800'"></div>
+              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanPureKrw >= 9900 ? 'bg-green-500' : 'bg-slate-200 dark:bg-neutral-800'"></div>
+              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanPureKrw >= 99000 ? 'bg-green-500' : 'bg-slate-200 dark:bg-neutral-800'"></div>
+              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanPureKrw >= 199000 ? 'bg-green-500' : 'bg-slate-200 dark:bg-neutral-800'"></div>
+              <div class="flex-1 h-1.5 rounded-full transition-colors" :class="dgnPlanPureKrw >= 299000 ? 'bg-green-500' : 'bg-slate-200 dark:bg-neutral-800'"></div>
             </div>
-            <div class="flex justify-between text-[8px] font-bold text-neutral-600 px-1"><span :class="{'text-green-500': dgnPlanPureKrw >= 9900}">9.9k</span><span :class="{'text-green-500': dgnPlanPureKrw >= 99000}">99k</span><span :class="{'text-green-500': dgnPlanPureKrw >= 199000}">199k</span><span :class="{'text-green-500': dgnPlanPureKrw >= 299000}">299k</span></div>
+            <div class="flex justify-between text-[8px] font-bold text-slate-400 dark:text-neutral-600 px-1"><span :class="{'text-green-600 dark:text-green-500': dgnPlanPureKrw >= 9900}">9.9k</span><span :class="{'text-green-600 dark:text-green-500': dgnPlanPureKrw >= 99000}">99k</span><span :class="{'text-green-600 dark:text-green-500': dgnPlanPureKrw >= 199000}">199k</span><span :class="{'text-green-600 dark:text-green-500': dgnPlanPureKrw >= 299000}">299k</span></div>
           </div>
 
-          <div class="flex flex-col gap-1 mb-4 bg-indigo-950/30 p-2 rounded-lg border border-indigo-500/30">
+          <div class="flex flex-col gap-1 mb-4 bg-indigo-100/50 dark:bg-indigo-950/30 p-2 rounded-lg border border-indigo-200 dark:border-indigo-500/30 transition-colors">
             <div class="flex items-center gap-3">
-              <span class="text-[10px] font-bold text-indigo-300 w-32">디그니티 외 타 결제액</span>
-              <input type="number" v-model.number="dgnPlan.otherMonthlyKrw" min="0" class="flex-1 bg-[#1a1b1e] border border-indigo-500/50 text-white text-xs p-1 rounded outline-none text-center font-bold">
-              <span class="text-[10px] text-indigo-400">원/월</span>
+              <span class="text-[10px] font-bold text-indigo-700 dark:text-indigo-300 w-32">디그니티 외 타 결제액</span>
+              <input type="number" v-model.number="dgnPlan.otherMonthlyKrw" min="0" class="flex-1 bg-white dark:bg-[#1a1b1e] border border-indigo-300 dark:border-indigo-500/50 text-slate-900 dark:text-white text-xs p-1 rounded outline-none text-center font-bold transition-colors">
+              <span class="text-[10px] text-indigo-600 dark:text-indigo-400">원/월</span>
             </div>
-            <!-- 🔥 실시간 플래너 미리보기 연산 -->
-            <div v-if="dgnPlan.otherMonthlyKrw > 0" class="text-[9px] font-bold text-yellow-400 text-right pr-8 animate-fade-in mt-0.5">
+            <!-- 실시간 플래너 연산 -->
+            <div v-if="dgnPlan.otherMonthlyKrw > 0" class="text-[9px] font-bold text-amber-600 dark:text-yellow-400 text-right pr-8 animate-fade-in mt-0.5">
               💡 실시간 반영: 플래너 총 누적액 {{ new Intl.NumberFormat().format(dgnPlanTotalKrw) }}원 도달 예상
             </div>
           </div>
 
           <div class="grid grid-cols-2 gap-x-2 gap-y-1.5 mb-3 text-[10px]">
-            <label class="flex items-center gap-1 text-neutral-300"><input type="checkbox" v-model="dgnPlan.wQ" class="accent-indigo-500"> 주간퀘 완수</label>
-            <label class="flex items-center gap-1 text-neutral-300 justify-end">티켓상점 <input type="number" v-model.number="dgnPlan.wC" min="0" max="40" class="w-8 bg-[#2a2a35] border border-neutral-700 text-center rounded outline-none"> /월</label>
-            <label class="flex items-center gap-1 text-orange-300 mt-1 justify-center bg-orange-900/20 py-1 rounded border border-orange-800">루키(5.5) <input type="number" v-model.number="dgnPlan.rk" min="0" max="1" class="w-8 bg-[#2a2a35] border border-orange-700 text-center rounded outline-none text-white"> /월</label>
-            <label class="flex items-center gap-1 text-teal-300 mt-1 justify-center bg-teal-900/20 py-1 rounded border border-teal-800">무한(5.5) <input type="number" v-model.number="dgnPlan.unl" min="0" class="w-8 bg-[#2a2a35] border border-teal-700 text-center rounded outline-none text-white"> /월</label>
-            <label class="flex items-center gap-1 text-neutral-300 mt-1 justify-center">프레스티지 <input type="number" v-model.number="dgnPlan.pt" min="0" max="1" class="w-8 bg-[#2a2a35] border border-neutral-700 text-center rounded outline-none"> /월</label>
-            <label class="flex items-center gap-1 text-neutral-300 mt-1 justify-center">픽업프레스티지 <input type="number" v-model.number="dgnPlan.pk" min="0" max="1" class="w-8 bg-[#2a2a35] border border-neutral-700 text-center rounded outline-none"> /월</label>
-            <label class="flex items-center gap-1 text-neutral-300 mt-1 justify-center">프로 <input type="number" v-model.number="dgnPlan.pr" min="0" max="5" class="w-8 bg-[#2a2a35] border border-neutral-700 text-center rounded outline-none"> /월</label>
-            <label class="flex items-center gap-1 text-neutral-300 mt-1 justify-center bg-amber-900/20 py-1 rounded">레전드 <input type="number" v-model.number="dgnPlan.lg" min="0" max="3" class="w-8 bg-[#2a2a35] border border-neutral-700 text-center rounded outline-none"> /월</label>
+            <label class="flex items-center gap-1 text-slate-700 dark:text-neutral-300"><input type="checkbox" v-model="dgnPlan.wQ" class="accent-indigo-600 dark:accent-indigo-500"> 주간퀘 완수</label>
+            <label class="flex items-center gap-1 text-slate-700 dark:text-neutral-300 justify-end">티켓상점 <input type="number" v-model.number="dgnPlan.wC" min="0" max="40" class="w-8 bg-white dark:bg-[#2a2a35] border border-slate-300 dark:border-neutral-700 text-center rounded outline-none transition-colors"> /월</label>
+            <label class="flex items-center gap-1 text-orange-700 dark:text-orange-300 mt-1 justify-center bg-orange-100/50 dark:bg-orange-900/20 py-1 rounded border border-orange-200 dark:border-orange-800 transition-colors">루키(5.5) <input type="number" v-model.number="dgnPlan.rk" min="0" max="1" class="w-8 bg-white dark:bg-[#2a2a35] border border-orange-300 dark:border-orange-700 text-center rounded outline-none text-slate-900 dark:text-white transition-colors"> /월</label>
+            <label class="flex items-center gap-1 text-teal-700 dark:text-teal-300 mt-1 justify-center bg-teal-100/50 dark:bg-teal-900/20 py-1 rounded border border-teal-200 dark:border-teal-800 transition-colors">무한(5.5) <input type="number" v-model.number="dgnPlan.unl" min="0" class="w-8 bg-white dark:bg-[#2a2a35] border border-teal-300 dark:border-teal-700 text-center rounded outline-none text-slate-900 dark:text-white transition-colors"> /월</label>
+            <label class="flex items-center gap-1 text-slate-700 dark:text-neutral-300 mt-1 justify-center">프레스티지 <input type="number" v-model.number="dgnPlan.pt" min="0" max="1" class="w-8 bg-white dark:bg-[#2a2a35] border border-slate-300 dark:border-neutral-700 text-center rounded outline-none transition-colors"> /월</label>
+            <label class="flex items-center gap-1 text-slate-700 dark:text-neutral-300 mt-1 justify-center">픽업프레스티지 <input type="number" v-model.number="dgnPlan.pk" min="0" max="1" class="w-8 bg-white dark:bg-[#2a2a35] border border-slate-300 dark:border-neutral-700 text-center rounded outline-none transition-colors"> /월</label>
+            <label class="flex items-center gap-1 text-slate-700 dark:text-neutral-300 mt-1 justify-center">프로 <input type="number" v-model.number="dgnPlan.pr" min="0" max="5" class="w-8 bg-white dark:bg-[#2a2a35] border border-slate-300 dark:border-neutral-700 text-center rounded outline-none transition-colors"> /월</label>
+            <label class="flex items-center gap-1 text-slate-700 dark:text-neutral-300 mt-1 justify-center bg-amber-100/50 dark:bg-amber-900/20 py-1 rounded transition-colors">레전드 <input type="number" v-model.number="dgnPlan.lg" min="0" max="3" class="w-8 bg-white dark:bg-[#2a2a35] border border-slate-300 dark:border-neutral-700 text-center rounded outline-none transition-colors"> /월</label>
           </div>
           
           <div class="flex items-center gap-2 mb-3 justify-center">
-            <span class="text-xs font-bold text-indigo-300">목표 자팀 획득:</span>
-            <input type="number" v-model.number="dgnPlan.target" class="w-12 bg-[#2a2a35] border border-indigo-700 rounded p-1 text-xs text-center font-bold outline-none text-white">
-            <span class="text-xs font-bold text-indigo-300">장</span>
+            <span class="text-xs font-bold text-indigo-700 dark:text-indigo-300">목표 자팀 획득:</span>
+            <input type="number" v-model.number="dgnPlan.target" class="w-12 bg-white dark:bg-[#2a2a35] border border-indigo-300 dark:border-indigo-700 rounded p-1 text-xs text-center font-bold outline-none text-slate-900 dark:text-white transition-colors">
+            <span class="text-xs font-bold text-indigo-700 dark:text-indigo-300">장</span>
           </div>
           
-          <button @click="dgnRunPlanner" :disabled="isDgnSim" class="w-full py-2.5 bg-indigo-700 hover:bg-indigo-600 text-white font-bold rounded-lg text-xs transition-colors">{{ isDgnSim ? '만 번의 미래 연산 중...' : '시뮬레이션 가동' }}</button>
+          <button @click="dgnRunPlanner" :disabled="isDgnSim" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-600 text-white font-bold rounded-lg text-xs transition-colors shadow-sm">{{ isDgnSim ? '만 번의 미래 연산 중...' : '시뮬레이션 가동' }}</button>
           
-          <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4 shadow-sm flex-1 flex flex-col relative overflow-hidden mt-3" v-if="dgnSimResult || isDgnSim">
-            <div class="mb-4 bg-neutral-50 dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-3 shadow-inner">
+          <div class="bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 rounded-2xl p-4 shadow-sm flex-1 flex flex-col relative overflow-hidden mt-3 transition-colors" v-if="dgnSimResult || isDgnSim">
+            <div class="mb-4 bg-slate-50 dark:bg-neutral-800 rounded-xl border border-slate-200 dark:border-neutral-700 p-3 shadow-inner transition-colors">
               <div class="flex justify-between gap-1 mb-3">
-                <button @click="dgnResultViewMode = 'TOP10'" class="flex-1 py-1.5 text-[10px] font-bold rounded border transition-colors" :class="dgnResultViewMode === 'TOP10' ? 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/50 dark:text-blue-300' : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 text-neutral-500'">상위 10% (비틱)</button>
-                <button @click="dgnResultViewMode = 'AVG'" class="flex-1 py-1.5 text-[10px] font-bold rounded border transition-colors" :class="dgnResultViewMode === 'AVG' ? 'bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-900/50 dark:text-indigo-300' : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 text-neutral-500'">평균 (상위 50%)</button>
-                <button @click="dgnResultViewMode = 'BOT90'" class="flex-1 py-1.5 text-[10px] font-bold rounded border transition-colors" :class="dgnResultViewMode === 'BOT90' ? 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/50 dark:text-red-300' : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 text-neutral-500'">하위 90% (천장)</button>
+                <button @click="dgnResultViewMode = 'TOP10'" class="flex-1 py-1.5 text-[10px] font-bold rounded border transition-colors" :class="dgnResultViewMode === 'TOP10' ? 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/50 dark:text-blue-300' : 'bg-white dark:bg-neutral-900 border-slate-200 dark:border-neutral-700 text-slate-500 dark:text-neutral-500'">상위 10% (비틱)</button>
+                <button @click="dgnResultViewMode = 'AVG'" class="flex-1 py-1.5 text-[10px] font-bold rounded border transition-colors" :class="dgnResultViewMode === 'AVG' ? 'bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-900/50 dark:text-indigo-300' : 'bg-white dark:bg-neutral-900 border-slate-200 dark:border-neutral-700 text-slate-500 dark:text-neutral-500'">평균 (상위 50%)</button>
+                <button @click="dgnResultViewMode = 'BOT90'" class="flex-1 py-1.5 text-[10px] font-bold rounded border transition-colors" :class="dgnResultViewMode === 'BOT90' ? 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/50 dark:text-red-300' : 'bg-white dark:bg-neutral-900 border-slate-200 dark:border-neutral-700 text-slate-500 dark:text-neutral-500'">하위 90% (천장)</button>
               </div>
               
               <div v-if="dgnSimResult" class="space-y-1">
                 <div class="flex justify-between items-center px-1 py-1">
-                  <span class="text-[11px] font-extrabold" :class="{'text-blue-600': dgnResultViewMode==='TOP10', 'text-indigo-600': dgnResultViewMode==='AVG', 'text-red-600': dgnResultViewMode==='BOT90'}">소요 기간</span>
-                  <span class="text-sm font-black" :class="{'text-blue-600': dgnResultViewMode==='TOP10', 'text-indigo-600': dgnResultViewMode==='AVG', 'text-red-600': dgnResultViewMode==='BOT90'}">
-                    {{ Math.floor((dgnResultViewMode === 'TOP10' ? dgnSimResult.top10.week : dgnResultViewMode === 'AVG' ? dgnSimResult.avg.week : dgnSimResult.bot90.week) / 4) }}<span class="text-[9px] font-normal text-neutral-500 mr-1">개월</span>{{ (dgnResultViewMode === 'TOP10' ? dgnSimResult.top10.week : dgnResultViewMode === 'AVG' ? dgnSimResult.avg.week : dgnSimResult.bot90.week) % 4 }}<span class="text-[9px] font-normal text-neutral-500">주</span>
+                  <span class="text-[11px] font-extrabold" :class="{'text-blue-700 dark:text-blue-500': dgnResultViewMode==='TOP10', 'text-indigo-700 dark:text-indigo-500': dgnResultViewMode==='AVG', 'text-red-700 dark:text-red-500': dgnResultViewMode==='BOT90'}">소요 기간</span>
+                  <span class="text-sm font-black" :class="{'text-blue-700 dark:text-blue-500': dgnResultViewMode==='TOP10', 'text-indigo-700 dark:text-indigo-500': dgnResultViewMode==='AVG', 'text-red-700 dark:text-red-500': dgnResultViewMode==='BOT90'}">
+                    {{ Math.floor((dgnResultViewMode === 'TOP10' ? dgnSimResult.top10.week : dgnResultViewMode === 'AVG' ? dgnSimResult.avg.week : dgnSimResult.bot90.week) / 4) }}<span class="text-[9px] font-normal text-slate-400 dark:text-neutral-500 mr-1">개월</span>{{ (dgnResultViewMode === 'TOP10' ? dgnSimResult.top10.week : dgnResultViewMode === 'AVG' ? dgnSimResult.avg.week : dgnSimResult.bot90.week) % 4 }}<span class="text-[9px] font-normal text-slate-400 dark:text-neutral-500">주</span>
                   </span>
                 </div>
                 
-                <div v-if="!dgnSimResult.isF2P" class="flex justify-between items-center px-1 py-1 bg-green-50 dark:bg-green-900/20 rounded">
-                  <span class="text-[10px] font-bold text-green-600 dark:text-green-400">순수 디그니티 비용 (KRW)</span>
-                  <span class="text-xs font-black text-green-600 dark:text-green-400">
+                <div v-if="!dgnSimResult.isF2P" class="flex justify-between items-center px-1 py-1 bg-green-50 border border-green-100 dark:border-transparent dark:bg-green-900/20 rounded transition-colors">
+                  <span class="text-[10px] font-bold text-green-700 dark:text-green-400">순수 디그니티 비용 (KRW)</span>
+                  <span class="text-xs font-black text-green-700 dark:text-green-400">
                     {{ new Intl.NumberFormat().format(dgnResultViewMode === 'TOP10' ? dgnSimResult.top10.cost : dgnResultViewMode === 'AVG' ? dgnSimResult.avg.cost : dgnSimResult.bot90.cost) }} <span class="text-[8px] font-normal">원</span>
                   </span>
                 </div>
 
-                <div class="flex justify-between items-center px-1 py-1 bg-red-50 dark:bg-red-900/20 rounded mt-1">
-                  <span class="text-[10px] font-bold text-red-500">예상 부족 타팀 TOP 재료</span>
-                  <span class="text-xs font-black text-red-500">
+                <div class="flex justify-between items-center px-1 py-1 bg-red-50 border border-red-100 dark:border-transparent dark:bg-red-900/20 rounded mt-1 transition-colors">
+                  <span class="text-[10px] font-bold text-red-600 dark:text-red-500">예상 부족 타팀 TOP 재료</span>
+                  <span class="text-xs font-black text-red-600 dark:text-red-500">
                     - {{ new Intl.NumberFormat().format(Math.max(0, dgnResultViewMode === 'TOP10' ? dgnSimResult.top10.netTop : dgnResultViewMode === 'AVG' ? dgnSimResult.avg.netTop : dgnSimResult.bot90.netTop)) }} <span class="text-[8px] font-normal">장</span>
                   </span>
                 </div>
               </div>
-              <div v-else class="text-center text-neutral-400 text-xs py-4 font-bold">통계 계산 중...</div>
+              <div v-else class="text-center text-slate-400 dark:text-neutral-400 text-xs py-4 font-bold">통계 계산 중...</div>
 
-              <div class="mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-700">
-                <div class="text-[10px] font-extrabold text-neutral-600 dark:text-neutral-400 mb-1.5 flex items-center gap-1"><Search class="w-3 h-3"/> 내 운세 (백분위) 판독기</div>
+              <div class="mt-3 pt-3 border-t border-slate-200 dark:border-neutral-700 transition-colors">
+                <div class="text-[10px] font-extrabold text-slate-600 dark:text-neutral-400 mb-1.5 flex items-center gap-1"><Search class="w-3 h-3"/> 내 운세 (백분위) 판독기</div>
                 <div class="flex gap-2">
-                  <input type="number" v-model.number="dgnUserSpentKrw" :placeholder="dgnSimResult?.isF2P ? '실제 걸린 개월 수 입력' : '실제 소모한 금액(원) 입력'" class="flex-1 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-600 rounded-lg p-1.5 text-[10px] font-bold outline-none focus:border-indigo-500">
-                  <button @click="dgnCheckMyLuck" class="px-3 bg-neutral-800 dark:bg-neutral-700 text-white rounded-lg text-[10px] font-bold hover:bg-black transition-colors shrink-0">결과 확인</button>
+                  <input type="number" v-model.number="dgnUserSpentKrw" :placeholder="dgnSimResult?.isF2P ? '실제 걸린 개월 수 입력' : '실제 소모한 금액(원) 입력'" class="flex-1 bg-white dark:bg-neutral-900 border border-slate-300 dark:border-neutral-600 rounded-lg p-1.5 text-[10px] font-bold outline-none focus:border-indigo-500 text-slate-900 dark:text-white transition-colors">
+                  <button @click="dgnCheckMyLuck" class="px-3 bg-slate-800 dark:bg-neutral-700 text-white rounded-lg text-[10px] font-bold hover:bg-slate-900 dark:hover:bg-black transition-colors shrink-0">결과 확인</button>
                 </div>
-                <div v-if="dgnMyLuckPercentile !== null" class="mt-2 text-center text-[11px] font-extrabold bg-white dark:bg-neutral-900 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700">
-                  상위 <span :class="dgnMyLuckPercentile <= 10 ? 'text-blue-500' : dgnMyLuckPercentile >= 90 ? 'text-red-500' : 'text-indigo-500'">{{ dgnMyLuckPercentile }}%</span> 입니다! <span class="ml-1 font-medium text-neutral-500 truncate">{{ dgnLuckTitle }}</span>
+                <div v-if="dgnMyLuckPercentile !== null" class="mt-2 text-center text-[11px] font-extrabold bg-white dark:bg-neutral-900 py-1.5 rounded-lg border border-slate-200 dark:border-neutral-700 transition-colors">
+                  상위 <span :class="dgnMyLuckPercentile <= 10 ? 'text-blue-600 dark:text-blue-500' : dgnMyLuckPercentile >= 90 ? 'text-red-600 dark:text-red-500' : 'text-indigo-600 dark:text-indigo-500'">{{ dgnMyLuckPercentile }}%</span> 입니다! <span class="ml-1 font-medium text-slate-500 dark:text-neutral-500 truncate">{{ dgnLuckTitle }}</span>
                 </div>
               </div>
             </div>
 
-            <div class="flex-1 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-2 min-h-[200px] relative flex flex-col shadow-inner">
-              <div class="text-[9px] font-bold text-neutral-400 mb-1 text-center">{{ dgnSimResult?.isF2P ? '소요 기간(개월)' : '소모 금액(원)' }} 누적 확률 분포도 (1회 성공 확률: {{ dgnSimResult?.oneTryProb?.toFixed(4) || 0 }}%)</div>
+            <div class="flex-1 bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 rounded-xl p-2 min-h-[200px] relative flex flex-col shadow-inner transition-colors">
+              <div class="text-[9px] font-bold text-slate-400 dark:text-neutral-400 mb-1 text-center">{{ dgnSimResult?.isF2P ? '소요 기간(개월)' : '소모 금액(원)' }} 누적 확률 분포도 (1회 성공 확률: {{ dgnSimResult?.oneTryProb?.toFixed(4) || 0 }}%)</div>
               <div class="relative flex-1 w-full h-full">
                 <canvas ref="dgnChartCanvas"></canvas>
               </div>
