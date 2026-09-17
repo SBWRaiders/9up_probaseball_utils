@@ -24,52 +24,101 @@ onMounted(() => {
 })
 
 // ==============================================
-// [1] 강화 시뮬레이터
+// ⚡ [1] 강화 시뮬레이터 (리얼리티 엔진)
 // ==============================================
-const BASE_PROBS = [1.0, 0.8, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.075, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05]
-const FAIL_BONUS = 0.025
-const MAX_LEVEL = 15
+// 각 구간별 [기본 확률, 실패 시 추가 확률] 데이터셋
+const ENH_BASE: Record<number, { b: number, i: number }> = {
+  0: { b: 100, i: 0 }, 1: { b: 80, i: 8 }, 2: { b: 60, i: 6 }, 3: { b: 50, i: 5 }, 4: { b: 40, i: 4 }, 
+  5: { b: 30, i: 3 }, 6: { b: 20, i: 2 }, 7: { b: 10, i: 1 }, 8: { b: 7.5, i: 0.75 }, 
+  9: { b: 5, i: 2.5 }, 10: { b: 5, i: 2.5 }, 11: { b: 5, i: 2.5 }, 12: { b: 5, i: 2.5 }, 
+  13: { b: 5, i: 2.5 }, 14: { b: 5, i: 2.5 }
+};
 
-const currentLevel = ref(0)
-const failStack = ref(0)
-const totalCardsUsed = ref(0)
-const logs = ref<{ id: number, type: 'success' | 'fail', from: number, to: number, prob: number, count: number }[]>([])
-let logId = 0
+// 특정 레벨 1업을 위한 통계적 기댓값(장) 계산 헬퍼 함수
+const getStepEV = (lv: number) => {
+  if (lv >= 15) return 0;
+  let { b, i: inc } = ENH_BASE[lv];
+  let ev = 0; let pReach = 1.0;
+  for(let t = 1; t <= 300; t++) {
+    let cur = Math.min(100, b + inc * (t - 1)) / 100;
+    ev += t * pReach * cur;
+    pReach *= (1 - cur);
+    if(pReach < 1e-8) break;
+  }
+  return ev;
+};
 
-const currentBaseProb = computed(() => BASE_PROBS[currentLevel.value] ?? 0.05)
-const currentRealProb = computed(() => Math.min(1.0, currentBaseProb.value + failStack.value * FAIL_BONUS))
+// 0강부터 n강까지의 누적 기댓값 배열 캐싱
+const EV_CUMULATIVE = [0];
+let _cum = 0;
+for(let i = 0; i <= 14; i++) { _cum += getStepEV(i); EV_CUMULATIVE.push(_cum); }
 
-const tryEnhance = () => {
-  if (currentLevel.value >= MAX_LEVEL) return
-  totalCardsUsed.value++
-  const r = Math.random()
-  const success = r <= currentRealProb.value
-  logs.value.unshift({ id: logId++, type: success ? 'success' : 'fail', from: currentLevel.value, to: success ? currentLevel.value + 1 : currentLevel.value, prob: currentRealProb.value, count: totalCardsUsed.value })
-  if (logs.value.length > 50) logs.value.pop()
-  if (success) { currentLevel.value++; failStack.value = 0 } else { failStack.value++ }
+// 강화 상태 관리 반응형 객체
+const enhState = reactive({
+  cards: 100,        // 보유 카드
+  startLv: 11,       // 팩트 체크 시작점 (초기화 기준)
+  curLv: 11,         // 현재 강화 단계
+  targetLv: 15,      // 목표 강화 단계
+  extraProb: 0.0,    // 현재 쌓인 추가 확률
+  usedCount: 0,      // 현재 시작점부터 쓴 카드 수
+  logs: [] as { id: number, type: string, from: number, to: number, prob: string, used: number }[]
+});
+
+// 강제 초기화 (인게임 리셋권)
+const enhReset = () => {
+  enhState.curLv = enhState.startLv;
+  enhState.extraProb = 0.0;
+  enhState.usedCount = 0;
+  enhState.logs = [];
 }
-const resetEnhanceSim = () => { currentLevel.value = 0; failStack.value = 0; totalCardsUsed.value = 0; logs.value = [] }
 
-const expectedValues = computed(() => {
-  return BASE_PROBS.map((prob) => {
-    let expectedTries = 0; let reachProb = 1.0;
-    for (let k = 1; k < 100; k++) {
-      const currentTryProb = Math.min(1.0, prob + (k - 1) * FAIL_BONUS)
-      expectedTries += k * reachProb * currentTryProb
-      reachProb *= (1 - currentTryProb)
-      if (reachProb <= 0) break
+// 시작 단계가 변경되면 기댓값 측정을 위해 강제 리셋
+watch(() => enhState.startLv, () => { enhReset(); });
+
+// 🔥 실시간 기댓값 비교 연산기
+const enhCalcDiff = computed(() => {
+  if (enhState.curLv <= enhState.startLv) return { expected: 0, diff: 0, text: '기록이 없습니다.', color: 'text-slate-400 dark:text-neutral-500' };
+  let expected = EV_CUMULATIVE[enhState.curLv] - EV_CUMULATIVE[enhState.startLv];
+  let diff = expected - enhState.usedCount;
+  
+  if (diff > 0) return { expected, diff, text: `평균보다 ${diff.toFixed(1)}장 덜 썼습니다! (개이득 🍀)`, color: 'text-blue-600 dark:text-blue-400 font-bold' };
+  else if (diff < 0) return { expected, diff, text: `평균보다 ${Math.abs(diff).toFixed(1)}장 더 썼습니다 (억까 😭)`, color: 'text-red-600 dark:text-red-500 font-bold' };
+  return { expected, diff, text: `정확히 평균 수준입니다. (무난)`, color: 'text-green-600 dark:text-green-500 font-bold' };
+});
+
+const doEnhance = (isAuto: boolean) => {
+  let loopCount = 0;
+  if (enhState.curLv >= 15) return alert("이미 최대 강화(+15) 상태입니다.");
+  
+  while (true) {
+    if (enhState.cards <= 0) { alert("보유 카드가 모두 소진되었습니다! (파산)"); break; }
+    if (enhState.curLv >= enhState.targetLv) { if (isAuto) alert(`목표 강화(+${enhState.targetLv})에 도달하여 자동 강화를 멈춥니다!`); break; }
+
+    enhState.cards--;
+    enhState.usedCount++;
+    let { b, i: inc } = ENH_BASE[enhState.curLv];
+    let currentProb = b + enhState.extraProb;
+    if (currentProb > 100) currentProb = 100;
+
+    let roll = Math.random() * 100;
+    let success = roll < currentProb;
+
+    if (success) {
+      enhState.logs.unshift({ id: Date.now() + loopCount, type: 'success', from: enhState.curLv, to: enhState.curLv + 1, prob: currentProb.toFixed(1), used: enhState.usedCount });
+      enhState.curLv++;
+      enhState.extraProb = 0.0;
+      if (!isAuto) break; // 수동이면 1번 멈춤
+    } else {
+      enhState.logs.unshift({ id: Date.now() + loopCount, type: 'fail', from: enhState.curLv, to: enhState.curLv, prob: currentProb.toFixed(1), used: enhState.usedCount });
+      enhState.extraProb += inc;
+      if (!isAuto) break; // 수동이면 1번 멈춤
     }
-    return expectedTries
-  })
-})
-const calcStartLevel = ref(0)
-const calcTargetLevel = ref(15)
-const calculatedExpectedCards = computed(() => {
-  if (calcStartLevel.value >= calcTargetLevel.value) return 0
-  let total = 0
-  for (let i = calcStartLevel.value; i < calcTargetLevel.value; i++) total += expectedValues.value[i]
-  return total
-})
+
+    if (enhState.logs.length > 300) enhState.logs.pop();
+    loopCount++;
+    if (isAuto && loopCount > 2000) break; // 무한루프 방지
+  }
+}
 
 // ==============================================
 // [2] 커리어 옵션 시뮬레이터 (기본 데이터)
@@ -1118,60 +1167,88 @@ const dgnCheckMyLuck = () => {
       </div>
     </div>
 
-    <!-- [탭 2] 강화 시뮬레이터 -->
-    <div v-show="activeTab === 'enhance'" class="flex flex-col max-w-6xl mx-auto w-full animate-fade-in">
-      <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <section class="flex flex-col gap-6">
-          <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6 shadow-sm flex flex-col items-center shrink-0 relative">
-            <RefreshCw @click="resetEnhanceSim" class="absolute top-4 right-4 w-5 h-5 cursor-pointer text-neutral-400 hover:text-blue-500" />
-            <div class="flex flex-col items-center mb-2 bg-neutral-50 dark:bg-neutral-800 px-4 py-2 rounded-lg">
-              <label class="text-xs font-bold text-neutral-500 mb-1">시작 단계 강제 세팅 (기록 초기화)</label>
-              <select v-model="currentLevel" @change="failStack=0; totalCardsUsed=0; logs=[]" class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-md px-4 py-1 text-sm font-bold outline-none text-center hover:border-blue-500 transition-colors cursor-pointer"><option v-for="n in (MAX_LEVEL+1)" :key="n-1" :value="n-1">+{{n-1}}부터 시작</option></select>
-            </div>
-            <div class="flex items-center gap-4 text-5xl font-black my-3">
-              <span :class="currentLevel >= MAX_LEVEL ? 'text-yellow-500' : 'text-neutral-400'">+{{ currentLevel }}</span>
-              <ArrowRight v-if="currentLevel < MAX_LEVEL" class="w-6 h-6 text-neutral-300" />
-              <span v-if="currentLevel < MAX_LEVEL" class="text-blue-500">+{{ currentLevel + 1 }}</span>
-            </div>
-            <div class="text-lg font-bold mb-4">{{ (currentRealProb * 100).toFixed(1) }}% <span class="text-sm text-neutral-400 font-normal">(기본{{(currentBaseProb*100).toFixed(1)}}%)</span></div>
-            <button @click="tryEnhance" :disabled="currentLevel >= MAX_LEVEL" class="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-lg flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"><Zap class="w-5 h-5"/> 강화 시도</button>
-          </div>
-          <div class="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 flex flex-col h-[400px] shadow-sm">
-            <div class="font-bold text-base px-4 py-3 border-b border-neutral-200 dark:border-neutral-800 flex items-center gap-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-t-2xl"><History class="w-4 h-4"/> 강화 기록</div>
-            <div class="flex-1 overflow-y-auto p-3 space-y-2">
-              <div v-for="log in logs" :key="log.id" class="flex justify-between items-center p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-neutral-100 dark:border-neutral-800 text-sm">
-                <span :class="log.type === 'success' ? 'text-blue-600 font-bold' : 'text-red-500 font-medium'">+{{log.from}} ➔ +{{log.to}}</span>
-                <span class="text-neutral-500">{{ (log.prob * 100).toFixed(1) }}% <span class="mx-1">|</span> {{log.count}}장</span>
-              </div>
-              <div v-if="logs.length === 0" class="text-center text-neutral-400 py-10 text-sm">기록이 없습니다.</div>
-            </div>
-          </div>
-        </section>
+    <!-- ⚡ [탭 2] 강화 시뮬레이터 -->
+    <div v-show="activeTab==='enhance'" class="grid grid-cols-1 xl:grid-cols-12 gap-5 w-full animate-fade-in max-w-[1600px] mx-auto text-slate-800 dark:text-neutral-100">
+      
+      <!-- [좌측] 세팅 및 리얼리티 컨트롤러 -->
+      <section class="xl:col-span-4 flex flex-col gap-4 h-full">
         
-        <section class="flex flex-col gap-6">
-          <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-5 shadow-sm flex items-center justify-between shrink-0">
-            <div class="flex gap-3 w-1/2">
-              <select v-model="calcStartLevel" class="w-1/2 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-2 font-medium"><option v-for="n in MAX_LEVEL" :key="n" :value="n-1">+{{n-1}}</option></select>
-              <select v-model="calcTargetLevel" class="w-1/2 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-2 font-medium"><option v-for="n in MAX_LEVEL" :key="n" :value="n">+{{n}}</option></select>
-            </div>
-            <div class="text-3xl font-black text-blue-600">{{ calculatedExpectedCards > 0 ? calculatedExpectedCards.toFixed(1) : '0' }} <span class="text-base font-medium text-neutral-500">장</span></div>
+        <!-- 현재 인게임 상태 세팅 -->
+        <div class="bg-white dark:bg-[#1e1e24] border border-slate-200 dark:border-neutral-700/50 rounded-2xl p-5 shadow-sm dark:shadow-lg transition-colors">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="font-extrabold text-sm text-indigo-600 dark:text-indigo-400"><Settings class="w-4 h-4 inline-block mr-1"/> 내 인게임 상태 세팅</h3>
+            <button @click="enhReset" class="text-xs font-bold text-red-500 hover:text-red-700 dark:hover:text-red-400 flex items-center gap-1 transition-colors"><RotateCcw class="w-3 h-3"/> 초기화권 사용</button>
           </div>
-          <div class="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl overflow-hidden shadow-sm flex-1">
-            <div class="overflow-y-auto h-full max-h-[600px]">
-              <table class="w-full text-center text-sm sm:text-base">
-                <thead class="bg-neutral-50 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700 sticky top-0 z-10 font-bold">
-                  <tr><th class="py-3.5">단계</th><th>확률</th><th>1업</th><th>누적 필요</th></tr>
-                </thead>
-                <tbody class="divide-y divide-neutral-100 dark:divide-neutral-800">
-                  <tr v-for="(prob, idx) in BASE_PROBS" :key="idx" class="hover:bg-neutral-50 dark:hover:bg-neutral-800/50">
-                    <td class="py-3 font-medium text-neutral-700 dark:text-neutral-300">+{{idx}}➔+{{idx+1}}</td><td>{{(prob*100).toFixed(1)}}%</td><td>{{expectedValues[idx].toFixed(1)}}</td><td class="font-extrabold text-blue-600">{{(1 + expectedValues.slice(0, idx + 1).reduce((a, b) => a + b, 0)).toFixed(1)}}</td>
-                  </tr>
-                </tbody>
-              </table>
+          
+          <div class="grid grid-cols-2 gap-3 mb-3">
+            <div><label class="text-[10px] font-bold text-slate-500 block mb-1">시작(현재) 단계</label><select v-model.number="enhState.startLv" class="w-full bg-slate-50 dark:bg-[#2a2a35] border border-slate-300 dark:border-neutral-700 rounded p-2 text-sm font-bold outline-none text-slate-900 dark:text-white transition-colors"><option v-for="n in 15" :key="n-1" :value="n-1">+{{ n-1 }}</option></select></div>
+            <div><label class="text-[10px] font-bold text-slate-500 block mb-1">목표 강화 단계</label><select v-model.number="enhState.targetLv" class="w-full bg-slate-50 dark:bg-[#2a2a35] border border-slate-300 dark:border-neutral-700 rounded p-2 text-sm font-bold text-blue-600 dark:text-blue-400 outline-none transition-colors"><option v-for="n in 15" :key="n" :value="n">+{{ n }}</option></select></div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="text-[10px] font-bold text-slate-500 block mb-1">보유 카드 (장)</label><input type="number" v-model.number="enhState.cards" min="0" class="w-full bg-slate-50 dark:bg-[#2a2a35] border border-slate-300 dark:border-neutral-700 rounded p-2 text-sm font-bold outline-none text-slate-900 dark:text-white transition-colors"></div>
+            <div><label class="text-[10px] font-bold text-slate-500 block mb-1">현재 쌓인 추가 확률 (%)</label><input type="number" v-model.number="enhState.extraProb" step="0.1" min="0" class="w-full bg-slate-50 dark:bg-[#2a2a35] border border-red-300 dark:border-red-800 rounded p-2 text-sm font-bold outline-none text-red-600 dark:text-red-400 transition-colors"></div>
+          </div>
+        </div>
+
+        <!-- 강화 실행 버튼부 -->
+        <div class="bg-white dark:bg-[#1e1e24] border border-slate-200 dark:border-neutral-700/50 rounded-2xl p-6 shadow-sm dark:shadow-lg text-center flex flex-col items-center transition-colors">
+          <div class="text-xs font-bold text-slate-500 mb-2">현재 강화 단계</div>
+          <div class="text-6xl font-black text-amber-500 dark:text-yellow-400 mb-2 drop-shadow-sm">+{{ enhState.curLv }}</div>
+          <div v-if="enhState.curLv < 15" class="text-xs font-bold text-slate-700 dark:text-neutral-300 mb-6">
+            <span class="text-blue-600 dark:text-blue-400">{{ (ENH_BASE[enhState.curLv]?.b + enhState.extraProb).toFixed(1) }}%</span> 
+            <span class="text-[10px] text-slate-400 ml-1">(기본 {{ ENH_BASE[enhState.curLv]?.b.toFixed(1) }}% + 추가 {{ enhState.extraProb.toFixed(1) }}%)</span>
+          </div>
+          <div v-else class="text-xs font-bold text-slate-700 dark:text-neutral-300 mb-6">MAX LEVEL</div>
+
+          <div class="flex flex-col gap-2 w-full">
+            <button @click="doEnhance(false)" :disabled="enhState.curLv>=15" class="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-black text-lg shadow-md transition-colors disabled:opacity-50 flex justify-center items-center gap-2"><Zap class="w-5 h-5"/> 1회 수동 강화 시도</button>
+            <button @click="doEnhance(true)" :disabled="enhState.curLv>=15" class="w-full py-3 bg-slate-800 dark:bg-[#3a3a45] hover:bg-slate-700 dark:hover:bg-neutral-600 text-white rounded-xl font-bold shadow-sm transition-colors disabled:opacity-50 flex justify-center items-center gap-2"><Play class="w-4 h-4"/>목표까지 자동 오토 돌리기</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- [우측] 기록 및 운빨 기댓값 판독기 -->
+      <section class="xl:col-span-8 flex flex-col gap-4 h-full">
+        <!-- 🔥 운빨 판독기 -->
+        <div class="bg-indigo-50 border border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800/50 rounded-2xl p-5 shadow-sm dark:shadow-lg flex flex-col justify-center transition-colors">
+          <h3 class="font-extrabold text-sm mb-3 flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400"><BarChart class="w-4 h-4"/> 실시간 기댓값(운빨) 팩트 체크</h3>
+          <div class="grid grid-cols-3 gap-4 mb-3">
+            <div class="bg-white dark:bg-[#1a1b1e] border border-slate-200 dark:border-neutral-800 rounded-xl p-3 text-center shadow-inner">
+              <div class="text-[10px] font-bold text-slate-500 mb-1">통계적 기댓값</div>
+              <div class="text-lg font-black text-slate-900 dark:text-white">{{ enhCalcDiff.expected.toFixed(1) }} <span class="text-xs font-normal text-slate-500">장</span></div>
+            </div>
+            <div class="bg-white dark:bg-[#1a1b1e] border border-slate-200 dark:border-neutral-800 rounded-xl p-3 text-center shadow-inner">
+              <div class="text-[10px] font-bold text-slate-500 mb-1">나의 실제 사용량</div>
+              <div class="text-lg font-black text-slate-900 dark:text-white">{{ enhState.usedCount }} <span class="text-xs font-normal text-slate-500">장</span></div>
+            </div>
+            <div class="bg-white dark:bg-[#1a1b1e] border border-slate-200 dark:border-neutral-800 rounded-xl p-3 text-center shadow-inner">
+              <div class="text-[10px] font-bold text-slate-500 mb-1">구간 달성 팩트</div>
+              <div class="text-sm font-black mt-1" :class="enhCalcDiff.color">{{ enhState.startLv === enhState.curLv ? '-' : '+'+enhState.startLv+' ➔ +'+enhState.curLv }}</div>
             </div>
           </div>
-        </section>
-      </div>
+          <div class="text-center bg-white dark:bg-[#1a1b1e] border border-slate-200 dark:border-neutral-800 py-2 rounded-lg shadow-sm">
+            <span class="text-sm" :class="enhCalcDiff.color">{{ enhCalcDiff.text }}</span>
+          </div>
+        </div>
+
+        <!-- 강화 기록 로그 -->
+        <div class="bg-white dark:bg-[#1e1e24] border border-slate-200 dark:border-neutral-700/50 rounded-2xl flex-1 flex flex-col shadow-sm dark:shadow-lg overflow-hidden transition-colors">
+          <div class="px-5 py-3 border-b border-slate-200 dark:border-neutral-700/50 font-extrabold text-sm text-slate-800 dark:text-white flex items-center gap-1.5"><History class="w-4 h-4"/> 강화 기록</div>
+          <div class="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar min-h-[300px]">
+            <div v-if="enhState.logs.length === 0" class="text-center text-sm font-bold text-slate-400 dark:text-neutral-500 py-20">기록이 없습니다.</div>
+            
+            <div v-for="log in enhState.logs" :key="log.id" class="flex justify-between items-center p-3 border-b border-slate-100 dark:border-neutral-800/50 last:border-0 hover:bg-slate-50 dark:hover:bg-neutral-800/30 transition-colors">
+              <div class="font-bold text-sm tracking-widest" :class="log.type === 'success' ? 'text-blue-600 dark:text-blue-500' : 'text-red-500 dark:text-red-500'">
+                +{{ log.from }} ➔ +{{ log.to }}
+              </div>
+              <div class="text-xs font-medium text-slate-500 dark:text-neutral-400">
+                {{ log.prob }}% <span class="mx-1 text-slate-300 dark:text-neutral-600">|</span> {{ log.used }}장
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      
     </div>
 
     <!-- [탭 3] 커리어 탭 -->
