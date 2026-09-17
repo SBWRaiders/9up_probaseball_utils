@@ -1174,7 +1174,7 @@ const dgnCheckMyLuck = () => {
       <section class="xl:col-span-4 flex flex-col gap-4 h-full">
         
         <!-- 현재 인게임 상태 세팅 -->
-        <div class="bg-white dark:bg-[#1e1e24] border border-slate-200 dark:border-neutral-700/50 rounded-2xl p-5 shadow-sm dark:shadow-lg transition-colors">
+        <div class="bg-white dark:bg-[#1e1e24] border border-slate-200 dark:border-neutral-700/50 rounded-2xl p-5 shadow-sm dark:shadow-lg transition-colors shrink-0">
           <div class="flex justify-between items-center mb-4">
             <h3 class="font-extrabold text-sm text-indigo-600 dark:text-indigo-400"><Settings class="w-4 h-4 inline-block mr-1"/> 내 인게임 상태 세팅</h3>
             <button @click="enhReset" class="text-xs font-bold text-red-500 hover:text-red-700 dark:hover:text-red-400 flex items-center gap-1 transition-colors"><RotateCcw class="w-3 h-3"/> 초기화권 사용</button>
@@ -1191,7 +1191,7 @@ const dgnCheckMyLuck = () => {
         </div>
 
         <!-- 강화 실행 버튼부 -->
-        <div class="bg-white dark:bg-[#1e1e24] border border-slate-200 dark:border-neutral-700/50 rounded-2xl p-6 shadow-sm dark:shadow-lg text-center flex flex-col items-center transition-colors">
+        <div class="bg-white dark:bg-[#1e1e24] border border-slate-200 dark:border-neutral-700/50 rounded-2xl p-6 shadow-sm dark:shadow-lg text-center flex flex-col items-center transition-colors shrink-0">
           <div class="text-xs font-bold text-slate-500 mb-2">현재 강화 단계</div>
           <div class="text-6xl font-black text-amber-500 dark:text-yellow-400 mb-2 drop-shadow-sm">+{{ enhState.curLv }}</div>
           <div v-if="enhState.curLv < 15" class="text-xs font-bold text-slate-700 dark:text-neutral-300 mb-6">
@@ -1205,51 +1205,30 @@ const dgnCheckMyLuck = () => {
             <button @click="doEnhance(true)" :disabled="enhState.curLv>=15" class="w-full py-3 bg-slate-800 dark:bg-[#3a3a45] hover:bg-slate-700 dark:hover:bg-neutral-600 text-white rounded-xl font-bold shadow-sm transition-colors disabled:opacity-50 flex justify-center items-center gap-2"><Play class="w-4 h-4"/>목표까지 자동 오토 돌리기</button>
           </div>
         </div>
-      </section>
 
-      <!-- [우측] 기록 및 운빨 기댓값 판독기 -->
-      <section class="xl:col-span-8 flex flex-col gap-4 h-full">
-        <!-- 🔥 운빨 판독기 -->
-        <div class="bg-indigo-50 border border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800/50 rounded-2xl p-5 shadow-sm dark:shadow-lg flex flex-col justify-center transition-colors">
-          <h3 class="font-extrabold text-sm mb-3 flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400"><BarChart class="w-4 h-4"/> 실시간 기댓값(운빨) 팩트 체크</h3>
-          <div class="grid grid-cols-3 gap-4 mb-3">
-            <div class="bg-white dark:bg-[#1a1b1e] border border-slate-200 dark:border-neutral-800 rounded-xl p-3 text-center shadow-inner">
-              <div class="text-[10px] font-bold text-slate-500 mb-1">통계적 기댓값</div>
-              <div class="text-lg font-black text-slate-900 dark:text-white">{{ enhCalcDiff.expected.toFixed(1) }} <span class="text-xs font-normal text-slate-500">장</span></div>
-            </div>
-            <div class="bg-white dark:bg-[#1a1b1e] border border-slate-200 dark:border-neutral-800 rounded-xl p-3 text-center shadow-inner">
-              <div class="text-[10px] font-bold text-slate-500 mb-1">나의 실제 사용량</div>
-              <div class="text-lg font-black text-slate-900 dark:text-white">{{ enhState.usedCount }} <span class="text-xs font-normal text-slate-500">장</span></div>
-            </div>
-            <div class="bg-white dark:bg-[#1a1b1e] border border-slate-200 dark:border-neutral-800 rounded-xl p-3 text-center shadow-inner">
-              <div class="text-[10px] font-bold text-slate-500 mb-1">구간 달성 팩트</div>
-              <div class="text-sm font-black mt-1" :class="enhCalcDiff.color">{{ enhState.startLv === enhState.curLv ? '-' : '+'+enhState.startLv+' ➔ +'+enhState.curLv }}</div>
-            </div>
+        <!-- 🔥 다시 부활한 구간별 기댓값 통계표 🔥 -->
+        <div class="bg-white dark:bg-[#1e1e24] border border-slate-200 dark:border-neutral-700/50 rounded-2xl overflow-hidden shadow-sm dark:shadow-lg transition-colors flex flex-col flex-1 min-h-[250px]">
+          <div class="font-extrabold text-sm px-4 py-3 border-b border-slate-200 dark:border-neutral-700/50 bg-slate-50 dark:bg-[#2a2a35] flex items-center gap-2 text-slate-800 dark:text-white shrink-0">
+            <Calculator class="w-4 h-4 text-blue-500"/> 구간별 강화 확률 및 기댓값
           </div>
-          <div class="text-center bg-white dark:bg-[#1a1b1e] border border-slate-200 dark:border-neutral-800 py-2 rounded-lg shadow-sm">
-            <span class="text-sm" :class="enhCalcDiff.color">{{ enhCalcDiff.text }}</span>
+          <div class="overflow-y-auto custom-scrollbar flex-1">
+            <table class="w-full text-center text-xs">
+              <thead class="bg-slate-50 dark:bg-[#1a1b1e] border-b border-slate-200 dark:border-neutral-700/50 sticky top-0 z-10 font-bold text-slate-500 dark:text-neutral-400">
+                <tr><th class="py-2.5">단계</th><th>기본 확률</th><th>1업 기댓값</th><th>누적 기댓값</th></tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 dark:divide-neutral-800/50">
+                <tr v-for="n in 15" :key="n-1" class="hover:bg-slate-50 dark:hover:bg-neutral-800/30 transition-colors" :class="{'bg-blue-50 dark:bg-blue-900/20 border-l-[3px] border-blue-500': enhState.curLv === n-1}">
+                  <td class="py-2.5 font-bold text-slate-700 dark:text-neutral-300" :class="{'text-blue-600 dark:text-blue-400': enhState.curLv === n-1}">+{{n-1}} ➔ +{{n}}</td>
+                  <td class="font-medium text-slate-600 dark:text-neutral-400">{{ ENH_BASE[n-1].b.toFixed(1) }}%</td>
+                  <td class="font-medium text-slate-500 dark:text-neutral-400">{{ (EV_CUMULATIVE[n] - EV_CUMULATIVE[n-1]).toFixed(1) }}장</td>
+                  <td class="font-black text-blue-600 dark:text-blue-400">{{ EV_CUMULATIVE[n].toFixed(1) }}장</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
-        <!-- 강화 기록 로그 -->
-        <div class="bg-white dark:bg-[#1e1e24] border border-slate-200 dark:border-neutral-700/50 rounded-2xl flex-1 flex flex-col shadow-sm dark:shadow-lg overflow-hidden transition-colors">
-          <div class="px-5 py-3 border-b border-slate-200 dark:border-neutral-700/50 font-extrabold text-sm text-slate-800 dark:text-white flex items-center gap-1.5"><History class="w-4 h-4"/> 강화 기록</div>
-          <div class="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar min-h-[300px]">
-            <div v-if="enhState.logs.length === 0" class="text-center text-sm font-bold text-slate-400 dark:text-neutral-500 py-20">기록이 없습니다.</div>
-            
-            <div v-for="log in enhState.logs" :key="log.id" class="flex justify-between items-center p-3 border-b border-slate-100 dark:border-neutral-800/50 last:border-0 hover:bg-slate-50 dark:hover:bg-neutral-800/30 transition-colors">
-              <div class="font-bold text-sm tracking-widest" :class="log.type === 'success' ? 'text-blue-600 dark:text-blue-500' : 'text-red-500 dark:text-red-500'">
-                +{{ log.from }} ➔ +{{ log.to }}
-              </div>
-              <div class="text-xs font-medium text-slate-500 dark:text-neutral-400">
-                {{ log.prob }}% <span class="mx-1 text-slate-300 dark:text-neutral-600">|</span> {{ log.used }}장
-              </div>
-            </div>
-          </div>
-        </div>
       </section>
-      
-    </div>
 
     <!-- [탭 3] 커리어 탭 -->
     <div v-show="activeTab === 'career'" class="flex flex-col w-full animate-fade-in">
