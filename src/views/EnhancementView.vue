@@ -673,13 +673,13 @@ const dgnState = reactive({
   shop: { wQ: 0, wC: 0, sp: 0, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0, unl: 0 }, 
   payback: { spent: 0, totalKrw: 0, t1: false, t2: false, t3: false, t4: false, inf: 0 }, 
   pity: { pack: 50, trade: 30 },
-  logs: [] as { id: number, msg: string, type: string }[]
+  logs: [] as { id: number, msg: string, type: string }[],
+  undoStack: [] as string[] // 🔥 롤백 시스템(스냅샷) 메모리 추가
 })
 
 // 도감 ON/OFF 및 수량 조절
 const toggleDgnAlbum = (t: string) => { 
-  if (dgnState.album[t] === 0) dgnState.album[t] = 1; 
-  else dgnState.album[t] = 0;
+  if (dgnState.album[t] === 0) dgnState.album[t] = 1; else dgnState.album[t] = 0;
 }
 const incDgnAlbum = (t: string) => { dgnState.album[t]++ }
 const decDgnAlbum = (t: string) => { 
@@ -708,6 +708,16 @@ const dgnLog = (msg: string, type: 'normal'|'success'|'fail'|'action'|'epic' = '
   if(dgnState.logs.length > 50) dgnState.logs.pop() 
 }
 
+// 🔥 [추가] 직전 결제/상점 구매 되돌리기(환불) 기능
+const dgnUndoPurchase = () => {
+  if (dgnState.undoStack.length === 0) return alert("되돌릴 결제 내역이 없거나, 이미 팩 개봉 등 확정 행동을 하여 취소할 수 없습니다.");
+  const prev = JSON.parse(dgnState.undoStack.pop()!);
+  Object.keys(prev.shop).forEach(k => (dgnState.shop as any)[k] = prev.shop[k]);
+  Object.keys(prev.inv).forEach(k => (dgnState.inv as any)[k] = prev.inv[k]);
+  Object.keys(prev.payback).forEach(k => (dgnState.payback as any)[k] = prev.payback[k]);
+  dgnLog(`[환불 완료] 직전 결제 및 획득한 재화가 모두 롤백되었습니다.`, 'fail');
+}
+
 const dgnResetAll = () => {
   if(!confirm("모든 시뮬레이션 데이터를 초기화하시겠습니까?")) return
   dgnState.month = 1; dgnState.inv = { normal: 0, pickup: 0, tickets: 0, myDgn: 0, myTop: 0, otherTop: 0, cash: 0 }
@@ -715,7 +725,7 @@ const dgnResetAll = () => {
   TEAMS.forEach(t => TOP_DB[t].forEach(p => dgnState.topAlbum[t][p] = 0))
   dgnState.shop = { wQ: 0, wC: 0, sp: 0, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0, unl: 0 }
   dgnState.payback = { spent: 0, totalKrw: 0, t1: false, t2: false, t3: false, t4: false, inf: 0 }
-  dgnState.pity = { pack: 50, trade: 30 }; dgnState.logs = []
+  dgnState.pity = { pack: 50, trade: 30 }; dgnState.logs = []; dgnState.undoStack = [];
   dgnLog(`[시스템] 데이터가 완벽히 리셋되었습니다.`, 'action')
 }
 
@@ -723,6 +733,7 @@ const dgnNextMonth = () => {
   dgnState.month++
   dgnState.shop = { wQ: 0, wC: 0, sp: 0, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0, unl: 0 }
   dgnState.payback = { spent: 0, totalKrw: dgnState.payback.totalKrw, t1: false, t2: false, t3: false, t4: false, inf: dgnState.payback.inf } 
+  dgnState.undoStack = []; // 달이 넘어가면 롤백 불가
   dgnLog(`🗓️ ${dgnState.month}개월 차 시작! 월간 상점 및 페이백이 갱신되었습니다.`, 'action')
 }
 
@@ -748,6 +759,9 @@ const dgnProcessPayback = () => {
 
 const dgnAddManualPayback = () => { 
   if(manualKrwInput.value <= 0) return
+  // 🔥 스냅샷 저장
+  dgnState.undoStack.push(JSON.stringify({ shop: dgnState.shop, inv: dgnState.inv, payback: dgnState.payback }))
+  
   dgnState.payback.spent += manualKrwInput.value
   dgnState.payback.totalKrw += manualKrwInput.value
   dgnLog(`[수동 충전] 타 패키지로 ${manualKrwInput.value.toLocaleString()}원 채움 완료!`, 'action')
@@ -757,6 +771,10 @@ const dgnAddManualPayback = () => {
 
 const dgnBuyPkg = (key: keyof typeof dgnState.shop, limit: number, price: number, n: number, p: number, t: number, name: string, isCash: boolean = false, purchaseCount: number = 1) => {
   if (limit < 999 && dgnState.shop[key] + purchaseCount > limit) return alert(`남은 구매 가능 횟수가 부족합니다. (남은 횟수: ${limit - dgnState.shop[key]}회)`)
+  
+  // 🔥 결제 직전 스냅샷 저장 (롤백용)
+  dgnState.undoStack.push(JSON.stringify({ shop: dgnState.shop, inv: dgnState.inv, payback: dgnState.payback }))
+  
   if (isCash) { dgnState.inv.cash += (price * purchaseCount) } 
   else { 
     dgnState.payback.spent += (price * purchaseCount); 
@@ -770,6 +788,7 @@ const dgnBuyPkg = (key: keyof typeof dgnState.shop, limit: number, price: number
 
 const dgnOpenPack = (count: number) => {
   if (dgnState.inv.normal < count) return alert("일반팩이 부족합니다.")
+  dgnState.undoStack = []; // 🔥 가챠를 깠으므로 환불 불가 (어뷰징 방지)
   dgnState.inv.normal -= count; 
   dgnState.inv.tickets += (count * 2); 
   for (let i=0; i<count; i++) {
@@ -794,6 +813,7 @@ const dgnOpenPack = (count: number) => {
 
 const dgnOpenPickup = () => {
   if (dgnState.inv.pickup < 1) return alert("픽업팩이 부족합니다.")
+  dgnState.undoStack = []; // 🔥 환불 불가
   dgnState.inv.pickup--; 
   let t = TEAMS[Math.floor(Math.random()*12)], pn = D_WAVES[dgnState.targetWave][t]
   if (t === dgnState.myTeam) { dgnState.inv.myDgn++; dgnLog(`✨[픽업] 자팀 ${pn} 100% 확정 등장!✨`, 'epic') }
@@ -832,9 +852,11 @@ const dgnRunMixer = () => {
     break; 
   }
   if(cnt===0) alert("재료(서로 다른 잉여카드 3종류) 또는 티켓이 부족합니다.")
+  else dgnState.undoStack = []; // 🔥 믹서기를 돌렸으므로 환불 불가
 }
 
 const dgnOpenPerfect = (count: number) => {
+  dgnState.undoStack = []; // 🔥 환불 불가
   for (let i = 0; i < count; i++) {
     for (let j = 0; j < 8; j++) {
       let top = ALL_TOPS[Math.floor(Math.random() * 212)]
@@ -1567,9 +1589,11 @@ const dgnCheckMyLuck = () => {
             </div>
           </div>
 
-          <h3 class="font-extrabold text-sm mb-2 text-slate-700 dark:text-neutral-300 pt-3 border-t border-slate-200 dark:border-neutral-700/50"><ShoppingCart class="w-4 h-4 inline-block mr-1"/> 인게임 상점 <span class="text-[9px] font-normal text-slate-400 dark:text-neutral-500 ml-1">(가격순 정렬)</span></h3>
-          <div class="flex justify-between text-[10px] text-slate-500 dark:text-neutral-400 mb-2 px-1"><span>총 누적 소모 캐시:</span> <span class="text-purple-600 dark:text-purple-400 font-bold">{{ new Intl.NumberFormat().format(dgnState.inv.cash) }} 💎</span></div>
-          
+          <div class="flex justify-between items-center pt-3 border-t border-slate-200 dark:border-neutral-700/50 mb-1">
+            <h3 class="font-extrabold text-sm text-slate-700 dark:text-neutral-300"><ShoppingCart class="w-4 h-4 inline-block mr-1"/> 인게임 상점 <span class="text-[9px] font-normal text-slate-400 dark:text-neutral-500 ml-1">(가격순)</span></h3>
+            <button @click="dgnUndoPurchase" :disabled="dgnState.undoStack.length === 0" class="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-900/20 dark:hover:bg-red-900/40 dark:text-red-400 text-[10px] font-bold rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 shadow-sm"><RotateCcw class="w-3 h-3"/> 직전 결제 취소</button>
+          </div>
+          <div class="flex justify-between text-[10px] text-slate-500 dark:text-neutral-400 mb-2 px-1"><span>총 누적 소모 캐시:</span> <span class="text-purple-600 dark:text-purple-400 font-bold">{{ new Intl.NumberFormat().format(dgnState.inv.cash) }} 💎</span></div>          
           <div class="space-y-2 overflow-y-auto pr-1 flex-1 pb-2">
             <!-- 0원 -->
             <button @click="dgnBuyPkg('wQ', 4, 0, 1, 0, 0, '주간 퀘스트')" :disabled="dgnState.shop.wQ>=4" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.wQ<4?'bg-blue-50 border border-blue-200 dark:bg-blue-900/20 dark:border-blue-800/50':'bg-slate-50 dark:bg-[#2a2a35] border border-slate-200 dark:border-neutral-700/50 opacity-50'"><div><div class="text-[10px] text-blue-600 dark:text-blue-400">주간 퀘스트 (월) [{{dgnState.shop.wQ}}/4]</div><div class="text-xs font-bold text-slate-900 dark:text-white">일반팩 1</div></div></button>
