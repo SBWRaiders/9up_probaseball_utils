@@ -24,12 +24,12 @@ onMounted(() => {
 })
 
 // ==============================================
-// ⚡ [1] 강화 시뮬레이터 (리얼리티 엔진)
+// ⚡ [1] 강화 시뮬레이터 (리얼리티 엔진 - 엑셀 완벽 동기화)
 // ==============================================
-// 각 구간별 [기본 확률, 실패 시 추가 확률] 데이터셋
+// 모든 구간 실패 시 보너스는 +2.5% 고정 (인게임 엑셀 데이터 완벽 일치)
 const ENH_BASE: Record<number, { b: number, i: number }> = {
-  0: { b: 100, i: 0 }, 1: { b: 80, i: 8 }, 2: { b: 60, i: 6 }, 3: { b: 50, i: 5 }, 4: { b: 40, i: 4 }, 
-  5: { b: 30, i: 3 }, 6: { b: 20, i: 2 }, 7: { b: 10, i: 1 }, 8: { b: 7.5, i: 0.75 }, 
+  0: { b: 100, i: 2.5 }, 1: { b: 80, i: 2.5 }, 2: { b: 60, i: 2.5 }, 3: { b: 50, i: 2.5 }, 4: { b: 40, i: 2.5 }, 
+  5: { b: 30, i: 2.5 }, 6: { b: 20, i: 2.5 }, 7: { b: 10, i: 2.5 }, 8: { b: 7.5, i: 2.5 }, 
   9: { b: 5, i: 2.5 }, 10: { b: 5, i: 2.5 }, 11: { b: 5, i: 2.5 }, 12: { b: 5, i: 2.5 }, 
   13: { b: 5, i: 2.5 }, 14: { b: 5, i: 2.5 }
 };
@@ -48,9 +48,9 @@ const getStepEV = (lv: number) => {
   return ev;
 };
 
-// 0강부터 n강까지의 누적 기댓값 배열 캐싱
-const EV_CUMULATIVE = [0];
-let _cum = 0;
+// 0강부터 n강까지의 누적 기댓값 배열 캐싱 (엑셀과 동일하게 원본 베이스 카드 1.0장 기본 포함)
+const EV_CUMULATIVE = [1.0];
+let _cum = 1.0;
 for(let i = 0; i <= 14; i++) { _cum += getStepEV(i); EV_CUMULATIVE.push(_cum); }
 
 // 강화 상태 관리 반응형 객체
@@ -1206,13 +1206,13 @@ const dgnCheckMyLuck = () => {
           </div>
         </div>
 
-        <!-- 🔥 다시 부활한 구간별 기댓값 통계표 🔥 -->
+        <!-- 🔥 다시 부활한 구간별 기댓값 통계표 (엑셀 완벽 동기화) 🔥 -->
         <div class="bg-white dark:bg-[#1e1e24] border border-slate-200 dark:border-neutral-700/50 rounded-2xl overflow-hidden shadow-sm dark:shadow-lg transition-colors flex flex-col flex-1 min-h-[250px]">
           <div class="font-extrabold text-sm px-4 py-3 border-b border-slate-200 dark:border-neutral-700/50 bg-slate-50 dark:bg-[#2a2a35] flex items-center gap-2 text-slate-800 dark:text-white shrink-0">
             <Calculator class="w-4 h-4 text-blue-500"/> 구간별 강화 확률 및 기댓값
           </div>
           <div class="overflow-y-auto custom-scrollbar flex-1">
-            <table class="w-full text-center text-xs">
+            <table class="w-full text-center text-[11px] sm:text-xs">
               <thead class="bg-slate-50 dark:bg-[#1a1b1e] border-b border-slate-200 dark:border-neutral-700/50 sticky top-0 z-10 font-bold text-slate-500 dark:text-neutral-400">
                 <tr><th class="py-2.5">단계</th><th>기본 확률</th><th>1업 기댓값</th><th>누적 기댓값</th></tr>
               </thead>
@@ -1220,8 +1220,9 @@ const dgnCheckMyLuck = () => {
                 <tr v-for="n in 15" :key="n-1" class="hover:bg-slate-50 dark:hover:bg-neutral-800/30 transition-colors" :class="{'bg-blue-50 dark:bg-blue-900/20 border-l-[3px] border-blue-500': enhState.curLv === n-1}">
                   <td class="py-2.5 font-bold text-slate-700 dark:text-neutral-300" :class="{'text-blue-600 dark:text-blue-400': enhState.curLv === n-1}">+{{n-1}} ➔ +{{n}}</td>
                   <td class="font-medium text-slate-600 dark:text-neutral-400">{{ ENH_BASE[n-1].b.toFixed(1) }}%</td>
-                  <td class="font-medium text-slate-500 dark:text-neutral-400">{{ (EV_CUMULATIVE[n] - EV_CUMULATIVE[n-1]).toFixed(1) }}장</td>
-                  <td class="font-black text-blue-600 dark:text-blue-400">{{ EV_CUMULATIVE[n].toFixed(1) }}장</td>
+                  <!-- 소수점 3자리로 엑셀 데이터와 완벽 일치 -->
+                  <td class="font-medium text-slate-500 dark:text-neutral-400">{{ (EV_CUMULATIVE[n] - EV_CUMULATIVE[n-1]).toFixed(3) }}장</td>
+                  <td class="font-black text-blue-600 dark:text-blue-400">{{ EV_CUMULATIVE[n].toFixed(3) }}장</td>
                 </tr>
               </tbody>
             </table>
