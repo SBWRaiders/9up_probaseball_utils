@@ -822,6 +822,92 @@ const dgnOpenPickup = () => {
 
 const dgnDistinctDgnCount = computed(() => TEAMS.filter(t => t !== dgnState.myTeam && dgnState.album[t] > 1).length)
 const dgnDistinctTopCount = computed(() => { let count = 0; TEAMS.forEach(t => { if (t !== dgnState.myTeam) { TOP_DB[t].forEach(p => { if (dgnState.topAlbum[t][p] > 0) count++ }) } }); return count; })
+// 🔥 존버 재화용 자팀 디그니티 기댓값(EV) 계산기 (인게임 100% 동일 로직)
+const expectedMyTeamDgn = computed(() => {
+  let n = dgnState.inv.normal || 0;
+  let p = dgnState.inv.pickup || 0;
+  let tkt = (dgnState.inv.tickets || 0) + (n * 2); // 일반팩 개봉 시 얻는 티켓 포함
+
+  let myDgn = 0;
+  
+  // [1] 팩 개봉 단계 (8장 드랍, 3% DGN, 97% TOP)
+  let totalCards = n * 8;
+  let d_from_normal = totalCards * 0.03; 
+  let t_from_normal = totalCards * 0.97; 
+  
+  myDgn += d_from_normal * (1/12); // 자팀 확률
+  let otherDgn = d_from_normal * (11/12); // 타팀 잉여
+  
+  let myTopFraction = TOP_DB[dgnState.myTeam].length / 212;
+  let otherTop = t_from_normal * (1 - myTopFraction);
+  
+  // 팩 천장 50회 반영
+  let packPityVal = (n + (50 - dgnState.pity.pack)) / 50;
+  myDgn += packPityVal;
+
+  // 픽업 팩 (1장 100% 확정)
+  myDgn += p * (1/12);
+  otherDgn += p * (11/12);
+
+  // [2] 현재 도감에 쌓인 잉여 재료 영혼까지 끌어오기
+  let currentDgnDupes = 0;
+  TEAMS.forEach(t => { if(t !== dgnState.myTeam && dgnState.album[t] > 1) currentDgnDupes += (dgnState.album[t] - 1); });
+  
+  let currentTopDupes = 0;
+  TEAMS.forEach(t => { 
+    if(t !== dgnState.myTeam) { 
+      TOP_DB[t].forEach(player => { currentTopDupes += dgnState.topAlbum[t][player]; }); 
+    } 
+  });
+
+  let availableDgnDupes = currentDgnDupes + otherDgn;
+  let availableTopDupes = currentTopDupes + otherTop;
+  let tradePityStack = 30 - dgnState.pity.trade;
+
+  // [3] 트레이드 무한 루프 시뮬레이션 (재료나 티켓이 고갈될 때까지)
+  for (let i = 0; i < 50; i++) {
+    if (tkt <= 0) break;
+    
+    // 1순위: 디그니티 잉여 재료 트레이드
+    let dgnTrades = Math.floor(availableDgnDupes / 3);
+    if (dgnTrades > tkt) dgnTrades = tkt;
+    
+    if (dgnTrades > 0) {
+      availableDgnDupes -= dgnTrades * 3;
+      tkt -= dgnTrades;
+      
+      myDgn += dgnTrades * (1/12); // 자팀 획득
+      availableDgnDupes += dgnTrades * (11/12); // 타팀이면 다시 재료로
+      
+      tradePityStack += dgnTrades; // 트레이드 천장 스택 적립
+      myDgn += Math.floor(tradePityStack / 30);
+      tradePityStack = tradePityStack % 30;
+    }
+
+    if (tkt <= 0) break;
+
+    // 2순위: TOP 재료 트레이드
+    let topTrades = Math.floor(availableTopDupes / 3);
+    if (topTrades > tkt) topTrades = tkt;
+
+    if (topTrades > 0) {
+      availableTopDupes -= topTrades * 3;
+      tkt -= topTrades;
+
+      let d_from_topTrade = topTrades * 0.03; // DGN 3%
+      let t_from_topTrade = topTrades * 0.97; // TOP 97%
+
+      myDgn += d_from_topTrade * (1/12);
+      availableDgnDupes += d_from_topTrade * (11/12); // 타팀 디그면 DGN 재료로
+      availableTopDupes += t_from_topTrade * (1 - myTopFraction); // 타팀 TOP면 다시 TOP 재료로
+    }
+
+    // 더 이상 돌릴 3장짜리 묶음 재료가 없으면 탈출
+    if (dgnTrades === 0 && topTrades === 0) break;
+  }
+
+  return myDgn.toFixed(2);
+});
 
 const dgnRunTrade = (isAuto: boolean) => {
   let cnt = 0
@@ -1650,12 +1736,34 @@ const dgnCheckMyLuck = () => {
       <!-- [중앙] 가챠 및 믹서기 -->
       <section class="xl:col-span-5 flex flex-col gap-4 h-full">
         <div class="bg-white dark:bg-[#1e1e24] border border-slate-200 dark:border-neutral-700/50 rounded-2xl p-5 flex flex-col shadow-sm dark:shadow-lg transition-colors">
-          <h2 class="text-lg font-black mb-4 flex items-center gap-2 text-indigo-600 dark:text-indigo-400"><Package class="w-5 h-5"/> 인벤토리 & 뽑기</h2>
-          <div class="grid grid-cols-3 gap-3 mb-5">
-            <div class="bg-slate-50 dark:bg-[#2a2a35] border border-slate-200 dark:border-transparent p-3 rounded-xl text-center transition-colors"><div class="text-[10px] font-bold text-slate-500 dark:text-neutral-400 mb-1">일반 디그팩</div><div class="text-xl font-black text-slate-900 dark:text-white">{{ dgnState.inv.normal }}</div></div>
-            <div class="bg-purple-50 border border-purple-200 dark:bg-purple-900/20 dark:border-purple-800/30 p-3 rounded-xl text-center transition-colors"><div class="text-[10px] font-bold text-purple-600 dark:text-purple-400 mb-1">픽업 디그팩</div><div class="text-xl font-black text-purple-700 dark:text-purple-300">{{ dgnState.inv.pickup }}</div></div>
-            <div class="bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-800/30 p-3 rounded-xl text-center transition-colors"><div class="text-[10px] font-bold text-amber-600 dark:text-amber-500 mb-1">트레이드권</div><div class="text-xl font-black text-amber-700 dark:text-amber-400">{{ dgnState.inv.tickets }}</div></div>
+          <h2 class="text-lg font-black mb-4 flex items-center gap-2 text-indigo-600 dark:text-indigo-400"><Package class="w-5 h-5"/> 존버 인벤토리 & 뽑기</h2>
+          
+          <!-- 🔥 입력칸 및 EV 계산기 추가 영역 -->
+          <div class="grid grid-cols-3 gap-3 mb-3">
+            <div class="bg-slate-50 dark:bg-[#2a2a35] border border-slate-200 dark:border-neutral-700 p-2.5 rounded-xl text-center shadow-inner">
+              <div class="text-[10px] font-bold text-slate-500 dark:text-neutral-400 mb-1.5">일반 디그팩</div>
+              <input type="number" v-model.number="dgnState.inv.normal" min="0" class="w-full bg-white dark:bg-[#1a1b1e] border border-slate-300 dark:border-neutral-600 rounded-lg py-1.5 text-lg font-black text-slate-900 dark:text-white text-center outline-none focus:border-blue-500 transition-colors">
+            </div>
+            <div class="bg-purple-50 dark:bg-purple-900/10 border border-purple-200 dark:border-purple-800/50 p-2.5 rounded-xl text-center shadow-inner">
+              <div class="text-[10px] font-bold text-purple-600 dark:text-purple-400 mb-1.5">픽업 디그팩</div>
+              <input type="number" v-model.number="dgnState.inv.pickup" min="0" class="w-full bg-white dark:bg-[#1a1b1e] border border-purple-300 dark:border-purple-700/50 rounded-lg py-1.5 text-lg font-black text-purple-700 dark:text-purple-300 text-center outline-none focus:border-purple-500 transition-colors">
+            </div>
+            <div class="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/50 p-2.5 rounded-xl text-center shadow-inner">
+              <div class="text-[10px] font-bold text-amber-600 dark:text-amber-500 mb-1.5">트레이드권</div>
+              <input type="number" v-model.number="dgnState.inv.tickets" min="0" class="w-full bg-white dark:bg-[#1a1b1e] border border-amber-300 dark:border-amber-700/50 rounded-lg py-1.5 text-lg font-black text-amber-700 dark:text-amber-500 text-center outline-none focus:border-amber-500 transition-colors">
+            </div>
           </div>
+
+          <div class="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-100 dark:border-blue-800/50 rounded-xl p-3 mb-4 text-center shadow-sm">
+            <div class="text-slate-800 dark:text-white text-[13px]">
+              현재 보유 재화 소진 시 <span class="font-black text-blue-600 dark:text-blue-400">자팀 디그니티 기댓값</span>은 <span class="text-xl font-black text-red-500 mx-1">{{ expectedMyTeamDgn }}장</span>
+            </div>
+            <div class="mt-1 text-[9px] text-slate-500 dark:text-neutral-500 font-medium">
+              ※ 도감의 잉여 재료 및 팩에서 나올 재료까지 모두 3장씩 묶어 트레이드를 돌린 실제 기댓값입니다. (재료 부족 시 스노우볼 멈춤)
+            </div>
+          </div>
+          <!-- 🔥 입력칸 끝 -->
+
           <div class="flex flex-col gap-2 mb-3">
             <div class="flex gap-2"><button @click="dgnOpenPack(1)" class="flex-1 py-3 bg-slate-700 hover:bg-slate-800 dark:bg-[#3a3a45] dark:hover:bg-neutral-600 text-white rounded-xl font-bold transition-colors shadow-sm">일반 1팩 까기</button><button @click="dgnOpenPack(10)" class="flex-1 py-3 bg-slate-700 hover:bg-slate-800 dark:bg-[#3a3a45] dark:hover:bg-neutral-600 text-white rounded-xl font-bold transition-colors shadow-sm">일반 10팩 까기</button></div>
             <button @click="dgnOpenPickup()" class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 dark:from-purple-700 dark:to-indigo-700 dark:hover:from-purple-600 dark:hover:to-indigo-600 text-white rounded-xl font-black shadow-md transition-all">픽업팩 까기 (100% 확정)</button>
@@ -1695,7 +1803,7 @@ const dgnCheckMyLuck = () => {
         </div>
 
         <div class="bg-slate-50 dark:bg-[#0f0f13] border border-slate-200 dark:border-neutral-800 rounded-2xl p-4 flex-1 overflow-hidden flex flex-col min-h-[200px] shadow-inner transition-colors">
-          <div class="flex-1 overflow-y-auto space-y-1 font-mono text-[10px]">
+          <div class="flex-1 overflow-y-auto space-y-1 font-mono text-[10px] custom-scrollbar">
             <div v-for="l in dgnState.logs" :key="l.id" :class="{'text-slate-500 dark:text-neutral-400':l.type==='normal', 'text-green-600 dark:text-green-400 font-bold':l.type==='success', 'text-blue-600 dark:text-blue-300':l.type==='action', 'text-amber-600 dark:text-amber-400 font-black text-[11px]':l.type==='epic'}"><span class="opacity-50 mr-1">></span>{{ l.msg }}</div>
           </div>
         </div>
