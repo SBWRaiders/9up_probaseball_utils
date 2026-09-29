@@ -1670,7 +1670,10 @@ const dgnCheckInvLuck = () => {
             <div class="flex flex-col bg-slate-50 dark:bg-[#2a2a35] border border-slate-200 dark:border-neutral-700/50 rounded-lg p-2 gap-2 transition-colors" :class="{'opacity-50': dgnState.shop.wC >= 40}">
               <div class="flex justify-between items-start px-1">
                 <div><div class="text-[10px] text-slate-500 dark:text-neutral-400">티켓 구매 (월) [{{dgnState.shop.wC}}/40]</div><div class="text-xs font-bold text-amber-600 dark:text-amber-500">티켓 1개 = 50캐시</div></div>
-                <div class="text-right text-[9px] text-amber-600 dark:text-amber-400 font-bold mt-0.5">자팀 기댓값: 약 400개/1장</div>
+                <div class="text-right flex flex-col gap-0.5 mt-0.5">
+                  <div class="text-[9px] text-amber-600 dark:text-amber-400 font-bold">풀강(11장): 티켓 약 2,750개</div>
+                  <div class="text-[8px] text-amber-600/80 dark:text-amber-400/80 font-medium">1장 기댓값: 티켓 약 250개</div>
+                </div>
               </div>
               <div class="flex gap-2">
                 <button @click="dgnBuyPkg('wC', 40, 50, 0, 0, 1, '주간 상점 티켓', true, 1)" :disabled="dgnState.shop.wC >= 40" class="flex-1 py-1.5 bg-white hover:bg-slate-100 dark:bg-[#1e1e24] dark:hover:bg-neutral-700 border border-slate-300 dark:border-neutral-700 text-[11px] font-bold text-slate-800 dark:text-white rounded transition-colors disabled:opacity-50 shadow-sm">1회 구매</button>
@@ -1679,39 +1682,83 @@ const dgnCheckInvLuck = () => {
             </div>
             <button @click="dgnBuyPkg('sp', 1, 55000, 1, 0, 0, '시즌패스')" :disabled="dgnState.shop.sp>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.sp<1?'bg-slate-100 border border-slate-300 dark:bg-[#2a2a35] dark:border-neutral-600':'bg-slate-50 dark:bg-[#2a2a35] border border-slate-200 dark:border-neutral-700/50 opacity-50'">
               <div><div class="text-[10px] text-slate-600 dark:text-slate-400">시즌패스 [{{dgnState.shop.sp}}/1]</div><div class="text-xs font-bold text-slate-900 dark:text-white">일반팩 1</div></div>
-              <div class="text-right"><div class="text-[11px] font-bold text-green-600 dark:text-green-500">5.5만</div><div class="text-[9px] text-slate-500 dark:text-neutral-400 font-bold mt-0.5 whitespace-nowrap">자팀 기댓값: 약 183만/1장</div></div>
+              <div class="text-right">
+                <div class="text-[11px] font-bold text-green-600 dark:text-green-500 mb-0.5">5.5만</div>
+                <div class="flex flex-col items-end">
+                  <div class="text-[9px] text-slate-600 dark:text-neutral-300 font-bold whitespace-nowrap">풀강(11장): 약 1,013만 원</div>
+                  <div class="text-[8px] text-slate-500 dark:text-neutral-400 font-medium whitespace-nowrap">1장 기댓값: 약 92만 원</div>
+                </div>
+              </div>
             </button>
             <button @click="dgnBuyPkg('rk', 1, 55000, 1, 0, 20, '루키 패키지')" :disabled="dgnState.shop.rk>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.rk<1?'bg-orange-50 border border-orange-200 dark:bg-orange-900/20 dark:border-orange-800/50':'bg-slate-50 dark:bg-[#2a2a35] border border-slate-200 dark:border-neutral-700/50 opacity-50'">
               <div><div class="text-[10px] text-orange-600 dark:text-orange-400">루키 패키지 [{{dgnState.shop.rk}}/1]</div><div class="text-xs font-bold text-slate-900 dark:text-white">일반1 + 티켓20</div></div>
-              <div class="text-right"><div class="text-[11px] font-bold text-green-600 dark:text-green-500">5.5만</div><div class="text-[9px] text-orange-500 dark:text-orange-300 font-bold mt-0.5 whitespace-nowrap">자팀 기댓값: 약 46만/1장</div></div>
+              <div class="text-right">
+                <div class="text-[11px] font-bold text-green-600 dark:text-green-500 mb-0.5">5.5만</div>
+                <div class="flex flex-col items-end">
+                  <div class="text-[9px] text-orange-600 dark:text-orange-400 font-bold whitespace-nowrap">풀강(11장): 약 432만 원</div>
+                  <div class="text-[8px] text-orange-500/80 dark:text-orange-300/80 font-medium whitespace-nowrap">1장 기댓값: 약 39만 원</div>
+                </div>
+              </div>
             </button>
             <button @click="dgnBuyPkg('unl', 9999, 55000, 1, 0, 1, '무한 패키지')" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between bg-slate-50 hover:bg-slate-100 border border-slate-200 dark:bg-[#2a2a35] dark:hover:bg-neutral-700 dark:border-neutral-700/50">
               <div><div class="text-[10px] text-teal-600 dark:text-teal-400">무한 패키지 [제한없음]</div><div class="text-xs font-bold text-slate-900 dark:text-white">일반1 + 티켓1</div></div>
-              <div class="text-right"><div class="text-[11px] font-bold text-green-600 dark:text-green-500">5.5만</div><div class="text-[9px] text-slate-500 dark:text-neutral-500 font-bold mt-0.5 whitespace-nowrap">자팀 기댓값: 약 106만/1장</div></div>
+              <div class="text-right">
+                <div class="text-[11px] font-bold text-green-600 dark:text-green-500 mb-0.5">5.5만</div>
+                <div class="flex flex-col items-end">
+                  <div class="text-[9px] text-teal-600 dark:text-teal-400 font-bold whitespace-nowrap">풀강(11장): 약 949만 원</div>
+                  <div class="text-[8px] text-teal-500/80 dark:text-teal-400/80 font-medium whitespace-nowrap">1장 기댓값: 약 86만 원</div>
+                </div>
+              </div>
             </button>
             <button @click="dgnBuyPkg('pt', 1, 99000, 3, 0, 10, '프레스티지')" :disabled="dgnState.shop.pt>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pt<1?'bg-slate-50 hover:bg-slate-100 border border-slate-200 dark:bg-[#2a2a35] dark:hover:bg-neutral-700 dark:border-neutral-700/50':'bg-slate-50 border border-slate-200 dark:bg-[#2a2a35] dark:border-neutral-700/50 opacity-50'">
               <div><div class="text-[10px] text-slate-500 dark:text-neutral-400">프레스티지 [{{dgnState.shop.pt}}/1]</div><div class="text-xs font-bold text-slate-900 dark:text-white">일반3 + 티켓10</div></div>
-              <div class="text-right"><div class="text-[11px] font-bold text-green-600 dark:text-green-500">9.9만</div><div class="text-[9px] text-amber-600 dark:text-yellow-500 font-bold mt-0.5 whitespace-nowrap">자팀 기댓값: 약 55만/1장</div></div>
+              <div class="text-right">
+                <div class="text-[11px] font-bold text-green-600 dark:text-green-500 mb-0.5">9.9만</div>
+                <div class="flex flex-col items-end">
+                  <div class="text-[9px] text-amber-600 dark:text-yellow-500 font-bold whitespace-nowrap">풀강(11장): 약 495만 원</div>
+                  <div class="text-[8px] text-amber-600/80 dark:text-yellow-500/80 font-medium whitespace-nowrap">1장 기댓값: 약 45만 원</div>
+                </div>
+              </div>
             </button>
             <button @click="dgnBuyPkg('pr', 5, 99000, 2, 0, 10, '프로 패키지')" :disabled="dgnState.shop.pr>=5" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pr<5?'bg-slate-50 hover:bg-slate-100 border border-slate-200 dark:bg-[#2a2a35] dark:hover:bg-neutral-700 dark:border-neutral-700/50':'bg-slate-50 border border-slate-200 dark:bg-[#2a2a35] dark:border-neutral-700/50 opacity-50'">
               <div><div class="text-[10px] text-slate-500 dark:text-neutral-400">프로 패키지 [{{dgnState.shop.pr}}/5]</div><div class="text-xs font-bold text-slate-900 dark:text-white">일반2 + 티켓10</div></div>
-              <div class="text-right"><div class="text-[11px] font-bold text-green-600 dark:text-green-500">9.9만</div><div class="text-[9px] text-amber-700 dark:text-yellow-600 font-bold mt-0.5 whitespace-nowrap">자팀 기댓값: 약 75만/1장</div></div>
+              <div class="text-right">
+                <div class="text-[11px] font-bold text-green-600 dark:text-green-500 mb-0.5">9.9만</div>
+                <div class="flex flex-col items-end">
+                  <div class="text-[9px] text-amber-700 dark:text-yellow-600 font-bold whitespace-nowrap">풀강(11장): 약 681만 원</div>
+                  <div class="text-[8px] text-amber-700/80 dark:text-yellow-600/80 font-medium whitespace-nowrap">1장 기댓값: 약 61만 원</div>
+                </div>
+              </div>
             </button>
             <button @click="dgnBuyPkg('pk', 1, 99000, 0, 2, 0, '픽업 프레스티지')" :disabled="dgnState.shop.pk>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.pk<1?'bg-purple-50 border border-purple-200 dark:bg-purple-900/20 dark:border-purple-800/50':'bg-slate-50 border border-slate-200 dark:bg-[#2a2a35] dark:border-neutral-700/50 opacity-50'">
               <div><div class="text-[10px] text-purple-600 dark:text-purple-400">픽업 프레스티지 [{{dgnState.shop.pk}}/1]</div><div class="text-xs font-bold text-purple-700 dark:text-purple-300">픽업팩 2</div></div>
-              <div class="text-right"><div class="text-[11px] font-bold text-green-600 dark:text-green-500">9.9만</div><div class="text-[9px] text-purple-600 dark:text-purple-400 font-bold mt-0.5 whitespace-nowrap">자팀 기댓값: 약 41만/1장</div></div>
+              <div class="text-right">
+                <div class="text-[11px] font-bold text-green-600 dark:text-green-500 mb-0.5">9.9만</div>
+                <div class="flex flex-col items-end">
+                  <div class="text-[9px] text-purple-600 dark:text-purple-400 font-bold whitespace-nowrap">풀강(11장): 약 653만 원</div>
+                  <div class="text-[8px] text-purple-500/80 dark:text-purple-400/80 font-medium whitespace-nowrap">1장 기댓값: 약 59만 원</div>
+                </div>
+              </div>
             </button>
             <button @click="dgnBuyPkg('lg', 3, 149000, 2, 1, 0, '레전드 패키지')" :disabled="dgnState.shop.lg>=3" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.lg<3?'bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-800/50':'bg-slate-50 border border-slate-200 dark:bg-[#2a2a35] dark:border-neutral-700/50 opacity-50'">
               <div><div class="text-[10px] text-amber-600 dark:text-amber-500">레전드 패키지 [{{dgnState.shop.lg}}/3]</div><div class="text-xs font-bold text-amber-700 dark:text-amber-300">일반2 + 픽업1</div></div>
-              <div class="text-right"><div class="text-[11px] font-bold text-green-600 dark:text-green-500">14.9만</div><div class="text-[9px] text-slate-500 dark:text-neutral-400 font-bold mt-0.5 whitespace-nowrap">자팀 기댓값: 약 69만/1장</div></div>
+              <div class="text-right">
+                <div class="text-[11px] font-bold text-green-600 dark:text-green-500 mb-0.5">14.9만</div>
+                <div class="flex flex-col items-end">
+                  <div class="text-[9px] text-slate-600 dark:text-neutral-300 font-bold whitespace-nowrap">풀강(11장): 약 649만 원</div>
+                  <div class="text-[8px] text-slate-500 dark:text-neutral-400 font-medium whitespace-nowrap">1장 기댓값: 약 59만 원</div>
+                </div>
+              </div>
             </button>
             
-            <div class="mt-3 p-2.5 bg-slate-100 border border-slate-200 dark:bg-[#1a1b1e] dark:border-neutral-800 rounded-lg text-[9px] font-bold text-slate-500 dark:text-neutral-500 leading-relaxed text-center break-keep transition-colors">
-              ※ 가성비 기댓값은 참고용입니다. 트레이드권의 가치는 변수가 큰 '디그니티 트레이드' 효율을 배제하고, 가장 보편적인 'TOP 재료 트레이드(3%)'만을 기준으로 보수적으로 산정되었습니다.<br>
-              <span class="text-indigo-600 dark:text-indigo-400 mt-1 inline-block">💡 실제 스노우볼이 적용된 정확한 기댓값 및 과금 효율은 우측의 '타임라인 과금 플래너' 시뮬레이션을 통해 확인하시는 것을 권장합니다.</span>
+            <div class="mt-3 p-3 bg-slate-100 border border-slate-200 dark:bg-[#1a1b1e] dark:border-neutral-800 rounded-lg text-[10px] font-bold text-slate-600 dark:text-neutral-400 leading-relaxed transition-colors shadow-inner space-y-2">
+              <p>※ 위 가성비 기댓값은 '페이백 보너스'를 완전히 배제하고, 오직 해당 패키지만 구매하여 <strong class="text-blue-600 dark:text-blue-400">자팀 풀강(11장)</strong>을 달성할 때까지의 평균 비용을 산정한 순수 효율입니다.</p>
+              <p>※ <strong class="text-slate-700 dark:text-neutral-300">1장 기댓값</strong>은 11장(풀강) 달성 총비용을 단순히 11로 나눈 참고용 수치입니다.</p>
+              <p class="text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/10 p-2 rounded border border-red-100 dark:border-red-900/30 break-keep leading-snug">
+                💡 <strong class="text-red-700 dark:text-red-500">주의:</strong> 9UP 트레이드 시스템(중복 2장부터 트레이드 가능) 특성상, <span class="underline underline-offset-2">도감에 중복 카드가 충분히 바닥에 깔리기 전(도감작 초기)에는</span> 실제 체감 기댓값이 위 수치보다 더 안 좋을 수 있습니다. 정확한 내 상황은 우측의 <strong>'타임라인 과금 플래너'</strong> 시뮬레이션을 통해 확인하시는 것을 권장합니다.
+              </p>
             </div>
           </div>
-        </div>
       </section>
 
       <!-- [중앙] 가챠 및 믹서기 -->
