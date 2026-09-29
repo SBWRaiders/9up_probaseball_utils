@@ -823,91 +823,6 @@ const dgnOpenPickup = () => {
 const dgnDistinctDgnCount = computed(() => TEAMS.filter(t => t !== dgnState.myTeam && dgnState.album[t] > 1).length)
 const dgnDistinctTopCount = computed(() => { let count = 0; TEAMS.forEach(t => { if (t !== dgnState.myTeam) { TOP_DB[t].forEach(p => { if (dgnState.topAlbum[t][p] > 0) count++ }) } }); return count; })
 // 🔥 존버 재화용 자팀 디그니티 기댓값(EV) 계산기 (인게임 100% 동일 로직)
-const expectedMyTeamDgn = computed(() => {
-  let n = dgnState.inv.normal || 0;
-  let p = dgnState.inv.pickup || 0;
-  let tkt = (dgnState.inv.tickets || 0) + (n * 2); // 일반팩 개봉 시 얻는 티켓 포함
-
-  let myDgn = 0;
-  
-  // [1] 팩 개봉 단계 (8장 드랍, 3% DGN, 97% TOP)
-  let totalCards = n * 8;
-  let d_from_normal = totalCards * 0.03; 
-  let t_from_normal = totalCards * 0.97; 
-  
-  myDgn += d_from_normal * (1/12); // 자팀 확률
-  let otherDgn = d_from_normal * (11/12); // 타팀 잉여
-  
-  let myTopFraction = TOP_DB[dgnState.myTeam].length / 212;
-  let otherTop = t_from_normal * (1 - myTopFraction);
-  
-  // 팩 천장 50회 반영
-  let packPityVal = (n + (50 - dgnState.pity.pack)) / 50;
-  myDgn += packPityVal;
-
-  // 픽업 팩 (1장 100% 확정)
-  myDgn += p * (1/12);
-  otherDgn += p * (11/12);
-
-  // [2] 현재 도감에 쌓인 잉여 재료 영혼까지 끌어오기
-  let currentDgnDupes = 0;
-  TEAMS.forEach(t => { if(t !== dgnState.myTeam && dgnState.album[t] > 1) currentDgnDupes += (dgnState.album[t] - 1); });
-  
-  let currentTopDupes = 0;
-  TEAMS.forEach(t => { 
-    if(t !== dgnState.myTeam) { 
-      TOP_DB[t].forEach(player => { currentTopDupes += dgnState.topAlbum[t][player]; }); 
-    } 
-  });
-
-  let availableDgnDupes = currentDgnDupes + otherDgn;
-  let availableTopDupes = currentTopDupes + otherTop;
-  let tradePityStack = 30 - dgnState.pity.trade;
-
-  // [3] 트레이드 무한 루프 시뮬레이션 (재료나 티켓이 고갈될 때까지)
-  for (let i = 0; i < 50; i++) {
-    if (tkt <= 0) break;
-    
-    // 1순위: 디그니티 잉여 재료 트레이드
-    let dgnTrades = Math.floor(availableDgnDupes / 3);
-    if (dgnTrades > tkt) dgnTrades = tkt;
-    
-    if (dgnTrades > 0) {
-      availableDgnDupes -= dgnTrades * 3;
-      tkt -= dgnTrades;
-      
-      myDgn += dgnTrades * (1/12); // 자팀 획득
-      availableDgnDupes += dgnTrades * (11/12); // 타팀이면 다시 재료로
-      
-      tradePityStack += dgnTrades; // 트레이드 천장 스택 적립
-      myDgn += Math.floor(tradePityStack / 30);
-      tradePityStack = tradePityStack % 30;
-    }
-
-    if (tkt <= 0) break;
-
-    // 2순위: TOP 재료 트레이드
-    let topTrades = Math.floor(availableTopDupes / 3);
-    if (topTrades > tkt) topTrades = tkt;
-
-    if (topTrades > 0) {
-      availableTopDupes -= topTrades * 3;
-      tkt -= topTrades;
-
-      let d_from_topTrade = topTrades * 0.03; // DGN 3%
-      let t_from_topTrade = topTrades * 0.97; // TOP 97%
-
-      myDgn += d_from_topTrade * (1/12);
-      availableDgnDupes += d_from_topTrade * (11/12); // 타팀 디그면 DGN 재료로
-      availableTopDupes += t_from_topTrade * (1 - myTopFraction); // 타팀 TOP면 다시 TOP 재료로
-    }
-
-    // 더 이상 돌릴 3장짜리 묶음 재료가 없으면 탈출
-    if (dgnTrades === 0 && topTrades === 0) break;
-  }
-
-  return myDgn.toFixed(2);
-});
 
 const dgnRunTrade = (isAuto: boolean) => {
   let cnt = 0
@@ -1113,6 +1028,90 @@ const dgnRunPlanner = () => {
     dgnResultViewMode.value = 'AVG'
     nextTick(() => { renderDgnChart(sorted.map(r => isF2P ? (r.week/4) : r.cost), isF2P) })
     isDgnSim.value = false
+  }, 50)
+}
+// 🔥 [추가] 존버 재화(인벤토리) 전용 1만 번 가동 시뮬레이터
+const dgnInvSimState = reactive({ normal: 0, pickup: 0, tickets: 0, iterations: 10000 })
+const dgnInvSimResult = ref<any>(null)
+const isDgnInvSim = ref(false)
+
+const dgnRunInvSimulator = () => {
+  if (dgnInvSimState.normal === 0 && dgnInvSimState.pickup === 0 && dgnInvSimState.tickets === 0) {
+    return alert("시뮬레이션할 팩이나 티켓 개수를 1개 이상 입력해주세요.")
+  }
+  isDgnInvSim.value = true; dgnInvSimResult.value = null;
+
+  setTimeout(() => {
+    let iter = dgnInvSimState.iterations; let results = []
+
+    for (let i = 0; i < iter; i++) {
+      let myDgn = 0
+      let tkt = dgnInvSimState.tickets
+      let pPackPity = dgnState.pity.pack; let pTradePity = dgnState.pity.trade
+      
+      // 내 도감 상태 복사 (원본 보호)
+      let alb = { ...dgnState.album }
+      let topAlb = JSON.parse(JSON.stringify(dgnState.topAlbum))
+
+      // 1. 일반팩 가상 개봉
+      for(let c = 0; c < dgnInvSimState.normal; c++) {
+        tkt += 2 // 일반팩 까면 티켓 2개 추가
+        for(let j = 0; j < 8; j++) { 
+          if(Math.random() < 0.03) { 
+            let t = TEAMS[Math.floor(Math.random()*12)]
+            if(t === dgnState.myTeam) myDgn++; else alb[t]++ 
+          } else { 
+            let top = ALL_TOPS[Math.floor(Math.random()*212)]
+            topAlb[top.team][top.name]++
+          } 
+        }
+        pPackPity--; if(pPackPity <= 0) { myDgn++; pPackPity = 50 } 
+      }
+
+      // 2. 픽업팩 가상 개봉 (100% 디그니티)
+      for(let c = 0; c < dgnInvSimState.pickup; c++) {
+        let t = TEAMS[Math.floor(Math.random()*12)]
+        if(t === dgnState.myTeam) myDgn++; else alb[t]++
+      }
+
+      // 3. 트레이드(믹서기) 재료 고갈될 때까지 무한 가동
+      while(true) {
+        let dp = TEAMS.filter(t => t !== dgnState.myTeam && alb[t] > 1)
+        if(dp.length >= 3 && tkt >= 1) { 
+          alb[dp[0]]--; alb[dp[1]]--; alb[dp[2]]--; tkt--; pTradePity--
+          let t = TEAMS[Math.floor(Math.random()*12)]
+          if(t === dgnState.myTeam) myDgn++; else alb[t]++
+          if(pTradePity <= 0) { myDgn++; pTradePity = 30 } 
+          continue 
+        }
+        
+        let topDupes: {t:string, p:string}[] = []
+        TEAMS.forEach(t => { if (t !== dgnState.myTeam) { TOP_DB[t].forEach(p => { if (topAlb[t][p] > 0) topDupes.push({t, p}) }) } })
+        
+        if(topDupes.length >= 3 && tkt >= 1) { 
+          topAlb[topDupes[0].t][topDupes[0].p]--; topAlb[topDupes[1].t][topDupes[1].p]--; topAlb[topDupes[2].t][topDupes[2].p]--
+          tkt--
+          if(Math.random() < 0.03) {
+            let t = TEAMS[Math.floor(Math.random()*12)]
+            if(t === dgnState.myTeam) myDgn++; else alb[t]++
+          } else {
+            let top = ALL_TOPS[Math.floor(Math.random()*212)]
+            topAlb[top.team][top.name]++
+          }
+          continue
+        }
+        break // 재료나 티켓 없으면 루프 탈출
+      }
+      results.push(myDgn)
+    }
+
+    results.sort((a,b) => a - b) // 오름차순 정렬 (0, 1, 2 ...)
+    dgnInvSimResult.value = {
+      top10: results[Math.floor(iter * 0.9)], // 상위 10% 비틱
+      avg: (results.reduce((a,b)=>a+b,0) / iter).toFixed(2), // 평균
+      bot90: results[Math.floor(iter * 0.1)] // 하위 90% 폭망
+    }
+    isDgnInvSim.value = false
   }, 50)
 }
 
@@ -1753,15 +1752,7 @@ const dgnCheckMyLuck = () => {
               <input type="number" v-model.number="dgnState.inv.tickets" min="0" class="w-full bg-white dark:bg-[#1a1b1e] border border-amber-300 dark:border-amber-700/50 rounded-lg py-1.5 text-lg font-black text-amber-700 dark:text-amber-500 text-center outline-none focus:border-amber-500 transition-colors">
             </div>
           </div>
-
-          <div class="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-100 dark:border-blue-800/50 rounded-xl p-3 mb-4 text-center shadow-sm">
-            <div class="text-slate-800 dark:text-white text-[13px]">
-              현재 보유 재화 소진 시 <span class="font-black text-blue-600 dark:text-blue-400">자팀 디그니티 기댓값</span>은 <span class="text-xl font-black text-red-500 mx-1">{{ expectedMyTeamDgn }}장</span>
-            </div>
-            <div class="mt-1 text-[9px] text-slate-500 dark:text-neutral-500 font-medium">
-              ※ 도감의 잉여 재료 및 팩에서 나올 재료까지 모두 3장씩 묶어 트레이드를 돌린 실제 기댓값입니다. (재료 부족 시 스노우볼 멈춤)
-            </div>
-          </div>
+          
           <!-- 🔥 입력칸 끝 -->
 
           <div class="flex flex-col gap-2 mb-3">
@@ -1967,6 +1958,50 @@ const dgnCheckMyLuck = () => {
             </div>
           </div>
         </div>
+
+        <!-- 🚀 [추가] 존버 인벤토리 시뮬레이터 -->
+        <div class="bg-blue-50 border border-blue-200 dark:bg-blue-900/20 dark:border-blue-800/50 rounded-2xl p-4 shrink-0 flex flex-col shadow-sm dark:shadow-lg transition-colors mt-4">
+          <h3 class="font-extrabold text-sm mb-2 flex items-center gap-1.5 text-blue-700 dark:text-blue-400"><Database class="w-4 h-4"/> 존버 재화 1만 번 시뮬레이터</h3>
+          
+          <div class="mb-3 px-2 py-1.5 bg-blue-100 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-700/50 rounded-md text-[10px] font-extrabold text-blue-700 dark:text-blue-300 flex items-start gap-1">
+            <span class="mt-0.5 text-xs">💡</span>
+            <span class="leading-relaxed">좌측 도감의 잉여 재료와 아래 입력한 팩/티켓을 모조리<br class="hidden xl:block">소진할 때까지 10,000번 가상으로 까고 돌려봅니다.</span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2 mb-3">
+            <div class="flex flex-col gap-1">
+              <label class="text-[10px] text-slate-600 dark:text-neutral-400 font-bold text-center">일반 디그팩</label>
+              <input type="number" v-model.number="dgnInvSimState.normal" min="0" class="w-full text-center text-sm font-black p-1.5 rounded border border-slate-300 dark:border-neutral-700 bg-white dark:bg-[#1a1b1e] outline-none focus:border-blue-500 text-slate-900 dark:text-white transition-colors">
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-[10px] text-slate-600 dark:text-neutral-400 font-bold text-center">픽업 디그팩</label>
+              <input type="number" v-model.number="dgnInvSimState.pickup" min="0" class="w-full text-center text-sm font-black p-1.5 rounded border border-purple-300 dark:border-purple-700 bg-white dark:bg-[#1a1b1e] outline-none focus:border-purple-500 text-purple-700 dark:text-purple-400 transition-colors">
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-[10px] text-slate-600 dark:text-neutral-400 font-bold text-center">트레이드권</label>
+              <input type="number" v-model.number="dgnInvSimState.tickets" min="0" class="w-full text-center text-sm font-black p-1.5 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-[#1a1b1e] outline-none focus:border-amber-500 text-amber-600 dark:text-amber-500 transition-colors">
+            </div>
+          </div>
+          
+          <button @click="dgnRunInvSimulator" :disabled="isDgnInvSim" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white font-bold rounded-lg text-xs transition-colors shadow-sm mb-3">{{ isDgnInvSim ? '1만 번 가챠 돌리는 중...' : '시뮬레이션 가동' }}</button>
+          
+          <div v-if="dgnInvSimResult" class="bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 rounded-xl p-3 shadow-inner transition-colors animate-fade-in">
+            <div class="text-[11px] font-bold text-slate-500 dark:text-neutral-400 text-center mb-2 border-b border-slate-100 dark:border-neutral-800 pb-1">10,000회 시뮬레이션 결과 (자팀 획득)</div>
+            <div class="flex justify-between items-center px-1 py-1">
+              <span class="text-xs font-extrabold text-blue-600 dark:text-blue-400">상위 10% (비틱)</span>
+              <span class="text-sm font-black text-blue-600 dark:text-blue-400">{{ dgnInvSimResult.top10 }} <span class="text-[10px] font-normal">장</span></span>
+            </div>
+            <div class="flex justify-between items-center px-1 py-1 bg-slate-50 dark:bg-[#2a2a35] rounded transition-colors">
+              <span class="text-xs font-extrabold text-indigo-600 dark:text-indigo-400">평균 기댓값</span>
+              <span class="text-sm font-black text-indigo-600 dark:text-indigo-400">{{ dgnInvSimResult.avg }} <span class="text-[10px] font-normal">장</span></span>
+            </div>
+            <div class="flex justify-between items-center px-1 py-1">
+              <span class="text-xs font-extrabold text-red-500">하위 90% (폭망)</span>
+              <span class="text-sm font-black text-red-500">{{ dgnInvSimResult.bot90 }} <span class="text-[10px] font-normal">장</span></span>
+            </div>
+          </div>
+        </div>
+
       </section>
     </div>
   </div>
