@@ -1764,7 +1764,7 @@ const dgnCheckInvLuck = () => {
               </div>
             </button>
 
-            <!-- 🔥 픽업 프레스티지 (말풍선 툴팁 위치 수정: 절대 안 잘리게 right-0 적용) -->
+            <!-- 🔥 픽업 프레스티지 (말풍선 툴팁: whitespace-normal 추가, 약 36개로 정정) -->
             <button @click="dgnBuyPkg('pk', 1, 99000, 0, 2, 0, '픽업 프레스티지')" :disabled="dgnState.shop.pk>=1" class="w-full text-left p-3 rounded-xl transition-colors flex items-center justify-between" :class="dgnState.shop.pk<1?'bg-purple-50 border border-purple-200 dark:bg-purple-900/20 dark:border-purple-800/50':'bg-slate-50 border border-slate-200 dark:bg-[#2a2a35] dark:border-neutral-700/50 opacity-50'">
               <div class="flex-1 pr-1">
                 <div class="text-[11px] lg:text-xs text-purple-600 dark:text-purple-400 font-bold mb-0.5 break-keep">픽업 프레스티지 [{{dgnState.shop.pk}}/1]</div>
@@ -1775,9 +1775,9 @@ const dgnCheckInvLuck = () => {
                   풀강(11장): 약 404만 원
                   <div class="relative group inline-flex items-center ml-1">
                     <span class="cursor-help text-amber-500 hover:text-amber-600 text-[11px] bg-amber-100 dark:bg-amber-900/40 rounded-full w-4 h-4 flex items-center justify-center">💡</span>
-                    <!-- left-1/2를 지우고 right-0으로 변경하여 아이콘 기준 왼쪽으로만 펼쳐지게 고정 -->
-                    <div class="absolute bottom-full right-0 mb-1.5 hidden group-hover:block w-48 p-2.5 bg-slate-800 dark:bg-neutral-800 text-white text-[10px] leading-relaxed rounded-lg shadow-xl z-50 break-keep font-normal text-left border border-slate-700">
-                      ※ 쏟아지는 중복 카드를 모두 트레이드하기 위해 <strong class="text-amber-400">약 390개</strong>의 트레이드권이 별도로 소모된 기준입니다.
+                    <!-- 박스를 뚫지 않도록 whitespace-normal 속성을 명시적으로 추가했습니다 -->
+                    <div class="absolute bottom-full right-0 mb-1.5 hidden group-hover:block w-48 p-2.5 bg-slate-800 dark:bg-neutral-800 text-white text-[10px] leading-relaxed rounded-lg shadow-xl z-50 whitespace-normal break-keep font-normal text-left border border-slate-700">
+                      ※ 쏟아지는 중복 카드를 모두 트레이드하기 위해 <strong class="text-amber-400">약 36개</strong>의 트레이드권이 별도로 소모된 기준입니다.
                     </div>
                   </div>
                 </div>
@@ -1788,7 +1788,7 @@ const dgnCheckInvLuck = () => {
               </div>
             </button>
 
-            <!-- 🔥 레전드 패키지 (자체 수급 팩트 적용: 툴팁 제거 및 원래 기댓값 복구) -->
+            <!-- 🔥 레전드 패키지 (자체 수급 팩트 적용) -->
             <button @click="dgnBuyPkg('lg', 3, 149000, 2, 1, 0, '레전드 패키지')" :disabled="dgnState.shop.lg>=3" class="w-full text-left p-3 rounded-xl transition-colors flex items-center justify-between" :class="dgnState.shop.lg<3?'bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-800/50':'bg-slate-50 border border-slate-200 dark:bg-[#2a2a35] dark:border-neutral-700/50 opacity-50'">
               <div class="flex-1 pr-1">
                 <div class="text-[11px] lg:text-xs text-amber-600 dark:text-amber-500 font-bold mb-0.5 break-keep">레전드 패키지 [{{dgnState.shop.lg}}/3]</div>
