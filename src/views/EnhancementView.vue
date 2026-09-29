@@ -1759,6 +1759,7 @@ const dgnCheckInvLuck = () => {
               </p>
             </div>
           </div>
+          </div>
       </section>
 
       <!-- [중앙] 가챠 및 믹서기 -->
