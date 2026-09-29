@@ -994,7 +994,7 @@ const dgnCheckMyLuck = () => {
 }
 
 // ==============================================
-// 🎒 존버 인벤토리 전용 10,000번 정밀 시뮬레이터 (추가됨)
+// 🎒 존버 인벤토리 전용 10,000번 정밀 시뮬레이터 (무한 믹서기 복구)
 // ==============================================
 const dgnInvSimState = reactive({ normal: 0, pickup: 0, tickets: 0, iterations: 10000 })
 const dgnInvSimResult = ref<any>(null)
@@ -1033,11 +1033,11 @@ const dgnRunInvSimulator = () => {
       let pPackPity = dgnState.pity.pack; let pTradePity = dgnState.pity.trade
       let totalUsedTop = 0
       
+      // 도감의 TOP 재료 스캔
       let currentTopDupes = 0
       TEAMS.forEach(t => { if(t !== dgnState.myTeam) TOP_DB[t].forEach(p => { currentTopDupes += dgnState.topAlbum[t][p] }) })
       let totalGainedTop = currentTopDupes
       let alb = { ...dgnState.album }
-      let topAlb = JSON.parse(JSON.stringify(dgnState.topAlbum))
 
       for(let c = 0; c < dgnInvSimState.normal; c++) {
         tkt += 2
@@ -1046,9 +1046,7 @@ const dgnRunInvSimulator = () => {
             let t = TEAMS[Math.floor(Math.random()*12)]
             if(t === dgnState.myTeam) myDgn++; else alb[t]++ 
           } else { 
-            let top = ALL_TOPS[Math.floor(Math.random()*212)]
-            topAlb[top.team][top.name]++
-            if(top.team !== dgnState.myTeam) totalGainedTop++ 
+            if(Math.random() >= (TOP_DB[dgnState.myTeam].length / 212)) totalGainedTop++ 
           } 
         }
         pPackPity--; if(pPackPity <= 0) { myDgn++; pPackPity = 50 } 
@@ -1059,6 +1057,7 @@ const dgnRunInvSimulator = () => {
         if(t === dgnState.myTeam) myDgn++; else alb[t]++
       }
 
+      // 🔥 스노우볼 믹서기 가동 (TOP 재료 검사 제거, 티켓 소모 끝까지 강행)
       while(true) {
         let dp = TEAMS.filter(t => t !== dgnState.myTeam && alb[t] > 1)
         if(dp.length >= 3 && tkt >= 1) { 
@@ -1069,19 +1068,14 @@ const dgnRunInvSimulator = () => {
           continue 
         }
         
-        let topDupes: {t:string, p:string}[] = []
-        TEAMS.forEach(t => { if (t !== dgnState.myTeam) { TOP_DB[t].forEach(p => { if (topAlb[t][p] > 0) topDupes.push({t, p}) }) } })
-        
-        if(topDupes.length >= 3 && tkt >= 1) { 
-          topAlb[topDupes[0].t][topDupes[0].p]--; topAlb[topDupes[1].t][topDupes[1].p]--; topAlb[topDupes[2].t][topDupes[2].p]--
+        // 디그니티 재료가 없으면 무조건 TOP 재료 3개 억지로 차감하면서 끝까지 진행
+        if(tkt >= 1) { 
           totalUsedTop += 3; tkt--
           if(Math.random() < 0.03) {
             let t = TEAMS[Math.floor(Math.random()*12)]
             if(t === dgnState.myTeam) myDgn++; else alb[t]++
           } else {
-            let top = ALL_TOPS[Math.floor(Math.random()*212)]
-            topAlb[top.team][top.name]++
-            if(top.team !== dgnState.myTeam) totalGainedTop++
+            if(Math.random() >= (TOP_DB[dgnState.myTeam].length / 212)) totalGainedTop++
           }
           continue 
         }
@@ -1725,11 +1719,23 @@ const dgnCheckInvLuck = () => {
         <!-- 뽑기 패널 -->
         <div class="bg-white dark:bg-[#1e1e24] border border-slate-200 dark:border-neutral-700/50 rounded-2xl p-5 flex flex-col shadow-sm dark:shadow-lg transition-colors">
           <h2 class="text-lg font-black mb-4 flex items-center gap-2 text-indigo-600 dark:text-indigo-400"><Package class="w-5 h-5"/> 인벤토리 & 뽑기</h2>
+          
+          <!-- 🔥 입력칸으로 원상복구된 인게임 재화 현황 -->
           <div class="grid grid-cols-3 gap-3 mb-5">
-            <div class="bg-slate-50 dark:bg-[#2a2a35] border border-slate-200 dark:border-transparent p-3 rounded-xl text-center transition-colors"><div class="text-[10px] font-bold text-slate-500 dark:text-neutral-400 mb-1">일반 디그팩</div><div class="text-xl font-black text-slate-900 dark:text-white">{{ dgnState.inv.normal }}</div></div>
-            <div class="bg-purple-50 border border-purple-200 dark:bg-purple-900/20 dark:border-purple-800/30 p-3 rounded-xl text-center transition-colors"><div class="text-[10px] font-bold text-purple-600 dark:text-purple-400 mb-1">픽업 디그팩</div><div class="text-xl font-black text-purple-700 dark:text-purple-300">{{ dgnState.inv.pickup }}</div></div>
-            <div class="bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-800/30 p-3 rounded-xl text-center transition-colors"><div class="text-[10px] font-bold text-amber-600 dark:text-amber-500 mb-1">트레이드권</div><div class="text-xl font-black text-amber-700 dark:text-amber-400">{{ dgnState.inv.tickets }}</div></div>
+            <div class="bg-slate-50 dark:bg-[#2a2a35] border border-slate-200 dark:border-neutral-700 p-2.5 rounded-xl text-center transition-colors shadow-inner">
+              <div class="text-[10px] font-bold text-slate-500 dark:text-neutral-400 mb-1.5">일반 디그팩</div>
+              <input type="number" v-model.number="dgnState.inv.normal" min="0" class="w-full bg-white dark:bg-[#1a1b1e] border border-slate-300 dark:border-neutral-600 rounded-lg py-1 text-xl font-black text-slate-900 dark:text-white text-center focus:outline-none focus:border-blue-500 transition-colors">
+            </div>
+            <div class="bg-purple-50 dark:bg-purple-900/10 border border-purple-200 dark:border-purple-800/50 p-2.5 rounded-xl text-center transition-colors shadow-inner">
+              <div class="text-[10px] font-bold text-purple-600 dark:text-purple-400 mb-1.5">픽업 디그팩</div>
+              <input type="number" v-model.number="dgnState.inv.pickup" min="0" class="w-full bg-white dark:bg-[#1a1b1e] border border-purple-300 dark:border-purple-700/50 rounded-lg py-1 text-xl font-black text-purple-700 dark:text-purple-300 text-center focus:outline-none focus:border-purple-500 transition-colors">
+            </div>
+            <div class="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/50 p-2.5 rounded-xl text-center transition-colors shadow-inner">
+              <div class="text-[10px] font-bold text-amber-600 dark:text-amber-500 mb-1.5">트레이드권</div>
+              <input type="number" v-model.number="dgnState.inv.tickets" min="0" class="w-full bg-white dark:bg-[#1a1b1e] border border-amber-300 dark:border-amber-700/50 rounded-lg py-1 text-xl font-black text-amber-700 dark:text-amber-500 text-center focus:outline-none focus:border-amber-500 transition-colors">
+            </div>
           </div>
+          
           <div class="flex flex-col gap-2 mb-3">
             <div class="flex gap-2"><button @click="dgnOpenPack(1)" class="flex-1 py-3 bg-slate-700 hover:bg-slate-800 dark:bg-[#3a3a45] dark:hover:bg-neutral-600 text-white rounded-xl font-bold transition-colors shadow-sm">일반 1팩 까기</button><button @click="dgnOpenPack(10)" class="flex-1 py-3 bg-slate-700 hover:bg-slate-800 dark:bg-[#3a3a45] dark:hover:bg-neutral-600 text-white rounded-xl font-bold transition-colors shadow-sm">일반 10팩 까기</button></div>
             <button @click="dgnOpenPickup()" class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 dark:from-purple-700 dark:to-indigo-700 dark:hover:from-purple-600 dark:hover:to-indigo-600 text-white rounded-xl font-black shadow-md transition-all">픽업팩 까기 (100% 확정)</button>
