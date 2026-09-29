@@ -634,9 +634,7 @@ const useConversionStone = (index: number) => { if (!engCard.value) return; engS
 const updateSubStatRanges = (sub: SubStat) => { const found = ENG_DB.value.subStats.find(s => s.name === sub.name); if (found && engCard.value) { const stats = engCard.value.grade === 'ultimate' ? found.ult : found.leg; sub.eMin = stats.eMin; sub.eMax = stats.eMax } }
 const formatNum = (num: number) => new Intl.NumberFormat().format(num)
 
-// ==============================================
 // 💎 [4] 디그니티 시뮬레이터 전용 로직
-// ==============================================
 const TEAMS = ['kia', 'ssg', 'kiwoom', 'samsung', 'doosan', 'lg', 'hanwha', 'lotte', 'hyundai', 'kt', 'sbw', 'nc']
 const T_NAMES: Record<string, string> = { kia:'KIA', ssg:'SSG', kiwoom:'키움', samsung:'삼성', doosan:'두산', lg:'LG', hanwha:'한화', lotte:'롯데', hyundai:'현대', kt:'KT', sbw:'쌍방울', nc:'NC' }
 const T_COLORS: Record<string, string> = { kia:'text-red-600 dark:text-red-500', ssg:'text-red-600 dark:text-red-500', kiwoom:'text-rose-800 dark:text-rose-700', samsung:'text-blue-700 dark:text-blue-500', doosan:'text-indigo-800 dark:text-indigo-400', lg:'text-pink-700 dark:text-pink-500', hanwha:'text-orange-600 dark:text-orange-500', lotte:'text-cyan-800 dark:text-cyan-600', hyundai:'text-green-700 dark:text-green-500', kt:'text-slate-800 dark:text-white', sbw:'text-yellow-700 dark:text-yellow-500', nc:'text-blue-500 dark:text-blue-400' }
@@ -674,41 +672,26 @@ const dgnState = reactive({
   payback: { spent: 0, totalKrw: 0, t1: false, t2: false, t3: false, t4: false, inf: 0 }, 
   pity: { pack: 50, trade: 30 },
   logs: [] as { id: number, msg: string, type: string }[],
-  undoStack: [] as string[] // 🔥 롤백 시스템(스냅샷) 메모리 추가
+  undoStack: [] as string[]
 })
 
-// 도감 ON/OFF 및 수량 조절
-const toggleDgnAlbum = (t: string) => { 
-  if (dgnState.album[t] === 0) dgnState.album[t] = 1; else dgnState.album[t] = 0;
-}
+const toggleDgnAlbum = (t: string) => { if (dgnState.album[t] === 0) dgnState.album[t] = 1; else dgnState.album[t] = 0; }
 const incDgnAlbum = (t: string) => { dgnState.album[t]++ }
-const decDgnAlbum = (t: string) => { 
-  if(dgnState.album[t] > 1) dgnState.album[t]--; 
-  else if(dgnState.album[t] === 1) dgnState.album[t] = 0; 
-}
+const decDgnAlbum = (t: string) => { if(dgnState.album[t] > 1) dgnState.album[t]--; else if(dgnState.album[t] === 1) dgnState.album[t] = 0; }
 const turnOnAllAlbum = () => { TEAMS.forEach(t => { if(t !== dgnState.myTeam) dgnState.album[t] = Math.max(1, dgnState.album[t]); }) }
 const turnOffAllAlbum = () => { TEAMS.forEach(t => { if(t !== dgnState.myTeam) dgnState.album[t] = 0; }) }
 
-const dgnWaitlist = computed(() => {
-  let list: string[] = []; TEAMS.forEach(t => { if(t !== dgnState.myTeam && dgnState.album[t] > 1) list.push(`${T_NAMES[t]} ${D_WAVES[dgnState.targetWave][t]} (${dgnState.album[t]-1}장)`) }); return list;
-})
-const topWaitlist = computed(() => {
-  let list: string[] = []; TEAMS.forEach(t => { if(t !== dgnState.myTeam) { TOP_DB[t].forEach(p => { if(dgnState.topAlbum[t][p] > 0) list.push(`[${T_NAMES[t]}] ${p} (${dgnState.topAlbum[t][p]}장)`) }) } }); return list;
-})
+const dgnWaitlist = computed(() => { let list: string[] = []; TEAMS.forEach(t => { if(t !== dgnState.myTeam && dgnState.album[t] > 1) list.push(`${T_NAMES[t]} ${D_WAVES[dgnState.targetWave][t]} (${dgnState.album[t]-1}장)`) }); return list; })
+const topWaitlist = computed(() => { let list: string[] = []; TEAMS.forEach(t => { if(t !== dgnState.myTeam) { TOP_DB[t].forEach(p => { if(dgnState.topAlbum[t][p] > 0) list.push(`[${T_NAMES[t]}] ${p} (${dgnState.topAlbum[t][p]}장)`) }) } }); return list; })
 
 const manualKrwInput = ref(0)
 const previewTotalKrw = computed(() => dgnState.payback.totalKrw + (manualKrwInput.value || 0))
 const previewSpentKrw = computed(() => dgnState.payback.spent + (manualKrwInput.value || 0))
-
 const dgnAlbumTab = ref<'dignity'|'top'>('dignity')
 
 let dgnLId = 0
-const dgnLog = (msg: string, type: 'normal'|'success'|'fail'|'action'|'epic' = 'normal') => { 
-  dgnState.logs.unshift({ id: dgnLId++, msg, type })
-  if(dgnState.logs.length > 50) dgnState.logs.pop() 
-}
+const dgnLog = (msg: string, type: 'normal'|'success'|'fail'|'action'|'epic' = 'normal') => { dgnState.logs.unshift({ id: dgnLId++, msg, type }); if(dgnState.logs.length > 50) dgnState.logs.pop() }
 
-// 🔥 [추가] 직전 결제/상점 구매 되돌리기(환불) 기능
 const dgnUndoPurchase = () => {
   if (dgnState.undoStack.length === 0) return alert("되돌릴 결제 내역이 없거나, 이미 팩 개봉 등 확정 행동을 하여 취소할 수 없습니다.");
   const prev = JSON.parse(dgnState.undoStack.pop()!);
@@ -733,19 +716,13 @@ const dgnNextMonth = () => {
   dgnState.month++
   dgnState.shop = { wQ: 0, wC: 0, sp: 0, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0, unl: 0 }
   dgnState.payback = { spent: 0, totalKrw: dgnState.payback.totalKrw, t1: false, t2: false, t3: false, t4: false, inf: dgnState.payback.inf } 
-  dgnState.undoStack = []; // 달이 넘어가면 롤백 불가
+  dgnState.undoStack = []; 
   dgnLog(`🗓️ ${dgnState.month}개월 차 시작! 월간 상점 및 페이백이 갱신되었습니다.`, 'action')
 }
 
-watch(() => dgnState.targetWave, () => { 
-  TEAMS.forEach(t => dgnState.album[t] = 0)
-  dgnLog(`[시스템] ${dgnState.targetWave}차 도감으로 전환되었습니다.`, 'action') 
-})
+watch(() => dgnState.targetWave, () => { TEAMS.forEach(t => dgnState.album[t] = 0); dgnLog(`[시스템] ${dgnState.targetWave}차 도감으로 전환되었습니다.`, 'action') })
 
-const dgnDupeCount = computed(() => { 
-  let c=0; TEAMS.forEach(t=>{ if(t!==dgnState.myTeam && dgnState.album[t]>1) c+=dgnState.album[t]-1 })
-  return c 
-})
+const dgnDupeCount = computed(() => { let c=0; TEAMS.forEach(t=>{ if(t!==dgnState.myTeam && dgnState.album[t]>1) c+=dgnState.album[t]-1 }); return c })
 
 const dgnProcessPayback = () => {
   const k = dgnState.payback.spent; const tk = dgnState.payback.totalKrw; const p = dgnState.payback
@@ -759,27 +736,16 @@ const dgnProcessPayback = () => {
 
 const dgnAddManualPayback = () => { 
   if(manualKrwInput.value <= 0) return
-  // 🔥 스냅샷 저장
   dgnState.undoStack.push(JSON.stringify({ shop: dgnState.shop, inv: dgnState.inv, payback: dgnState.payback }))
-  
-  dgnState.payback.spent += manualKrwInput.value
-  dgnState.payback.totalKrw += manualKrwInput.value
+  dgnState.payback.spent += manualKrwInput.value; dgnState.payback.totalKrw += manualKrwInput.value
   dgnLog(`[수동 충전] 타 패키지로 ${manualKrwInput.value.toLocaleString()}원 채움 완료!`, 'action')
-  manualKrwInput.value = 0
-  dgnProcessPayback() 
+  manualKrwInput.value = 0; dgnProcessPayback() 
 }
 
 const dgnBuyPkg = (key: keyof typeof dgnState.shop, limit: number, price: number, n: number, p: number, t: number, name: string, isCash: boolean = false, purchaseCount: number = 1) => {
   if (limit < 999 && dgnState.shop[key] + purchaseCount > limit) return alert(`남은 구매 가능 횟수가 부족합니다. (남은 횟수: ${limit - dgnState.shop[key]}회)`)
-  
-  // 🔥 결제 직전 스냅샷 저장 (롤백용)
   dgnState.undoStack.push(JSON.stringify({ shop: dgnState.shop, inv: dgnState.inv, payback: dgnState.payback }))
-  
-  if (isCash) { dgnState.inv.cash += (price * purchaseCount) } 
-  else { 
-    dgnState.payback.spent += (price * purchaseCount); 
-    dgnState.payback.totalKrw += (price * purchaseCount); 
-  }
+  if (isCash) { dgnState.inv.cash += (price * purchaseCount) } else { dgnState.payback.spent += (price * purchaseCount); dgnState.payback.totalKrw += (price * purchaseCount); }
   dgnState.shop[key] += purchaseCount
   dgnState.inv.normal += (n * purchaseCount); dgnState.inv.pickup += (p * purchaseCount); dgnState.inv.tickets += (t * purchaseCount)
   dgnLog(`[상점] ${name} ${purchaseCount}회 구매! (${isCash?'캐시 누적':'원화'}: ${price * purchaseCount}${isCash?'💎':'원'})`, 'action')
@@ -788,9 +754,8 @@ const dgnBuyPkg = (key: keyof typeof dgnState.shop, limit: number, price: number
 
 const dgnOpenPack = (count: number) => {
   if (dgnState.inv.normal < count) return alert("일반팩이 부족합니다.")
-  dgnState.undoStack = []; // 🔥 가챠를 깠으므로 환불 불가 (어뷰징 방지)
-  dgnState.inv.normal -= count; 
-  dgnState.inv.tickets += (count * 2); 
+  dgnState.undoStack = []; 
+  dgnState.inv.normal -= count; dgnState.inv.tickets += (count * 2); 
   for (let i=0; i<count; i++) {
     for (let j=0; j<8; j++) {
       if (Math.random() < 0.03) {
@@ -804,17 +769,13 @@ const dgnOpenPack = (count: number) => {
       }
     }
     dgnState.pity.pack--; 
-    if(dgnState.pity.pack <= 0) {
-      dgnState.inv.myDgn++; dgnLog(`🎉[팩 천장] 선택권으로 자팀 디그니티 확정 획득!`, 'epic')
-      dgnState.pity.pack = 50 
-    }
+    if(dgnState.pity.pack <= 0) { dgnState.inv.myDgn++; dgnLog(`🎉[팩 천장] 선택권으로 자팀 디그니티 확정 획득!`, 'epic'); dgnState.pity.pack = 50 }
   }
 }
 
 const dgnOpenPickup = () => {
   if (dgnState.inv.pickup < 1) return alert("픽업팩이 부족합니다.")
-  dgnState.undoStack = []; // 🔥 환불 불가
-  dgnState.inv.pickup--; 
+  dgnState.undoStack = []; dgnState.inv.pickup--; 
   let t = TEAMS[Math.floor(Math.random()*12)], pn = D_WAVES[dgnState.targetWave][t]
   if (t === dgnState.myTeam) { dgnState.inv.myDgn++; dgnLog(`✨[픽업] 자팀 ${pn} 100% 확정 등장!✨`, 'epic') }
   else { dgnState.album[t]++; dgnLog(`[픽업] 타팀 ${T_NAMES[t]} ${pn} 획득.`, 'success') }
@@ -822,7 +783,6 @@ const dgnOpenPickup = () => {
 
 const dgnDistinctDgnCount = computed(() => TEAMS.filter(t => t !== dgnState.myTeam && dgnState.album[t] > 1).length)
 const dgnDistinctTopCount = computed(() => { let count = 0; TEAMS.forEach(t => { if (t !== dgnState.myTeam) { TOP_DB[t].forEach(p => { if (dgnState.topAlbum[t][p] > 0) count++ }) } }); return count; })
-// 🔥 존버 재화용 자팀 디그니티 기댓값(EV) 계산기 (인게임 100% 동일 로직)
 
 const dgnRunTrade = (isAuto: boolean) => {
   let cnt = 0
@@ -853,11 +813,11 @@ const dgnRunTrade = (isAuto: boolean) => {
     break; 
   }
   if(cnt===0) alert("재료(서로 다른 잉여카드 3종류) 또는 티켓이 부족합니다.")
-  else dgnState.undoStack = []; // 🔥 트레이드를 돌렸으므로 환불 불가
+  else dgnState.undoStack = []; 
 }
 
 const dgnOpenPerfect = (count: number) => {
-  dgnState.undoStack = []; // 🔥 환불 불가
+  dgnState.undoStack = [];
   for (let i = 0; i < count; i++) {
     for (let j = 0; j < 8; j++) {
       let top = ALL_TOPS[Math.floor(Math.random() * 212)]
@@ -867,7 +827,7 @@ const dgnOpenPerfect = (count: number) => {
   dgnLog(`[파이브스타 퍼펙트 팩] ${count}팩 개봉 (TOP ${count * 8}장 획득!)`, 'action')
 }
 
-// 플래너 변수 및 기댓값 계산식 (시즌패스 sp 추가)
+// 플래너 변수 및 로직
 const dgnPlan = reactive({ target: 11, otherMonthlyKrw: 0, wQ: true, wC: 40, sp: 0, rk: 0, pt: 0, pk: 0, pr: 0, lg: 0, unl: 0 })
 const dgnPlanTotalKrw = computed(() => dgnPlan.sp*55000 + dgnPlan.rk*55000 + dgnPlan.pt*99000 + dgnPlan.pk*99000 + dgnPlan.pr*99000 + dgnPlan.lg*149000 + dgnPlan.unl*55000 + (dgnPlan.otherMonthlyKrw || 0) )
 const dgnPlanPureKrw = computed(() => dgnPlan.sp*55000 + dgnPlan.rk*55000 + dgnPlan.pt*99000 + dgnPlan.pk*99000 + dgnPlan.pr*99000 + dgnPlan.lg*149000 + dgnPlan.unl*55000 )
@@ -906,34 +866,28 @@ const dgnRunPlanner = () => {
     let iter = 10000; let results = [] 
     for(let i=0; i<iter; i++) {
       let week = 0; let totalCostRun = 0; 
-      
-      let infTotal = dgnState.payback.totalKrw;
-      let monthSpent = dgnState.payback.spent;
+      let infTotal = dgnState.payback.totalKrw; let monthSpent = dgnState.payback.spent;
       let p1 = dgnState.payback.t1, p2 = dgnState.payback.t2, p3 = dgnState.payback.t3, p4 = dgnState.payback.t4;
       let infPity = dgnState.payback.inf;
-      
       let myDgn = dgnState.inv.myDgn, tkt = dgnState.inv.tickets;
       let pPack = dgnState.pity.pack, pTrade = dgnState.pity.trade;
       let totalUsedTop = 0; let totalGainedTop = dgnState.inv.otherTop;
       let alb = { ...dgnState.album };
+      let topAlb = JSON.parse(JSON.stringify(dgnState.topAlbum))
       
-      // 팩 개봉 헬퍼
-      const simOpenNormal = (count) => {
+      const simOpenNormal = (count: number) => {
         for(let c=0; c<count; c++) {
           tkt += 2;
           for(let j=0; j<8; j++) { 
             if(Math.random()<0.03){ let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++; } 
-            else { if(Math.random()>=(TOP_DB[dgnState.myTeam].length/212)) totalGainedTop++; } 
+            else { let top = ALL_TOPS[Math.floor(Math.random()*212)]; topAlb[top.team][top.name]++; if(top.team !== dgnState.myTeam) totalGainedTop++; } 
           }
           pPack--; if(pPack<=0) { myDgn++; pPack=50; } 
         }
       }
-      const simOpenPickup = (count) => {
-        for(let c=0; c<count; c++) {
-          let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++;
-        }
+      const simOpenPickup = (count: number) => {
+        for(let c=0; c<count; c++) { let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++; }
       }
-      // 믹서기 가동 헬퍼
       const simMixer = () => {
         while(true) {
           let dp = TEAMS.filter(t => t !== dgnState.myTeam && alb[t] > 1);
@@ -943,18 +897,20 @@ const dgnRunPlanner = () => {
             if(pTrade<=0) { myDgn++; pTrade=30; } 
             continue; 
           }
-          if(tkt>=1) { 
-            totalUsedTop += 3; tkt--; 
+          let topDupes: {t:string, p:string}[] = []
+          TEAMS.forEach(t => { if (t !== dgnState.myTeam) { TOP_DB[t].forEach(p => { if (topAlb[t][p] > 0) topDupes.push({t, p}) }) } })
+          if(topDupes.length >= 3 && tkt>=1) { 
+            totalUsedTop += 3; tkt--;
+            topAlb[topDupes[0].t][topDupes[0].p]--; topAlb[topDupes[1].t][topDupes[1].p]--; topAlb[topDupes[2].t][topDupes[2].p]--;
             if(Math.random()<0.03){ let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++; } 
-            else { if(Math.random()>=(TOP_DB[dgnState.myTeam].length/212)) totalGainedTop++; }
+            else { let top = ALL_TOPS[Math.floor(Math.random()*212)]; topAlb[top.team][top.name]++; if(top.team !== dgnState.myTeam) totalGainedTop++; }
             continue;
           }
           break;
         }
       }
       
-      // 🔥 결제 및 [페이백 즉시 개봉] 함수 (달성 즉시 팩 까봄)
-      const simPaybackCheck = (money) => {
+      const simPaybackCheck = (money: number) => {
          totalCostRun += money; monthSpent += money; infTotal += money;
          let pbN = 0, pbP = 0;
          if (monthSpent >= 9900 && !p1) { p1=true; pbN++; }
@@ -962,59 +918,49 @@ const dgnRunPlanner = () => {
          if (monthSpent >= 199000 && !p3) { p3=true; pbN++; }
          if (monthSpent >= 299000 && !p4) { p4=true; pbN++; }
          while(infTotal >= (infPity + 1) * 300000) { infPity++; tkt += 9; }
-         // 공짜 팩 들어왔으면 즉시 개봉!
          if(pbN > 0) simOpenNormal(pbN);
          if(pbP > 0) simOpenPickup(pbP);
       }
 
-      // 🔥 산해님 기획 0순위 및 가성비 순서 완벽 적용 배열
       let packages = [
-        { cost: 55000, n:1, p:0, t:0, max: dgnPlan.sp }, // 0순위: 시즌패스 (혜자 기본 베이스)
-        { cost: 99000, n:0, p:2, t:0, max: dgnPlan.pk }, // 1순위: 픽업프레스티지
-        { cost: 55000, n:1, p:0, t:20, max: dgnPlan.rk }, // 2순위: 루키
-        { cost: 99000, n:3, p:0, t:10, max: dgnPlan.pt }, // 3순위: 프레스티지
-        { cost: 149000, n:2, p:1, t:0, max: dgnPlan.lg }, // 4순위: 레전드
-        { cost: 99000, n:2, p:0, t:10, max: dgnPlan.pr }, // 5순위: 프로
-        { cost: 55000, n:1, p:0, t:1, max: dgnPlan.unl }  // 6순위: 무한 (남은 예산 무제한 꼴박)
+        { cost: 55000, n:1, p:0, t:0, max: dgnPlan.sp }, 
+        { cost: 99000, n:0, p:2, t:0, max: dgnPlan.pk }, 
+        { cost: 55000, n:1, p:0, t:20, max: dgnPlan.rk }, 
+        { cost: 99000, n:3, p:0, t:10, max: dgnPlan.pt }, 
+        { cost: 149000, n:2, p:1, t:0, max: dgnPlan.lg }, 
+        { cost: 99000, n:2, p:0, t:10, max: dgnPlan.pr }, 
+        { cost: 55000, n:1, p:0, t:1, max: dgnPlan.unl }  
       ];
 
-      // 🔥 리얼리티 시간 흐름 시뮬레이션 시작
       while(myDgn < dgnPlan.target) {
         week++;
-        // 매달 첫 주에 일반 페이백 게이지 초기화
         if (week > 1 && week % 4 === 1) { monthSpent = 0; p1 = false; p2 = false; p3 = false; p4 = false; }
 
-        // [1] 주간 기본 보상 수급 및 가동 (결제 전 최우선!)
-        let wQ = dgnPlan.wQ ? 1 : 0; 
-        let wC = Math.floor(dgnPlan.wC / 4); 
+        let wQ = dgnPlan.wQ ? 1 : 0; let wC = Math.floor(dgnPlan.wC / 4); 
         tkt += wC;
         if(wQ > 0) simOpenNormal(wQ);
         simMixer();
-        if(myDgn >= dgnPlan.target) break; // 운 좋게 여기서 뜨면 패키지 돈 굳고 즉시 종료!
+        if(myDgn >= dgnPlan.target) break;
 
-        // [2] 매달 1주 차에만 숍 패키지 결제 진입
         if (week % 4 === 1) {
            if(dgnPlan.otherMonthlyKrw > 0) {
               simPaybackCheck(dgnPlan.otherMonthlyKrw); simMixer();
               if(myDgn >= dgnPlan.target) break;
            }
-           // 0순위 시즌패스부터 가성비 1개씩 사고, 까보고, 목표 달성 시 STOP!
            for(let pkg of packages) {
               for(let c=0; c<pkg.max; c++) {
-                 simPaybackCheck(pkg.cost); // 1개 결제 & 혹시 페이백 터졌으면 즉시 까봄
+                 simPaybackCheck(pkg.cost); 
                  if(pkg.n > 0) simOpenNormal(pkg.n);
                  if(pkg.p > 0) simOpenPickup(pkg.p);
                  tkt += pkg.t;
-                 simMixer(); // 믹서기 가동
-                 if(myDgn >= dgnPlan.target) break; // 🔥 목표 채웠다! 다음 패키지 취소!
+                 simMixer(); 
+                 if(myDgn >= dgnPlan.target) break; 
               }
-              if(myDgn >= dgnPlan.target) break; // 패키지 루프 완전 탈출!
+              if(myDgn >= dgnPlan.target) break; 
            }
         }
-        if (week > 720) break; // 억까 무한루프 방지(15년)
+        if (week > 720) break; 
       }
-      
-      // 진짜 리얼로 쓴 돈(totalCostRun)만 저장
       results.push({ week, cost: totalCostRun, r: week, netTop: totalUsedTop - totalGainedTop })
     }
     
@@ -1030,32 +976,71 @@ const dgnRunPlanner = () => {
     isDgnSim.value = false
   }, 50)
 }
-// 🔥 [추가] 존버 재화(인벤토리) 전용 1만 번 가동 시뮬레이터
+
+const dgnCheckMyLuck = () => {
+  if (!dgnUserSpentKrw.value || dgnSimRawResults.value.length === 0) return alert("시뮬레이션을 먼저 가동한 후 결과값을 입력해주세요.")
+  const val = dgnUserSpentKrw.value
+  const isF2P = dgnSimResult.value?.isF2P
+  const targetVal = isF2P ? val : val
+  let rankIndex = dgnSimRawResults.value.findIndex(r => (isF2P ? (r.week/4) : r.cost) >= targetVal)
+  if (rankIndex === -1) rankIndex = dgnSimRawResults.value.length
+  const pct = (rankIndex / dgnSimRawResults.value.length) * 100
+  dgnMyLuckPercentile.value = parseFloat(pct.toFixed(2))
+  if (pct <= 5) dgnLuckTitle.value = "기만 멈춰! 초특급 비틱 💎"
+  else if (pct <= 20) dgnLuckTitle.value = "될놈될! 꽤 운이 좋네요 🍀"
+  else if (pct <= 50) dgnLuckTitle.value = "평타 쳤습니다! 무난하네요 👍"
+  else if (pct <= 85) dgnLuckTitle.value = "조금 억까 당하셨군요... 🥲"
+  else dgnLuckTitle.value = "흑우 등장... 에프가 사랑합니다 😭"
+}
+
+// ==============================================
+// 🎒 존버 인벤토리 전용 10,000번 정밀 시뮬레이터 (추가됨)
+// ==============================================
 const dgnInvSimState = reactive({ normal: 0, pickup: 0, tickets: 0, iterations: 10000 })
 const dgnInvSimResult = ref<any>(null)
 const isDgnInvSim = ref(false)
+const dgnInvResultViewMode = ref<'TOP10'|'AVG'|'BOT90'>('AVG')
+const dgnInvChartCanvas = ref<HTMLCanvasElement | null>(null); let dgnInvChartInstance: any = null
+const dgnInvUserSpentTkt = ref<number | null>(null); const dgnInvMyLuckPercentile = ref<number | null>(null); const dgnInvLuckTitle = ref('')
+const dgnInvSimRawResults = ref<any[]>([])
+
+const renderDgnInvChart = (data: number[]) => {
+  if (!ChartObj || !dgnInvChartCanvas.value) return
+  if (dgnInvChartInstance) dgnInvChartInstance.destroy()
+  const p99 = data[Math.floor(data.length * 0.99)] || data[data.length - 1]
+  const filteredData = data.filter(d => d <= p99)
+  const min = filteredData[0] || 0; const max = filteredData[filteredData.length - 1] || 1
+  const binCount = Math.max(10, Math.min(40, max - min + 1)); const binSize = (max - min) / binCount || 1
+  const bins = Array(binCount).fill(0)
+  filteredData.forEach(val => { let idx = Math.floor((val - min) / binSize); if (idx >= binCount) idx = binCount - 1; bins[idx]++ })
+  const labels = bins.map((_, i) => formatNum(Math.round(min + (i + 0.5) * binSize)))
+  let cdfSum = 0; const cdf = bins.map(count => { cdfSum += count; return (cdfSum / data.length) * 100 })
+  dgnInvChartInstance = new ChartObj(dgnInvChartCanvas.value, {
+    type: 'bar', data: { labels, datasets: [ { type: 'line', label: '누적 달성률 (%)', data: cdf, borderColor: '#4f46e5', backgroundColor: '#4f46e5', borderWidth: 2, yAxisID: 'y-cdf', tension: 0.3, pointRadius: 0, fill: false }, { type: 'bar', label: '해당 구간 인원', data: bins, backgroundColor: 'rgba(99, 102, 241, 0.5)', borderColor: 'rgba(99, 102, 241, 1)', borderWidth: 1, yAxisID: 'y-freq', borderRadius: 4 } ]},
+    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(0,0,0,0.8)', callbacks: { title: (ctx:any) => `자팀 획득: ${ctx[0].label}장`, label: (ctx:any) => ctx.datasetIndex === 0 ? `누적 달성률: ${ctx.raw.toFixed(2)}%` : `이 구간 달성자: ${ctx.raw}명` } } }, scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 6, font: { size: 10 } } }, 'y-freq': { type: 'linear', position: 'left', display: false, beginAtZero: true }, 'y-cdf': { type: 'linear', position: 'right', beginAtZero: true, max: 100, grid: { drawOnChartArea: false }, ticks: { font: { size: 10 }, callback: (v:any) => v + '%' } } } }
+  })
+}
 
 const dgnRunInvSimulator = () => {
-  if (dgnInvSimState.normal === 0 && dgnInvSimState.pickup === 0 && dgnInvSimState.tickets === 0) {
-    return alert("시뮬레이션할 팩이나 티켓 개수를 1개 이상 입력해주세요.")
-  }
-  isDgnInvSim.value = true; dgnInvSimResult.value = null;
+  if (dgnInvSimState.normal === 0 && dgnInvSimState.pickup === 0 && dgnInvSimState.tickets === 0) return alert("시뮬레이션할 팩이나 티켓 개수를 1개 이상 입력해주세요.")
+  isDgnInvSim.value = true; dgnInvSimResult.value = null; dgnInvMyLuckPercentile.value = null; dgnInvUserSpentTkt.value = null
 
   setTimeout(() => {
     let iter = dgnInvSimState.iterations; let results = []
 
     for (let i = 0; i < iter; i++) {
-      let myDgn = 0
-      let tkt = dgnInvSimState.tickets
+      let myDgn = 0; let tkt = dgnInvSimState.tickets
       let pPackPity = dgnState.pity.pack; let pTradePity = dgnState.pity.trade
+      let totalUsedTop = 0
       
-      // 내 도감 상태 복사 (원본 보호)
+      let currentTopDupes = 0
+      TEAMS.forEach(t => { if(t !== dgnState.myTeam) TOP_DB[t].forEach(p => { currentTopDupes += dgnState.topAlbum[t][p] }) })
+      let totalGainedTop = currentTopDupes
       let alb = { ...dgnState.album }
       let topAlb = JSON.parse(JSON.stringify(dgnState.topAlbum))
 
-      // 1. 일반팩 가상 개봉
       for(let c = 0; c < dgnInvSimState.normal; c++) {
-        tkt += 2 // 일반팩 까면 티켓 2개 추가
+        tkt += 2
         for(let j = 0; j < 8; j++) { 
           if(Math.random() < 0.03) { 
             let t = TEAMS[Math.floor(Math.random()*12)]
@@ -1063,18 +1048,17 @@ const dgnRunInvSimulator = () => {
           } else { 
             let top = ALL_TOPS[Math.floor(Math.random()*212)]
             topAlb[top.team][top.name]++
+            if(top.team !== dgnState.myTeam) totalGainedTop++ 
           } 
         }
         pPackPity--; if(pPackPity <= 0) { myDgn++; pPackPity = 50 } 
       }
 
-      // 2. 픽업팩 가상 개봉 (100% 디그니티)
       for(let c = 0; c < dgnInvSimState.pickup; c++) {
         let t = TEAMS[Math.floor(Math.random()*12)]
         if(t === dgnState.myTeam) myDgn++; else alb[t]++
       }
 
-      // 3. 트레이드(믹서기) 재료 고갈될 때까지 무한 가동
       while(true) {
         let dp = TEAMS.filter(t => t !== dgnState.myTeam && alb[t] > 1)
         if(dp.length >= 3 && tkt >= 1) { 
@@ -1090,46 +1074,54 @@ const dgnRunInvSimulator = () => {
         
         if(topDupes.length >= 3 && tkt >= 1) { 
           topAlb[topDupes[0].t][topDupes[0].p]--; topAlb[topDupes[1].t][topDupes[1].p]--; topAlb[topDupes[2].t][topDupes[2].p]--
-          tkt--
+          totalUsedTop += 3; tkt--
           if(Math.random() < 0.03) {
             let t = TEAMS[Math.floor(Math.random()*12)]
             if(t === dgnState.myTeam) myDgn++; else alb[t]++
           } else {
             let top = ALL_TOPS[Math.floor(Math.random()*212)]
             topAlb[top.team][top.name]++
+            if(top.team !== dgnState.myTeam) totalGainedTop++
           }
-          continue
+          continue 
         }
-        break // 재료나 티켓 없으면 루프 탈출
+        break 
       }
-      results.push(myDgn)
+      results.push({ myDgn, netTop: totalUsedTop - totalGainedTop })
     }
 
-    results.sort((a,b) => a - b) // 오름차순 정렬 (0, 1, 2 ...)
-    dgnInvSimResult.value = {
-      top10: results[Math.floor(iter * 0.9)], // 상위 10% 비틱
-      avg: (results.reduce((a,b)=>a+b,0) / iter).toFixed(2), // 평균
-      bot90: results[Math.floor(iter * 0.1)] // 하위 90% 폭망
+    results.sort((a,b) => a.myDgn - b.myDgn) 
+    dgnInvSimRawResults.value = results
+    
+    const mList = results.map(x => x.myDgn)
+    const avgVal = mList.reduce((a,b)=>a+b,0) / iter
+    
+    dgnInvSimResult.value = { 
+      bot90: results[Math.floor(iter * 0.1)], 
+      avg: { myDgn: avgVal.toFixed(2), netTop: results[Math.floor(iter * 0.5)].netTop }, 
+      top10: results[Math.floor(iter * 0.9)], 
+      oneTryProb: dgnInvSimState.tickets > 0 ? ((avgVal / dgnInvSimState.tickets) * 100) : 0
     }
+    dgnInvResultViewMode.value = 'AVG'
     isDgnInvSim.value = false
+    nextTick(() => renderDgnInvChart(mList))
   }, 50)
 }
 
-const dgnCheckMyLuck = () => {
-  if (!dgnUserSpentKrw.value || dgnSimRawResults.value.length === 0) return alert("시뮬레이션을 먼저 가동한 후 결과값을 입력해주세요.")
-  const val = dgnUserSpentKrw.value
-  const isF2P = dgnSimResult.value?.isF2P
-  const targetVal = isF2P ? val : val
-  let rankIndex = dgnSimRawResults.value.findIndex(r => (isF2P ? (r.week/4) : r.cost) >= targetVal)
-  if (rankIndex === -1) rankIndex = dgnSimRawResults.value.length
-  const pct = (rankIndex / dgnSimRawResults.value.length) * 100
-  dgnMyLuckPercentile.value = parseFloat(pct.toFixed(2))
+const dgnCheckInvLuck = () => {
+  if (dgnInvUserSpentTkt.value === null || dgnInvSimRawResults.value.length === 0) return alert("시뮬레이션을 먼저 돌려주세요.")
+  const val = dgnInvUserSpentTkt.value
+  let rankIndex = dgnInvSimRawResults.value.findIndex(r => r.myDgn >= val)
+  if (rankIndex === -1) rankIndex = dgnInvSimRawResults.value.length
   
-  if (pct <= 5) dgnLuckTitle.value = "기만 멈춰! 초특급 비틱 💎"
-  else if (pct <= 20) dgnLuckTitle.value = "될놈될! 꽤 운이 좋네요 🍀"
-  else if (pct <= 50) dgnLuckTitle.value = "평타 쳤습니다! 무난하네요 👍"
-  else if (pct <= 85) dgnLuckTitle.value = "조금 억까 당하셨군요... 🥲"
-  else dgnLuckTitle.value = "흑우 등장... 에프가 사랑합니다 😭"
+  const pct = (1 - (rankIndex / dgnInvSimRawResults.value.length)) * 100
+  dgnInvMyLuckPercentile.value = parseFloat(pct.toFixed(2))
+  
+  if (pct <= 5) dgnInvLuckTitle.value = "기만 멈춰! 초특급 비틱 💎"
+  else if (pct <= 20) dgnInvLuckTitle.value = "될놈될! 꽤 운이 좋네요 🍀"
+  else if (pct <= 50) dgnInvLuckTitle.value = "평타 쳤습니다! 무난하네요 👍"
+  else if (pct <= 85) dgnInvLuckTitle.value = "조금 억까 당하셨군요... 🥲"
+  else dgnInvLuckTitle.value = "흑우 등장... 에프가 사랑합니다 😭"
 }
 </script>
 
@@ -1679,10 +1671,8 @@ const dgnCheckMyLuck = () => {
             <button @click="dgnUndoPurchase" :disabled="dgnState.undoStack.length === 0" class="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-900/20 dark:hover:bg-red-900/40 dark:text-red-400 text-[10px] font-bold rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 shadow-sm"><RotateCcw class="w-3 h-3"/> 직전 결제 취소</button>
           </div>
           <div class="flex justify-between text-[10px] text-slate-500 dark:text-neutral-400 mb-2 px-1"><span>총 누적 소모 캐시:</span> <span class="text-purple-600 dark:text-purple-400 font-bold">{{ new Intl.NumberFormat().format(dgnState.inv.cash) }} 💎</span></div>          
-          <div class="space-y-2 overflow-y-auto pr-1 flex-1 pb-2">
-            <!-- 0원 -->
+          <div class="space-y-2 overflow-y-auto pr-1 flex-1 pb-2 custom-scrollbar">
             <button @click="dgnBuyPkg('wQ', 4, 0, 1, 0, 0, '주간 퀘스트')" :disabled="dgnState.shop.wQ>=4" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.wQ<4?'bg-blue-50 border border-blue-200 dark:bg-blue-900/20 dark:border-blue-800/50':'bg-slate-50 dark:bg-[#2a2a35] border border-slate-200 dark:border-neutral-700/50 opacity-50'"><div><div class="text-[10px] text-blue-600 dark:text-blue-400">주간 퀘스트 (월) [{{dgnState.shop.wQ}}/4]</div><div class="text-xs font-bold text-slate-900 dark:text-white">일반팩 1</div></div></button>
-            <!-- 캐시 -->
             <div class="flex flex-col bg-slate-50 dark:bg-[#2a2a35] border border-slate-200 dark:border-neutral-700/50 rounded-lg p-2 gap-2 transition-colors" :class="{'opacity-50': dgnState.shop.wC >= 40}">
               <div class="flex justify-between items-start px-1">
                 <div><div class="text-[10px] text-slate-500 dark:text-neutral-400">티켓 구매 (월) [{{dgnState.shop.wC}}/40]</div><div class="text-xs font-bold text-amber-600 dark:text-amber-500">티켓 1개 = 50캐시</div></div>
@@ -1693,12 +1683,10 @@ const dgnCheckMyLuck = () => {
                 <button @click="dgnBuyPkg('wC', 40, 50, 0, 0, 1, '주간 상점 티켓', true, 10)" :disabled="dgnState.shop.wC > 30" class="flex-1 py-1.5 bg-white hover:bg-slate-100 dark:bg-[#1e1e24] dark:hover:bg-neutral-700 border border-slate-300 dark:border-neutral-700 text-[11px] font-bold text-blue-600 dark:text-blue-300 rounded transition-colors disabled:opacity-50 shadow-sm">10회 구매</button>
               </div>
             </div>
-            <!-- 🔥 추가된 시즌패스 패키지 -->
             <button @click="dgnBuyPkg('sp', 1, 55000, 1, 0, 0, '시즌패스')" :disabled="dgnState.shop.sp>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.sp<1?'bg-slate-100 border border-slate-300 dark:bg-[#2a2a35] dark:border-neutral-600':'bg-slate-50 dark:bg-[#2a2a35] border border-slate-200 dark:border-neutral-700/50 opacity-50'">
               <div><div class="text-[10px] text-slate-600 dark:text-slate-400">시즌패스 [{{dgnState.shop.sp}}/1]</div><div class="text-xs font-bold text-slate-900 dark:text-white">일반팩 1</div></div>
               <div class="text-right"><div class="text-[11px] font-bold text-green-600 dark:text-green-500">5.5만</div><div class="text-[9px] text-slate-500 dark:text-neutral-400 font-bold mt-0.5 whitespace-nowrap">자팀 기댓값: 약 183만/1장</div></div>
             </button>
-            <!-- 기존 패키지들 -->
             <button @click="dgnBuyPkg('rk', 1, 55000, 1, 0, 20, '루키 패키지')" :disabled="dgnState.shop.rk>=1" class="w-full text-left p-2 rounded-lg transition-colors flex justify-between" :class="dgnState.shop.rk<1?'bg-orange-50 border border-orange-200 dark:bg-orange-900/20 dark:border-orange-800/50':'bg-slate-50 dark:bg-[#2a2a35] border border-slate-200 dark:border-neutral-700/50 opacity-50'">
               <div><div class="text-[10px] text-orange-600 dark:text-orange-400">루키 패키지 [{{dgnState.shop.rk}}/1]</div><div class="text-xs font-bold text-slate-900 dark:text-white">일반1 + 티켓20</div></div>
               <div class="text-right"><div class="text-[11px] font-bold text-green-600 dark:text-green-500">5.5만</div><div class="text-[9px] text-orange-500 dark:text-orange-300 font-bold mt-0.5 whitespace-nowrap">자팀 기댓값: 약 46만/1장</div></div>
@@ -1734,27 +1722,14 @@ const dgnCheckMyLuck = () => {
 
       <!-- [중앙] 가챠 및 믹서기 -->
       <section class="xl:col-span-5 flex flex-col gap-4 h-full">
+        <!-- 뽑기 패널 -->
         <div class="bg-white dark:bg-[#1e1e24] border border-slate-200 dark:border-neutral-700/50 rounded-2xl p-5 flex flex-col shadow-sm dark:shadow-lg transition-colors">
-          <h2 class="text-lg font-black mb-4 flex items-center gap-2 text-indigo-600 dark:text-indigo-400"><Package class="w-5 h-5"/> 존버 인벤토리 & 뽑기</h2>
-          
-          <!-- 🔥 입력칸 및 EV 계산기 추가 영역 -->
-          <div class="grid grid-cols-3 gap-3 mb-3">
-            <div class="bg-slate-50 dark:bg-[#2a2a35] border border-slate-200 dark:border-neutral-700 p-2.5 rounded-xl text-center shadow-inner">
-              <div class="text-[10px] font-bold text-slate-500 dark:text-neutral-400 mb-1.5">일반 디그팩</div>
-              <input type="number" v-model.number="dgnState.inv.normal" min="0" class="w-full bg-white dark:bg-[#1a1b1e] border border-slate-300 dark:border-neutral-600 rounded-lg py-1.5 text-lg font-black text-slate-900 dark:text-white text-center outline-none focus:border-blue-500 transition-colors">
-            </div>
-            <div class="bg-purple-50 dark:bg-purple-900/10 border border-purple-200 dark:border-purple-800/50 p-2.5 rounded-xl text-center shadow-inner">
-              <div class="text-[10px] font-bold text-purple-600 dark:text-purple-400 mb-1.5">픽업 디그팩</div>
-              <input type="number" v-model.number="dgnState.inv.pickup" min="0" class="w-full bg-white dark:bg-[#1a1b1e] border border-purple-300 dark:border-purple-700/50 rounded-lg py-1.5 text-lg font-black text-purple-700 dark:text-purple-300 text-center outline-none focus:border-purple-500 transition-colors">
-            </div>
-            <div class="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/50 p-2.5 rounded-xl text-center shadow-inner">
-              <div class="text-[10px] font-bold text-amber-600 dark:text-amber-500 mb-1.5">트레이드권</div>
-              <input type="number" v-model.number="dgnState.inv.tickets" min="0" class="w-full bg-white dark:bg-[#1a1b1e] border border-amber-300 dark:border-amber-700/50 rounded-lg py-1.5 text-lg font-black text-amber-700 dark:text-amber-500 text-center outline-none focus:border-amber-500 transition-colors">
-            </div>
+          <h2 class="text-lg font-black mb-4 flex items-center gap-2 text-indigo-600 dark:text-indigo-400"><Package class="w-5 h-5"/> 인벤토리 & 뽑기</h2>
+          <div class="grid grid-cols-3 gap-3 mb-5">
+            <div class="bg-slate-50 dark:bg-[#2a2a35] border border-slate-200 dark:border-transparent p-3 rounded-xl text-center transition-colors"><div class="text-[10px] font-bold text-slate-500 dark:text-neutral-400 mb-1">일반 디그팩</div><div class="text-xl font-black text-slate-900 dark:text-white">{{ dgnState.inv.normal }}</div></div>
+            <div class="bg-purple-50 border border-purple-200 dark:bg-purple-900/20 dark:border-purple-800/30 p-3 rounded-xl text-center transition-colors"><div class="text-[10px] font-bold text-purple-600 dark:text-purple-400 mb-1">픽업 디그팩</div><div class="text-xl font-black text-purple-700 dark:text-purple-300">{{ dgnState.inv.pickup }}</div></div>
+            <div class="bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-800/30 p-3 rounded-xl text-center transition-colors"><div class="text-[10px] font-bold text-amber-600 dark:text-amber-500 mb-1">트레이드권</div><div class="text-xl font-black text-amber-700 dark:text-amber-400">{{ dgnState.inv.tickets }}</div></div>
           </div>
-          
-          <!-- 🔥 입력칸 끝 -->
-
           <div class="flex flex-col gap-2 mb-3">
             <div class="flex gap-2"><button @click="dgnOpenPack(1)" class="flex-1 py-3 bg-slate-700 hover:bg-slate-800 dark:bg-[#3a3a45] dark:hover:bg-neutral-600 text-white rounded-xl font-bold transition-colors shadow-sm">일반 1팩 까기</button><button @click="dgnOpenPack(10)" class="flex-1 py-3 bg-slate-700 hover:bg-slate-800 dark:bg-[#3a3a45] dark:hover:bg-neutral-600 text-white rounded-xl font-bold transition-colors shadow-sm">일반 10팩 까기</button></div>
             <button @click="dgnOpenPickup()" class="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 dark:from-purple-700 dark:to-indigo-700 dark:hover:from-purple-600 dark:hover:to-indigo-600 text-white rounded-xl font-black shadow-md transition-all">픽업팩 까기 (100% 확정)</button>
@@ -1769,6 +1744,7 @@ const dgnCheckMyLuck = () => {
           </div>
         </div>
 
+        <!-- 트레이드소 패널 -->
         <div class="bg-white dark:bg-[#1e1e24] border border-slate-200 dark:border-neutral-700/50 rounded-2xl p-5 flex flex-col shrink-0 shadow-sm dark:shadow-lg transition-colors">
           <h3 class="font-extrabold text-sm mb-3 flex items-center gap-1.5 text-green-600 dark:text-green-400"><RefreshCw class="w-4 h-4"/> 트레이드소</h3>
           <div class="grid grid-cols-2 gap-3 mb-2">
@@ -1800,8 +1776,9 @@ const dgnCheckMyLuck = () => {
         </div>
       </section>
 
-      <!-- [우측] 도감 & 플래너 -->
+      <!-- [우측] 도감 & 플래너 & 존버 시뮬레이터 -->
       <section class="xl:col-span-4 flex flex-col gap-4 h-full">
+        <!-- 결과 전광판 -->
         <div class="bg-gradient-to-b from-blue-100 to-white dark:from-blue-900 dark:to-[#1e1e24] border border-blue-200 dark:border-blue-800/50 rounded-2xl p-5 shadow-sm dark:shadow-xl shrink-0 text-center relative overflow-hidden transition-colors">
           <Gem class="absolute -right-4 -bottom-4 w-32 h-32 text-blue-300 dark:text-blue-500 opacity-20 dark:opacity-10"/>
           <div class="text-[11px] font-extrabold text-blue-600 dark:text-blue-400 mb-1 relative z-10">최종 획득 결과물</div>
@@ -1809,6 +1786,7 @@ const dgnCheckMyLuck = () => {
           <div class="text-5xl font-black text-amber-500 dark:text-yellow-400 mt-2 relative z-10">{{ dgnState.inv.myDgn }} <span class="text-xl text-amber-600 dark:text-yellow-600">장</span></div>
         </div>
 
+        <!-- 도감 모듈 -->
         <div class="bg-white dark:bg-[#1e1e24] border border-slate-200 dark:border-neutral-700/50 rounded-2xl p-4 flex-1 flex flex-col overflow-hidden shadow-sm dark:shadow-lg transition-colors">
           <div class="flex gap-2 mb-3">
             <button @click="dgnAlbumTab='dignity'" class="flex-1 py-1.5 rounded text-[11px] font-bold transition-colors" :class="dgnAlbumTab==='dignity'?'bg-amber-500 text-white dark:bg-amber-600':'bg-slate-100 text-slate-500 dark:bg-[#2a2a35] dark:text-neutral-400'">디그니티 명함</button>
@@ -1959,7 +1937,7 @@ const dgnCheckMyLuck = () => {
           </div>
         </div>
 
-        <!-- 🚀 [추가] 존버 인벤토리 시뮬레이터 -->
+        <!-- 🚀 [신규] 존버 재화 1만 번 시뮬레이터 -->
         <div class="bg-blue-50 border border-blue-200 dark:bg-blue-900/20 dark:border-blue-800/50 rounded-2xl p-4 shrink-0 flex flex-col shadow-sm dark:shadow-lg transition-colors mt-4">
           <h3 class="font-extrabold text-sm mb-2 flex items-center gap-1.5 text-blue-700 dark:text-blue-400"><Database class="w-4 h-4"/> 존버 재화 1만 번 시뮬레이터</h3>
           
@@ -1983,21 +1961,50 @@ const dgnCheckMyLuck = () => {
             </div>
           </div>
           
-          <button @click="dgnRunInvSimulator" :disabled="isDgnInvSim" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white font-bold rounded-lg text-xs transition-colors shadow-sm mb-3">{{ isDgnInvSim ? '1만 번 가챠 돌리는 중...' : '시뮬레이션 가동' }}</button>
+          <button @click="dgnRunInvSimulator" :disabled="isDgnInvSim" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white font-bold rounded-lg text-xs transition-colors shadow-sm mb-3">{{ isDgnInvSim ? '10,000번 가챠 돌리는 중...' : '시뮬레이션 가동' }}</button>
           
-          <div v-if="dgnInvSimResult" class="bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 rounded-xl p-3 shadow-inner transition-colors animate-fade-in">
-            <div class="text-[11px] font-bold text-slate-500 dark:text-neutral-400 text-center mb-2 border-b border-slate-100 dark:border-neutral-800 pb-1">10,000회 시뮬레이션 결과 (자팀 획득)</div>
-            <div class="flex justify-between items-center px-1 py-1">
-              <span class="text-xs font-extrabold text-blue-600 dark:text-blue-400">상위 10% (비틱)</span>
-              <span class="text-sm font-black text-blue-600 dark:text-blue-400">{{ dgnInvSimResult.top10 }} <span class="text-[10px] font-normal">장</span></span>
+          <div class="bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 rounded-2xl p-4 shadow-sm flex-1 flex flex-col relative overflow-hidden transition-colors" v-if="dgnInvSimResult || isDgnInvSim">
+            <div class="mb-4 bg-slate-50 dark:bg-neutral-800 rounded-xl border border-slate-200 dark:border-neutral-700 p-3 shadow-inner transition-colors">
+              <div class="flex justify-between gap-1 mb-3">
+                <button @click="dgnInvResultViewMode = 'TOP10'" class="flex-1 py-1.5 text-[10px] font-bold rounded border transition-colors" :class="dgnInvResultViewMode === 'TOP10' ? 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/50 dark:text-blue-300' : 'bg-white dark:bg-neutral-900 border-slate-200 dark:border-neutral-700 text-slate-500 dark:text-neutral-500'">상위 10% (비틱)</button>
+                <button @click="dgnInvResultViewMode = 'AVG'" class="flex-1 py-1.5 text-[10px] font-bold rounded border transition-colors" :class="dgnInvResultViewMode === 'AVG' ? 'bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-900/50 dark:text-indigo-300' : 'bg-white dark:bg-neutral-900 border-slate-200 dark:border-neutral-700 text-slate-500 dark:text-neutral-500'">평균 기댓값</button>
+                <button @click="dgnInvResultViewMode = 'BOT90'" class="flex-1 py-1.5 text-[10px] font-bold rounded border transition-colors" :class="dgnInvResultViewMode === 'BOT90' ? 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/50 dark:text-red-300' : 'bg-white dark:bg-neutral-900 border-slate-200 dark:border-neutral-700 text-slate-500 dark:text-neutral-500'">하위 90% (폭망)</button>
+              </div>
+              
+              <div v-if="dgnInvSimResult" class="space-y-1">
+                <div class="flex justify-between items-center px-1 py-1">
+                  <span class="text-[11px] font-extrabold" :class="{'text-blue-700 dark:text-blue-500': dgnInvResultViewMode==='TOP10', 'text-indigo-700 dark:text-indigo-500': dgnInvResultViewMode==='AVG', 'text-red-700 dark:text-red-500': dgnInvResultViewMode==='BOT90'}">자팀 획득량</span>
+                  <span class="text-sm font-black" :class="{'text-blue-700 dark:text-blue-500': dgnInvResultViewMode==='TOP10', 'text-indigo-700 dark:text-indigo-500': dgnInvResultViewMode==='AVG', 'text-red-700 dark:text-red-500': dgnInvResultViewMode==='BOT90'}">
+                    {{ dgnInvResultViewMode === 'TOP10' ? dgnInvSimResult.top10.myDgn : dgnInvResultViewMode === 'AVG' ? dgnInvSimResult.avg.myDgn : dgnInvSimResult.bot90.myDgn }}<span class="text-[9px] font-normal text-slate-400 dark:text-neutral-500 ml-1">장</span>
+                  </span>
+                </div>
+
+                <div class="flex justify-between items-center px-1 py-1 bg-red-50 border border-red-100 dark:border-transparent dark:bg-red-900/20 rounded mt-1 transition-colors">
+                  <span class="text-[10px] font-bold text-red-600 dark:text-red-500">예상 부족 타팀 TOP 재료</span>
+                  <span class="text-xs font-black text-red-600 dark:text-red-500">
+                    - {{ new Intl.NumberFormat().format(Math.max(0, dgnInvResultViewMode === 'TOP10' ? dgnInvSimResult.top10.netTop : dgnInvResultViewMode === 'AVG' ? dgnInvSimResult.avg.netTop : dgnInvSimResult.bot90.netTop)) }} <span class="text-[8px] font-normal">장</span>
+                  </span>
+                </div>
+              </div>
+              <div v-else class="text-center text-slate-400 dark:text-neutral-400 text-xs py-4 font-bold">10,000번 가동 중...</div>
+
+              <div class="mt-3 pt-3 border-t border-slate-200 dark:border-neutral-700 transition-colors">
+                <div class="text-[10px] font-extrabold text-slate-600 dark:text-neutral-400 mb-1.5 flex items-center gap-1"><Search class="w-3 h-3"/> 내 운세 (백분위) 판독기</div>
+                <div class="flex gap-2">
+                  <input type="number" v-model.number="dgnInvUserSpentTkt" placeholder="실제 자팀을 먹은 장수 입력" class="flex-1 bg-white dark:bg-neutral-900 border border-slate-300 dark:border-neutral-600 rounded-lg p-1.5 text-[10px] font-bold outline-none focus:border-indigo-500 text-slate-900 dark:text-white transition-colors">
+                  <button @click="dgnCheckInvLuck" class="px-3 bg-slate-800 dark:bg-neutral-700 text-white rounded-lg text-[10px] font-bold hover:bg-slate-900 dark:hover:bg-black transition-colors shrink-0">결과 확인</button>
+                </div>
+                <div v-if="dgnInvMyLuckPercentile !== null" class="mt-2 text-center text-[11px] font-extrabold bg-white dark:bg-neutral-900 py-1.5 rounded-lg border border-slate-200 dark:border-neutral-700 transition-colors">
+                  상위 <span :class="dgnInvMyLuckPercentile <= 10 ? 'text-blue-600 dark:text-blue-500' : dgnInvMyLuckPercentile >= 90 ? 'text-red-600 dark:text-red-500' : 'text-indigo-600 dark:text-indigo-500'">{{ dgnInvMyLuckPercentile }}%</span> 입니다! <span class="ml-1 font-medium text-slate-500 dark:text-neutral-500 truncate">{{ dgnInvLuckTitle }}</span>
+                </div>
+              </div>
             </div>
-            <div class="flex justify-between items-center px-1 py-1 bg-slate-50 dark:bg-[#2a2a35] rounded transition-colors">
-              <span class="text-xs font-extrabold text-indigo-600 dark:text-indigo-400">평균 기댓값</span>
-              <span class="text-sm font-black text-indigo-600 dark:text-indigo-400">{{ dgnInvSimResult.avg }} <span class="text-[10px] font-normal">장</span></span>
-            </div>
-            <div class="flex justify-between items-center px-1 py-1">
-              <span class="text-xs font-extrabold text-red-500">하위 90% (폭망)</span>
-              <span class="text-sm font-black text-red-500">{{ dgnInvSimResult.bot90 }} <span class="text-[10px] font-normal">장</span></span>
+
+            <div class="flex-1 bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 rounded-xl p-2 min-h-[200px] relative flex flex-col shadow-inner transition-colors">
+              <div class="text-[9px] font-bold text-slate-400 dark:text-neutral-400 mb-1 text-center">자팀 획득량 누적 확률 분포도</div>
+              <div class="relative flex-1 w-full h-full">
+                <canvas ref="dgnInvChartCanvas"></canvas>
+              </div>
             </div>
           </div>
         </div>
