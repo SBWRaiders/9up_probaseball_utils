@@ -784,9 +784,15 @@ const dgnOpenPickup = () => {
 const dgnDistinctDgnCount = computed(() => TEAMS.filter(t => t !== dgnState.myTeam && dgnState.album[t] > 1).length)
 const dgnDistinctTopCount = computed(() => { let count = 0; TEAMS.forEach(t => { if (t !== dgnState.myTeam) { TOP_DB[t].forEach(p => { if (dgnState.topAlbum[t][p] > 0) count++ }) } }); return count; })
 
+// 새로 추가된 트레이드 횟수 지정 변수
+const tradeRunCount = ref(10)
+
 const dgnRunTrade = (isAuto: boolean) => {
   let cnt = 0
-  while (true) {
+  let runLimit = isAuto ? tradeRunCount.value : 1
+  if (runLimit <= 0) return alert("1 이상의 횟수를 입력해주세요.")
+
+  for (let i = 0; i < runLimit; i++) {
     let dgnDupes = TEAMS.filter(t => t !== dgnState.myTeam && dgnState.album[t] > 1)
     if (dgnDupes.length >= 3 && dgnState.inv.tickets >= 1) {
       dgnState.album[dgnDupes[0]]--; dgnState.album[dgnDupes[1]]--; dgnState.album[dgnDupes[2]]--;
@@ -794,25 +800,36 @@ const dgnRunTrade = (isAuto: boolean) => {
       let t = TEAMS[Math.floor(Math.random()*12)], pn = D_WAVES[dgnState.targetWave][t]
       if (t === dgnState.myTeam) { dgnState.inv.myDgn++; dgnLog(`[트레이드] 대박! 자팀 ${pn} 디그니티 획득! (8.3%)`, 'epic') } else { dgnState.album[t]++; dgnLog(`[트레이드] 타팀 ${T_NAMES[t]} ${pn} 획득...`, 'normal') }
       if (dgnState.pity.trade <= 0) { dgnState.inv.myDgn++; dgnLog(`🎉[트레이드 천장] 선택권으로 자팀 확정 획득!`, 'epic'); dgnState.pity.trade = 30 } 
-      if (!isAuto) break; else continue; 
+      continue; 
     }
-    let topDupes: {t:string, p:string}[] = []
-    TEAMS.forEach(t => { if (t !== dgnState.myTeam) { TOP_DB[t].forEach(p => { if (dgnState.topAlbum[t][p] > 0) topDupes.push({t, p}) }) } })
-    if (topDupes.length >= 3 && dgnState.inv.tickets >= 1) {
-      dgnState.topAlbum[topDupes[0].t][topDupes[0].p]--; dgnState.topAlbum[topDupes[1].t][topDupes[1].p]--; dgnState.topAlbum[topDupes[2].t][topDupes[2].p]--;
-      dgnState.inv.otherTop -= 3; dgnState.inv.tickets--; cnt++ 
+    
+    // TOP 카드 트레이드 강제 가동 (재료 없어도 마이너스 허용)
+    if (dgnState.inv.tickets >= 1) {
+      let topDupes: {t:string, p:string}[] = []
+      TEAMS.forEach(t => { if (t !== dgnState.myTeam) { TOP_DB[t].forEach(p => { if (dgnState.topAlbum[t][p] > 0) topDupes.push({t, p}) }) } })
+      
+      // 구체적인 TOP 재료가 있으면 깎음
+      if (topDupes.length >= 3) {
+        dgnState.topAlbum[topDupes[0].t][topDupes[0].p]--; dgnState.topAlbum[topDupes[1].t][topDupes[1].p]--; dgnState.topAlbum[topDupes[2].t][topDupes[2].p]--;
+      }
+      
+      // 인벤토리 총합에서 무조건 3장 차감 (마이너스 청구서 발행)
+      dgnState.inv.otherTop -= 3; 
+      dgnState.inv.tickets--; cnt++ 
+      
       if (Math.random() < 0.03) {
         let t = TEAMS[Math.floor(Math.random()*12)], pn = D_WAVES[dgnState.targetWave][t]
         if (t === dgnState.myTeam) { dgnState.inv.myDgn++; dgnLog(`🔥[TOP 3% 기적] 자팀 ${pn} 디그니티 획득!`, 'epic') } else { dgnState.album[t]++; dgnLog(`🔥[TOP 3% 기적] 타팀 ${T_NAMES[t]} ${pn} 획득!`, 'success') }
       } else {
-        let top = ALL_TOPS[Math.floor(Math.random()*212)]; if (top.team === dgnState.myTeam) { dgnState.inv.myTop++; dgnState.topAlbum[top.team][top.name]++ } else { dgnState.inv.otherTop++; dgnState.topAlbum[top.team][top.name]++ }
+        let top = ALL_TOPS[Math.floor(Math.random()*212)]; 
+        if (top.team === dgnState.myTeam) { dgnState.inv.myTop++; dgnState.topAlbum[top.team][top.name]++ } else { dgnState.inv.otherTop++; dgnState.topAlbum[top.team][top.name]++ }
         dgnLog(`[트레이드] TOP 재료 소모... (꽝)`, 'normal')
       }
-      if (!isAuto) break; else continue; 
+      continue; 
     }
-    break; 
+    break; // 티켓이 0장이면 강제 정지
   }
-  if(cnt===0) alert("재료(서로 다른 잉여카드 3종류) 또는 티켓이 부족합니다.")
+  if(cnt===0) alert("트레이드권(티켓)이 부족합니다.")
   else dgnState.undoStack = []; 
 }
 
@@ -865,7 +882,9 @@ const dgnRunPlanner = () => {
 
     let iter = 10000; let results = [] 
     for(let i=0; i<iter; i++) {
-      let week = 0; let totalCostRun = 0; 
+      let week = 0; 
+      let totalCostRun = 0; 
+      let pureDignityCost = 0; // 순수 디그니티 비용 분리
       let infTotal = dgnState.payback.totalKrw; let monthSpent = dgnState.payback.spent;
       let p1 = dgnState.payback.t1, p2 = dgnState.payback.t2, p3 = dgnState.payback.t3, p4 = dgnState.payback.t4;
       let infPity = dgnState.payback.inf;
@@ -897,11 +916,14 @@ const dgnRunPlanner = () => {
             if(pTrade<=0) { myDgn++; pTrade=30; } 
             continue; 
           }
-          let topDupes: {t:string, p:string}[] = []
-          TEAMS.forEach(t => { if (t !== dgnState.myTeam) { TOP_DB[t].forEach(p => { if (topAlb[t][p] > 0) topDupes.push({t, p}) }) } })
-          if(topDupes.length >= 3 && tkt>=1) { 
+          // 탑카드 부족해도 강제 진행
+          if(tkt>=1) { 
             totalUsedTop += 3; tkt--;
-            topAlb[topDupes[0].t][topDupes[0].p]--; topAlb[topDupes[1].t][topDupes[1].p]--; topAlb[topDupes[2].t][topDupes[2].p]--;
+            let topDupes: {t:string, p:string}[] = []
+            TEAMS.forEach(t => { if (t !== dgnState.myTeam) { TOP_DB[t].forEach(p => { if (topAlb[t][p] > 0) topDupes.push({t, p}) }) } })
+            if(topDupes.length >= 3) {
+              topAlb[topDupes[0].t][topDupes[0].p]--; topAlb[topDupes[1].t][topDupes[1].p]--; topAlb[topDupes[2].t][topDupes[2].p]--;
+            }
             if(Math.random()<0.03){ let t=TEAMS[Math.floor(Math.random()*12)]; if(t===dgnState.myTeam) myDgn++; else alb[t]++; } 
             else { let top = ALL_TOPS[Math.floor(Math.random()*212)]; topAlb[top.team][top.name]++; if(top.team !== dgnState.myTeam) totalGainedTop++; }
             continue;
@@ -910,8 +932,10 @@ const dgnRunPlanner = () => {
         }
       }
       
-      const simPaybackCheck = (money: number) => {
-         totalCostRun += money; monthSpent += money; infTotal += money;
+      const simPaybackCheck = (money: number, isOtherKrw: boolean = false) => {
+         totalCostRun += money; 
+         if(!isOtherKrw) pureDignityCost += money; // 타 결제액 제외
+         monthSpent += money; infTotal += money;
          let pbN = 0, pbP = 0;
          if (monthSpent >= 9900 && !p1) { p1=true; pbN++; }
          if (monthSpent >= 99000 && !p2) { p2=true; pbP++; }
@@ -934,6 +958,7 @@ const dgnRunPlanner = () => {
 
       while(myDgn < dgnPlan.target) {
         week++;
+        // 월간 페이백 갱신 사이클
         if (week > 1 && week % 4 === 1) { monthSpent = 0; p1 = false; p2 = false; p3 = false; p4 = false; }
 
         let wQ = dgnPlan.wQ ? 1 : 0; let wC = Math.floor(dgnPlan.wC / 4); 
@@ -943,13 +968,15 @@ const dgnRunPlanner = () => {
         if(myDgn >= dgnPlan.target) break;
 
         if (week % 4 === 1) {
+           // 매달 타 결제액 먼저 투입하여 마일리지 충전
            if(dgnPlan.otherMonthlyKrw > 0) {
-              simPaybackCheck(dgnPlan.otherMonthlyKrw); simMixer();
+              simPaybackCheck(dgnPlan.otherMonthlyKrw, true); 
+              simMixer();
               if(myDgn >= dgnPlan.target) break;
            }
            for(let pkg of packages) {
               for(let c=0; c<pkg.max; c++) {
-                 simPaybackCheck(pkg.cost); 
+                 simPaybackCheck(pkg.cost, false);
                  if(pkg.n > 0) simOpenNormal(pkg.n);
                  if(pkg.p > 0) simOpenPickup(pkg.p);
                  tkt += pkg.t;
@@ -961,7 +988,7 @@ const dgnRunPlanner = () => {
         }
         if (week > 720) break; 
       }
-      results.push({ week, cost: totalCostRun, r: week, netTop: totalUsedTop - totalGainedTop })
+      results.push({ week, cost: pureDignityCost, r: week, netTop: totalUsedTop - totalGainedTop })
     }
     
     const isF2P = dgnPlanPureKrw.value === 0 && dgnPlan.otherMonthlyKrw === 0
@@ -1857,10 +1884,13 @@ const dgnCheckInvLuck = () => {
             </div>
           </div>
           
-          <div class="flex gap-3">
-            <button @click="dgnRunTrade(false)" class="flex-1 py-4 bg-teal-600 hover:bg-teal-500 dark:bg-teal-700 dark:hover:bg-teal-600 text-white rounded-xl font-bold shadow-md flex justify-center items-center gap-2 transition-colors text-sm"><RefreshCw class="w-4 h-4"/> 수동 1회</button>
-            <button @click="dgnRunTrade(true)" class="flex-[1.5] py-4 bg-green-600 hover:bg-green-500 dark:bg-green-700 dark:hover:bg-green-600 text-white rounded-xl font-black shadow-md flex justify-center items-center gap-2 transition-colors text-base"><RefreshCw class="w-5 h-5"/> 일괄 자동 트레이드</button>
-          </div>
+          <div class="flex gap-3 mt-1">
+  <button @click="dgnRunTrade(false)" class="flex-1 py-4 bg-teal-600 hover:bg-teal-500 dark:bg-teal-700 dark:hover:bg-teal-600 text-white rounded-xl font-bold shadow-md flex justify-center items-center gap-2 transition-colors text-sm"><RefreshCw class="w-4 h-4"/> 수동 1회</button>
+  <div class="flex-[1.5] flex gap-2">
+    <input type="number" v-model.number="tradeRunCount" class="w-20 bg-slate-50 dark:bg-[#2a2a35] border border-green-300 dark:border-green-700 text-green-700 dark:text-green-400 font-black text-center rounded-xl outline-none focus:border-green-500 transition-colors">
+    <button @click="dgnRunTrade(true)" class="flex-1 py-4 bg-green-600 hover:bg-green-500 dark:bg-green-700 dark:hover:bg-green-600 text-white rounded-xl font-black shadow-md flex justify-center items-center gap-1.5 transition-colors text-base"><RefreshCw class="w-5 h-5"/> 회 자동 돌리기</button>
+  </div>
+</div>
         </div>
 
         <div class="bg-slate-50 dark:bg-[#0f0f13] border border-slate-200 dark:border-neutral-800 rounded-2xl p-5 flex-1 overflow-hidden flex flex-col min-h-[200px] shadow-inner transition-colors">
@@ -1923,9 +1953,12 @@ const dgnCheckInvLuck = () => {
           <h3 class="font-extrabold text-base mb-3 flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400"><BarChart class="w-5 h-5"/> 타임라인 과금 플래너</h3>
           
           <div class="mb-4 px-4 py-3 bg-indigo-100 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-700/50 rounded-lg text-xs lg:text-sm font-extrabold text-indigo-700 dark:text-indigo-300 flex items-start gap-2">
-            <span class="mt-0.5 text-base">💡</span>
-            <span class="leading-relaxed">현재 좌측 도감에 세팅된 보유 현황(명함 및 중복 카드)을 시뮬레이션 시작점으로 완벽히 반영하여 계산합니다.</span>
-          </div>
+  <span class="mt-0.5 text-base">💡</span>
+  <div class="flex flex-col gap-1">
+    <span class="leading-relaxed">현재 좌측 도감에 세팅된 보유 현황(명함 및 중복 카드)을 시뮬레이션 시작점으로 완벽히 반영하여 계산합니다.</span>
+    <span class="leading-relaxed text-indigo-500 dark:text-indigo-400">※ 디그니티 외 타 결제액은 최종 기댓값(비용) 청구서에는 합산되지 않습니다. 단, 30만 원 단위 무한 페이백 마일리지에는 정상 누적되어 트레이드권을 추가 수급해주므로 최종 비용 기댓값을 낮춰주는 효과가 있습니다.</span>
+  </div>
+</div>
           
           <div class="bg-white border border-slate-200 dark:bg-[#1a1b1e] dark:border-neutral-800 rounded-xl p-3.5 mb-4 flex flex-col gap-2 shadow-inner transition-colors">
             <div class="flex justify-between items-end">
