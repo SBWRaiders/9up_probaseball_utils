@@ -341,6 +341,7 @@ const globalBuffsAll = reactive({ 1: {
   teamLevel: 100, preferredTeam: [] as string[], clanBuff: 15, managerType: '', managerEnhance: 0,
   synergyMasteries: ['', '', '', '', ''],
   amplifiedMasteryIndex: -1,
+  amplifiedMasteryIndices: [] as number[],
   // 🌟 바인더 100레벨 기본값 + 5x5 빙고판 데이터 배열
   binderLevel: 100, 
   binderMatrix: Array(5).fill(0).map(() => ({ team: '', position: '', player: '', year: '', grade: '' })),
@@ -354,6 +355,7 @@ const globalBuffsAll = reactive({ 1: {
     teamLevel: 100, preferredTeam: [] as string[], clanBuff: 15, managerType: '', managerEnhance: 0,
     synergyMasteries: ['', '', '', '', ''],
     amplifiedMasteryIndex: -1,
+    amplifiedMasteryIndices: [] as number[],
     binderLevel: 100, 
     binderMatrix: Array(5).fill(0).map(() => ({ team: '', position: '', player: '', year: '', grade: '' })),
     managerBreakthrough: 0,
@@ -1066,7 +1068,70 @@ const compareCondition = (op: CountOp, lhs: number, rhs?: number, max?: number):
   return false
 }
 
-// 🌟 시너지 마스터리 증폭 및 인원수 차감 계산 적용 🌟
+// 🌟 시너지 마스터리 줄 수 기반 다중 증폭 (3줄: 1개, 4줄: 2개, 5줄: 3개) 도우미 및 계산 적용 🌟
+const getFilledMasteryCount = (deckId: 1 | 2 = activeDeck.value) => {
+  const masteries = globalBuffsAll[deckId].synergyMasteries || [];
+  return masteries.filter(m => String(m || '').trim() !== '').length;
+};
+
+const getMaxAmplifyCount = (deckId: 1 | 2 = activeDeck.value) => {
+  const filled = getFilledMasteryCount(deckId);
+  if (filled >= 5) return 3;
+  if (filled === 4) return 2;
+  if (filled === 3) return 1;
+  return 0;
+};
+
+const syncMasteryAmplifications = (deckId: 1 | 2 = activeDeck.value) => {
+  const deckBuffs = globalBuffsAll[deckId];
+  if (!Array.isArray(deckBuffs.amplifiedMasteryIndices)) {
+    deckBuffs.amplifiedMasteryIndices =
+      typeof deckBuffs.amplifiedMasteryIndex === 'number' && deckBuffs.amplifiedMasteryIndex >= 0
+        ? [deckBuffs.amplifiedMasteryIndex]
+        : [];
+  }
+  const masteries = deckBuffs.synergyMasteries || ['', '', '', '', ''];
+  deckBuffs.amplifiedMasteryIndices = deckBuffs.amplifiedMasteryIndices.filter(
+    idx => idx >= 0 && idx < 5 && String(masteries[idx] || '').trim() !== ''
+  );
+  const maxAmp = getMaxAmplifyCount(deckId);
+  if (deckBuffs.amplifiedMasteryIndices.length > maxAmp) {
+    deckBuffs.amplifiedMasteryIndices = deckBuffs.amplifiedMasteryIndices.slice(0, maxAmp);
+  }
+};
+
+const toggleMasteryAmplify = (slotIdx: number) => {
+  const deckId = activeDeck.value;
+  const deckBuffs = globalBuffsAll[deckId];
+  syncMasteryAmplifications(deckId);
+
+  const existingIdx = deckBuffs.amplifiedMasteryIndices.indexOf(slotIdx);
+  if (existingIdx > -1) {
+    deckBuffs.amplifiedMasteryIndices.splice(existingIdx, 1);
+    return;
+  }
+
+  const targetSynergy = String(deckBuffs.synergyMasteries?.[slotIdx] || '').trim();
+  if (!targetSynergy) {
+    showToast('해당 칸에 시너지를 먼저 입력해주세요!', 'error');
+    return;
+  }
+
+  const filled = getFilledMasteryCount(deckId);
+  const maxAmp = getMaxAmplifyCount(deckId);
+  if (maxAmp === 0) {
+    showToast('시너지 마스터리 3줄 이상 입력 시 증폭이 가능합니다! (3줄: 1개, 4줄: 2개, 5줄: 3개)', 'error');
+    return;
+  }
+
+  if (deckBuffs.amplifiedMasteryIndices.length >= maxAmp) {
+    showToast(`${filled}줄 옵션 상태에서는 최대 ${maxAmp}개까지만 증폭할 수 있습니다!`, 'error');
+    return;
+  }
+
+  deckBuffs.amplifiedMasteryIndices.push(slotIdx);
+};
+
 const activeSynergiesDeck1 = computed(() => getActiveTeamSynergies(1));
 const activeSynergiesDeck2 = computed(() => getActiveTeamSynergies(2));
 const activeTeamSynergiesMap = { 1: activeSynergiesDeck1, 2: activeSynergiesDeck2 };
@@ -1089,14 +1154,25 @@ const getActiveTeamSynergies = (deckId: 1 | 2) => {
     })
     const count = matchedPlayers.length
 
-    // 마스터리 인원 보정 및 증폭 확인
+    // 마스터리 인원 보정 및 다중 증폭 확인
     let masteryCount = 0;
-    let isAmplified = false;
+    let amplifiedCount = 0;
     if (!globalBuffsAll[deckId].synergyMasteries) globalBuffsAll[deckId].synergyMasteries = ['', '', '', '', ''];
+    if (!Array.isArray(globalBuffsAll[deckId].amplifiedMasteryIndices)) {
+      globalBuffsAll[deckId].amplifiedMasteryIndices =
+        typeof globalBuffsAll[deckId].amplifiedMasteryIndex === 'number' && globalBuffsAll[deckId].amplifiedMasteryIndex >= 0
+          ? [globalBuffsAll[deckId].amplifiedMasteryIndex]
+          : [];
+    }
+    const maxAmpForDeck = getMaxAmplifyCount(deckId);
+    const activeAmpIndices = globalBuffsAll[deckId].amplifiedMasteryIndices
+      .filter(idx => String(globalBuffsAll[deckId].synergyMasteries[idx] || '').trim() !== '')
+      .slice(0, maxAmpForDeck);
+
     globalBuffsAll[deckId].synergyMasteries.forEach((m, idx) => {
-      if (m === name) {
+      if (String(m || '').trim() === name) {
         masteryCount++;
-        if (globalBuffsAll[deckId].amplifiedMasteryIndex === idx) isAmplified = true;
+        if (activeAmpIndices.includes(idx)) amplifiedCount++;
       }
     });
 
@@ -1119,9 +1195,9 @@ const getActiveTeamSynergies = (deckId: 1 | 2) => {
            name, 
            bonuses: highestTierConditions.map(c => {
              let bVal = c.bonus.value;
-             if (isAmplified && c.stat === 'power') {
-               if (c.bonus.unit === 'percent') bVal += 0.5; // 퍼센트면 0.5 추가
-               else if (c.bonus.unit === 'fixed') bVal += 50; // 상수면 50 추가
+             if (amplifiedCount > 0 && c.stat === 'power') {
+               if (c.bonus.unit === 'percent') bVal = Number((bVal + 0.5 * amplifiedCount).toFixed(2)); // 퍼센트면 증폭 1개당 0.5 추가
+               else if (c.bonus.unit === 'fixed') bVal += 50 * amplifiedCount; // 상수면 증폭 1개당 50 추가
              }
              return { stat: c.stat, bonus: { unit: c.bonus.unit, value: bVal } }
            }),
@@ -2022,6 +2098,15 @@ const applyLoadedData = (data) => {
     // globalBuffsAll은 reactive 객체이므로 완전히 갈아끼우지 않고 속성을 덮어씌웁니다.
     if (data.globalBuffsAll[1]) Object.assign(globalBuffsAll[1], data.globalBuffsAll[1]);
     if (data.globalBuffsAll[2]) Object.assign(globalBuffsAll[2], data.globalBuffsAll[2]);
+    ([1, 2] as const).forEach(d => {
+      if (!Array.isArray(globalBuffsAll[d].amplifiedMasteryIndices)) {
+        globalBuffsAll[d].amplifiedMasteryIndices =
+          typeof globalBuffsAll[d].amplifiedMasteryIndex === 'number' && globalBuffsAll[d].amplifiedMasteryIndex >= 0
+            ? [globalBuffsAll[d].amplifiedMasteryIndex]
+            : [];
+      }
+      syncMasteryAmplifications(d);
+    });
   }
 }  
 
@@ -2818,21 +2903,26 @@ const viewConfigs = computed(() => {
 
               <!-- 시너지 마스터리 설정 -->
               <div class="bg-indigo-50 dark:bg-indigo-900/10 p-3 rounded-xl border border-indigo-100 dark:border-indigo-800 flex-shrink-0">
-                <h3 class="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-2 flex items-center gap-1"><Sparkles class="w-4 h-4"/> 시너지 마스터리 설정</h3>
+                <div class="flex items-center justify-between mb-2">
+                  <h3 class="text-sm font-bold text-indigo-800 dark:text-indigo-300 flex items-center gap-1"><Sparkles class="w-4 h-4"/> 시너지 마스터리 설정</h3>
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-white dark:bg-neutral-800 border border-indigo-200 dark:border-indigo-700 text-indigo-600 dark:text-indigo-300 shadow-sm">
+                    {{ getFilledMasteryCount(activeDeck) }}줄 옵션 · 증폭 {{ (globalBuffsAll[activeDeck].amplifiedMasteryIndices || []).length }} / {{ getMaxAmplifyCount(activeDeck) }}
+                  </span>
+                </div>
                 <datalist id="synergy-list">
                   <option v-for="s in synergyOptions" :key="s" :value="s" />
                 </datalist>
                 <div class="space-y-1.5">
                   <div v-for="i in 5" :key="i" class="flex items-center gap-2">
                     <span class="text-[10px] font-bold text-neutral-500 w-6">칸 {{ i }}</span>
-                    <input list="synergy-list" v-model="globalBuffsAll[activeDeck].synergyMasteries[i-1]" placeholder="시너지 검색..." class="w-full px-2 py-1.5 bg-white border rounded text-xs"/>
-                    <label class="flex items-center justify-center cursor-pointer bg-white px-2 py-1.5 rounded border transition-colors shrink-0 select-none"
-                           :class="globalBuffsAll[activeDeck].amplifiedMasteryIndex === i - 1 ? 'border-indigo-500 bg-indigo-100 dark:bg-indigo-900/50 shadow-inner' : 'border-neutral-200 hover:bg-neutral-50'">
-                      <input type="checkbox" :checked="globalBuffsAll[activeDeck].amplifiedMasteryIndex === i - 1" @change="globalBuffsAll[activeDeck].amplifiedMasteryIndex = $event.target.checked ? i - 1 : -1" class="hidden" />
-                      <span class="text-[10px] font-black tracking-tight" :class="globalBuffsAll[activeDeck].amplifiedMasteryIndex === i - 1 ? 'text-indigo-700 dark:text-indigo-300' : 'text-neutral-400'">증폭</span>
-                    </label>
+                    <input list="synergy-list" v-model="globalBuffsAll[activeDeck].synergyMasteries[i-1]" @input="syncMasteryAmplifications(activeDeck)" @change="syncMasteryAmplifications(activeDeck)" placeholder="시너지 검색..." class="w-full px-2 py-1.5 bg-white border rounded text-xs"/>
+                    <button type="button" @click="toggleMasteryAmplify(i - 1)"
+                            class="flex items-center justify-center cursor-pointer bg-white px-2 py-1.5 rounded border transition-colors shrink-0 select-none"
+                            :class="(globalBuffsAll[activeDeck].amplifiedMasteryIndices || []).includes(i - 1) ? 'border-indigo-500 bg-indigo-100 dark:bg-indigo-900/50 shadow-inner' : 'border-neutral-200 hover:bg-neutral-50'">
+                      <span class="text-[10px] font-black tracking-tight" :class="(globalBuffsAll[activeDeck].amplifiedMasteryIndices || []).includes(i - 1) ? 'text-indigo-700 dark:text-indigo-300' : 'text-neutral-400'">증폭</span>
+                    </button>
                   </div>
-                  <div class="text-[9px] text-indigo-600 font-bold mt-1">※ '증폭' 버튼을 누르면 해당 시너지가 증폭됩니다. (최대 1개 지정, 다시 누르면 해제)</div>
+                  <div class="text-[9px] text-indigo-600 font-bold mt-1">※ 3줄 옵션 1개 / 4줄 옵션 2개 / 5줄 옵션 3개까지 증폭 가능 (다시 누르면 해제)</div>
                 </div>
               </div>
               
