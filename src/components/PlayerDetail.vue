@@ -271,18 +271,29 @@ const matchAllstarTeam = (team: string) => {
   else if (asgnTeams.includes(team)) return 'ASGN'
 }
 
-// ✅ 디그니티(DGN) 이미지를 구단 하위 폴더 없이 /assets/playercards/DGN/ 에서 바로 불러오도록 처리
+// ✅ 디그니티(DGN) 및 전체 카드 이미지를 9upTeamCalculatorView와 동일한 통합 규칙으로 로드
+const getDgnTeamKey = (rawTeamStr: string) => {
+  let dgnTeam = String(rawTeamStr || '').trim().toUpperCase()
+  if (dgnTeam === 'OB') dgnTeam = 'DOOSAN'
+  else if (dgnTeam === 'HAITAI') dgnTeam = 'KIA'
+  else if (dgnTeam === 'SK') dgnTeam = 'SSG'
+  else if (dgnTeam === 'NEXEN' || dgnTeam === 'HEROES') dgnTeam = 'KIWOOM'
+  else if (dgnTeam === 'MBC') dgnTeam = 'LG'
+  else if (dgnTeam === 'BINGGRAE') dgnTeam = 'HANWHA'
+  else if (['PACIFIC', 'CHUNGBO', 'SAMMI'].includes(dgnTeam)) dgnTeam = 'HYUNDAI'
+  return dgnTeam
+}
+
 const getDgnImage = (p: Record<string, any>) => {
   const playerId = String(p.id || '').trim()
+  const dgnTeam = getDgnTeamKey(p.team)
+  const commonDignityIds = ['10045', '10975', '12254'] // 강정호, 브로빈, 호식 공통 디그니티 일러스트
   const multiTeamDignityIds = ['11054'] // 손승락 등 동일 ID 다중 구단 디그니티 예외 처리
+
+  if (commonDignityIds.includes(playerId)) {
+    return `/assets/playercards/commonCard_DIG_${dgnTeam}.png`
+  }
   if (multiTeamDignityIds.includes(playerId)) {
-    let dgnTeam = String(p.team || '').trim().toUpperCase()
-    if (dgnTeam === 'OB') dgnTeam = 'DOOSAN'
-    if (dgnTeam === 'HAITAI') dgnTeam = 'KIA'
-    if (dgnTeam === 'SK') dgnTeam = 'SSG'
-    if (dgnTeam === 'NEXEN' || dgnTeam === 'HEROES') dgnTeam = 'KIWOOM'
-    if (dgnTeam === 'MBC') dgnTeam = 'LG'
-    if (dgnTeam === 'BINGGRAE') dgnTeam = 'HANWHA'
     return `/assets/playercards/DGN/${dgnTeam}_${playerId}.png`
   }
   return `/assets/playercards/DGN/${playerId}.png`
@@ -290,13 +301,7 @@ const getDgnImage = (p: Record<string, any>) => {
 
 const onDgnImageError = (e: Event, p: Record<string, any>) => {
   const img = e.target as HTMLImageElement
-  let dgnTeam = String(p.team || '').trim().toUpperCase()
-  if (dgnTeam === 'OB') dgnTeam = 'DOOSAN'
-  if (dgnTeam === 'HAITAI') dgnTeam = 'KIA'
-  if (dgnTeam === 'SK') dgnTeam = 'SSG'
-  if (dgnTeam === 'NEXEN' || dgnTeam === 'HEROES') dgnTeam = 'KIWOOM'
-  if (dgnTeam === 'MBC') dgnTeam = 'LG'
-  if (dgnTeam === 'BINGGRAE') dgnTeam = 'HANWHA'
+  const dgnTeam = getDgnTeamKey(p.team)
   const fallback = `/assets/playercards/commonCard_DIG_${dgnTeam}.png`
   if (!img.src.endsWith(fallback)) {
     img.src = fallback
@@ -320,7 +325,7 @@ const onDgnImageError = (e: Event, p: Record<string, any>) => {
                    @error="onDgnImageError($event, player)"
                    class="w-full h-full object-cover" alt="player image" loading="lazy" />
               <img v-else
-                  :src="`/assets/playercards/commonCard_${player.grade}_${player.team.toUpperCase() === 'NEXEN' ? 'KIWOOM' : player.team.toUpperCase()}.png`"
+                  :src="`/assets/playercards/commonCard_${player.grade === 'GOY' ? 'GG' : player.grade}_${player.team.toUpperCase() === 'NEXEN' ? 'KIWOOM' : player.team.toUpperCase()}.png`"
                   class="w-full h-full object-cover" alt="player image" loading="lazy" />
             </div>
 
