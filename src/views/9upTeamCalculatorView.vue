@@ -1068,7 +1068,7 @@ const compareCondition = (op: CountOp, lhs: number, rhs?: number, max?: number):
   return false
 }
 
-// 🌟 시너지 마스터리 줄 수 기반 다중 증폭 (3줄: 1개, 4줄: 2개, 5줄: 3개) 도우미 및 계산 적용 🌟
+// 🌟 시너지 마스터리 줄 수 기반 다중 증폭 (3줄: 1개, 4줄: 2개, 5줄: 3개 / 동일 시너지 중복 증폭 불가) 🌟
 const getFilledMasteryCount = (deckId: 1 | 2 = activeDeck.value) => {
   const masteries = globalBuffsAll[deckId].synergyMasteries || [];
   return masteries.filter(m => String(m || '').trim() !== '').length;
@@ -1091,13 +1091,21 @@ const syncMasteryAmplifications = (deckId: 1 | 2 = activeDeck.value) => {
         : [];
   }
   const masteries = deckBuffs.synergyMasteries || ['', '', '', '', ''];
-  deckBuffs.amplifiedMasteryIndices = deckBuffs.amplifiedMasteryIndices.filter(
-    idx => idx >= 0 && idx < 5 && String(masteries[idx] || '').trim() !== ''
-  );
-  const maxAmp = getMaxAmplifyCount(deckId);
-  if (deckBuffs.amplifiedMasteryIndices.length > maxAmp) {
-    deckBuffs.amplifiedMasteryIndices = deckBuffs.amplifiedMasteryIndices.slice(0, maxAmp);
+  const seenSynergies = new Set<string>();
+  const validIndices: number[] = [];
+
+  for (const idx of deckBuffs.amplifiedMasteryIndices) {
+    if (idx < 0 || idx >= 5) continue;
+    const synName = String(masteries[idx] || '').trim();
+    if (!synName) continue;
+    // 동일한 시너지 옵션은 중복 증폭 불가 (첫 번째만 유지)
+    if (seenSynergies.has(synName)) continue;
+    seenSynergies.add(synName);
+    validIndices.push(idx);
   }
+
+  const maxAmp = getMaxAmplifyCount(deckId);
+  deckBuffs.amplifiedMasteryIndices = validIndices.slice(0, maxAmp);
 };
 
 const toggleMasteryAmplify = (slotIdx: number) => {
@@ -1121,6 +1129,15 @@ const toggleMasteryAmplify = (slotIdx: number) => {
   const maxAmp = getMaxAmplifyCount(deckId);
   if (maxAmp === 0) {
     showToast('시너지 마스터리 3줄 이상 입력 시 증폭이 가능합니다! (3줄: 1개, 4줄: 2개, 5줄: 3개)', 'error');
+    return;
+  }
+
+  // 동일한 시너지가 이미 다른 칸에서 증폭되어 있는지 확인
+  const isDuplicateSynergy = deckBuffs.amplifiedMasteryIndices.some(
+    idx => String(deckBuffs.synergyMasteries?.[idx] || '').trim() === targetSynergy
+  );
+  if (isDuplicateSynergy) {
+    showToast(`'${targetSynergy}' 시너지는 이미 증폭되어 있습니다! (같은 옵션 중복 증폭 불가)`, 'error');
     return;
   }
 
@@ -1154,9 +1171,9 @@ const getActiveTeamSynergies = (deckId: 1 | 2) => {
     })
     const count = matchedPlayers.length
 
-    // 마스터리 인원 보정 및 다중 증폭 확인
+    // 마스터리 인원 보정 및 증폭 확인 (동일 시너지 증폭 중첩 불가 -> 최대 1회만 적용)
     let masteryCount = 0;
-    let amplifiedCount = 0;
+    let isAmplified = false;
     if (!globalBuffsAll[deckId].synergyMasteries) globalBuffsAll[deckId].synergyMasteries = ['', '', '', '', ''];
     if (!Array.isArray(globalBuffsAll[deckId].amplifiedMasteryIndices)) {
       globalBuffsAll[deckId].amplifiedMasteryIndices =
@@ -1165,14 +1182,20 @@ const getActiveTeamSynergies = (deckId: 1 | 2) => {
           : [];
     }
     const maxAmpForDeck = getMaxAmplifyCount(deckId);
-    const activeAmpIndices = globalBuffsAll[deckId].amplifiedMasteryIndices
-      .filter(idx => String(globalBuffsAll[deckId].synergyMasteries[idx] || '').trim() !== '')
-      .slice(0, maxAmpForDeck);
+    const seenAmpSynergies = new Set<string>();
+    const activeAmpIndices: number[] = [];
+    for (const idx of globalBuffsAll[deckId].amplifiedMasteryIndices) {
+      const synStr = String(globalBuffsAll[deckId].synergyMasteries[idx] || '').trim();
+      if (!synStr || seenAmpSynergies.has(synStr)) continue;
+      seenAmpSynergies.add(synStr);
+      activeAmpIndices.push(idx);
+      if (activeAmpIndices.length >= maxAmpForDeck) break;
+    }
 
     globalBuffsAll[deckId].synergyMasteries.forEach((m, idx) => {
       if (String(m || '').trim() === name) {
         masteryCount++;
-        if (activeAmpIndices.includes(idx)) amplifiedCount++;
+        if (activeAmpIndices.includes(idx)) isAmplified = true;
       }
     });
 
@@ -1195,9 +1218,9 @@ const getActiveTeamSynergies = (deckId: 1 | 2) => {
            name, 
            bonuses: highestTierConditions.map(c => {
              let bVal = c.bonus.value;
-             if (amplifiedCount > 0 && c.stat === 'power') {
-               if (c.bonus.unit === 'percent') bVal = Number((bVal + 0.5 * amplifiedCount).toFixed(2)); // 퍼센트면 증폭 1개당 0.5 추가
-               else if (c.bonus.unit === 'fixed') bVal += 50 * amplifiedCount; // 상수면 증폭 1개당 50 추가
+             if (isAmplified && c.stat === 'power') {
+               if (c.bonus.unit === 'percent') bVal += 0.5; // 퍼센트면 0.5 추가
+               else if (c.bonus.unit === 'fixed') bVal += 50; // 상수면 50 추가
              }
              return { stat: c.stat, bonus: { unit: c.bonus.unit, value: bVal } }
            }),
@@ -2955,7 +2978,7 @@ const viewConfigs = computed(() => {
                       <span class="text-[10px] font-black tracking-tight" :class="(globalBuffsAll[activeDeck].amplifiedMasteryIndices || []).includes(i - 1) ? 'text-indigo-700 dark:text-indigo-300' : 'text-neutral-400'">증폭</span>
                     </button>
                   </div>
-                  <div class="text-[9px] text-indigo-600 font-bold mt-1">※ 3줄 옵션 1개 / 4줄 옵션 2개 / 5줄 옵션 3개까지 증폭 가능 (다시 누르면 해제)</div>
+                  <div class="text-[9px] text-indigo-600 font-bold mt-1">※ 3줄 1개 / 4줄 2개 / 5줄 3개까지 서로 다른 시너지만 증폭 가능 (중복 증폭 불가)</div>
                 </div>
               </div>
               
