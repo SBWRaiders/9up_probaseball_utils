@@ -2308,6 +2308,39 @@ const isValidSlotForPlayer = (p: Raw | null, slot: string) => {
   }
 }
 
+const getDgnFallbackImage = (p: Raw | null) => {
+  if (!p) return '';
+  let rawTeam = String(Array.isArray(p.team) ? p.team[0] : (p.team || '')).trim().toUpperCase();
+  const teamKorToEng: Record<string, string> = {
+    '두산':'DOOSAN', '기아':'KIA', '해태':'HAITAI', '삼성':'SAMSUNG', '키움':'KIWOOM', '히어로즈':'HEROES', '넥센':'NEXEN', '엘지':'LG', '청룡':'MBC', '롯데':'LOTTE', '한화':'HANWHA', '빙그레':'BINGGRAE', '엔씨':'NC', '케이티':'KT', '현대':'HYUNDAI', '태평양':'PACIFIC', '청보':'CHUNGBO', '삼미':'SAMMI', '쌍방울':'SBW', 'SSANGBANGWOOL':'SBW'
+  };
+  let dgnTeam = teamKorToEng[rawTeam] || rawTeam;
+  if (dgnTeam === 'OB') dgnTeam = 'DOOSAN';
+  else if (dgnTeam === 'HAITAI') dgnTeam = 'KIA';
+  else if (dgnTeam === 'SK') dgnTeam = 'SSG';
+  else if (dgnTeam === 'NEXEN' || dgnTeam === 'HEROES') dgnTeam = 'KIWOOM';
+  else if (dgnTeam === 'MBC') dgnTeam = 'LG';
+  else if (dgnTeam === 'BINGGRAE') dgnTeam = 'HANWHA';
+  else if (['PACIFIC', 'CHUNGBO', 'SAMMI'].includes(dgnTeam)) dgnTeam = 'HYUNDAI';
+  return `/assets/playercards/commonCard_DIG_${dgnTeam}.png`;
+}
+
+const handleCardImageError = (e: Event, p: Raw | null) => {
+  if (!e || !e.target) return;
+  const img = e.target as HTMLImageElement;
+  if (p) {
+    const grade = getMappedGrade(p.grade);
+    if (grade === 'DGN') {
+      const fallback = getDgnFallbackImage(p);
+      if (fallback && !img.src.endsWith(fallback)) {
+        img.src = fallback;
+        return;
+      }
+    }
+  }
+  hideImage(e);
+}
+
 const hideImage = (e: Event) => {
   if (e && e.target) {
     const img = e.target as HTMLImageElement;
@@ -2404,45 +2437,49 @@ onMounted(async () => {
 // 🌟 2. 9up 인게임 고증: 선수 이미지 주소 생성 엔진 (스마트 예외 처리 방식)
 const getPlayerImage = (p: Raw | null) => {
   if (!p) return '';
-  let grade = String(p.grade || '').trim().toUpperCase();
-  const gradeMap: Record<string, string> = {
-    '디그니티':'DGN', '탑클래스':'TOP', '에이스':'ACE', '히트':'HIT', '팀플':'TEA',
-    '월간MVP':'MMVP', '월간':'MMVP', '신인왕':'ROY', '연도골글':'GOY', '연글':'GOY', 
-    '골든글러브':'GG', '골글':'GG', '국가대표':'NT', '올스타':'ASG', '시즌':'SEA', '포스트시즌':'POS'
-  };
-  grade = gradeMap[grade] || grade;
+  let grade = getMappedGrade(p.grade);
 
   let rawTeam = String(Array.isArray(p.team) ? p.team[0] : (p.team || '')).trim().toUpperCase();
   let engTeam = rawTeam;
   const teamKorToEng: Record<string, string> = {
-    '두산':'DOOSAN', '기아':'KIA', '해태':'HAITAI', '삼성':'SAMSUNG', '키움':'KIWOOM', '히어로즈':'HEROES', '넥센':'NEXEN', '엘지':'LG', '청룡':'MBC', '롯데':'LOTTE', '한화':'HANWHA', '빙그레':'BINGGRAE', '엔씨':'NC', '케이티':'KT', '현대':'HYUNDAI', '태평양':'PACIFIC', '청보':'CHUNGBO', '삼미':'SAMMI', '쌍방울':'SSANGBANGWOOL'
+    '두산':'DOOSAN', '기아':'KIA', '해태':'HAITAI', '삼성':'SAMSUNG', '키움':'KIWOOM', '히어로즈':'HEROES', '넥센':'NEXEN', '엘지':'LG', '청룡':'MBC', '롯데':'LOTTE', '한화':'HANWHA', '빙그레':'BINGGRAE', '엔씨':'NC', '케이티':'KT', '현대':'HYUNDAI', '태평양':'PACIFIC', '청보':'CHUNGBO', '삼미':'SAMMI', '쌍방울':'SBW', 'SSANGBANGWOOL':'SBW'
   };
   if (teamKorToEng[rawTeam]) engTeam = teamKorToEng[rawTeam];
 
   if (grade === 'DGN') {
-    const playerId = String(p.id || p.playerId || 'unknown_id');
-    
-    // 🌟 [핵심] 겹치는 디그니티 선수 ID 명단 (손승락 등)
-    // 이 배열 안에 있는 ID만 팀 이름을 붙여서 찾고, 나머지는 기존처럼 숫자(ID)로만 찾습니다!
-    const multiTeamDignityIds = ['11054']; // <-- 예시: ['10123', '20444']
-    
-    if (multiTeamDignityIds.includes(playerId)) {
-      let dgnTeam = engTeam;
-      if (dgnTeam === 'OB') dgnTeam = 'DOOSAN';
-      if (dgnTeam === 'HAITAI') dgnTeam = 'KIA';
-      if (dgnTeam === 'SK') dgnTeam = 'SSG';
-      if (dgnTeam === 'NEXEN' || dgnTeam === 'HEROES') dgnTeam = 'KIWOOM';
-      if (dgnTeam === 'MBC') dgnTeam = 'LG';
-      if (dgnTeam === 'BINGGRAE') dgnTeam = 'HANWHA';
-      
+    const playerId = String(p.id || p.playerId || 'unknown_id').trim();
+    let dgnTeam = engTeam;
+    if (dgnTeam === 'OB') dgnTeam = 'DOOSAN';
+    else if (dgnTeam === 'HAITAI') dgnTeam = 'KIA';
+    else if (dgnTeam === 'SK') dgnTeam = 'SSG';
+    else if (dgnTeam === 'NEXEN' || dgnTeam === 'HEROES') dgnTeam = 'KIWOOM';
+    else if (dgnTeam === 'MBC') dgnTeam = 'LG';
+    else if (dgnTeam === 'BINGGRAE') dgnTeam = 'HANWHA';
+    else if (['PACIFIC', 'CHUNGBO', 'SAMMI'].includes(dgnTeam)) dgnTeam = 'HYUNDAI';
+
+    // 🌟 개별 일러스트가 없는 가명 디그니티 선수(강정호, 브로빈, 호식)는 공통 디그니티 일러스트 사용
+    const commonDignityIds = ['10045', '10975', '12254'];
+    // 🌟 동일 ID 다중 구단 디그니티 선수(손승락 등)는 구단명_ID 사용
+    const multiTeamDignityIds = ['11054'];
+
+    if (commonDignityIds.includes(playerId)) {
+      return `/assets/playercards/commonCard_DIG_${dgnTeam}.png`;
+    } else if (multiTeamDignityIds.includes(playerId)) {
       return `/assets/playercards/DGN/${dgnTeam}_${playerId}.png`;
     } else {
-      // 🌟 나머지 48명의 일반 디그니티 선수들은 이름 변경 없이 그대로 사용!
       return `/assets/playercards/DGN/${playerId}.png`;
     }
-  } 
-  
-  return `/assets/playercards/commonCard_${grade}_${engTeam}.png`;
+  }
+
+  if (grade === 'ASG') {
+    const asgdTeams = ['DOOSAN', 'KT', 'LOTTE', 'OB', 'SAMSUNG', 'SBW', 'SK', 'SSG'];
+    const asgType = asgdTeams.includes(engTeam) ? 'ASGD' : 'ASGN';
+    return `/assets/playercards/commonCard_${asgType}_${engTeam}.png`;
+  }
+
+  const cardGrade = grade === 'GOY' ? 'GG' : grade;
+  const cardTeam = (engTeam === 'NEXEN' || engTeam === 'HEROES') ? 'KIWOOM' : engTeam;
+  return `/assets/playercards/commonCard_${cardGrade}_${cardTeam}.png`;
 }
 
 // ==========================================
@@ -2845,7 +2882,7 @@ const viewConfigs = computed(() => {
                               <div v-if="playerBuffs[slot.pos]?.battingOrder && !isPitcher(lineup[slot.pos])" class="absolute top-2 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-orange-600 text-white px-2 py-0.5 rounded shadow-md z-10">{{ playerBuffs[slot.pos].battingOrder }}번</div>
                               
                               <!-- 카드 메인 이미지 -->
-                              <img :src="getPlayerImage(lineup[slot.pos])" class="absolute inset-0 w-full h-full" :class="getImageClass(slot.pos)" @error="hideImage" />
+                              <img :src="getPlayerImage(lineup[slot.pos])" class="absolute inset-0 w-full h-full" :class="getImageClass(slot.pos)" @error="handleCardImageError($event, lineup[slot.pos])" />
                               
                               <!-- 하단 정보창 (이름, 연도, 파워) -->
                               <div class="absolute bottom-0 inset-x-0 h-[45%] bg-gradient-to-t from-black/95 via-black/50 to-transparent flex flex-col justify-end items-center px-1 pointer-events-none" :class="slot.pos.startsWith('RP') ? 'pb-1.5' : 'pb-2'">
@@ -3614,7 +3651,7 @@ const viewConfigs = computed(() => {
                
                <!-- 중앙: 카드 본체 (이름, 파워, 스킬 모두 내부로 삽입) -->
                <div class="relative w-full aspect-[5/7] rounded-lg border border-neutral-700 overflow-hidden bg-black shadow-inner">
-                  <img :src="getPlayerImage(lineup[pos])" class="absolute inset-0 w-full h-full object-contain" @error="hideImage"/>
+                  <img :src="getPlayerImage(lineup[pos])" class="absolute inset-0 w-full h-full object-contain" @error="handleCardImageError($event, lineup[pos])"/>
                   
                   <!-- 좌측 상단: 현재 타순 뱃지 -->
                   <div class="absolute top-1 left-1 w-5 h-5 sm:w-6 sm:h-6 rounded bg-black/70 backdrop-blur-md text-white font-black flex items-center justify-center text-[10px] sm:text-xs border border-white/20 z-10 shadow-sm">
