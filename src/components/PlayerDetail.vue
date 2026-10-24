@@ -287,12 +287,8 @@ const getDgnTeamKey = (rawTeamStr: string) => {
 const getDgnImage = (p: Record<string, any>) => {
   const playerId = String(p.id || '').trim()
   const dgnTeam = getDgnTeamKey(p.team)
-  const commonDignityIds = ['10045', '10975', '12254'] // 강정호, 브로빈, 호식 공통 디그니티 일러스트
   const multiTeamDignityIds = ['11054'] // 손승락 등 동일 ID 다중 구단 디그니티 예외 처리
 
-  if (commonDignityIds.includes(playerId)) {
-    return `/assets/playercards/commonCard_DIG_${dgnTeam}.png`
-  }
   if (multiTeamDignityIds.includes(playerId)) {
     return `/assets/playercards/DGN/${dgnTeam}_${playerId}.png`
   }
