@@ -270,6 +270,38 @@ const matchAllstarTeam = (team: string) => {
   if (asgdTeams.includes(team)) return 'ASGD'
   else if (asgnTeams.includes(team)) return 'ASGN'
 }
+
+// ✅ 디그니티(DGN) 이미지를 구단 하위 폴더 없이 /assets/playercards/DGN/ 에서 바로 불러오도록 처리
+const getDgnImage = (p: Record<string, any>) => {
+  const playerId = String(p.id || '').trim()
+  const multiTeamDignityIds = ['11054'] // 손승락 등 동일 ID 다중 구단 디그니티 예외 처리
+  if (multiTeamDignityIds.includes(playerId)) {
+    let dgnTeam = String(p.team || '').trim().toUpperCase()
+    if (dgnTeam === 'OB') dgnTeam = 'DOOSAN'
+    if (dgnTeam === 'HAITAI') dgnTeam = 'KIA'
+    if (dgnTeam === 'SK') dgnTeam = 'SSG'
+    if (dgnTeam === 'NEXEN' || dgnTeam === 'HEROES') dgnTeam = 'KIWOOM'
+    if (dgnTeam === 'MBC') dgnTeam = 'LG'
+    if (dgnTeam === 'BINGGRAE') dgnTeam = 'HANWHA'
+    return `/assets/playercards/DGN/${dgnTeam}_${playerId}.png`
+  }
+  return `/assets/playercards/DGN/${playerId}.png`
+}
+
+const onDgnImageError = (e: Event, p: Record<string, any>) => {
+  const img = e.target as HTMLImageElement
+  let dgnTeam = String(p.team || '').trim().toUpperCase()
+  if (dgnTeam === 'OB') dgnTeam = 'DOOSAN'
+  if (dgnTeam === 'HAITAI') dgnTeam = 'KIA'
+  if (dgnTeam === 'SK') dgnTeam = 'SSG'
+  if (dgnTeam === 'NEXEN' || dgnTeam === 'HEROES') dgnTeam = 'KIWOOM'
+  if (dgnTeam === 'MBC') dgnTeam = 'LG'
+  if (dgnTeam === 'BINGGRAE') dgnTeam = 'HANWHA'
+  const fallback = `/assets/playercards/commonCard_DIG_${dgnTeam}.png`
+  if (!img.src.endsWith(fallback)) {
+    img.src = fallback
+  }
+}
 </script>
 
 <template>
@@ -284,7 +316,8 @@ const matchAllstarTeam = (team: string) => {
                   :src="`/assets/playercards/commonCard_${matchAllstarTeam(player.team.toUpperCase())}_${player.team.toUpperCase()}.png`"
                   class="w-full h-full object-cover" alt="player image" loading="lazy" />
               <img v-else-if="player.grade === 'DGN'"
-                   :src="`/assets/playercards/DGN/${player.team.toUpperCase()}/${player.id}.png`"
+                   :src="getDgnImage(player)"
+                   @error="onDgnImageError($event, player)"
                    class="w-full h-full object-cover" alt="player image" loading="lazy" />
               <img v-else
                   :src="`/assets/playercards/commonCard_${player.grade}_${player.team.toUpperCase() === 'NEXEN' ? 'KIWOOM' : player.team.toUpperCase()}.png`"
