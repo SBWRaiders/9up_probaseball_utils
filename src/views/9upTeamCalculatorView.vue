@@ -2457,14 +2457,10 @@ const getPlayerImage = (p: Raw | null) => {
     else if (dgnTeam === 'BINGGRAE') dgnTeam = 'HANWHA';
     else if (['PACIFIC', 'CHUNGBO', 'SAMMI'].includes(dgnTeam)) dgnTeam = 'HYUNDAI';
 
-    // 🌟 개별 일러스트가 없는 가명 디그니티 선수(강정호, 브로빈, 호식)는 공통 디그니티 일러스트 사용
-    const commonDignityIds = ['10045', '10975', '12254'];
-    // 🌟 동일 ID 다중 구단 디그니티 선수(손승락 등)는 구단명_ID 사용
+    // 🌟 동일 ID 다중 구단 디그니티 선수(손승락 등)는 구단명_ID 사용, 나머지는 모두 ID.png 우선 로드 (파일이 없으면 @error에서 공통 일러스트로 자동 대체)
     const multiTeamDignityIds = ['11054'];
 
-    if (commonDignityIds.includes(playerId)) {
-      return `/assets/playercards/commonCard_DIG_${dgnTeam}.png`;
-    } else if (multiTeamDignityIds.includes(playerId)) {
+    if (multiTeamDignityIds.includes(playerId)) {
       return `/assets/playercards/DGN/${dgnTeam}_${playerId}.png`;
     } else {
       return `/assets/playercards/DGN/${playerId}.png`;
