@@ -74,7 +74,7 @@ const handleImageError = (e: Event) => {
 }
 
 const currentYear = new Date().getFullYear()
-const maxYear = currentYear - 1
+const maxYear = Math.max(2026, currentYear)
 const yearGrid = computed(() => {
   const rows = []
   for (let decade = Math.floor(maxYear / 10) * 10; decade >= 1980; decade -= 10) {
