@@ -4541,7 +4541,7 @@ const openBenchRecommenderWithSynergy = (synName: string) => {
 
   <!-- 🌟 엑셀 V8.0 이식: 💡 후보 추천 (벤치 빌더) 모달 🌟 -->
   <div v-if="showBenchRecommender" class="fixed inset-0 z-[99998] flex items-center justify-center bg-black/75 backdrop-blur-sm p-2 sm:p-4">
-    <div class="bg-white dark:bg-neutral-900 w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] border border-neutral-200 dark:border-neutral-700">
+    <div class="bg-white dark:bg-neutral-900 w-[96vw] max-w-[1440px] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[94vh] border border-neutral-200 dark:border-neutral-700">
       
       <!-- 모달 헤더 -->
       <div class="flex justify-between items-center p-3.5 sm:p-4 border-b border-neutral-200 dark:border-neutral-800 bg-gradient-to-r from-amber-500 to-orange-600 text-white">
@@ -4570,13 +4570,13 @@ const openBenchRecommenderWithSynergy = (synName: string) => {
               </span>
             </div>
 
-            <div v-if="benchRecResults.emptyBenchCount > 0 && benchRecResults.distinctGroups.length > 0" class="flex items-center justify-between gap-2 mt-1">
-              <div class="min-w-0">
-                <div class="text-sm sm:text-base font-black text-neutral-900 dark:text-white truncate">
+            <div v-if="benchRecResults.emptyBenchCount > 0 && benchRecResults.distinctGroups.length > 0" class="flex items-center justify-between gap-3 mt-1">
+              <div class="min-w-0 flex-1">
+                <div class="text-sm sm:text-base font-black text-neutral-900 dark:text-white break-keep leading-snug">
                   {{ benchRecResults.distinctGroups[0].shortTag }}
-                  <span class="text-emerald-600 dark:text-emerald-400 ml-1">+{{ benchRecResults.distinctGroups[0].gainEmpty.toLocaleString() }}</span>
+                  <span class="text-emerald-600 dark:text-emerald-400 ml-1 whitespace-nowrap">+{{ benchRecResults.distinctGroups[0].gainEmpty.toLocaleString() }}</span>
                 </div>
-                <div class="text-[11px] text-neutral-500 truncate mt-0.5">{{ benchRecResults.distinctGroups[0].reasonsText }}</div>
+                <div class="text-[11px] text-neutral-500 break-keep leading-snug mt-0.5">{{ benchRecResults.distinctGroups[0].reasonsText }}</div>
               </div>
               <button @click="applyRecommendedCandidate(benchRecResults.distinctGroups[0].player)" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-black shrink-0 shadow-sm transition-colors">
                 빈칸 장착
@@ -4610,13 +4610,13 @@ const openBenchRecommenderWithSynergy = (synName: string) => {
               <span class="text-[10px] font-bold text-neutral-400">복합 시너지 자동 계산</span>
             </div>
 
-            <div v-if="benchRecResults.pairTop3.length > 0" class="flex items-center justify-between gap-2 mt-1">
-              <div class="min-w-0">
-                <div class="text-xs sm:text-sm font-black text-neutral-900 dark:text-white truncate">
+            <div v-if="benchRecResults.pairTop3.length > 0" class="flex items-center justify-between gap-3 mt-1">
+              <div class="min-w-0 flex-1">
+                <div class="text-xs sm:text-sm font-black text-neutral-900 dark:text-white break-keep leading-snug">
                   {{ benchRecResults.pairTop3[0].p1Tag }} · {{ benchRecResults.pairTop3[0].p2Tag }}
-                  <span class="text-indigo-600 dark:text-indigo-400 ml-1">+{{ benchRecResults.pairTop3[0].totalGain.toLocaleString() }}</span>
+                  <span class="text-indigo-600 dark:text-indigo-400 ml-1 whitespace-nowrap">+{{ benchRecResults.pairTop3[0].totalGain.toLocaleString() }}</span>
                 </div>
-                <div class="text-[11px] text-neutral-500 truncate mt-0.5">{{ benchRecResults.pairTop3[0].comboDesc }}</div>
+                <div class="text-[11px] text-neutral-500 break-keep leading-snug mt-0.5">{{ benchRecResults.pairTop3[0].comboDesc }}</div>
               </div>
               <button @click="applyRecommendedPair(benchRecResults.pairTop3[0].p1, benchRecResults.pairTop3[0].p2)" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-black shrink-0 shadow-sm transition-colors">
                 2장 장착
@@ -4771,21 +4771,21 @@ const openBenchRecommenderWithSynergy = (synName: string) => {
         <!-- 4. 하단: 1장 바꾸기 TOP 5 & 2장 조합 TOP 3 -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <!-- 🔁 1장 바꾸기 TOP 5 -->
-          <div class="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-3 shadow-sm">
+          <div class="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-3.5 shadow-sm">
             <h3 class="text-xs font-black text-neutral-800 dark:text-neutral-100 mb-2">🔁 기존 후보 1장 바꾸기 TOP 5</h3>
-            <div v-if="benchRecResults.swapTop5.length > 0" class="space-y-1.5">
-              <div v-for="sw in benchRecResults.swapTop5" :key="sw.rank" class="flex items-center justify-between text-xs p-2 rounded-lg bg-neutral-50 dark:bg-neutral-700/50 border border-neutral-100 dark:border-neutral-700 gap-2">
+            <div v-if="benchRecResults.swapTop5.length > 0" class="space-y-2">
+              <div v-for="sw in benchRecResults.swapTop5" :key="sw.rank" class="flex items-center justify-between text-xs p-2.5 rounded-lg bg-neutral-50 dark:bg-neutral-700/50 border border-neutral-100 dark:border-neutral-700 gap-3">
                 <div class="min-w-0 flex-1">
-                  <div class="font-bold truncate">
+                  <div class="font-bold break-keep leading-snug">
                     <span class="text-rose-500">✖ {{ sw.outPlayer.name }} ({{ sw.outSlot }})</span>
                     <span class="mx-1 text-neutral-400">→</span>
                     <span class="text-indigo-600 dark:text-indigo-400">➕ {{ sw.inShortTag }}</span>
                   </div>
-                  <div class="text-[10px] text-neutral-500 truncate">{{ sw.reasonsText }}</div>
+                  <div class="text-[11px] text-neutral-500 break-keep leading-snug mt-0.5">{{ sw.reasonsText }}</div>
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
-                  <span class="font-black text-emerald-600 dark:text-emerald-400">+{{ sw.netGain.toLocaleString() }}</span>
-                  <button @click="applyRecommendedCandidate(sw.inPlayer, sw.outSlot)" class="px-2 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-[10px] font-black">
+                  <span class="font-black text-emerald-600 dark:text-emerald-400 whitespace-nowrap">+{{ sw.netGain.toLocaleString() }}</span>
+                  <button @click="applyRecommendedCandidate(sw.inPlayer, sw.outSlot)" class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-[11px] font-black">
                     교체
                   </button>
                 </div>
@@ -4797,19 +4797,19 @@ const openBenchRecommenderWithSynergy = (synName: string) => {
           </div>
 
           <!-- 👥 2장 넣기 조합 TOP 3 -->
-          <div class="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-3 shadow-sm">
+          <div class="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-3.5 shadow-sm">
             <h3 class="text-xs font-black text-neutral-800 dark:text-neutral-100 mb-2">👥 2장 동시 투입 조합 TOP 3</h3>
-            <div v-if="benchRecResults.pairTop3.length > 0" class="space-y-1.5">
-              <div v-for="pr in benchRecResults.pairTop3" :key="pr.rank" class="flex items-center justify-between text-xs p-2 rounded-lg bg-neutral-50 dark:bg-neutral-700/50 border border-neutral-100 dark:border-neutral-700 gap-2">
+            <div v-if="benchRecResults.pairTop3.length > 0" class="space-y-2">
+              <div v-for="pr in benchRecResults.pairTop3" :key="pr.rank" class="flex items-center justify-between text-xs p-2.5 rounded-lg bg-neutral-50 dark:bg-neutral-700/50 border border-neutral-100 dark:border-neutral-700 gap-3">
                 <div class="min-w-0 flex-1">
-                  <div class="font-bold text-neutral-800 dark:text-neutral-100 truncate">
+                  <div class="font-bold text-neutral-800 dark:text-neutral-100 break-keep leading-snug">
                     ➕ {{ pr.p1Tag }} · {{ pr.p2Tag }}
                   </div>
-                  <div class="text-[10px] text-neutral-500 truncate">조합 성격: {{ pr.comboDesc }}</div>
+                  <div class="text-[11px] text-neutral-500 break-keep leading-snug mt-0.5">조합 성격: {{ pr.comboDesc }}</div>
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
-                  <span class="font-black text-indigo-600 dark:text-indigo-400">+{{ pr.totalGain.toLocaleString() }}</span>
-                  <button @click="applyRecommendedPair(pr.p1, pr.p2)" class="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded text-[10px] font-black">
+                  <span class="font-black text-indigo-600 dark:text-indigo-400 whitespace-nowrap">+{{ pr.totalGain.toLocaleString() }}</span>
+                  <button @click="applyRecommendedPair(pr.p1, pr.p2)" class="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded text-[11px] font-black">
                     2장 적용
                   </button>
                 </div>
