@@ -10273,7 +10273,8 @@
           "value": 40.0
         }
       }
-    ]
+    ],
+    "id": 484
   },
   {
     "id": 486,
@@ -10294,5 +10295,409 @@
         }
       }
     ]
+  },
+  {
+    "synergy": "2026",
+    "synergy_effect": "- 라인업에 5~9명 기용 시 파워 +2% \n- 라인업에 10~19명 기용 시 파워 +5% \n- 라인업에 20명 이상 기용 시 파워 +7% ",
+    "description": "2026년에 활약한 선수 카드입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "between",
+          "min": 5,
+          "max": 9
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 2.0
+        }
+      },
+      {
+        "count": {
+          "op": "between",
+          "min": 10,
+          "max": 19
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      },
+      {
+        "count": {
+          "op": ">=",
+          "value": 20
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 7.0
+        }
+      }
+    ],
+    "id": 487
+  },
+  {
+    "synergy": "페문강노허",
+    "synergy_effect": "- 라인업에 3명 이상 기용 시 파워 +40",
+    "description": "페라자, 문현빈, 강백호, 노시환, 허인서, 채은성 등 한화 타선을 이끄는 핵심 타자들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": ">=",
+          "value": 3
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "fixed",
+          "value": 40.0
+        }
+      }
+    ],
+    "id": 488
+  },
+  {
+    "synergy": "02즈",
+    "synergy_effect": "- 라인업에 3명 이상 기용 시 파워 +40",
+    "description": "김건우, 조병현, 조형우, 고명준, 전영준 등 SSG의 미래를 책임지는 2002년생 영건들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": ">=",
+          "value": 3
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "fixed",
+          "value": 40.0
+        }
+      }
+    ],
+    "id": 489
+  },
+  {
+    "synergy": "머갈툴순",
+    "synergy_effect": "- 라인업에 3명 이상 기용 시 파워 +40",
+    "description": "김대한, 안재석, 김민석, 박준순 등 두산의 젊은 타선을 이끄는 유망주들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": ">=",
+          "value": 3
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "fixed",
+          "value": 40.0
+        }
+      }
+    ],
+    "id": 490
+  },
+  {
+    "synergy": "동명이인(김도현)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ],
+    "id": 491
+  },
+  {
+    "synergy": "동명이인(김동혁)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ],
+    "id": 492
+  },
+  {
+    "synergy": "동명이인(김동현)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ],
+    "id": 493
+  },
+  {
+    "synergy": "동명이인(김민석)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ],
+    "id": 494
+  },
+  {
+    "synergy": "동명이인(김민재)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ],
+    "id": 495
+  },
+  {
+    "synergy": "동명이인(김정민)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ],
+    "id": 496
+  },
+  {
+    "synergy": "동명이인(김태균)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ],
+    "id": 497
+  },
+  {
+    "synergy": "동명이인(박시원)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ],
+    "id": 498
+  },
+  {
+    "synergy": "동명이인(박준영)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ],
+    "id": 499
+  },
+  {
+    "synergy": "동명이인(박진우)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ],
+    "id": 500
+  },
+  {
+    "synergy": "동명이인(이영재)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ],
+    "id": 501
+  },
+  {
+    "synergy": "동명이인(이주형)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ],
+    "id": 502
+  },
+  {
+    "synergy": "동명이인(이태양)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ],
+    "id": 503
+  },
+  {
+    "synergy": "동명이인(이호준)",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +5%, 경기 총 수익 1명 당 +10%",
+    "description": "동일한 이름으로 프로에서 함께 활약한 선수들입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "percent",
+          "value": 5.0
+        }
+      }
+    ],
+    "id": 504
+  },
+  {
+    "synergy": "최원태인",
+    "synergy_effect": "- 라인업에 2명 기용 시 파워 +30",
+    "description": "삼성 투수진을 이끄는 최원태와 원태인 듀오입니다.",
+    "stackable": false,
+    "conditions": [
+      {
+        "count": {
+          "op": "==",
+          "value": 2
+        },
+        "stat": "power",
+        "bonus": {
+          "unit": "fixed",
+          "value": 30.0
+        }
+      }
+    ],
+    "id": 505
   }
 ]
