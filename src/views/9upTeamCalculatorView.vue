@@ -2939,8 +2939,19 @@ const benchRecResults = computed(() => {
   const filledBenchSlots = BENCH_SLOTS.filter(s => !!currentRoster[s]);
 
   const usedPlayerIds = new Set<string>();
-  Object.values(lineups.value[1]).forEach(p => { if (p) usedPlayerIds.add(String(p.id)); });
-  Object.values(lineups.value[2]).forEach(p => { if (p) usedPlayerIds.add(String(p.id)); });
+  const usedPlayerNames = new Set<string>();
+  Object.values(lineups.value[1]).forEach(p => {
+    if (p) {
+      if (p.id !== undefined && p.id !== null && String(p.id).trim() !== '') usedPlayerIds.add(String(p.id).trim());
+      if (p.name) usedPlayerNames.add(normalizeText(p.name));
+    }
+  });
+  Object.values(lineups.value[2]).forEach(p => {
+    if (p) {
+      if (p.id !== undefined && p.id !== null && String(p.id).trim() !== '') usedPlayerIds.add(String(p.id).trim());
+      if (p.name) usedPlayerNames.add(normalizeText(p.name));
+    }
+  });
 
   let lowestBenchSlot = '';
   let lowestBenchGain = Infinity;
@@ -2977,8 +2988,9 @@ const benchRecResults = computed(() => {
 
   for (let i = 0; i < players.value.length; i++) {
     const p = players.value[i];
-    const pid = String(p.id);
-    if (usedPlayerIds.has(pid)) continue;
+    const pid = String(p.id ?? '').trim();
+    const pNormName = normalizeText(p.name);
+    if ((pid && usedPlayerIds.has(pid)) || (pNormName && usedPlayerNames.has(pNormName))) continue;
 
     const pGrade = getMappedGrade(p.grade);
     if (['DGN', 'TEA'].includes(pGrade)) continue;
@@ -3052,7 +3064,7 @@ const benchRecResults = computed(() => {
     else if (list.length < 30) list.push(item);
   }
 
-  const distinctGroups = Array.from(groupedMap.values()).slice(0, 15).map((group, idx) => {
+  const distinctGroups = Array.from(groupedMap.values()).slice(0, 50).map((group, idx) => {
     const rep = group[0];
     const others = group.slice(1);
     const netSwap = lowestBenchPlayer ? Math.round(rep.totalGain - lowestBenchGain) : 0;
@@ -3158,9 +3170,24 @@ const benchRecResults = computed(() => {
 });
 
 // 후보 추천 모달에서 원클릭으로 빈 벤치에 넣거나 기존 최저 후보와 교체하는 함수
+const isPlayerAlreadyInDeck = (cand: Raw, deckId: 1 | 2) => {
+  const cId = String(cand.id ?? '').trim();
+  const cName = normalizeText(cand.name);
+  return Object.values(lineups.value[deckId]).some(p => {
+    if (!p) return false;
+    const pId = String(p.id ?? '').trim();
+    if (cId && pId && cId === pId) return true;
+    return normalizeText(p.name) === cName;
+  });
+};
+
 const applyRecommendedCandidate = (cand: Raw, targetBenchSlot?: string) => {
-  if (isCardInOtherDeck(cand, activeDeck.value)) {
-    showToast(`이미 다른 덱(DH${activeDeck.value === 1 ? 2 : 1})에 배치된 동일한 카드입니다!`, 'error');
+  if (isPlayerAlreadyInDeck(cand, activeDeck.value)) {
+    showToast(`이미 현재 덱(DH${activeDeck.value})에 배치된 선수입니다!`, 'error');
+    return;
+  }
+  if (isCardInOtherDeck(cand, activeDeck.value) || isPlayerAlreadyInDeck(cand, activeDeck.value === 1 ? 2 : 1)) {
+    showToast(`이미 다른 덱(DH${activeDeck.value === 1 ? 2 : 1})에 배치된 선수입니다!`, 'error');
     return;
   }
   const slot = targetBenchSlot || getAvailableSlot('BENCH');
@@ -3172,8 +3199,12 @@ const applyRecommendedCandidate = (cand: Raw, targetBenchSlot?: string) => {
 
 // 2장 조합 원클릭 장착 함수
 const applyRecommendedPair = (p1: Raw, p2: Raw) => {
-  if (isCardInOtherDeck(p1, activeDeck.value) || isCardInOtherDeck(p2, activeDeck.value)) {
-    showToast('이미 다른 덱에 배치된 동일한 카드가 포함되어 있습니다!', 'error');
+  if (isPlayerAlreadyInDeck(p1, activeDeck.value) || isPlayerAlreadyInDeck(p2, activeDeck.value)) {
+    showToast('이미 현재 덱에 배치된 선수가 포함되어 있습니다!', 'error');
+    return;
+  }
+  if (isCardInOtherDeck(p1, activeDeck.value) || isCardInOtherDeck(p2, activeDeck.value) || isPlayerAlreadyInDeck(p1, activeDeck.value === 1 ? 2 : 1) || isPlayerAlreadyInDeck(p2, activeDeck.value === 1 ? 2 : 1)) {
+    showToast('이미 다른 덱에 배치된 선수가 포함되어 있습니다!', 'error');
     return;
   }
   const emptySlots = BENCH_SLOTS.filter(s => !lineup.value[s]);
@@ -4524,7 +4555,7 @@ const openBenchRecommenderWithSynergy = (synName: string) => {
       </div>
 
       <!-- 모달 바디 -->
-      <div class="p-3 sm:p-5 overflow-y-auto custom-scrollbar flex flex-col gap-4 bg-neutral-50 dark:bg-neutral-900 flex-1">
+      <div class="p-3 sm:p-5 overflow-y-auto rec-modal-scroll flex flex-col gap-4 bg-neutral-50 dark:bg-neutral-900 flex-1 min-h-0">
         
         <!-- 1. 상단 핵심 요약 배너 (1장 넣기/바꾸기 & 2장 조합) -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -4659,7 +4690,7 @@ const openBenchRecommenderWithSynergy = (synName: string) => {
             <span class="text-[10px] text-neutral-500 font-bold">원하는 선수를 클릭하면 벤치에 즉시 배치됩니다</span>
           </div>
 
-          <div class="divide-y divide-neutral-100 dark:divide-neutral-700/60">
+          <div class="divide-y divide-neutral-100 dark:divide-neutral-700/60 max-h-[340px] overflow-y-auto rec-modal-scroll">
             <div v-for="item in benchRecResults.distinctGroups" :key="item.rank" class="p-2.5 sm:px-3.5 hover:bg-amber-50/40 dark:hover:bg-neutral-700/40 transition-colors flex flex-col gap-2">
               <div class="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2">
                 <!-- 좌측: 순위 + 등급 로고 + 선수 정보 -->
@@ -4812,4 +4843,19 @@ const openBenchRecommenderWithSynergy = (synName: string) => {
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
 ::-webkit-scrollbar { display: none; }
+.rec-modal-scroll::-webkit-scrollbar {
+  display: block !important;
+  width: 8px;
+}
+.rec-modal-scroll::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.25);
+  border-radius: 6px;
+}
+.rec-modal-scroll::-webkit-scrollbar-thumb {
+  background-color: #f59e0b;
+  border-radius: 6px;
+}
+.rec-modal-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: #d97706;
+}
 </style>
