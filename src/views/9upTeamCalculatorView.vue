@@ -2939,17 +2939,14 @@ const benchRecResults = computed(() => {
   const filledBenchSlots = BENCH_SLOTS.filter(s => !!currentRoster[s]);
 
   const usedPlayerIds = new Set<string>();
-  const usedPlayerNames = new Set<string>();
   Object.values(lineups.value[1]).forEach(p => {
-    if (p) {
-      if (p.id !== undefined && p.id !== null && String(p.id).trim() !== '') usedPlayerIds.add(String(p.id).trim());
-      if (p.name) usedPlayerNames.add(normalizeText(p.name));
+    if (p && p.id !== undefined && p.id !== null && String(p.id).trim() !== '') {
+      usedPlayerIds.add(String(p.id).trim());
     }
   });
   Object.values(lineups.value[2]).forEach(p => {
-    if (p) {
-      if (p.id !== undefined && p.id !== null && String(p.id).trim() !== '') usedPlayerIds.add(String(p.id).trim());
-      if (p.name) usedPlayerNames.add(normalizeText(p.name));
+    if (p && p.id !== undefined && p.id !== null && String(p.id).trim() !== '') {
+      usedPlayerIds.add(String(p.id).trim());
     }
   });
 
@@ -2989,8 +2986,7 @@ const benchRecResults = computed(() => {
   for (let i = 0; i < players.value.length; i++) {
     const p = players.value[i];
     const pid = String(p.id ?? '').trim();
-    const pNormName = normalizeText(p.name);
-    if ((pid && usedPlayerIds.has(pid)) || (pNormName && usedPlayerNames.has(pNormName))) continue;
+    if (pid && usedPlayerIds.has(pid)) continue;
 
     const pGrade = getMappedGrade(p.grade);
     if (['DGN', 'TEA'].includes(pGrade)) continue;
@@ -3172,12 +3168,11 @@ const benchRecResults = computed(() => {
 // 후보 추천 모달에서 원클릭으로 빈 벤치에 넣거나 기존 최저 후보와 교체하는 함수
 const isPlayerAlreadyInDeck = (cand: Raw, deckId: 1 | 2) => {
   const cId = String(cand.id ?? '').trim();
-  const cName = normalizeText(cand.name);
   return Object.values(lineups.value[deckId]).some(p => {
     if (!p) return false;
     const pId = String(p.id ?? '').trim();
-    if (cId && pId && cId === pId) return true;
-    return normalizeText(p.name) === cName;
+    if (cId && pId) return cId === pId;
+    return isSameCard(p, cand);
   });
 };
 
