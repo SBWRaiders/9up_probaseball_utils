@@ -1889,9 +1889,25 @@ const teamTotalPower = computed(() => {
   return sum
 })
 
+const getPlayerIdentityKey = (p: Raw | null): string => {
+  if (!p) return '';
+  const name = normalizeText(p.name);
+  const role = isPitcher(p) ? 'P' : 'B';
+  const schoolSig = getArray(p.synergy)
+    .map(s => s.trim())
+    .filter(s => s.includes('출신') || s.includes('외국인'))
+    .sort()
+    .join('|');
+  return `${name}__${role}__${schoolSig}`;
+};
+
 const isSamePlayer = (p1: Raw, p2: Raw) => {
+  if (!p1 || !p2) return false;
+  const k1 = getPlayerIdentityKey(p1);
+  const k2 = getPlayerIdentityKey(p2);
+  if (k1 && k2) return k1 === k2;
   return p1.id === p2.id;
-}
+};
 
 const getAvailableSlot = (basePos: string): string => {
   if (isManualSelection.value && selectedSlot.value && selectedSlot.value.startsWith(basePos)) {
@@ -3082,14 +3098,19 @@ const benchRecResults = computed(() => {
     }));
 
   const usedPlayerIds = new Set<string>();
+  const usedPlayerKeys = new Set<string>();
   Object.values(lineups.value[1]).forEach(p => {
-    if (p && p.id !== undefined && p.id !== null && String(p.id).trim() !== '') {
-      usedPlayerIds.add(String(p.id).trim());
+    if (p) {
+      if (p.id !== undefined && p.id !== null && String(p.id).trim() !== '') usedPlayerIds.add(String(p.id).trim());
+      const pk = getPlayerIdentityKey(p);
+      if (pk) usedPlayerKeys.add(pk);
     }
   });
   Object.values(lineups.value[2]).forEach(p => {
-    if (p && p.id !== undefined && p.id !== null && String(p.id).trim() !== '') {
-      usedPlayerIds.add(String(p.id).trim());
+    if (p) {
+      if (p.id !== undefined && p.id !== null && String(p.id).trim() !== '') usedPlayerIds.add(String(p.id).trim());
+      const pk = getPlayerIdentityKey(p);
+      if (pk) usedPlayerKeys.add(pk);
     }
   });
 
@@ -3167,7 +3188,8 @@ const benchRecResults = computed(() => {
   for (let i = 0; i < players.value.length; i++) {
     const p = players.value[i];
     const pid = String(p.id ?? '').trim();
-    if (pid && usedPlayerIds.has(pid)) continue;
+    const pkey = getPlayerIdentityKey(p);
+    if ((pid && usedPlayerIds.has(pid)) || (pkey && usedPlayerKeys.has(pkey))) continue;
 
     const pGrade = getMappedGrade(p.grade);
     if (['DGN', 'TEA'].includes(pGrade)) continue;
@@ -3335,10 +3357,12 @@ const benchRecResults = computed(() => {
 // 후보 추천 모달에서 원클릭으로 빈 벤치에 넣거나 기존 최저 후보와 교체하는 함수
 const isPlayerAlreadyInDeck = (cand: Raw, deckId: 1 | 2) => {
   const cId = String(cand.id ?? '').trim();
+  const cKey = getPlayerIdentityKey(cand);
   return Object.values(lineups.value[deckId]).some(p => {
     if (!p) return false;
+    if (cKey && getPlayerIdentityKey(p) === cKey) return true;
     const pId = String(p.id ?? '').trim();
-    if (cId && pId) return cId === pId;
+    if (cId && pId && cId === pId) return true;
     return isSameCard(p, cand);
   });
 };
