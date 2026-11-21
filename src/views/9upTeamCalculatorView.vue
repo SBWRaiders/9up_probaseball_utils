@@ -2579,7 +2579,7 @@ const viewConfigs = computed(() => {
   
 
 // =========================================================================
-// 🌟 초고속 최적화(O(1) Set 캐시 & 지연 계산): 벤치 기여도 & 후보 추천 엔진 🌟
+// 🌟 엑셀 V8.6 완벽 이식: 벤치 기여도 · 동명이인 보호 · 시너지 보강 대상 · What-If 미리보기 🌟
 // =========================================================================
 const showBenchRecommender = ref(false);
 const expandedRecGroup = ref<number | null>(null);
@@ -2590,9 +2590,11 @@ const recFilter = reactive({
   excludeSynergy: '',
   excludePlayerName: '',
   teamGroupName: '',
+  targetGroup: '전체' as string,
   role: '전체' as '전체' | '타자' | '투수',
   maxRarity: 0 as number,
-  excludeSpecialGrades: false
+  excludeSpecialGrades: false,
+  whatIfQuery: ''
 });
 
 const resetRecFilter = () => {
@@ -2601,10 +2603,25 @@ const resetRecFilter = () => {
   recFilter.excludeSynergy = '';
   recFilter.excludePlayerName = '';
   recFilter.teamGroupName = '';
+  recFilter.targetGroup = '전체';
   recFilter.role = '전체';
   recFilter.maxRarity = 0;
   recFilter.excludeSpecialGrades = false;
+  recFilter.whatIfQuery = '';
 };
+
+const SYNERGY_TARGET_OPTIONS = [
+  '전체',
+  '선발투수 (1~5선발)',
+  '불펜 (계투 6명)',
+  '셋업 · 마무리',
+  '상위타선 (1~5번)',
+  '클린업 (3~5번)',
+  '테이블세터 (1~2번)',
+  '하위타선 (6~9번)',
+  '타자 전체',
+  '투수 전체'
+];
 
 const BENCH_SLOTS = ['BENCH1', 'BENCH2', 'BENCH3', 'BENCH4', 'BENCH5', 'BENCH6', 'BENCH7', 'BENCH8'];
 const STARTER_SLOTS = [
@@ -2613,7 +2630,23 @@ const STARTER_SLOTS = [
   'RP1', 'RP2', 'RP3', 'RP4', 'RP5', 'RP6'
 ];
 
-// 🌟 1. 선수별 시너지 Set 및 구단 그룹 인덱스를 최초 1회만 생성해 영구 캐싱 (정규식 반복 호출 완벽 제거)
+const isStarterInTargetGroup = (slot: string, isPit: boolean, battingOrder: number | null, targetGroup: string): boolean => {
+  if (!targetGroup || targetGroup === '전체') return true;
+  if (targetGroup === '선발투수 (1~5선발)') return slot.startsWith('SP');
+  if (targetGroup === '불펜 (계투 6명)') return slot.startsWith('RP');
+  if (targetGroup === '셋업 · 마무리') return ['RP3', 'RP4', 'RP6'].includes(slot);
+  if (targetGroup === '타자 전체') return !isPit;
+  if (targetGroup === '투수 전체') return isPit;
+  if (isPit) return false;
+  const bo = Number(battingOrder || 0);
+  if (targetGroup === '상위타선 (1~5번)') return bo >= 1 && bo <= 5;
+  if (targetGroup === '클린업 (3~5번)') return bo >= 3 && bo <= 5;
+  if (targetGroup === '테이블세터 (1~2번)') return bo === 1 || bo === 2;
+  if (targetGroup === '하위타선 (6~9번)') return bo >= 6 && bo <= 9;
+  return true;
+};
+
+// 🌟 1. 선수별 시너지 Set 및 구단 그룹 인덱스를 최초 1회만 생성해 영구 캐싱
 const FULL_SYNERGY_HIERARCHY: Record<string, string[]> = {
   ...synergyHierarchy,
   '철강왕': ['철인'],
@@ -2697,7 +2730,7 @@ const evalSynergyPowerBonusAtCount = (synObj: JsonSynergy, effCount: number, isA
   return { fixed, percent };
 };
 
-// 🌟 2. 단일 패스(Single-Pass) 덱 평가 컨텍스트 (8번 중복 호출 제거 -> 단 1번만 계산!)
+// 🌟 2. 단일 패스(Single-Pass) 덱 평가 컨텍스트 (전체 선발 + 보강 대상 선발 동시 산출)
 const currentDeckEvalContext = computed(() => {
   const deckId = activeDeck.value;
   const currentMap = lineups.value[deckId];
@@ -2705,6 +2738,8 @@ const currentDeckEvalContext = computed(() => {
   const starterEntries = STARTER_SLOTS
     .map(slot => ({ slot, player: currentMap[slot], buffs: allPlayerBuffs.value[deckId][slot] }))
     .filter(x => x.player && x.buffs) as { slot: string; player: Raw; buffs: PlayerBuff }[];
+
+  const targetGrp = recFilter.targetGroup || '전체';
 
   const starterMeta = starterEntries.map(({ slot, player: p, buffs }) => {
     const isPit = isPitcher(p);
@@ -2744,6 +2779,7 @@ const currentDeckEvalContext = computed(() => {
       slot,
       player: p,
       isPit,
+      inTarget: isStarterInTargetGroup(slot, isPit, buffs.battingOrder, targetGrp),
       teamGroupIdx: getTeamGroupIdx(p),
       skillMult,
       percentFactor: (globalPercentPool / 100) * skillMult,
@@ -2752,12 +2788,18 @@ const currentDeckEvalContext = computed(() => {
     };
   });
 
+  const targetStarterNames = starterMeta.filter(sm => sm.inTarget).map(sm => sm.player.name);
+
   const teamGroupSameGain = Array(groupedTeams.length).fill(0);
+  const teamGroupTargetSameGain = Array(groupedTeams.length).fill(0);
   const teamGroupMultSum = Array(groupedTeams.length).fill(0);
   starterMeta.forEach(sm => {
     if (sm.teamGroupIdx >= 0) {
       teamGroupSameGain[sm.teamGroupIdx] += sm.sameTeamPowerGain;
       teamGroupMultSum[sm.teamGroupIdx] += sm.skillMult;
+      if (sm.inTarget) {
+        teamGroupTargetSameGain[sm.teamGroupIdx] += sm.sameTeamPowerGain;
+      }
     }
   });
 
@@ -2773,11 +2815,12 @@ const currentDeckEvalContext = computed(() => {
     if (activeAmpIndices.length >= maxAmp) break;
   }
 
-  // +1명 추가 시(delta1), +2명 추가 시(delta2), 기존 벤치 1명 제거 시(deltaMinus1)를 한 번에 계산!
+  // +1명 추가 시(delta1, targetDelta1), +2명 추가 시(delta2), 기존 벤치 1명 제거 시(deltaMinus1)
   const activeEdgeSynergies: {
     name: string;
     synType: 'batter' | 'pitcher' | 'both';
     delta1: number;
+    targetDelta1: number;
     delta2: number;
     deltaMinus1: number;
     isCurrentlyActive: boolean;
@@ -2827,6 +2870,8 @@ const currentDeckEvalContext = computed(() => {
     if (df1 !== 0 || dp1 !== 0 || df2 !== 0 || dp2 !== 0 || dfM1 !== 0 || dpM1 !== 0 || isCurrentlyActive) {
       let existingFixedMult = 0;
       let existingPercentMult = 0;
+      let targetFixedMult = 0;
+      let targetPercentMult = 0;
       for (let i = 0; i < starterMeta.length; i++) {
         const sm = starterMeta[i];
         if (sm.isPit && synType === 'batter') continue;
@@ -2834,31 +2879,38 @@ const currentDeckEvalContext = computed(() => {
         if (sm.synSet.has(name)) {
           existingFixedMult += sm.skillMult;
           existingPercentMult += sm.percentFactor;
+          if (sm.inTarget) {
+            targetFixedMult += sm.skillMult;
+            targetPercentMult += sm.percentFactor;
+          }
         }
       }
       const delta1 = df1 * existingFixedMult + dp1 * existingPercentMult;
+      const targetDelta1 = df1 * targetFixedMult + dp1 * targetPercentMult;
       const delta2 = df2 * existingFixedMult + dp2 * existingPercentMult;
       const deltaMinus1 = dfM1 * existingFixedMult + dpM1 * existingPercentMult;
 
       if (Math.abs(delta1) > 0.01 || Math.abs(delta2) > 0.01 || Math.abs(deltaMinus1) > 0.01 || isCurrentlyActive) {
-        activeEdgeSynergies.push({ name, synType, delta1, delta2, deltaMinus1, isCurrentlyActive });
+        activeEdgeSynergies.push({ name, synType, delta1, targetDelta1, delta2, deltaMinus1, isCurrentlyActive });
       }
     }
   }
 
   return {
     starterCount: starterEntries.length,
+    targetStarterNames,
     teamGroupSameGain,
+    teamGroupTargetSameGain,
     teamGroupMultSum,
     activeEdgeSynergies
   };
 });
 
-// 🌟 3. 벤치(BENCH1..8) 기여도 계산 (0.1ms 초고속 단일 컨텍스트 참조)
+// 🌟 3. 벤치(BENCH1..8) 기여도 + 🔒 동명이인 시너지 유지 보호 판별
 const benchContributions = computed(() => {
   const deckId = activeDeck.value;
   const ctx = currentDeckEvalContext.value;
-  const result: Record<string, { contribution: number; synCount: number; isLowest: boolean }> = {};
+  const result: Record<string, { contribution: number; synCount: number; isLowest: boolean; isProtectedHomonym: boolean; protectedSynName: string }> = {};
   let minVal = Infinity;
   let minSlot = '';
   let filledBenchCount = 0;
@@ -2885,21 +2937,42 @@ const benchContributions = computed(() => {
     }
 
     let activeSynCount = 0;
+    let isProtectedHomonym = false;
+    let protectedSynName = '';
+
     for (let i = 0; i < ctx.activeEdgeSynergies.length; i++) {
       const edge = ctx.activeEdgeSynergies[i];
       if (pIsPit && edge.synType === 'batter') continue;
       if (!pIsPit && edge.synType === 'pitcher') continue;
       if (pSynSet.has(edge.name)) {
-        if (edge.isCurrentlyActive) activeSynCount++;
+        if (edge.isCurrentlyActive) {
+          activeSynCount++;
+          // 🔒 V8.6: 짝이 맞아 발동 중인 동명이인 시너지 카드는 보호 잠금!
+          if (edge.name.startsWith('동명이인(')) {
+            isProtectedHomonym = true;
+            protectedSynName = edge.name;
+          }
+        }
         if (Math.abs(edge.deltaMinus1) > 0.01) gain += edge.deltaMinus1;
       }
     }
 
     const roundedGain = Math.max(0, Math.round(gain));
-    result[slot] = { contribution: roundedGain, synCount: activeSynCount, isLowest: false };
-    if (roundedGain < minVal) {
+    result[slot] = { contribution: roundedGain, synCount: activeSynCount, isLowest: false, isProtectedHomonym, protectedSynName };
+    // 교체 1순위 후보는 보호되지 않은 벤치 카드 중에서 최저 기여자를 선정 (모두 보호 시 전체 중 최저)
+    if (!isProtectedHomonym && roundedGain < minVal) {
       minVal = roundedGain;
       minSlot = slot;
+    }
+  }
+
+  if (!minSlot && filledBenchCount >= 2) {
+    for (const slot of BENCH_SLOTS) {
+      if (!result[slot]) continue;
+      if (result[slot].contribution < minVal) {
+        minVal = result[slot].contribution;
+        minSlot = slot;
+      }
     }
   }
 
@@ -2920,13 +2993,74 @@ const pendingSynergyGainMap = computed(() => {
   return map;
 });
 
-// 🌟 4. 후보 추천 계산 (모달이 열려 있을 때만 작동 + O(1) Set 조회로 5ms 이내 완료!)
+// 단일 후보 카드의 현재 덱 투입 시 기대 이득 계산 헬퍼 (종합 추천 및 What-If 미리보기 공용)
+const evaluateSingleCandidateGain = (p: Raw, ctx: any, edges1: any[], targetGrp: string) => {
+  const pIsPit = isPitcher(p);
+  const tIdx = getTeamGroupIdx(p);
+  const pSynSet = getFastPlayerSynSet(p);
+
+  const sameTeamGain = tIdx >= 0 ? ctx.teamGroupSameGain[tIdx] : 0;
+  const targetSameTeamGain = tIdx >= 0 ? ctx.teamGroupTargetSameGain[tIdx] : 0;
+
+  let synTotal = 0;
+  let targetSynTotal = 0;
+  const synGains: { name: string; val: number; targetVal: number }[] = [];
+
+  for (let j = 0; j < edges1.length; j++) {
+    const edge = edges1[j];
+    if (pIsPit && edge.synType === 'batter') continue;
+    if (!pIsPit && edge.synType === 'pitcher') continue;
+    if (pSynSet.has(edge.name)) {
+      synTotal += edge.delta1;
+      targetSynTotal += edge.targetDelta1;
+      synGains.push({ name: edge.name, val: edge.delta1, targetVal: edge.targetDelta1 });
+    }
+  }
+
+  const totalGain = sameTeamGain + synTotal;
+  const targetGain = targetGrp === '전체' ? totalGain : (targetSameTeamGain + targetSynTotal);
+
+  synGains.sort((a, b) => (targetGrp === '전체' ? b.val - a.val : b.targetVal - a.targetVal));
+  const reasonParts = synGains
+    .filter(sg => Math.round(sg.val) !== 0)
+    .map(sg => {
+      if (targetGrp !== '전체' && Math.round(sg.targetVal) !== Math.round(sg.val)) {
+        return `${sg.name} +${Math.round(sg.val)}(대상 +${Math.round(sg.targetVal)})`;
+      }
+      return `${sg.name} ${sg.val > 0 ? '+' : ''}${Math.round(sg.val)}`;
+    });
+  if (Math.round(sameTeamGain) > 0) {
+    if (targetGrp !== '전체' && Math.round(targetSameTeamGain) !== Math.round(sameTeamGain)) {
+      reasonParts.push(`같은 구단 +${Math.round(sameTeamGain)}(대상 +${Math.round(targetSameTeamGain)})`);
+    } else {
+      reasonParts.push(`같은 구단 +${Math.round(sameTeamGain)}`);
+    }
+  }
+
+  const reasonKey = [
+    ...synGains.map(sg => sg.name),
+    Math.round(sameTeamGain) > 0 ? `TEAM_${tIdx}` : ''
+  ].filter(Boolean).join('|') || `Player_${p.id}`;
+
+  return {
+    totalGain,
+    targetGain,
+    sameTeamGain,
+    synGains,
+    reasonKey,
+    reasonsText: reasonParts.join(' · ') || '조건 일치'
+  };
+};
+
+// 🌟 4. 후보 추천 계산 (V8.6: 시너지 보강 대상 + 🔒 동명이인 유지 보호 + 🃏 이 카드 넣으면? 미리보기)
 const benchRecResults = computed(() => {
-  // 모달이 닫혀 있을 때는 연산 비용 0!
   if (!showBenchRecommender.value) {
     return {
       starterCount: 0, emptyBenchCount: 0, emptyBenchSlots: [] as string[],
       lowestBenchSlot: '', lowestBenchPlayer: null as Raw | null, lowestBenchGain: 0,
+      protectedBenchList: [] as { slot: string; name: string; synName: string }[],
+      targetStarterNames: [] as string[],
+      whatIfResult: null as any,
       distinctGroups: [] as any[], swapTop5: [] as any[], pairTop3: [] as any[]
     };
   }
@@ -2937,6 +3071,15 @@ const benchRecResults = computed(() => {
 
   const emptyBenchSlots = BENCH_SLOTS.filter(s => !currentRoster[s]);
   const filledBenchSlots = BENCH_SLOTS.filter(s => !!currentRoster[s]);
+  // 🔒 동명이인 시너지가 발동 중인 벤치 카드는 교체(빼기) 후보에서 제외!
+  const swappableBenchSlots = filledBenchSlots.filter(s => !benchContributions.value[s]?.isProtectedHomonym);
+  const protectedBenchList = filledBenchSlots
+    .filter(s => benchContributions.value[s]?.isProtectedHomonym)
+    .map(s => ({
+      slot: s,
+      name: currentRoster[s]!.name,
+      synName: benchContributions.value[s]?.protectedSynName || '동명이인'
+    }));
 
   const usedPlayerIds = new Set<string>();
   Object.values(lineups.value[1]).forEach(p => {
@@ -2953,7 +3096,7 @@ const benchRecResults = computed(() => {
   let lowestBenchSlot = '';
   let lowestBenchGain = Infinity;
   let lowestBenchPlayer: Raw | null = null;
-  filledBenchSlots.forEach(s => {
+  swappableBenchSlots.forEach(s => {
     const c = benchContributions.value[s]?.contribution ?? 0;
     if (c < lowestBenchGain) {
       lowestBenchGain = c;
@@ -2966,17 +3109,55 @@ const benchRecResults = computed(() => {
   const incSyn2 = recFilter.includeSynergy2.trim();
   const excSyn = recFilter.excludeSynergy.trim();
   const excName = normalizeText(recFilter.excludePlayerName);
+  const targetGrp = recFilter.targetGroup || '전체';
   const targetGroupIdx = recFilter.teamGroupName
     ? groupedTeams.findIndex(g => g.name === recFilter.teamGroupName)
     : -1;
 
   const edges1 = ctx.activeEdgeSynergies.filter(e => Math.abs(e.delta1) > 0.01);
 
+  // 🃏 What-If ("이 카드 넣으면?") 즉시 계산
+  let whatIfResult: any = null;
+  const wQuery = normalizeText(recFilter.whatIfQuery);
+  if (wQuery) {
+    const wTokens = wQuery.split(/\s+/).filter(Boolean);
+    const matchedCard = players.value.find(p => {
+      const pGrade = getMappedGrade(p.grade);
+      if (['DGN', 'TEA'].includes(pGrade)) return false;
+      const tag = normalizeText(formatCardShortTag(p));
+      return wTokens.every(tk => tag.includes(tk));
+    });
+
+    if (matchedCard) {
+      const pid = String(matchedCard.id ?? '').trim();
+      const alreadyInDeck = pid && usedPlayerIds.has(pid);
+      const ev = evaluateSingleCandidateGain(matchedCard, ctx, edges1, targetGrp);
+      const gainEmpty = Math.round(ev.totalGain);
+      const targetGain = Math.round(ev.targetGain);
+      const netSwap = lowestBenchPlayer ? Math.round(ev.totalGain - lowestBenchGain) : 0;
+      whatIfResult = {
+        found: true,
+        alreadyInDeck,
+        player: matchedCard,
+        shortTag: formatCardShortTag(matchedCard),
+        gainEmpty,
+        targetGain,
+        netSwap,
+        swapTargetSlot: lowestBenchSlot,
+        swapTargetName: lowestBenchPlayer ? lowestBenchPlayer.name : '',
+        reasonsText: ev.reasonsText
+      };
+    } else {
+      whatIfResult = { found: false };
+    }
+  }
+
   interface RawCandEval {
     player: Raw;
     totalGain: number;
+    targetGain: number;
     sameTeamGain: number;
-    synGains: { name: string; val: number }[];
+    synGains: { name: string; val: number; targetVal: number }[];
     reasonKey: string;
     reasonsText: string;
   }
@@ -3008,47 +3189,28 @@ const benchRecResults = computed(() => {
     if (incSyn2 && !pSynSet.has(incSyn2)) continue;
     if (excSyn && pSynSet.has(excSyn)) continue;
 
-    const sameTeamGain = tIdx >= 0 ? ctx.teamGroupSameGain[tIdx] : 0;
-    let synTotal = 0;
-    const synGains: { name: string; val: number }[] = [];
-
-    for (let j = 0; j < edges1.length; j++) {
-      const edge = edges1[j];
-      if (pIsPit && edge.synType === 'batter') continue;
-      if (!pIsPit && edge.synType === 'pitcher') continue;
-      if (pSynSet.has(edge.name)) {
-        synTotal += edge.delta1;
-        synGains.push({ name: edge.name, val: edge.delta1 });
-      }
+    const ev = evaluateSingleCandidateGain(p, ctx, edges1, targetGrp);
+    if (targetGrp !== '전체') {
+      if (ev.targetGain <= 0.5 && !incSyn1 && !incSyn2) continue;
+    } else {
+      if (ev.totalGain <= 0.5 && !incSyn1 && !incSyn2) continue;
     }
-
-    const totalGain = sameTeamGain + synTotal;
-    if (totalGain <= 0.5 && !incSyn1 && !incSyn2) continue;
-
-    synGains.sort((a, b) => b.val - a.val);
-    const reasonParts = synGains
-      .filter(sg => Math.round(sg.val) !== 0)
-      .map(sg => `${sg.name} ${sg.val > 0 ? '+' : ''}${Math.round(sg.val)}`);
-    if (Math.round(sameTeamGain) > 0) {
-      reasonParts.push(`같은 구단 +${Math.round(sameTeamGain)}`);
-    }
-
-    const reasonKey = [
-      ...synGains.map(sg => sg.name),
-      Math.round(sameTeamGain) > 0 ? `TEAM_${tIdx}` : ''
-    ].filter(Boolean).join('|') || `Player_${pid}`;
 
     evaluated.push({
       player: p,
-      totalGain,
-      sameTeamGain,
-      synGains,
-      reasonKey,
-      reasonsText: reasonParts.join(' · ') || '조건 일치'
+      totalGain: ev.totalGain,
+      targetGain: ev.targetGain,
+      sameTeamGain: ev.sameTeamGain,
+      synGains: ev.synGains,
+      reasonKey: ev.reasonKey,
+      reasonsText: ev.reasonsText
     });
   }
 
   evaluated.sort((a, b) => {
+    if (targetGrp !== '전체') {
+      if (Math.abs(b.targetGain - a.targetGain) > 0.5) return b.targetGain - a.targetGain;
+    }
     if (Math.abs(b.totalGain - a.totalGain) > 0.5) return b.totalGain - a.totalGain;
     return Number(a.player.rarity || 1) - Number(b.player.rarity || 1);
   });
@@ -3069,6 +3231,7 @@ const benchRecResults = computed(() => {
       player: rep.player,
       shortTag: formatCardShortTag(rep.player),
       gainEmpty: Math.round(rep.totalGain),
+      targetGain: Math.round(rep.targetGain),
       netSwap,
       swapTargetSlot: lowestBenchSlot,
       swapTargetName: lowestBenchPlayer ? lowestBenchPlayer.name : '',
@@ -3078,13 +3241,14 @@ const benchRecResults = computed(() => {
     };
   });
 
+  // 🔁 1장 바꾸기 TOP 5 (🔒 동명이인 보호 카드는 빼는 후보에서 자동 제외!)
   const swapTop5: any[] = [];
-  if (filledBenchSlots.length > 0 && distinctGroups.length > 0) {
+  if (swappableBenchSlots.length > 0 && distinctGroups.length > 0) {
     const rawSwaps: any[] = [];
-    for (const bSlot of filledBenchSlots) {
+    for (const bSlot of swappableBenchSlots) {
       const bPlayer = currentRoster[bSlot]!;
       const bContrib = benchContributions.value[bSlot]?.contribution ?? 0;
-      for (const grp of distinctGroups.slice(0, 6)) {
+      for (const grp of distinctGroups.slice(0, 8)) {
         if (String(grp.player.id) === String(bPlayer.id)) continue;
         const net = grp.gainEmpty - bContrib;
         if (net > 0) {
@@ -3159,6 +3323,9 @@ const benchRecResults = computed(() => {
     lowestBenchSlot,
     lowestBenchPlayer,
     lowestBenchGain: lowestBenchPlayer ? lowestBenchGain : 0,
+    protectedBenchList,
+    targetStarterNames: ctx.targetStarterNames,
+    whatIfResult,
     distinctGroups,
     swapTop5,
     pairTop3: pairTop3.slice(0, 3).map((item, idx) => ({ ...item, rank: idx + 1 }))
@@ -3192,7 +3359,7 @@ const applyRecommendedCandidate = (cand: Raw, targetBenchSlot?: string) => {
   showToast(`[${cand.name}] 선수가 ${slot} 슬롯에 배치되었습니다!`, 'success');
 };
 
-// 2장 조합 원클릭 장착 함수
+// 2장 조합 원클릭 장착 함수 (🔒 동명이인 보호 벤치 카드는 교체 대상에서 후순위로 보호)
 const applyRecommendedPair = (p1: Raw, p2: Raw) => {
   if (isPlayerAlreadyInDeck(p1, activeDeck.value) || isPlayerAlreadyInDeck(p2, activeDeck.value)) {
     showToast('이미 현재 덱에 배치된 선수가 포함되어 있습니다!', 'error');
@@ -3212,6 +3379,9 @@ const applyRecommendedPair = (p1: Raw, p2: Raw) => {
     showToast(`[${p1.name} · ${p2.name}] 2장 조합이 벤치에 장착되었습니다!`, 'success');
   } else {
     const sortedSlots = [...BENCH_SLOTS].sort((a, b) => {
+      const pa = benchContributions.value[a]?.isProtectedHomonym ? 1 : 0;
+      const pb = benchContributions.value[b]?.isProtectedHomonym ? 1 : 0;
+      if (pa !== pb) return pa - pb;
       const ca = lineup.value[a] ? (benchContributions.value[a]?.contribution ?? 0) : -1;
       const cb = lineup.value[b] ? (benchContributions.value[b]?.contribution ?? 0) : -1;
       return ca - cb;
@@ -3230,6 +3400,25 @@ const openBenchRecommenderWithSynergy = (synName: string) => {
   recFilter.includeSynergy1 = synName;
   showBenchRecommender.value = true;
 };
+
+// What-If 미리보기용 후보 단축어 목록 (상위 400개 자동완성)
+const whatIfCardSuggestions = computed(() => {
+  const q = normalizeText(recFilter.whatIfQuery);
+  if (!q || q.length < 1) return [] as string[];
+  const tokens = q.split(/\s+/).filter(Boolean);
+  const res: string[] = [];
+  for (let i = 0; i < players.value.length; i++) {
+    const p = players.value[i];
+    if (['DGN', 'TEA'].includes(getMappedGrade(p.grade))) continue;
+    const tag = formatCardShortTag(p);
+    const normTag = normalizeText(tag);
+    if (tokens.every(tk => normTag.includes(tk))) {
+      res.push(tag);
+      if (res.length >= 25) break;
+    }
+  }
+  return res;
+});
 
 </script>
 
@@ -3565,8 +3754,9 @@ const openBenchRecommenderWithSynergy = (synName: string) => {
                               <!-- 타순 뱃지 (타자 전용) -->
                               <div v-if="playerBuffs[slot.pos]?.battingOrder && !isPitcher(lineup[slot.pos]) && !slot.pos.startsWith('BENCH')" class="absolute top-2 left-1/2 -translate-x-1/2 text-[10px] font-bold bg-orange-600 text-white px-2 py-0.5 rounded shadow-md z-10">{{ playerBuffs[slot.pos].battingOrder }}번</div>
 
-                              <!-- 🌟 벤치 전용: 교체 1순위(기여 최하) 경고 뱃지 -->
-                              <div v-if="slot.pos.startsWith('BENCH') && benchContributions[slot.pos]?.isLowest" class="absolute top-2 left-1/2 -translate-x-1/2 text-[9px] font-black bg-rose-600 text-white px-1.5 py-0.5 rounded shadow-md z-10 whitespace-nowrap">▼ 교체 1순위</div>
+                              <!-- 🌟 벤치 전용: 🔒 동명이인 유지 보호 & 교체 1순위(기여 최하) 경고 뱃지 -->
+                              <div v-if="slot.pos.startsWith('BENCH') && benchContributions[slot.pos]?.isProtectedHomonym" class="absolute top-2 left-1/2 -translate-x-1/2 text-[9px] font-black bg-indigo-600 text-white px-1.5 py-0.5 rounded shadow-md z-10 whitespace-nowrap">🔒 동명이인 유지</div>
+                              <div v-else-if="slot.pos.startsWith('BENCH') && benchContributions[slot.pos]?.isLowest" class="absolute top-2 left-1/2 -translate-x-1/2 text-[9px] font-black bg-rose-600 text-white px-1.5 py-0.5 rounded shadow-md z-10 whitespace-nowrap">▼ 교체 1순위</div>
                               
                               <!-- 카드 메인 이미지 -->
                               <img :src="getPlayerImage(lineup[slot.pos])" class="absolute inset-0 w-full h-full" :class="getImageClass(slot.pos)" @error="handleCardImageError($event, lineup[slot.pos])" />
@@ -4534,17 +4724,20 @@ const openBenchRecommenderWithSynergy = (synName: string) => {
     </div>
   </div> <!-- 👈 1. 카드 교체 모달이 여기서 정상적으로 닫힙니다 -->
 
-  <!-- 🌟 엑셀 V8.0 이식: 💡 후보 추천 (벤치 빌더) 모달 🌟 -->
+  <!-- 🌟 엑셀 V8.6 이식: 💡 후보 추천 (벤치 빌더) 모달 🌟 -->
   <div v-if="showBenchRecommender" class="fixed inset-0 z-[99998] flex items-center justify-center bg-black/75 backdrop-blur-sm p-2 sm:p-4">
     <div class="bg-white dark:bg-neutral-900 w-[96vw] max-w-[1440px] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[94vh] border border-neutral-200 dark:border-neutral-700">
       
       <!-- 모달 헤더 -->
       <div class="flex justify-between items-center p-3.5 sm:p-4 border-b border-neutral-200 dark:border-neutral-800 bg-gradient-to-r from-amber-500 to-orange-600 text-white">
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
           <Sparkles class="w-5 h-5 text-amber-100" />
           <h2 class="text-base sm:text-lg font-black tracking-tight">
-            💡 후보 추천 빌더 (DH{{ activeDeck }} 덱 · 선발 {{ benchRecResults.starterCount }}/20명 · 빈 후보 {{ benchRecResults.emptyBenchCount }}칸)
+            💡 후보 추천 빌더 V8.6 (DH{{ activeDeck }} 덱 · 선발 {{ benchRecResults.starterCount }}/20명 · 빈 후보 {{ benchRecResults.emptyBenchCount }}칸)
           </h2>
+          <span v-if="benchRecResults.protectedBenchList.length > 0" class="text-[11px] font-black bg-indigo-900/70 text-indigo-100 px-2.5 py-0.5 rounded-full border border-indigo-300/40">
+            🔒 동명이인 보호 {{ benchRecResults.protectedBenchList.length }}명 ({{ benchRecResults.protectedBenchList.map(x => x.name).join(', ') }})
+          </span>
         </div>
         <button @click="showBenchRecommender = false" class="text-white/80 hover:text-white text-2xl font-bold leading-none px-1">&times;</button>
       </div>
@@ -4556,12 +4749,12 @@ const openBenchRecommenderWithSynergy = (synName: string) => {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <!-- 좌측: 1장 추천 요약 -->
           <div class="bg-white dark:bg-neutral-800 p-3.5 rounded-xl border border-amber-200 dark:border-amber-800/60 shadow-sm flex flex-col justify-between gap-2">
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between gap-2 flex-wrap">
               <span class="text-xs font-black text-amber-700 dark:text-amber-400">
                 {{ benchRecResults.emptyBenchCount > 0 ? `➕ 1장 넣으면 (빈 후보 ${benchRecResults.emptyBenchCount}칸)` : '🔁 1장 바꾸면 (후보 8칸 사용 중)' }}
               </span>
               <span v-if="benchRecResults.lowestBenchPlayer" class="text-[10px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-900/30 px-2 py-0.5 rounded border border-rose-200 dark:border-rose-800">
-                최저 기여: {{ benchRecResults.lowestBenchPlayer.name }} (+{{ benchRecResults.lowestBenchGain }})
+                교체 대상(최저): {{ benchRecResults.lowestBenchPlayer.name }} (+{{ benchRecResults.lowestBenchGain }})
               </span>
             </div>
 
@@ -4570,6 +4763,9 @@ const openBenchRecommenderWithSynergy = (synName: string) => {
                 <div class="text-sm sm:text-base font-black text-neutral-900 dark:text-white break-keep leading-snug">
                   {{ benchRecResults.distinctGroups[0].shortTag }}
                   <span class="text-emerald-600 dark:text-emerald-400 ml-1 whitespace-nowrap">+{{ benchRecResults.distinctGroups[0].gainEmpty.toLocaleString() }}</span>
+                  <span v-if="recFilter.targetGroup !== '전체'" class="text-amber-600 dark:text-amber-400 text-xs ml-1 whitespace-nowrap">
+                    (🎯 대상 +{{ benchRecResults.distinctGroups[0].targetGain.toLocaleString() }})
+                  </span>
                 </div>
                 <div class="text-[11px] text-neutral-500 break-keep leading-snug mt-0.5">{{ benchRecResults.distinctGroups[0].reasonsText }}</div>
               </div>
@@ -4579,14 +4775,14 @@ const openBenchRecommenderWithSynergy = (synName: string) => {
             </div>
 
             <div v-else-if="benchRecResults.emptyBenchCount === 0 && benchRecResults.swapTop5.length > 0" class="flex items-center justify-between gap-2 mt-1">
-              <div class="min-w-0">
-                <div class="text-sm sm:text-base font-black text-neutral-900 dark:text-white truncate">
+              <div class="min-w-0 flex-1">
+                <div class="text-sm sm:text-base font-black text-neutral-900 dark:text-white break-keep leading-snug">
                   <span class="text-rose-500">✖ {{ benchRecResults.swapTop5[0].outPlayer.name }}</span>
                   <span class="mx-1 text-neutral-400">→</span>
                   <span class="text-indigo-600 dark:text-indigo-400">➕ {{ benchRecResults.swapTop5[0].inShortTag }}</span>
-                  <span class="text-emerald-600 dark:text-emerald-400 ml-1">+{{ benchRecResults.swapTop5[0].netGain.toLocaleString() }}</span>
+                  <span class="text-emerald-600 dark:text-emerald-400 ml-1 whitespace-nowrap">+{{ benchRecResults.swapTop5[0].netGain.toLocaleString() }}</span>
                 </div>
-                <div class="text-[11px] text-neutral-500 truncate mt-0.5">{{ benchRecResults.swapTop5[0].reasonsText }}</div>
+                <div class="text-[11px] text-neutral-500 break-keep leading-snug mt-0.5">{{ benchRecResults.swapTop5[0].reasonsText }}</div>
               </div>
               <button @click="applyRecommendedCandidate(benchRecResults.swapTop5[0].inPlayer, benchRecResults.swapTop5[0].outSlot)" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-black shrink-0 shadow-sm transition-colors">
                 바로 교체
@@ -4623,18 +4819,29 @@ const openBenchRecommenderWithSynergy = (synName: string) => {
           </div>
         </div>
 
-        <!-- 2. 찾는 조건 필터 바 (엑셀의 포함 시너지 / 좁히기 / 빼고 찾기) -->
-        <div class="bg-white dark:bg-neutral-800 p-3 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-sm flex flex-col gap-2.5">
-          <div class="flex items-center justify-between">
+        <!-- 2. 찾는 조건 필터 바 + V8.6 신규(시너지 보강 대상 & 이 카드 넣으면? 미리보기) -->
+        <div class="bg-white dark:bg-neutral-800 p-3.5 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-sm flex flex-col gap-3">
+          <div class="flex items-center justify-between flex-wrap gap-2">
             <span class="text-xs font-black text-neutral-700 dark:text-neutral-200 flex items-center gap-1">
               <Filter class="w-3.5 h-3.5 text-amber-500" /> 🔎 후보 찾는 조건 설정
             </span>
-            <button @click="resetRecFilter" class="text-[11px] font-bold text-rose-500 hover:text-rose-600 px-2 py-0.5 rounded bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800">
-              🧹 조건 초기화
-            </button>
+            <div class="flex items-center gap-2">
+              <span v-if="recFilter.targetGroup !== '전체' && benchRecResults.targetStarterNames.length > 0" class="text-[11px] font-bold text-indigo-600 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800">
+                🎯 보강 대상({{ benchRecResults.targetStarterNames.length }}명): {{ benchRecResults.targetStarterNames.join(', ') }}
+              </span>
+              <button @click="resetRecFilter" class="text-[11px] font-bold text-rose-500 hover:text-rose-600 px-2 py-0.5 rounded bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800">
+                🧹 조건 초기화
+              </button>
+            </div>
           </div>
 
-          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2">
+            <div class="flex flex-col gap-0.5">
+              <label class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">🎯 시너지 보강 대상</label>
+              <select v-model="recFilter.targetGroup" class="w-full px-2 py-1 text-xs border border-indigo-300 dark:border-indigo-700 rounded-lg bg-indigo-50/60 dark:bg-indigo-900/30 outline-none font-bold text-indigo-900 dark:text-indigo-200">
+                <option v-for="opt in SYNERGY_TARGET_OPTIONS" :key="opt" :value="opt">{{ opt }}</option>
+              </select>
+            </div>
             <div class="flex flex-col gap-0.5">
               <label class="text-[10px] font-bold text-neutral-500">포함 시너지 1</label>
               <input list="synergy-list" v-model="recFilter.includeSynergy1" placeholder="예: 광주일고 출신" class="w-full px-2 py-1 text-xs border rounded-lg bg-neutral-50 dark:bg-neutral-700 outline-none focus:border-amber-500" />
@@ -4674,15 +4881,51 @@ const openBenchRecommenderWithSynergy = (synName: string) => {
               <input type="text" v-model="recFilter.excludePlayerName" placeholder="뺄 선수 이름..." class="w-full px-2 py-1 text-xs border rounded-lg bg-neutral-50 dark:bg-neutral-700 outline-none focus:border-rose-500" />
             </div>
           </div>
+
+          <!-- 🃏 V8.6 신규: 이 카드 넣으면? 즉시 계산 바 -->
+          <div class="pt-2.5 border-t border-dashed border-neutral-200 dark:border-neutral-700 flex flex-col sm:flex-row sm:items-center gap-2">
+            <div class="flex items-center gap-2 shrink-0">
+              <span class="text-xs font-black text-emerald-700 dark:text-emerald-400">🃏 이 카드 넣으면?</span>
+              <datalist id="whatif-card-list">
+                <option v-for="tag in whatIfCardSuggestions" :key="tag" :value="tag" />
+              </datalist>
+              <input list="whatif-card-list" v-model="recFilter.whatIfQuery" placeholder="예: 나성범 SEA 2025 또는 윤규진" class="w-56 sm:w-64 px-2.5 py-1 text-xs border border-emerald-300 dark:border-emerald-700 rounded-lg bg-emerald-50/40 dark:bg-neutral-700 outline-none focus:border-emerald-500 font-semibold" />
+            </div>
+
+            <div v-if="benchRecResults.whatIfResult" class="flex-1 flex items-center justify-between gap-2 bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 rounded-lg px-3 py-1.5 text-xs">
+              <template v-if="benchRecResults.whatIfResult.found">
+                <div class="min-w-0 flex-1 break-keep leading-snug">
+                  <span class="font-black text-neutral-900 dark:text-white">{{ benchRecResults.whatIfResult.shortTag }}</span>
+                  <span v-if="benchRecResults.whatIfResult.alreadyInDeck" class="ml-1.5 text-rose-500 font-black">[이미 덱에 배치됨]</span>
+                  <template v-else>
+                    <span class="ml-2 font-black text-emerald-600 dark:text-emerald-400">빈자리 +{{ benchRecResults.whatIfResult.gainEmpty.toLocaleString() }}</span>
+                    <span v-if="benchRecResults.whatIfResult.swapTargetName" class="ml-1.5 font-bold text-indigo-600 dark:text-indigo-400">
+                      / {{ benchRecResults.whatIfResult.swapTargetName }} 교체 시 {{ benchRecResults.whatIfResult.netSwap > 0 ? `+${benchRecResults.whatIfResult.netSwap.toLocaleString()}` : benchRecResults.whatIfResult.netSwap.toLocaleString() }}
+                    </span>
+                    <span class="ml-2 text-[11px] text-neutral-500">({{ benchRecResults.whatIfResult.reasonsText }})</span>
+                  </template>
+                </div>
+                <button v-if="!benchRecResults.whatIfResult.alreadyInDeck"
+                        @click="applyRecommendedCandidate(benchRecResults.whatIfResult.player, benchRecResults.emptyBenchCount > 0 ? undefined : (benchRecResults.whatIfResult.swapTargetSlot || 'BENCH1'))"
+                        class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-black shrink-0">
+                  {{ benchRecResults.emptyBenchCount > 0 ? '장착' : '교체' }}
+                </button>
+              </template>
+              <span v-else class="text-neutral-400 font-bold">일치하는 후보 카드가 없습니다 (이름·등급·연도로 검색해 보세요).</span>
+            </div>
+            <div v-else class="text-[11px] text-neutral-400">
+              보유 중인 후보 카드 이름이나 등급/연도를 입력하면 벤치 투입 시 상승량을 즉시 계산합니다.
+            </div>
+          </div>
         </div>
 
-        <!-- 3. 종합 후보 추천 순위표 (이유별 그룹화 TOP 15) -->
+        <!-- 3. 종합 후보 추천 순위표 (이유별 그룹화 TOP 50) -->
         <div class="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-sm overflow-hidden">
-          <div class="px-3.5 py-2.5 bg-neutral-100 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between">
+          <div class="px-3.5 py-2.5 bg-neutral-100 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between flex-wrap gap-2">
             <span class="text-xs font-black text-neutral-800 dark:text-neutral-100">
-              📋 종합 후보 추천 순위 ({{ benchRecResults.distinctGroups.length }}개 효과 그룹 · 같은 효과 중 저코스트 ★ 우선 표시)
+              📋 종합 후보 추천 순위 ({{ benchRecResults.distinctGroups.length }}개 효과 그룹 · {{ recFilter.targetGroup !== '전체' ? `🎯 ${recFilter.targetGroup} 보강 이득 순` : '같은 효과 중 저코스트 ★ 우선 표시' }})
             </span>
-            <span class="text-[10px] text-neutral-500 font-bold">원하는 선수를 클릭하면 벤치에 즉시 배치됩니다</span>
+            <span class="text-[10px] text-neutral-500 font-bold">같은 이유로 오르는 카드는 오른쪽 「외 N명」에서 대체 가능합니다</span>
           </div>
 
           <div class="divide-y divide-neutral-100 dark:divide-neutral-700/60 max-h-[340px] overflow-y-auto rec-modal-scroll">
@@ -4711,8 +4954,16 @@ const openBenchRecommenderWithSynergy = (synName: string) => {
                 </div>
 
                 <!-- 우측: 상승 수치 & 장착/교체 액션 버튼 -->
-                <div class="flex items-center gap-2 shrink-0 ml-auto">
-                  <div class="text-right">
+                <div class="flex items-center gap-2.5 shrink-0 ml-auto">
+                  <div v-if="recFilter.targetGroup !== '전체'" class="text-right pr-1 border-r border-neutral-200 dark:border-neutral-700">
+                    <div class="text-xs sm:text-sm font-black text-amber-600 dark:text-amber-400">
+                      🎯 보강 +{{ item.targetGain.toLocaleString() }}
+                    </div>
+                    <div class="text-[10px] font-bold text-neutral-400">
+                      팀 전체 +{{ item.gainEmpty.toLocaleString() }}
+                    </div>
+                  </div>
+                  <div v-else class="text-right">
                     <div class="text-xs sm:text-sm font-black text-emerald-600 dark:text-emerald-400">
                       빈자리 +{{ item.gainEmpty.toLocaleString() }}
                     </div>
@@ -4748,7 +4999,7 @@ const openBenchRecommenderWithSynergy = (synName: string) => {
 
               <!-- 같은 효과 · 다른 선수 펼침 영역 -->
               <div v-if="expandedRecGroup === item.rank && item.otherPlayers.length > 0" class="mt-1 pt-2 border-t border-dashed border-neutral-200 dark:border-neutral-700 flex flex-wrap gap-1.5 items-center">
-                <span class="text-[10px] font-bold text-neutral-400 mr-1">같은 효과 대체 가능 선수:</span>
+                <span class="text-[10px] font-bold text-neutral-400 mr-1">같은 효과 · 다른 선수:</span>
                 <button v-for="alt in item.otherPlayers" :key="alt.id + '_' + alt.year + '_' + alt.grade"
                         @click="applyRecommendedCandidate(alt, benchRecResults.emptyBenchCount > 0 ? undefined : (item.swapTargetSlot || 'BENCH1'))"
                         class="px-2 py-1 rounded-md text-[10px] font-bold bg-neutral-100 dark:bg-neutral-700 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-neutral-700 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-600 transition-colors">
@@ -4767,7 +5018,10 @@ const openBenchRecommenderWithSynergy = (synName: string) => {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <!-- 🔁 1장 바꾸기 TOP 5 -->
           <div class="bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 p-3.5 shadow-sm">
-            <h3 class="text-xs font-black text-neutral-800 dark:text-neutral-100 mb-2">🔁 기존 후보 1장 바꾸기 TOP 5</h3>
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-xs font-black text-neutral-800 dark:text-neutral-100">🔁 기존 후보 1장 바꾸기 TOP 5</h3>
+              <span v-if="benchRecResults.protectedBenchList.length > 0" class="text-[10px] font-bold text-indigo-500">🔒 동명이인 시너지 카드 보호됨</span>
+            </div>
             <div v-if="benchRecResults.swapTop5.length > 0" class="space-y-2">
               <div v-for="sw in benchRecResults.swapTop5" :key="sw.rank" class="flex items-center justify-between text-xs p-2.5 rounded-lg bg-neutral-50 dark:bg-neutral-700/50 border border-neutral-100 dark:border-neutral-700 gap-3">
                 <div class="min-w-0 flex-1">
