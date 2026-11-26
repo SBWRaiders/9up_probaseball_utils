@@ -120,6 +120,61 @@ const setAllCareersToMaster = () => {
   });
 }
 
+// ========================================================
+// 🌟 9up 인게임 고증: 라인업 일괄 육성 (커리어 · 돌파) 엔진 🌟
+// ========================================================
+const showBatchGrowthModal = ref(false);
+const batchGrowthOptions = reactive({
+  career: true,
+  breakthrough: true
+});
+
+const applyBatchGrowth = () => {
+  if (!batchGrowthOptions.career && !batchGrowthOptions.breakthrough) {
+    showToast('일괄 육성할 항목(커리어 또는 돌파)을 최소 1개 선택해주세요!', 'error');
+    return;
+  }
+
+  const deckId = activeDeck.value;
+  let updatedCount = 0;
+
+  Object.keys(lineups.value[deckId]).forEach(slot => {
+    const p = lineups.value[deckId][slot];
+    if (!p) return;
+    if (!allPlayerBuffs.value[deckId][slot]) {
+      initPlayerBuff(slot, p);
+    }
+    const buffs = allPlayerBuffs.value[deckId][slot];
+    if (!buffs) return;
+
+    if (batchGrowthOptions.career) {
+      buffs.careers = Array(6).fill(null).map(() => ({
+        grade: '마스터' as CareerGrade,
+        statType: '동일팀 파워',
+        value: 0
+      }));
+    }
+
+    if (batchGrowthOptions.breakthrough) {
+      buffs.breakthroughLevel = getMaxBreakthrough(p);
+    }
+
+    updatedCount++;
+  });
+
+  if (updatedCount === 0) {
+    showToast(`DH${deckId} 덱에 배치된 선수가 없습니다.`, 'error');
+    return;
+  }
+
+  const appliedParts: string[] = [];
+  if (batchGrowthOptions.career) appliedParts.push('커리어(마스터 6칸 동일팀 파워 +2)');
+  if (batchGrowthOptions.breakthrough) appliedParts.push('돌파(최대 단계)');
+
+  showBatchGrowthModal.value = false;
+  showToast(`DH${deckId} 덱 선수 ${updatedCount}명 일괄 육성 완료! (${appliedParts.join(' · ')})`, 'success');
+};
+
 const getCareerSetEffectText = (careers: CareerSlot[] | undefined) => {
   if (!careers) return '';
   const counts: Record<string, number> = {};
@@ -3504,6 +3559,8 @@ const whatIfCardSuggestions = computed(() => {
              <button @click="exportToFile" class="p-1.5 text-emerald-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="PC에 파일로 내보내기"><Download class="w-3.5 h-3.5" /><span class="text-[10px] font-bold hidden sm:block">파일 저장</span></button>
              <button @click="triggerFileInput" class="p-1.5 text-emerald-200 hover:text-white hover:bg-white/10 rounded-md transition-colors flex items-center gap-1" title="PC에서 파일 불러오기"><Upload class="w-3.5 h-3.5" /><span class="text-[10px] font-bold hidden sm:block">파일 열기</span></button>
              <div class="w-px h-3 bg-white/20 mx-1"></div>
+             <button @click="showBatchGrowthModal = true" class="p-1.5 text-amber-300 hover:text-white hover:bg-amber-500/40 rounded-md transition-colors flex items-center gap-1" title="라인업 전체 선수 커리어·돌파 일괄 육성"><ArrowUpCircle class="w-3.5 h-3.5" /><span class="text-[10px] font-bold hidden sm:block">일괄 육성</span></button>
+             <div class="w-px h-3 bg-white/20 mx-1"></div>
              <button @click="resetLineup" class="p-1.5 text-rose-300 hover:text-white hover:bg-rose-500/50 rounded-md transition-colors flex items-center gap-1" title="각인 유지하고 라인업 초기화"><X class="w-3.5 h-3.5" /><span class="text-[10px] font-bold hidden sm:block">초기화</span></button>
           </div>
 
@@ -3763,6 +3820,9 @@ const whatIfCardSuggestions = computed(() => {
               <button @click="lineupViewMode = 'batter'" :class="lineupViewMode === 'batter' ? 'bg-white dark:bg-neutral-600 shadow-sm font-bold text-blue-600' : 'text-neutral-500'" class="flex-1 py-1.5 text-[11px] sm:text-xs rounded-lg transition-all whitespace-nowrap">타자 라인업</button>
               <button @click="lineupViewMode = 'pitcher'" :class="lineupViewMode === 'pitcher' ? 'bg-white dark:bg-neutral-600 shadow-sm font-bold text-blue-600' : 'text-neutral-500'" class="flex-1 py-1.5 text-[11px] sm:text-xs rounded-lg transition-all whitespace-nowrap">투수 라인업</button>
               <button @click="lineupViewMode = 'bench'" :class="lineupViewMode === 'bench' ? 'bg-white dark:bg-neutral-600 shadow-sm font-bold text-blue-600' : 'text-neutral-500'" class="flex-1 py-1.5 text-[11px] sm:text-xs rounded-lg transition-all whitespace-nowrap">벤치</button>
+              <button @click="showBatchGrowthModal = true" class="px-2.5 py-1.5 text-[11px] sm:text-xs rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-black shadow-sm transition-all whitespace-nowrap flex items-center gap-1 shrink-0">
+                <ArrowUpCircle class="w-3.5 h-3.5" /> 일괄 육성
+              </button>
               <button @click="showBenchRecommender = true" class="px-2.5 py-1.5 text-[11px] sm:text-xs rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-black shadow-sm transition-all whitespace-nowrap flex items-center gap-1 shrink-0">
                 <Sparkles class="w-3.5 h-3.5" /> 후보 추천
               </button>
@@ -5131,6 +5191,88 @@ const whatIfCardSuggestions = computed(() => {
           </div>
         </div>
 
+      </div>
+    </div>
+  </div>
+
+  <!-- 🌟 인게임 스타일: 라인업 일괄 육성 모달 (커리어 · 돌파) 🌟 -->
+  <div v-if="showBatchGrowthModal" class="fixed inset-0 z-[99999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div class="bg-white dark:bg-neutral-900 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-neutral-700">
+      
+      <!-- 모달 헤더 -->
+      <div class="flex justify-between items-center px-5 py-3.5 bg-gradient-to-r from-sky-500 to-indigo-600 text-white">
+        <div class="w-6"></div>
+        <h2 class="text-base sm:text-lg font-black tracking-tight">일괄 육성</h2>
+        <button @click="showBatchGrowthModal = false" class="text-white/80 hover:text-white text-2xl font-bold leading-none">&times;</button>
+      </div>
+
+      <!-- 모달 바디 -->
+      <div class="p-5 flex flex-col gap-4 bg-neutral-50 dark:bg-neutral-900">
+        <p class="text-center text-sm sm:text-base font-black text-neutral-800 dark:text-neutral-100">
+          라인업(DH{{ activeDeck }} 덱)에 기용한 선수를 일괄 육성하시겠습니까?
+        </p>
+
+        <!-- 인게임 5버튼 레이아웃 (레벨·도감·강화 자동 적용 표시 + 커리어·돌파 선택 토글) -->
+        <div class="bg-neutral-200/70 dark:bg-neutral-800 p-3.5 rounded-xl border border-neutral-300/80 dark:border-neutral-700 flex flex-col gap-2.5">
+          <div class="grid grid-cols-3 gap-2">
+            <div class="py-2.5 px-2 rounded-lg bg-neutral-300/80 dark:bg-neutral-700/60 text-neutral-500 dark:text-neutral-400 text-xs font-black text-center select-none" title="기본 자동 적용됨">
+              레벨 (자동)
+            </div>
+            <div class="py-2.5 px-2 rounded-lg bg-neutral-300/80 dark:bg-neutral-700/60 text-neutral-500 dark:text-neutral-400 text-xs font-black text-center select-none" title="기본 자동 적용됨">
+              도감 (자동)
+            </div>
+            <div class="py-2.5 px-2 rounded-lg bg-neutral-300/80 dark:bg-neutral-700/60 text-neutral-500 dark:text-neutral-400 text-xs font-black text-center select-none" title="기본 자동 적용됨">
+              강화 (자동)
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button"
+                    @click="batchGrowthOptions.career = !batchGrowthOptions.career"
+                    class="py-3 px-3 rounded-lg text-sm font-black transition-all border shadow-sm flex items-center justify-center gap-1.5"
+                    :class="batchGrowthOptions.career
+                      ? 'bg-sky-500 text-white border-sky-600 ring-2 ring-sky-300 dark:ring-sky-700'
+                      : 'bg-white dark:bg-neutral-700 text-neutral-500 dark:text-neutral-300 border-neutral-300 dark:border-neutral-600 hover:bg-neutral-100'">
+              <Check v-if="batchGrowthOptions.career" class="w-4 h-4" />
+              <span>커리어</span>
+            </button>
+
+            <button type="button"
+                    @click="batchGrowthOptions.breakthrough = !batchGrowthOptions.breakthrough"
+                    class="py-3 px-3 rounded-lg text-sm font-black transition-all border shadow-sm flex items-center justify-center gap-1.5"
+                    :class="batchGrowthOptions.breakthrough
+                      ? 'bg-sky-500 text-white border-sky-600 ring-2 ring-sky-300 dark:ring-sky-700'
+                      : 'bg-white dark:bg-neutral-700 text-neutral-500 dark:text-neutral-300 border-neutral-300 dark:border-neutral-600 hover:bg-neutral-100'">
+              <Check v-if="batchGrowthOptions.breakthrough" class="w-4 h-4" />
+              <span>돌파</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 선택 항목 상세 안내 -->
+        <div class="text-xs text-neutral-600 dark:text-neutral-300 bg-white dark:bg-neutral-800 p-3 rounded-xl border border-neutral-200 dark:border-neutral-700 space-y-1 leading-relaxed">
+          <div v-if="batchGrowthOptions.career" class="flex items-start gap-1.5">
+            <span class="text-sky-600 font-black">• 커리어:</span>
+            <span>모든 배치 선수의 6칸을 <strong>마스터 · 동일팀 파워(카드 수 × +2)</strong>로 일괄 설정</span>
+          </div>
+          <div v-if="batchGrowthOptions.breakthrough" class="flex items-start gap-1.5">
+            <span class="text-indigo-600 font-black">• 돌파:</span>
+            <span>모든 배치 선수의 돌파 단계를 <strong>카드별 최대 단계(레어도 + 1, 디그니티 제외)</strong>로 일괄 설정</span>
+          </div>
+          <div v-if="!batchGrowthOptions.career && !batchGrowthOptions.breakthrough" class="text-rose-500 font-bold text-center">
+            육성할 항목을 하나 이상 선택해 주세요.
+          </div>
+        </div>
+
+        <!-- 하단 취소 / 육성 버튼 -->
+        <div class="grid grid-cols-2 gap-3 pt-1">
+          <button type="button" @click="showBatchGrowthModal = false" class="py-2.5 rounded-xl bg-sky-500/85 hover:bg-sky-600 text-white font-black text-sm shadow transition-colors">
+            취소
+          </button>
+          <button type="button" @click="applyBatchGrowth" class="py-2.5 rounded-xl bg-teal-500 hover:bg-teal-600 text-white font-black text-sm shadow transition-colors">
+            육성
+          </button>
+        </div>
       </div>
     </div>
   </div>
