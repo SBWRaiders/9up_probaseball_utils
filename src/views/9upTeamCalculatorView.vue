@@ -571,10 +571,10 @@ const initPlayerBuff = (slot: string, p: Raw) => {
   else if (grade === 'DGN') colBuff = 0
 
   const existing = playerBuffs.value[slot]
-  const savedImprintStats = existing ? { ...existing.imprintStats } : {}
-  const savedImprintCoreStat = existing ? existing.imprintCoreStat : 0
-  const savedUltimateImprintPercent = existing ? existing.ultimateImprintPercent : 0
-  const savedImprintStarterPower = existing ? existing.imprintStarterPower : 0
+  const savedImprintStats = {}
+  const savedImprintCoreStat = 0
+  const savedUltimateImprintPercent = 0
+  const savedImprintStarterPower = 0
   const savedImprint1 = existing ? existing.imprint1 : null;
   const savedImprint2 = existing ? existing.imprint2 : null;
   
@@ -2126,16 +2126,15 @@ const resetLineup = () => {
     lineups.value[activeDeck.value][slot] = null;
     if (allPlayerBuffs.value[activeDeck.value][slot]) {
       const b = playerBuffs.value[slot];
-      const savedImprintStats = { ...b.imprintStats }
       playerBuffs.value[slot] = {
         enhancementLevel: 15, breakthroughLevel: 0, careerTeamCount: 0, hitAceBuff: 0,
-        imprintStarterPower: b.imprintStarterPower, careerAllStatFlat: 0, 
-        imprintCoreStat: b.imprintCoreStat, careerCoreStat: 0,
+        imprintStarterPower: 0, careerAllStatFlat: 0, 
+        imprintCoreStat: 0, careerCoreStat: 0,
         selectedSkills: [], 
         battingOrder: b.battingOrder, // 타순 유지
         playerLevel: 100, collectionBuff: 1200, careerLevelBuff: 149,
-        binderBuff: 537, ultimateImprintPercent: b.ultimateImprintPercent,
-        imprintStats: savedImprintStats, careerStats: {},
+        binderBuff: 537, ultimateImprintPercent: 0,
+        imprintStats: {}, careerStats: {},
         imprint1: b.imprint1, // 🌟 여기서도 각인 1 유지!
         imprint2: b.imprint2  // 🌟 여기서도 각인 2 유지!
       }
@@ -2153,7 +2152,22 @@ const applyLoadedData = (data) => {
   if (!data) return;
   
   if (data.lineups) lineups.value = data.lineups;
-  if (data.allPlayerBuffs) allPlayerBuffs.value = data.allPlayerBuffs;
+  if (data.allPlayerBuffs) {
+    ([1, 2] as const).forEach(d => {
+      if (data.allPlayerBuffs[d]) {
+        Object.keys(data.allPlayerBuffs[d]).forEach(slot => {
+          const b = data.allPlayerBuffs[d][slot];
+          if (b) {
+            b.imprintStats = {};
+            b.imprintCoreStat = 0;
+            b.imprintStarterPower = 0;
+            b.ultimateImprintPercent = 0;
+          }
+        });
+      }
+    });
+    allPlayerBuffs.value = data.allPlayerBuffs;
+  }
   if (data.imprintInventory) imprintInventory.value = data.imprintInventory;
   
   if (data.globalBuffsAll) {
