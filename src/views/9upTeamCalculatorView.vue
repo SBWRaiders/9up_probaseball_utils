@@ -1633,6 +1633,24 @@ const statsDeck2 = computed(() => getComputedPlayerStats(2));
 const computedStatsMap = { 1: statsDeck1, 2: statsDeck2 };
 const computedPlayerStats = computed(() => computedStatsMap[activeDeck.value].value);
 
+const getSlotBaseDefense = (p: Raw | null, slot: string): number => {
+  if (!p) return 0;
+  const mainDef = Number(p.defense || 0);
+  if (!p.multiPosition || isPitcher(p)) return mainDef;
+  const targetPos = normalizePosition(slot);
+  if (!targetPos || targetPos === 'DH' || targetPos.startsWith('BENCH')) return mainDef;
+  const entries = String(p.multiPosition).split(',');
+  for (const entry of entries) {
+    const [posPart, valPart] = entry.split('=');
+    if (!posPart || !valPart) continue;
+    if (normalizePosition(posPart.trim()) === targetPos) {
+      const parsed = Number(valPart.trim());
+      if (!Number.isNaN(parsed)) return parsed;
+    }
+  }
+  return mainDef;
+};
+
 const getComputedPlayerStats = (deckId: 1 | 2) => {
   const result: Record<string, { power: number, stats: Record<string, number> }> = {}
   Object.keys(lineups.value[deckId]).forEach(slot => {
@@ -1847,8 +1865,13 @@ const getComputedPlayerStats = (deckId: 1 | 2) => {
     })
     
     nonCoreStats.forEach(s => {
-      let base = Number(p[s] || 0)
+      const mainBase = Number(p[s] || 0)
+      let base = mainBase
       if (statSpecificSkillPercents[s]) base += base * (statSpecificSkillPercents[s] / 100)
+      if (s === 'defense') {
+        const slotDef = getSlotBaseDefense(p, slot)
+        base += (slotDef - mainBase)
+      }
       let val = base
       if (s === managerMainName) val += managerMainStat;
       if (s === managerSubName) val += managerSubStat;
